@@ -31,6 +31,7 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
   final _chatBackdrop = ChatBackdropController();
   bool _dark = demo.dark;
   Size? _size;
+  Size? _layoutSize;
   EdgeInsets _viewInsets = EdgeInsets.zero;
   bool _captureQueued = false;
   late bool _refracting;
@@ -100,7 +101,7 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
         _capture.captureOnce();
         _chatBackdrop.capture(
           revision:
-              '$_size/$_viewInsets/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
+              '$_layoutSize/$_size/$_viewInsets/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
           enabled:
               !kIsWeb &&
               defaultTargetPlatform == TargetPlatform.android &&
@@ -144,20 +145,34 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
   }
 
   @override
-  Widget build(BuildContext context) => LiquidGlassView(
-    controller: _capture,
-    backgroundWidget: RepaintBoundary(
-      key: _chatBackdrop.backgroundKey,
-      child: _background(),
-    ),
-    realTimeCapture: false,
-    pixelRatio: .75,
-    // Each small lens stays in its own plane during the 3D drawer fold.
-    batch: false,
-    child: ChatBackdropScope(
-      controller: _chatBackdrop,
-      child: _GlassOpticsScope(refracting: _refracting, child: widget.child),
-    ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      // Scaffold consumes the keyboard inset before passing MediaQuery to its
+      // body. Its actual constraints still shrink, so track those as well.
+      // Otherwise lenses keep a full-height capture over a cropped wallpaper.
+      if (_layoutSize != constraints.biggest) {
+        _layoutSize = constraints.biggest;
+        _refreshCapture();
+      }
+      return LiquidGlassView(
+        controller: _capture,
+        backgroundWidget: RepaintBoundary(
+          key: _chatBackdrop.backgroundKey,
+          child: _background(),
+        ),
+        realTimeCapture: false,
+        pixelRatio: .75,
+        // Each small lens stays in its own plane during the 3D drawer fold.
+        batch: false,
+        child: ChatBackdropScope(
+          controller: _chatBackdrop,
+          child: _GlassOpticsScope(
+            refracting: _refracting,
+            child: widget.child,
+          ),
+        ),
+      );
+    },
   );
 
   Widget _background() {

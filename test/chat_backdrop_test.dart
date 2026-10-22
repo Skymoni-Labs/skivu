@@ -7,9 +7,66 @@ import 'package:ski/chat_backdrop.dart';
 import 'package:ski/chat_bubble_surface.dart';
 import 'package:ski/glass_preferences.dart';
 import 'package:ski/glass.dart';
+import 'package:ski/drawer_motion.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets('scene recaptures body resize with unchanged MediaQuery', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final motion = DrawerMotion(vsync: tester);
+    final height = ValueNotifier<double>(600);
+    ChatBackdropController? source;
+    final oldUser = glassPreferences.userBlur;
+    final oldAssistant = glassPreferences.assistantBlur;
+    glassPreferences.setBubbleBlur(user: true, value: 0);
+    glassPreferences.setBubbleBlur(user: false, value: 0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: ValueListenableBuilder<double>(
+            valueListenable: height,
+            builder: (_, value, _) => SizedBox(
+              width: 320,
+              height: value,
+              child: SkiGlassScene(
+                motion: motion,
+                child: Builder(
+                  builder: (context) {
+                    source = ChatBackdropScope.maybeOf(context);
+                    expect(MediaQuery.sizeOf(context), const Size(320, 600));
+                    return const SizedBox.expand();
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    for (final value in [600.0, 340.0, 420.0, 600.0]) {
+      height.value = value;
+      await tester.pump();
+      for (var n = 0; n < 20 && source?.logicalSize != Size(320, value); n++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      expect(source?.logicalSize, Size(320, value));
+      expect(source?.wallpaperImage?.height, (value * 1.5).round());
+    }
+    await tester.pumpWidget(const SizedBox());
+    motion.dispose();
+    height.dispose();
+    glassPreferences.setBubbleBlur(user: true, value: oldUser);
+    glassPreferences.setBubbleBlur(user: false, value: oldAssistant);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('wallpaper frost stays aligned and blurred while text scrolls', (
     tester,
   ) async {
