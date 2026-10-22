@@ -238,6 +238,7 @@ Future<void> showChatControls(BuildContext context) async {
               subtitle: Text(demo.role.name),
               onTap: () {
                 Navigator.pop(sheet);
+                demo.editCurrentRole();
                 Navigator.of(context).pushReplacementNamed('/characters/edit');
               },
             ),

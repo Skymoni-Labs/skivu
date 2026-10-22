@@ -87,7 +87,7 @@ class _CharactersPageState extends State<CharactersPage> {
         '角色',
         '管理角色卡、分组与对话设定。',
         action: actionButton('创建角色', Icons.add, () {
-          demo.personas.add(
+          demo.addPersona(
             Persona(
               '新的伙伴',
               '写下一句角色介绍',
@@ -97,8 +97,6 @@ class _CharactersPageState extends State<CharactersPage> {
               Icons.face_outlined,
             ),
           );
-          demo.persona = demo.personas.length - 1;
-          demo.changed();
           widget.go('/characters/edit');
         }, filled: true),
       ),
@@ -192,8 +190,7 @@ class _CharactersPageState extends State<CharactersPage> {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: () {
-                demo.persona = i;
-                demo.changed();
+                demo.newChat(personaId: p.id);
                 widget.go('/chat');
               },
               child: const Text('开始对话', style: TextStyle(fontSize: 12)),
@@ -265,7 +262,7 @@ class CharacterEditor extends StatefulWidget {
 }
 
 class _CharacterEditorState extends State<CharacterEditor> {
-  late Uint8List? avatar = demo.role.avatar;
+  late Uint8List? avatar = demo.editingRole.avatar;
   bool pickingAvatar = false;
   Future<void> chooseAvatar() async {
     setState(() => pickingAvatar = true);
@@ -279,9 +276,9 @@ class _CharacterEditorState extends State<CharacterEditor> {
     }
   }
 
-  late final name = TextEditingController(text: demo.role.name),
-      subtitle = TextEditingController(text: demo.role.subtitle),
-      prompt = TextEditingController(text: demo.role.prompt);
+  late final name = TextEditingController(text: demo.editingRole.name),
+      subtitle = TextEditingController(text: demo.editingRole.subtitle),
+      prompt = TextEditingController(text: demo.editingRole.prompt);
   final cardFields = <String, TextEditingController>{
     for (final key in [
       '角色描述',
@@ -292,9 +289,9 @@ class _CharacterEditorState extends State<CharacterEditor> {
       '开场白',
       '回复规则与边界',
     ])
-      key: TextEditingController(text: demo.role.card[key] ?? ''),
+      key: TextEditingController(text: demo.editingRole.card[key] ?? ''),
   };
-  late String group = demo.role.group;
+  late String group = demo.editingRole.group;
   final form = GlobalKey<FormState>();
   @override
   void dispose() {
@@ -329,7 +326,7 @@ class _CharacterEditorState extends State<CharacterEditor> {
                   InkWell(
                     onTap: pickingAvatar ? null : chooseAvatar,
                     child: CharacterAvatar(
-                      persona: demo.role,
+                      persona: demo.editingRole,
                       size: 64,
                       bytes: avatar,
                       showDefault: avatar == null,
@@ -421,12 +418,12 @@ class _CharacterEditorState extends State<CharacterEditor> {
                 children: [
                   actionButton('保存角色', Icons.check, () {
                     if (!form.currentState!.validate()) return;
-                    demo.role.name = name.text.trim();
-                    demo.role.avatar = avatar;
-                    demo.role.subtitle = subtitle.text;
-                    demo.role.prompt = prompt.text;
-                    demo.role.group = group;
-                    demo.role.card = {
+                    demo.editingRole.name = name.text.trim();
+                    demo.editingRole.avatar = avatar;
+                    demo.editingRole.subtitle = subtitle.text;
+                    demo.editingRole.prompt = prompt.text;
+                    demo.editingRole.group = group;
+                    demo.editingRole.card = {
                       for (final e in cardFields.entries)
                         e.key: e.value.text.trim(),
                     };

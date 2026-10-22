@@ -299,62 +299,97 @@ class _ChatPageState extends State<ChatPage> {
       Column(
         children: [
           Expanded(
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (n) {
-                if ((n is ScrollUpdateNotification && n.dragDetails != null) ||
-                    (n is UserScrollNotification &&
-                        n.direction != ScrollDirection.idle)) {
-                  revealNavigation();
-                  follow = false;
-                }
-                return false;
-              },
-              child: ListView(
-                controller: scroll,
-                // Frost samples the live scene. Caching each message as a
-                // separate scrolling layer can retain an unfiltered backdrop
-                // while its transform changes on Android's renderer.
-                addRepaintBoundaries: false,
-                padding: EdgeInsets.fromLTRB(
-                  appearance.flag('wideChat') ? 8 : 14,
-                  68 + MediaQuery.paddingOf(context).top,
-                  appearance.flag('wideChat') ? 8 : 14,
-                  24,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if ((n is ScrollUpdateNotification &&
+                            n.dragDetails != null) ||
+                        (n is UserScrollNotification &&
+                            n.direction != ScrollDirection.idle)) {
+                      revealNavigation();
+                      follow = false;
+                    }
+                    return false;
+                  },
+                  child: ListView(
+                    controller: scroll,
+                    // Frost samples the live scene. Caching each message as a
+                    // separate scrolling layer can retain an unfiltered backdrop
+                    // while its transform changes on Android's renderer.
+                    addRepaintBoundaries: false,
+                    padding: EdgeInsets.fromLTRB(
+                      appearance.flag('wideChat') ? 8 : 14,
+                      68 + MediaQuery.paddingOf(context).top,
+                      appearance.flag('wideChat') ? 8 : 14,
+                      24,
+                    ),
+                    children: [
+                      if (demo.messages.isEmpty)
+                        emptyState()
+                      else ...[
+                        Center(
+                          child: label(
+                            '与 ${demo.role.name} 的对话',
+                            size: 10,
+                            color: muted,
+                          ),
+                        ),
+                        const SizedBox(height: 25),
+                        for (int i = 0; i < demo.messages.length; i++)
+                          message(demo.messages[i], i),
+                        if (demo.streaming && appearance.flag('showStatus'))
+                          Padding(
+                            padding: const EdgeInsets.only(left: 44),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 9,
+                                  height: 9,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                label('正在回复…', size: 10, color: muted),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
                 ),
-                children: [
-                  if (demo.messages.isEmpty)
-                    emptyState()
-                  else ...[
-                    Center(
-                      child: label(
-                        '与 ${demo.role.name} 的对话',
-                        size: 10,
-                        color: muted,
+                if (demo.messages.isNotEmpty)
+                  Positioned.fill(
+                    child: LayoutBuilder(
+                      builder: (context, bounds) => ChatMessageDial(
+                        key: ObjectKey(_conversation),
+                        visible: showNav,
+                        viewportHeight: bounds.maxHeight,
+                        currentTimestamp: _centeredIndex,
+                        loadEntries: () async => [
+                          for (int i = 0; i < demo.messages.length; i++)
+                            ChatMessageLocatorPreview(
+                              timestamp: i,
+                              sender: demo.messages[i].user
+                                  ? 'user'
+                                  : 'assistant',
+                              previewContent: demo.messages[i].text,
+                              messageIndex: i,
+                            ),
+                        ],
+                        onOpenLocator: messageNavigator,
+                        onLatest: latest,
+                        showLatest: !follow && !focus.hasFocus,
+                        onJump: locate,
+                        onHidden: hideNavigation,
+                        senderName: (sender) =>
+                            sender == 'user' ? '你' : demo.role.name,
                       ),
                     ),
-                    const SizedBox(height: 25),
-                    for (int i = 0; i < demo.messages.length; i++)
-                      message(demo.messages[i], i),
-                    if (demo.streaming && appearance.flag('showStatus'))
-                      Padding(
-                        padding: const EdgeInsets.only(left: 44),
-                        child: Row(
-                          children: [
-                            const SizedBox(
-                              width: 9,
-                              height: 9,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            label('正在回复…', size: 10, color: muted),
-                          ],
-                        ),
-                      ),
-                  ],
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
           composer(),
@@ -371,32 +406,6 @@ class _ChatPageState extends State<ChatPage> {
             ),
         ],
       ),
-      if (demo.messages.isNotEmpty)
-        Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, bounds) => ChatMessageDial(
-              key: ObjectKey(_conversation),
-              visible: showNav,
-              viewportHeight: bounds.maxHeight - 180,
-              currentTimestamp: _centeredIndex,
-              loadEntries: () async => [
-                for (int i = 0; i < demo.messages.length; i++)
-                  ChatMessageLocatorPreview(
-                    timestamp: i,
-                    sender: demo.messages[i].user ? 'user' : 'assistant',
-                    previewContent: demo.messages[i].text,
-                    messageIndex: i,
-                  ),
-              ],
-              onOpenLocator: messageNavigator,
-              onLatest: latest,
-              showLatest: !follow && !focus.hasFocus,
-              onJump: locate,
-              onHidden: hideNavigation,
-              senderName: (sender) => sender == 'user' ? '你' : demo.role.name,
-            ),
-          ),
-        ),
     ],
   );
 
@@ -426,6 +435,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget composer() => Padding(
+    key: const ValueKey('chat-composer'),
     padding: EdgeInsets.fromLTRB(
       appearance.flag('floatingInput') ? 10 : 0,
       6,
@@ -610,8 +620,10 @@ class _ChatPageState extends State<ChatPage> {
           backgroundColor: mist,
           child: IconButton(
             tooltip: '编辑角色卡',
-            onPressed: () =>
-                Navigator.of(context).pushReplacementNamed('/characters/edit'),
+            onPressed: () {
+              demo.editCurrentRole();
+              Navigator.of(context).pushReplacementNamed('/characters/edit');
+            },
             icon: CharacterAvatar(persona: demo.role, size: 52),
           ),
         ),
@@ -662,9 +674,14 @@ class _ChatPageState extends State<ChatPage> {
     final avatar = Tooltip(
       message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
       child: InkWell(
-        onTap: () => m.user
-            ? editUserCard(context)
-            : Navigator.of(context).pushReplacementNamed('/characters/edit'),
+        onTap: () {
+          if (m.user) {
+            editUserCard(context);
+          } else {
+            demo.editCurrentRole();
+            Navigator.of(context).pushReplacementNamed('/characters/edit');
+          }
+        },
         borderRadius: BorderRadius.circular(18),
         child: Container(
           width: 32,

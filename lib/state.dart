@@ -17,6 +17,9 @@ Color get green => appearance.color('accent');
 Color get mist => Color.lerp(green, Colors.white, .86)!;
 Color get paper => Color.lerp(green, Colors.white, .965)!;
 const muted = Color(0xff39434f);
+int _localSequence = 0;
+String _localId(String kind) =>
+    '$kind-${DateTime.now().microsecondsSinceEpoch}-${_localSequence++}';
 
 class Message {
   Message(this.user, this.text, {this.bookmarked = false, DateTime? created})
@@ -69,8 +72,10 @@ class Persona {
     this.prompt,
     this.group,
     this.color,
-    this.icon,
-  );
+    this.icon, {
+    String? id,
+  }) : id = id ?? _localId('role');
+  final String id;
   String name, subtitle, prompt, group;
   Uint8List? avatar;
   Map<String, String> card = {};
@@ -82,6 +87,7 @@ class Persona {
   final Color color;
   final IconData icon;
   Map<String, dynamic> toJson() => {
+    'id': id,
     'name': name,
     'subtitle': subtitle,
     'prompt': prompt,
@@ -105,6 +111,7 @@ class Persona {
                 Icons.face_outlined,
               ].where((icon) => icon.codePoint == raw['icon']).firstOrNull ??
               Icons.auto_awesome_outlined,
+          id: raw['id'] as String?,
         )
         ..avatar = _readAvatar(raw['avatar'])
         ..card = {
@@ -135,13 +142,26 @@ class Conversation {
     this.title,
     this.messages, {
     this.usage = const ConversationUsage(),
-  });
+    String? id,
+    this.personaId,
+    this.pinned = false,
+    this.titleEdited = false,
+    this.placeholder = false,
+  }) : id = id ?? _localId('chat');
+  final String id;
+  String? personaId;
+  bool pinned, titleEdited, placeholder;
   String title;
   List<Message> messages;
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
   Map<String, dynamic> toJson() => {
+    'id': id,
+    'personaId': personaId,
+    'pinned': pinned,
+    'titleEdited': titleEdited,
+    'placeholder': placeholder,
     'title': title,
     'messages': messages.map((m) => m.toJson()).toList(),
     'usedTokens': usedTokens,
@@ -153,6 +173,14 @@ class Conversation {
           (raw['messages'] as List)
               .map((m) => Message.fromJson(Map<String, dynamic>.from(m)))
               .toList(),
+          id: raw['id'] as String?,
+          personaId: raw['personaId'] as String?,
+          pinned: raw['pinned'] == true,
+          titleEdited: raw['titleEdited'] == true,
+          placeholder:
+              raw['placeholder'] == true &&
+              (raw['messages'] as List).isEmpty &&
+              (raw['draft'] as String? ?? '').trim().isEmpty,
         )
         ..usedTokens = raw['usedTokens'] as int? ?? 0
         ..draft = raw['draft'] as String? ?? '';
@@ -185,6 +213,7 @@ class DemoStore extends ChangeNotifier {
        _storage = storage ?? ChatStorage(),
        beta = beta ?? betaAccess,
        account = account ?? relayAccount {
+    conversations.first.personaId = personas.first.id;
     appearance.addListener(_appearanceChanged);
     models.addListener(changed);
     this.beta.addListener(changed);
@@ -237,7 +266,10 @@ class DemoStore extends ChangeNotifier {
     if (!mapEquals(old, next)) changed();
   }
 
-  final conversations = <Conversation>[Conversation('新的对话', [])];
+  final conversations = <Conversation>[
+    Conversation('新的对话', [], placeholder: true),
+  ];
+  final Map<String, bool> roleFolders = {};
   int conversation = 0;
   final personas = <Persona>[
     Persona(
@@ -308,7 +340,99 @@ class DemoStore extends ChangeNotifier {
   String workspaceDraft =
       '# 给新的一周留白\n\n最重要的一件事\n让 ski 的第一个想法，成为可触摸的界面。\n\n待办\n☐ 聚焦一个目标\n☐ 留出 30 分钟\n☐ 在周五回顾\n\n这是可编辑的内存演示笔记。';
   List<Message> get messages => conversations[conversation].messages;
-  Persona get role => personas[persona];
+  Persona get role =>
+      personas
+          .where((p) => p.id == conversations[conversation].personaId)
+          .firstOrNull ??
+      personas[persona];
+  Persona get editingRole => personas[persona];
+  Iterable<Conversation> get visibleConversations =>
+      conversations.where((c) => !c.placeholder);
+
+  List<Conversation> conversationsFor(String roleId) {
+    final chats = visibleConversations
+        .where((c) => c.personaId == roleId)
+        .toList();
+    // Sort a view only: pinning never changes the selected conversation index.
+    return [...chats.where((c) => c.pinned), ...chats.where((c) => !c.pinned)];
+  }
+
+  bool folderExpanded(String id) => roleFolders[id] ?? id == role.id;
+  void toggleFolder(String id) {
+    roleFolders[id] = !folderExpanded(id);
+    changed();
+    saveChats();
+  }
+
+  void editCurrentRole() {
+    persona = personas.indexOf(role);
+  }
+
+  void addPersona(Persona value) {
+    personas.add(value);
+    persona = personas.length - 1;
+    roleFolders[value.id] = true;
+    changed();
+    saveChats();
+  }
+
+  Map<String, dynamic> _normalizeArchive(Map<String, dynamic> raw) {
+    if (raw['schema'] != 'skivu-chats-v1' || raw['conversations'] is! List)
+      throw const FormatException();
+    final sourceRoles = raw['personas'] as List?;
+    final roles = sourceRoles?.isNotEmpty == true
+        ? [
+            for (var i = 0; i < sourceRoles!.length; i++)
+              Persona.fromJson({
+                ...Map<String, dynamic>.from(sourceRoles[i]),
+                'id': (sourceRoles[i] as Map)['id'] ?? 'legacy-role-$i',
+              }),
+          ]
+        : [...personas];
+    final ids = roles.map((p) => p.id).toSet();
+    if (ids.length != roles.length || ids.any((id) => id.isEmpty))
+      throw const FormatException('角色标识重复或为空');
+    final fallback = (raw['persona'] as int? ?? 0).clamp(0, roles.length - 1);
+    final chats = (raw['conversations'] as List)
+        .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
+        .toList();
+    for (final chat in chats) {
+      chat.personaId ??= roles[fallback].id;
+      if (!ids.contains(chat.personaId))
+        throw const FormatException('对话所属角色不存在');
+    }
+    if (chats.isEmpty)
+      chats.add(
+        Conversation(
+          '新的对话',
+          [],
+          personaId: roles[fallback].id,
+          placeholder: true,
+        ),
+      );
+    if (chats.map((c) => c.id).toSet().length != chats.length ||
+        chats.any((c) => c.id.isEmpty))
+      throw const FormatException('对话标识重复或为空');
+    final byId = chats.indexWhere((c) => c.id == raw['selectedId']);
+    final selected = byId >= 0
+        ? byId
+        : (raw['selected'] as int? ?? 0).clamp(0, chats.length - 1);
+    return {
+      ...raw,
+      'personas': roles.map((p) => p.toJson()).toList(),
+      'conversations': chats.map((c) => c.toJson()).toList(),
+      'selected': selected,
+      'selectedId': chats[selected].id,
+      'persona': roles.indexWhere((p) => p.id == chats[selected].personaId),
+      'roleFolders': {
+        if (raw['roleFolders'] is Map)
+          for (final e in (raw['roleFolders'] as Map).entries)
+            if (ids.contains(e.key) && e.value is bool)
+              e.key as String: e.value as bool,
+      },
+    };
+  }
+
   void changed() {
     if (!_disposed) notifyListeners();
   }
@@ -317,7 +441,7 @@ class DemoStore extends ChangeNotifier {
     try {
       final text = await _storage.read();
       if (text == null) return;
-      final raw = jsonDecode(text) as Map<String, dynamic>;
+      final raw = _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
       if (raw['schema'] != 'skivu-chats-v1') throw const FormatException();
       final loaded = (raw['conversations'] as List)
           .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
@@ -338,6 +462,9 @@ class DemoStore extends ChangeNotifier {
           ..addAll(roles!);
       }
       persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
+      roleFolders
+        ..clear()
+        ..addAll(Map<String, bool>.from(raw['roleFolders'] as Map));
       userCard = {
         for (final e
             in (raw['userCard'] is Map
@@ -367,6 +494,8 @@ class DemoStore extends ChangeNotifier {
   String exportChats() => jsonEncode({
     'schema': 'skivu-chats-v1',
     'selected': conversation,
+    'selectedId': conversations[conversation].id,
+    'roleFolders': roleFolders,
     'conversations': conversations.map((c) => c.toJson()).toList(),
     'personas': personas.map((p) => p.toJson()).toList(),
     'persona': persona,
@@ -406,34 +535,44 @@ class DemoStore extends ChangeNotifier {
 
   void saveDraft(Conversation target, String text) {
     target.draft = text;
+    if (target.placeholder && text.trim().isNotEmpty) {
+      target.placeholder = false;
+      changed();
+    }
     _saveSoon();
   }
 
   Future<void> clearChats() async {
+    final roleId = role.id;
+    final fresh = Conversation(
+      '新的对话',
+      [],
+      personaId: roleId,
+      placeholder: true,
+    );
     stop();
     await _writes;
     await _storage.write(
       jsonEncode({
-        'schema': 'skivu-chats-v1',
+        ...jsonDecode(exportChats()) as Map<String, dynamic>,
         'selected': 0,
-        'conversations': [],
-        'personas': personas.map((p) => p.toJson()).toList(),
-        'persona': persona,
-        'groups': groups,
-        'userCard': userCard,
+        'selectedId': fresh.id,
+        'conversations': [fresh.toJson()],
+        'persona': personas.indexWhere((p) => p.id == roleId),
       }),
     );
     _archiveBlocked = false;
     storageError = null;
     conversations
       ..clear()
-      ..add(Conversation('新的对话', []));
+      ..add(fresh);
     conversation = 0;
+    persona = personas.indexWhere((p) => p.id == roleId);
     changed();
   }
 
   Future<void> importChats(String text) async {
-    final raw = jsonDecode(text) as Map<String, dynamic>;
+    final raw = _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
     if (raw['schema'] != 'skivu-chats-v1') throw const FormatException();
     final loaded = (raw['conversations'] as List)
         .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
@@ -443,7 +582,7 @@ class DemoStore extends ChangeNotifier {
         .toList();
     stop();
     await _writes;
-    await _storage.write(text);
+    await _storage.write(jsonEncode(raw));
     conversations
       ..clear()
       ..addAll(loaded.isEmpty ? [Conversation('新的对话', [])] : loaded);
@@ -457,6 +596,9 @@ class DemoStore extends ChangeNotifier {
         ..addAll(roles!);
     }
     persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
+    roleFolders
+      ..clear()
+      ..addAll(Map<String, bool>.from(raw['roleFolders'] as Map));
     if (raw['userCard'] is Map)
       userCard = {
         for (final e in (raw['userCard'] as Map).entries)
@@ -474,23 +616,74 @@ class DemoStore extends ChangeNotifier {
     changed();
   }
 
-  void newChat() {
+  void newChat({String? personaId}) {
+    final selectedRole = personas
+        .where((p) => p.id == (personaId ?? role.id))
+        .firstOrNull;
+    if (selectedRole == null) return;
     stop();
+    conversations.removeWhere(
+      (c) => c.placeholder && c.messages.isEmpty && c.draft.isEmpty,
+    );
     conversations.insert(
       0,
       Conversation('新的对话', [
-        if ((role.card['开场白'] ?? '').trim().isNotEmpty)
-          Message(false, role.card['开场白']!),
-      ]),
+        if ((selectedRole.card['开场白'] ?? '').trim().isNotEmpty)
+          Message(false, selectedRole.card['开场白']!),
+      ], personaId: selectedRole.id),
     );
     conversation = 0;
+    persona = personas.indexOf(selectedRole);
+    roleFolders[selectedRole.id] = true;
     changed();
     saveChats();
   }
 
   void selectChat(int index) {
+    if (index < 0 || index >= conversations.length) return;
     stop();
     conversation = index;
+    persona = personas.indexOf(role);
+    roleFolders[role.id] = true;
+    changed();
+    saveChats();
+  }
+
+  void renameChat(String id, String title) {
+    final chat = conversations.where((c) => c.id == id).firstOrNull;
+    if (chat == null || title.trim().isEmpty) return;
+    chat.title = title.trim().characters.take(80).join();
+    chat.titleEdited = true;
+    changed();
+    saveChats();
+  }
+
+  void toggleChatPin(String id) {
+    final chat = conversations.where((c) => c.id == id).firstOrNull;
+    if (chat == null) return;
+    chat.pinned = !chat.pinned;
+    changed();
+    saveChats();
+  }
+
+  void deleteChat(String id) {
+    final chat = conversations.where((c) => c.id == id).firstOrNull;
+    if (chat == null) return;
+    final active = conversations[conversation];
+    if (identical(active, chat)) stop();
+    conversations.remove(chat);
+    if (conversations.isEmpty)
+      conversations.add(
+        Conversation('新的对话', [], personaId: chat.personaId, placeholder: true),
+      );
+    final next = identical(active, chat)
+        ? conversations
+                  .where((c) => c.personaId == chat.personaId && !c.placeholder)
+                  .firstOrNull ??
+              conversations.first
+        : active;
+    conversation = conversations.indexOf(next);
+    persona = personas.indexOf(role);
     changed();
     saveChats();
   }
@@ -527,7 +720,9 @@ class DemoStore extends ChangeNotifier {
       return false;
     }
     messages.add(Message(true, input.trim()));
-    if (messages.length == 1)
+    conversations[conversation].placeholder = false;
+    if (!conversations[conversation].titleEdited &&
+        messages.where((m) => m.user).length == 1)
       conversations[conversation].title = input.trim().length > 14
           ? input.trim().substring(0, 14)
           : input.trim();

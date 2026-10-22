@@ -143,8 +143,9 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
     final colors = Theme.of(context).colorScheme, l10n = const _DialStrings();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final y = (widget.viewportHeight / 2 + 60)
-            .clamp(84.0, math.max(84.0, constraints.maxHeight - 250))
+        // The overlay ends at the composer, so both controls track its height.
+        final y = (widget.viewportHeight - 88)
+            .clamp(84.0, math.max(84.0, constraints.maxHeight - 88))
             .toDouble();
         _center = Offset(math.max(82.0, constraints.maxWidth - 92), y);
         final center = _holding

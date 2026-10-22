@@ -158,6 +158,15 @@ void main() {
         tester.getCenter(latest).dy,
         greaterThan(tester.getCenter(history).dy),
       );
+      final composer = find.byKey(const ValueKey('chat-composer'));
+      expect(
+        tester.getBottomRight(latest).dy,
+        closeTo(tester.getTopLeft(composer).dy - 10, 1),
+      );
+      expect(
+        tester.getBottomRight(history).dy,
+        lessThan(tester.getTopLeft(latest).dy),
+      );
       await tester.tap(latest);
       await tester.pumpAndSettle();
       final controller = tester.widget<ListView>(list).controller!;

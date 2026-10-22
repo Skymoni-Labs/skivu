@@ -23,8 +23,8 @@ import 'beta_access.dart';
 import 'brand.dart';
 import 'relay_account.dart';
 import 'app_updates.dart';
-import 'character_avatar.dart';
 import 'speech_settings.dart';
+import 'role_conversation_tree.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -425,7 +425,10 @@ class _SkiShellState extends State<SkiShell>
                   children: [
                     InkWell(
                       onTap: widget.route == '/chat'
-                          ? () => go('/characters/edit')
+                          ? () {
+                              demo.editCurrentRole();
+                              go('/characters/edit');
+                            }
                           : null,
                       child: Text(
                         title,
@@ -555,237 +558,194 @@ class SideNavigation extends StatefulWidget {
 
 class _SideNavigationState extends State<SideNavigation> {
   String query = '';
-  Widget link(String title, IconData icon, String route) => InkWell(
-    borderRadius: BorderRadius.circular(12),
-    onTap: () => widget.go(route),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-      child: Row(
-        children: [
-          Icon(icon, size: 21, color: green),
-          const SizedBox(width: 14),
-          label(title, size: 14),
-        ],
-      ),
-    ),
-  );
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => widget.go('/characters'),
-            borderRadius: BorderRadius.circular(19),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: .65),
-                borderRadius: BorderRadius.circular(19),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.favorite_border_rounded, color: green, size: 25),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        label('角色与陪伴', size: 15, weight: FontWeight.w600),
-                        label('角色、对话与日常', size: 11, color: muted),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right, color: muted, size: 18),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
-          Row(
+  Widget link(String title, IconData icon, String route, {bool soon = false}) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => widget.go(route),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          child: Row(
             children: [
-              const BrandMark(size: 36),
-              const SizedBox(width: 10),
-              label(appName, size: 30, weight: FontWeight.w600),
-              const SizedBox(width: 9),
-              const Spacer(),
-              IconButton(
-                tooltip: '关闭导航',
-                onPressed: widget.close,
-                icon: const Icon(Icons.chevron_left, size: 22),
+              Icon(icon, size: 21, color: green),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: ink, fontSize: 14),
+                ),
               ),
+              if (soon) const TinyTag('即将开放'),
             ],
           ),
-          const SizedBox(height: 15),
-          SizedBox(
-            width: double.infinity,
-            child: SkiGlassButton(
-              tooltip: '新建对话',
-              width: double.infinity,
-              height: 48,
-              accent: true,
-              onPressed: () {
-                demo.newChat();
-                widget.go('/chat');
-              },
-              icon: Icons.add,
-              label: '新建对话',
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 37,
-            child: TextField(
-              onChanged: (v) => setState(() => query = v),
-              style: const TextStyle(fontSize: 12),
-              decoration: InputDecoration(
-                hintText: '搜索对话',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                fillColor: Theme.of(
-                  context,
-                ).colorScheme.surface.withValues(alpha: .5),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: ListView(
-              children: [
-                Row(
-                  children: [
-                    CharacterAvatar(persona: demo.role, size: 30),
-                    const SizedBox(width: 10),
-                    label(demo.role.name, size: 16, weight: FontWeight.w600),
-                    const SizedBox(width: 8),
-                    label(
-                      '${demo.conversations.length}',
-                      size: 12,
-                      color: muted,
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.expand_less, color: muted, size: 18),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surface.withValues(alpha: .7),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.folder_outlined, size: 19, color: muted),
-                      const SizedBox(width: 9),
-                      label('日常对话', size: 13, weight: FontWeight.w500),
-                      const Spacer(),
-                      const Icon(Icons.expand_more, size: 18, color: muted),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 5),
-                for (int i = 0; i < demo.conversations.length; i++)
-                  if (demo.conversations[i].title.contains(query))
-                    Padding(
-                      padding: const EdgeInsets.only(left: 12, bottom: 3),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          demo.selectChat(i);
-                          widget.go('/chat');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 13,
+        ),
+      );
+  Future<void> newConversation() async {
+    final id = await chooseChatRole(context, demo);
+    if (id != null && mounted) {
+      demo.newChat(personaId: id);
+      widget.go('/chat');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: demo,
+    builder: (context, _) => Material(
+      color: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ListView(
+                key: const ValueKey('sidebar-scroll'),
+                padding: EdgeInsets.zero,
+                children: [
+                  InkWell(
+                    onTap: () => widget.go('/characters'),
+                    borderRadius: BorderRadius.circular(19),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: .65),
+                        borderRadius: BorderRadius.circular(19),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.favorite_border_rounded,
+                            color: green,
+                            size: 25,
                           ),
-                          decoration: BoxDecoration(
-                            color: i == demo.conversation
-                                ? green.withValues(alpha: .12)
-                                : null,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.drag_indicator,
-                                size: 14,
-                                color: muted,
-                              ),
-                              const SizedBox(width: 7),
-                              Expanded(
-                                child: Text(
-                                  demo.conversations[i].title,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
+                          const SizedBox(width: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                label(
+                                  '角色与陪伴',
+                                  size: 15,
+                                  weight: FontWeight.w600,
                                 ),
-                              ),
-                              const Icon(
-                                Icons.more_horiz,
-                                size: 18,
-                                color: muted,
-                              ),
-                            ],
+                                label('角色、对话与日常', size: 11, color: muted),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: muted,
+                            size: 18,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    children: [
+                      const BrandMark(size: 36),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          appName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w600,
+                            color: ink,
                           ),
                         ),
                       ),
+                      IconButton(
+                        tooltip: '关闭导航',
+                        onPressed: widget.close,
+                        icon: const Icon(Icons.chevron_left, size: 22),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  SkiGlassButton(
+                    tooltip: '新建对话',
+                    width: double.infinity,
+                    height: 48,
+                    accent: true,
+                    onPressed: newConversation,
+                    icon: Icons.add,
+                    label: '新建对话',
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const ValueKey('sidebar-search'),
+                    onChanged: (value) => setState(() => query = value),
+                    style: const TextStyle(fontSize: 12, color: ink),
+                    decoration: InputDecoration(
+                      hintText: '搜索角色或对话',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: .5),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                const SizedBox(height: 20),
-                link('角色', Icons.badge_outlined, '/characters'),
-                link('插件市场', Icons.widgets_outlined, '/market'),
+                  ),
+                  const SizedBox(height: 14),
+                  RoleConversationTree(
+                    store: demo,
+                    query: query,
+                    openChat: () => widget.go('/chat'),
+                  ),
+                  const SizedBox(height: 12),
+                  link('角色', Icons.badge_outlined, '/characters'),
+                  link('插件市场', Icons.widgets_outlined, '/market', soon: true),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: .6),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => widget.go('/plugins'),
+                    icon: const Icon(Icons.inventory_2_outlined, size: 17),
+                    label: const Text('插件', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: .6),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: () => widget.go('/settings'),
+                    icon: const Icon(Icons.settings_outlined, size: 17),
+                    label: const Text('设置', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '切换主题',
+                  onPressed: () {
+                    demo.dark = !demo.dark;
+                    appearance.save();
+                    demo.changed();
+                  },
+                  icon: const Icon(Icons.dark_mode_outlined, size: 21),
+                ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: .6),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () => widget.go('/plugins'),
-                  icon: const Icon(Icons.inventory_2_outlined, size: 17),
-                  label: const Text('插件', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: .6),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () => widget.go('/settings'),
-                  icon: const Icon(Icons.settings_outlined, size: 17),
-                  label: const Text('设置', style: TextStyle(fontSize: 12)),
-                ),
-              ),
-              IconButton(
-                tooltip: '切换主题',
-                onPressed: () {
-                  demo.dark = !demo.dark;
-                  appearance.save();
-                  demo.changed();
-                },
-                icon: const Icon(Icons.dark_mode_outlined, size: 21),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Center(child: label('Skivu · 每次对话，都有回应', size: 9, color: muted)),
-        ],
+            const SizedBox(height: 12),
+            Center(child: label('Skivu · 每次对话，都有回应', size: 9, color: muted)),
+          ],
+        ),
       ),
     ),
   );

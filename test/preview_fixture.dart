@@ -13,7 +13,7 @@ void seedPreviewConversation() {
         ),
         Message(true, '好呀，也想安排一次小旅行。'),
         Message(false, '可以先确定时间、地点和预算，然后整理出轻松的行程。\n\n不用急着决定所有细节，我们可以慢慢讨论。'),
-      ]),
+      ], personaId: demo.personas.first.id),
     );
   demo.conversation = 0;
 }
