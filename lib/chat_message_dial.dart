@@ -138,6 +138,30 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
     super.dispose();
   }
 
+  Widget navigationSurface({
+    required Key key,
+    required ColorScheme colors,
+    required Widget child,
+  }) => ClipOval(
+    key: key,
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Material(
+          color: colors.surfaceContainerHighest.withValues(alpha: .58),
+          shape: CircleBorder(
+            side: BorderSide(
+              color: colors.outlineVariant.withValues(alpha: .12),
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme, l10n = const _DialStrings();
@@ -162,25 +186,30 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
               Positioned(
                 right: 4,
                 top: y + 30,
-                child: ClipOval(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                    child: Material(
-                      color: colors.surfaceContainerHighest.withValues(
-                        alpha: .58,
-                      ),
-                      shape: const CircleBorder(),
+                child: SizedBox(
+                  key: const ValueKey('chat-jump-latest'),
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: navigationSurface(
+                      key: const ValueKey('chat-message-latest-surface'),
+                      colors: colors,
                       child: IconButton(
-                        key: const ValueKey('chat-jump-latest'),
                         tooltip: '回到最新消息',
                         onPressed: widget.onLatest,
+                        padding: EdgeInsets.zero,
+                        style: IconButton.styleFrom(
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.standard,
+                        ),
                         icon: const Icon(
                           Icons.keyboard_double_arrow_down_rounded,
                         ),
-                        iconSize: 23,
+                        color: colors.primary.withValues(alpha: .92),
+                        iconSize: 24,
                         constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
+                          width: 40,
+                          height: 40,
                         ),
                       ),
                     ),
@@ -209,54 +238,58 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
               Positioned(
                 left: 12,
                 right: 12,
-                top: _center.dy + 91 < constraints.maxHeight - 110
-                    ? _center.dy + 91
-                    : null,
-                bottom: _center.dy + 91 < constraints.maxHeight - 110
-                    ? null
-                    : 8,
+                // The dial sits near the composer. Reserve its whole bounds
+                // below the preview instead of falling back to the same bottom.
+                bottom: constraints.maxHeight - (_center.dy - 82) + 12,
                 child: IgnorePointer(
-                  child: Material(
-                    key: const ValueKey('chat-message-dial-target'),
-                    color: colors.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(16),
-                    elevation: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_loading)
-                            Text(l10n.loading)
-                          else if (entry == null)
-                            Text(l10n.messageLocatorNoMatches)
-                          else ...[
-                            Text(
-                              l10n.chatDialTarget(
-                                (entry.messageIndex ?? _dial!.index) + 1,
-                                _entries.length,
-                                widget.senderName(entry.sender),
-                              ),
-                              style: Theme.of(context).textTheme.labelLarge,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              entry.previewContent,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${switch (_dial!.scale) {
-                                DialScale.fine => l10n.chatDialFine,
-                                DialScale.medium => l10n.chatDialBrowse,
-                                DialScale.fast => l10n.chatDialFast,
-                              }} · ${l10n.chatDialScale(_dial!.messagesPerTurn.round())}',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          ],
-                        ],
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: math.max(0.0, _center.dy - 82 - 12 - 8),
+                    ),
+                    child: Material(
+                      key: const ValueKey('chat-message-dial-target'),
+                      color: colors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(16),
+                      elevation: 3,
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_loading)
+                                Text(l10n.loading)
+                              else if (entry == null)
+                                Text(l10n.messageLocatorNoMatches)
+                              else ...[
+                                Text(
+                                  l10n.chatDialTarget(
+                                    (entry.messageIndex ?? _dial!.index) + 1,
+                                    _entries.length,
+                                    widget.senderName(entry.sender),
+                                  ),
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  entry.previewContent,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${switch (_dial!.scale) {
+                                    DialScale.fine => l10n.chatDialFine,
+                                    DialScale.medium => l10n.chatDialBrowse,
+                                    DialScale.fast => l10n.chatDialFast,
+                                  }} · ${l10n.chatDialScale(_dial!.messagesPerTurn.round())}',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -302,28 +335,13 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
                         onLongPressEnd: (_) => _end(),
                         onLongPressCancel: () => _end(cancel: true),
                         child: Center(
-                          child: ClipOval(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: colors.surfaceContainerHighest
-                                      .withValues(alpha: .58),
-                                  border: Border.all(
-                                    color: colors.outlineVariant.withValues(
-                                      alpha: .12,
-                                    ),
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.keyboard_arrow_left_rounded,
-                                  size: 28,
-                                  color: colors.primary.withValues(alpha: .92),
-                                ),
-                              ),
+                          child: navigationSurface(
+                            key: const ValueKey('chat-message-history-surface'),
+                            colors: colors,
+                            child: Icon(
+                              Icons.keyboard_arrow_left_rounded,
+                              size: 28,
+                              color: colors.primary.withValues(alpha: .92),
                             ),
                           ),
                         ),

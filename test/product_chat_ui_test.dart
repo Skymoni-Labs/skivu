@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/appearance.dart';
 import 'package:ski/chat_bubble_surface.dart';
 import 'package:ski/chat_status_bar.dart';
+import 'package:ski/chat_message_dial.dart';
 import 'package:ski/main.dart';
 import 'package:ski/state.dart';
 import 'package:ski/workspace.dart';
@@ -158,10 +159,23 @@ void main() {
         tester.getCenter(latest).dy,
         greaterThan(tester.getCenter(history).dy),
       );
+      expect(tester.getSize(latest), tester.getSize(history));
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey('chat-message-latest-surface')),
+        ),
+        const Size(40, 40),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey('chat-message-history-surface')),
+        ),
+        const Size(40, 40),
+      );
       final composer = find.byKey(const ValueKey('chat-composer'));
       expect(
         tester.getBottomRight(latest).dy,
-        closeTo(tester.getTopLeft(composer).dy - 10, 1),
+        closeTo(tester.getTopLeft(composer).dy - 14, 1),
       );
       expect(
         tester.getBottomRight(history).dy,
@@ -178,6 +192,64 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('dial preview stays above the ring on a short enlarged phone', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(1.6)),
+          child: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                key: const ValueKey('dial-viewport'),
+                width: 320,
+                height: 340,
+                child: ChatMessageDial(
+                  visible: true,
+                  viewportHeight: 340,
+                  currentTimestamp: 0,
+                  loadEntries: () async => [
+                    ChatMessageLocatorPreview(
+                      timestamp: 0,
+                      sender: 'assistant',
+                      previewContent: List.filled(30, '窄屏下查看长消息。').join(),
+                      messageIndex: 0,
+                    ),
+                  ],
+                  onOpenLocator: () {},
+                  onJump: (_) {},
+                  onHidden: () {},
+                  senderName: (_) => '角色',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final history = find.byKey(const ValueKey('chat-message-navigation-ball'));
+    final gesture = await tester.startGesture(tester.getCenter(history));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 200));
+    final preview = tester.getRect(
+      find.byKey(const ValueKey('chat-message-dial-target')),
+    );
+    final ring = tester.getRect(
+      find.byKey(const ValueKey('chat-message-dial-ring')),
+    );
+    final viewport = tester.getRect(
+      find.byKey(const ValueKey('dial-viewport')),
+    );
+    expect(preview.overlaps(ring), isFalse);
+    expect(preview.bottom, lessThanOrEqualTo(ring.top - 12));
+    expect(preview.top, greaterThanOrEqualTo(viewport.top + 8));
+    expect(viewport.contains(ring.bottomRight - const Offset(1, 1)), isTrue);
+    expect(tester.takeException(), isNull);
+    await gesture.cancel();
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('workspace only shows coming-soon modules', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

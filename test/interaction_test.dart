@@ -243,6 +243,11 @@ void main() {
       final ring = find.byKey(const ValueKey('chat-message-dial-ring'));
       expect(ring, findsOneWidget);
       final ringCenter = tester.getCenter(ring);
+      final preview = find.byKey(const ValueKey('chat-message-dial-target'));
+      expect(
+        tester.getBottomRight(preview).dy,
+        lessThanOrEqualTo(tester.getTopLeft(ring).dy - 12),
+      );
       await hold.moveBy(const Offset(-20, -30));
       await tester.pump();
       expect((tester.getCenter(ring) - ringCenter).distance, lessThan(1));
