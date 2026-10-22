@@ -6,6 +6,7 @@ import 'package:ski/appearance.dart';
 import 'package:ski/chat_backdrop.dart';
 import 'package:ski/chat_bubble_surface.dart';
 import 'package:ski/glass_preferences.dart';
+import 'package:ski/glass.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
@@ -110,6 +111,83 @@ void main() {
     source.dispose();
     scroll.dispose();
     model.dispose();
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('composer glass samples wallpaper instead of text behind it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final source = ChatBackdropController();
+    final capture = GlobalKey();
+    final underneath = ValueNotifier<Color>(Colors.red);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RepaintBoundary(
+          key: capture,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              RepaintBoundary(
+                key: source.backgroundKey,
+                child: const CustomPaint(painter: _Wallpaper()),
+              ),
+              ChatBackdropScope(
+                controller: source,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ValueListenableBuilder<Color>(
+                    valueListenable: underneath,
+                    builder: (_, color, _) => ColoredBox(
+                      color: color,
+                      child: const ChatComposerBackdrop(
+                        child: ConfigurableGlassSurface(
+                          area: 'inputBlur',
+                          child: SizedBox(width: 320, height: 140),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => source.capture(revision: 'composer', enabled: true, radii: {}),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('composer-wallpaper-plane')),
+      findsOneWidget,
+    );
+    Future<List<int>> sample() async => (await tester.runAsync(() async {
+      final image =
+          await (capture.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary)
+              .toImage(pixelRatio: 1);
+      try {
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (var c = 0; c < 3; c++) bytes.getUint8((520 * 320 + 160) * 4 + c),
+        ];
+      } finally {
+        image.dispose();
+      }
+    }))!;
+    final before = await sample();
+    underneath.value = Colors.blue;
+    await tester.pumpAndSettle();
+    expect(await sample(), before);
+    await tester.pumpWidget(const SizedBox());
+    source.dispose();
+    underneath.dispose();
     expect(tester.takeException(), isNull);
   });
 }

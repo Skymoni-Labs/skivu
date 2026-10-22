@@ -6,6 +6,7 @@ import 'state.dart';
 import 'widgets.dart';
 import 'glass.dart';
 import 'chat_bubble_surface.dart';
+import 'chat_backdrop.dart';
 import 'chat_status_bar.dart';
 import 'appearance.dart';
 import 'chat_controls.dart';
@@ -20,9 +21,11 @@ class ChatPage extends StatefulWidget {
     required this.openWorkspace,
     required this.openCall,
     this.openModels,
+    this.backdropAnchor,
   });
   final VoidCallback openWorkspace, openCall;
   final VoidCallback? openModels;
+  final GlobalKey? backdropAnchor;
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -32,6 +35,10 @@ class _ChatPageState extends State<ChatPage> {
   final focus = FocusNode();
   final scroll = ScrollController();
   final keys = <Message, GlobalKey>{};
+  final _composerMeasureKey = GlobalKey();
+  double _composerExtent = 0;
+  double? _viewportExtent;
+  bool _composerMeasureQueued = false;
   Timer? navTimer;
   bool showNav = false, follow = true;
   bool _followQueued = false;
@@ -47,6 +54,28 @@ class _ChatPageState extends State<ChatPage> {
       if (focus.hasFocus) hideNavigation();
     });
     demo.addListener(update);
+    _queueComposerMeasure();
+  }
+
+  void _queueComposerMeasure() {
+    if (_composerMeasureQueued) return;
+    _composerMeasureQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _composerMeasureQueued = false;
+      if (!mounted) return;
+      final box = _composerMeasureKey.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) return;
+      final extent = box.size.height;
+      if ((extent - _composerExtent).abs() < .5) return;
+      final wasMeasured = _composerExtent > 0;
+      setState(() => _composerExtent = extent);
+      if (wasMeasured && follow) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && follow && scroll.hasClients)
+            scroll.jumpTo(scroll.position.maxScrollExtent);
+        });
+      }
+    });
   }
 
   void update() {
@@ -294,124 +323,156 @@ class _ChatPageState extends State<ChatPage> {
     ),
   );
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      Column(
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
+  Widget build(BuildContext context) => ClipRect(
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        // Messages continue underneath the floating composer. Their scroll
+        // padding reserves its measured height without cutting a dark seam.
+        NotificationListener<ScrollMetricsNotification>(
+          onNotification: (n) {
+            if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
+            final previous = _viewportExtent;
+            _viewportExtent = n.metrics.viewportDimension;
+            if (previous != null &&
+                (previous - _viewportExtent!).abs() > .5 &&
+                follow) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && follow && scroll.hasClients)
+                  scroll.jumpTo(scroll.position.maxScrollExtent);
+              });
+            }
+            return false;
+          },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if ((n is ScrollUpdateNotification && n.dragDetails != null) ||
+                  (n is UserScrollNotification &&
+                      n.direction != ScrollDirection.idle)) {
+                revealNavigation();
+                follow = false;
+              }
+              return false;
+            },
+            child: ListView(
+              controller: scroll,
+              // Frost samples the live scene. Caching each message as a
+              // separate scrolling layer can retain an unfiltered backdrop
+              // while its transform changes on Android's renderer.
+              addRepaintBoundaries: false,
+              padding: EdgeInsets.fromLTRB(
+                appearance.flag('wideChat') ? 8 : 14,
+                appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
+                appearance.flag('wideChat') ? 8 : 14,
+                24 + _composerExtent,
+              ),
               children: [
-                NotificationListener<ScrollNotification>(
-                  onNotification: (n) {
-                    if ((n is ScrollUpdateNotification &&
-                            n.dragDetails != null) ||
-                        (n is UserScrollNotification &&
-                            n.direction != ScrollDirection.idle)) {
-                      revealNavigation();
-                      follow = false;
-                    }
-                    return false;
-                  },
-                  child: ListView(
-                    controller: scroll,
-                    // Frost samples the live scene. Caching each message as a
-                    // separate scrolling layer can retain an unfiltered backdrop
-                    // while its transform changes on Android's renderer.
-                    addRepaintBoundaries: false,
-                    padding: EdgeInsets.fromLTRB(
-                      appearance.flag('wideChat') ? 8 : 14,
-                      68 + MediaQuery.paddingOf(context).top,
-                      appearance.flag('wideChat') ? 8 : 14,
-                      24,
+                if (demo.messages.isEmpty)
+                  emptyState()
+                else ...[
+                  Center(
+                    child: label(
+                      '与 ${demo.role.name} 的对话',
+                      size: 10,
+                      color: muted,
                     ),
-                    children: [
-                      if (demo.messages.isEmpty)
-                        emptyState()
-                      else ...[
-                        Center(
-                          child: label(
-                            '与 ${demo.role.name} 的对话',
-                            size: 10,
-                            color: muted,
-                          ),
-                        ),
-                        const SizedBox(height: 25),
-                        for (int i = 0; i < demo.messages.length; i++)
-                          message(demo.messages[i], i),
-                        if (demo.streaming && appearance.flag('showStatus'))
-                          Padding(
-                            padding: const EdgeInsets.only(left: 44),
-                            child: Row(
-                              children: [
-                                const SizedBox(
-                                  width: 9,
-                                  height: 9,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                label('正在回复…', size: 10, color: muted),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ],
                   ),
-                ),
-                if (demo.messages.isNotEmpty)
-                  Positioned.fill(
-                    child: LayoutBuilder(
-                      builder: (context, bounds) => ChatMessageDial(
-                        key: ObjectKey(_conversation),
-                        visible: showNav,
-                        viewportHeight: bounds.maxHeight,
-                        currentTimestamp: _centeredIndex,
-                        loadEntries: () async => [
-                          for (int i = 0; i < demo.messages.length; i++)
-                            ChatMessageLocatorPreview(
-                              timestamp: i,
-                              sender: demo.messages[i].user
-                                  ? 'user'
-                                  : 'assistant',
-                              previewContent: demo.messages[i].text,
-                              messageIndex: i,
-                            ),
+                  const SizedBox(height: 25),
+                  for (int i = 0; i < demo.messages.length; i++)
+                    message(demo.messages[i], i),
+                  if (demo.streaming && appearance.flag('showStatus'))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 44),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 9,
+                            height: 9,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          ),
+                          const SizedBox(width: 8),
+                          label('正在回复…', size: 10, color: muted),
                         ],
-                        onOpenLocator: messageNavigator,
-                        onLatest: latest,
-                        showLatest: !follow && !focus.hasFocus,
-                        onJump: locate,
-                        onHidden: hideNavigation,
-                        senderName: (sender) =>
-                            sender == 'user' ? '你' : demo.role.name,
                       ),
                     ),
-                  ),
+                ],
               ],
             ),
           ),
-          composer(),
-          if (demo.storageError != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-              child: Text(
-                demo.storageError!,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.error,
+        ),
+        if (demo.messages.isNotEmpty)
+          Positioned.fill(
+            bottom: _composerExtent,
+            child: LayoutBuilder(
+              builder: (context, bounds) => ChatMessageDial(
+                key: ObjectKey(_conversation),
+                visible: showNav,
+                viewportHeight: bounds.maxHeight,
+                currentTimestamp: _centeredIndex,
+                loadEntries: () async => [
+                  for (int i = 0; i < demo.messages.length; i++)
+                    ChatMessageLocatorPreview(
+                      timestamp: i,
+                      sender: demo.messages[i].user ? 'user' : 'assistant',
+                      previewContent: demo.messages[i].text,
+                      messageIndex: i,
+                    ),
+                ],
+                onOpenLocator: messageNavigator,
+                onLatest: latest,
+                showLatest: !follow && !focus.hasFocus,
+                onJump: locate,
+                onHidden: hideNavigation,
+                senderName: (sender) => sender == 'user' ? '你' : demo.role.name,
+              ),
+            ),
+          ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: NotificationListener<SizeChangedLayoutNotification>(
+            onNotification: (_) {
+              _queueComposerMeasure();
+              return true;
+            },
+            child: SizeChangedLayoutNotifier(
+              key: _composerMeasureKey,
+              child: ChatComposerBackdrop(
+                sceneAnchor: widget.backdropAnchor,
+                topInset: 6,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    composer(),
+                    if (demo.storageError != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                        child: Text(
+                          demo.storageError!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
-    ],
+          ),
+        ),
+      ],
+    ),
   );
 
   int selectedMessageIndex() {
     if (!scroll.hasClients) return 0;
-    final center = scroll.offset + scroll.position.viewportDimension / 2;
+    final center =
+        scroll.offset +
+        (scroll.position.viewportDimension - _composerExtent).clamp(
+              0.0,
+              double.infinity,
+            ) /
+            2;
     double distance = double.infinity;
     int found = 0;
     for (int i = 0; i < demo.messages.length; i++) {
@@ -448,18 +509,8 @@ class _ChatPageState extends State<ChatPage> {
           area: 'inputBlur',
           radius: appearance.flag('floatingInput') ? 24 : 0,
           child: Container(
+            color: Colors.transparent,
             padding: const EdgeInsets.fromLTRB(17, 11, 10, 10),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xff708aaa).withValues(alpha: .1),
-                  blurRadius: 18,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
             child: Column(
               children: [
                 if (demo.attached)

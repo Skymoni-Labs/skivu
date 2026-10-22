@@ -53,7 +53,7 @@ void main() {
             : find.byType(WorkspacePanel);
         expect(tester.getSize(content).height, 840);
         if (side > 0) {
-          expect(tester.getTopLeft(find.text('角色与陪伴')).dy, greaterThan(36));
+          expect(tester.getTopLeft(find.byTooltip('关闭导航')).dy, greaterThan(36));
         } else {
           expect(
             tester.getTopLeft(find.byTooltip('关闭工作区')).dy,

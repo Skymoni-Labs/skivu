@@ -159,6 +159,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('角色与陪伴'), findsNothing);
+      expect(tester.getTopLeft(find.text('Skivu').first).dy, lessThan(32));
       await tester.tap(find.byTooltip('新建对话'));
       await tester.pumpAndSettle();
       expect(find.text('选择对话角色'), findsOneWidget);

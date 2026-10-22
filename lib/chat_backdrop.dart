@@ -17,6 +17,9 @@ class ChatBackdropController extends ChangeNotifier {
   bool _disposed = false;
   Set<double> _radii = {};
 
+  /// The floating composer refracts wallpaper, not text scrolling behind it.
+  ui.Image? get wallpaperImage => _raw;
+
   ui.Image? imageFor(double blur) {
     if (blur <= 0 || _blurred.isEmpty) return null;
     return _blurred[blur] ??
@@ -163,45 +166,91 @@ class ChatBackdropScope extends InheritedNotifier<ChatBackdropController> {
       context.dependOnInheritedWidgetOfExactType<ChatBackdropScope>()?.notifier;
 }
 
+/// Keep the floating input and its footer on wallpaper while the transcript
+/// continues behind them. Leave the top gap open to avoid a clipped dark seam.
+class ChatComposerBackdrop extends StatelessWidget {
+  const ChatComposerBackdrop({
+    super.key,
+    required this.child,
+    this.topInset = 0,
+    this.sceneAnchor,
+  });
+  final Widget child;
+  final double topInset;
+  final GlobalKey? sceneAnchor;
+  @override
+  Widget build(BuildContext context) {
+    final source = ChatBackdropScope.maybeOf(context);
+    final image = source?.wallpaperImage;
+    if (source == null || image == null) return child;
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: topInset,
+          child: ChatBackdropPaint(
+            key: const ValueKey('composer-wallpaper-plane'),
+            image: image,
+            source: source,
+            sceneAnchor: sceneAnchor,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
 class ChatBackdropPaint extends SingleChildRenderObjectWidget {
   const ChatBackdropPaint({
     super.key,
     required this.image,
     required this.source,
     required super.child,
+    this.sceneAnchor,
   });
   final ui.Image image;
   final ChatBackdropController source;
+  final GlobalKey? sceneAnchor;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderChatBackdrop(image, source);
+      _RenderChatBackdrop(image, source, sceneAnchor);
   @override
   void updateRenderObject(
     BuildContext context,
     covariant _RenderChatBackdrop renderObject,
   ) {
-    renderObject.update(image, source);
+    renderObject.update(image, source, sceneAnchor);
   }
 }
 
 class _RenderChatBackdrop extends RenderProxyBox {
-  _RenderChatBackdrop(ui.Image image, this.source)
+  _RenderChatBackdrop(ui.Image image, this.source, this.sceneAnchor)
     : image = image.clone(),
       logicalSize = source.logicalSize;
   ui.Image image;
   ChatBackdropController source;
+  GlobalKey? sceneAnchor;
   Size logicalSize;
-  void update(ui.Image nextImage, ChatBackdropController nextSource) {
+  void update(
+    ui.Image nextImage,
+    ChatBackdropController nextSource,
+    GlobalKey? nextAnchor,
+  ) {
     image.dispose();
     image = nextImage.clone();
     source = nextSource;
+    sceneAnchor = nextAnchor;
     logicalSize = source.logicalSize;
     markNeedsPaint();
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    final background = source.backgroundKey.currentContext?.findRenderObject();
+    // Input wallpaper follows its pane through folds; bubbles keep fixed-scene sampling.
+    final background =
+        sceneAnchor?.currentContext?.findRenderObject() ??
+        source.backgroundKey.currentContext?.findRenderObject();
     if (background is RenderBox && background.attached) {
       // Align the wallpaper in scene coordinates, including the viewport's
       // scroll offset and any drawer transform. It must not move with the text.

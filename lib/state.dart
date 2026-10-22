@@ -12,6 +12,7 @@ import 'beta_access.dart';
 import 'relay_account.dart';
 import 'stream_reveal.dart';
 
+const appToolbarHeight = 64.0;
 const ink = Color(0xff17212b);
 Color get green => appearance.color('accent');
 Color get mist => Color.lerp(green, Colors.white, .86)!;

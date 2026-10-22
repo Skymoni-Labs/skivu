@@ -53,6 +53,13 @@ void main() {
       await tester.pumpWidget(const SkiApp());
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byKey(const ValueKey('typing-indicator')), findsOneWidget);
+      expect(find.byKey(const ValueKey('toolbar-title')), findsNothing);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('typing-indicator')))
+            .data,
+        '对方正在输入中',
+      );
       appearance.set('capsuleToolbar', false);
       await tester.pump();
       final rectangle = find.byKey(const ValueKey('glass-rectangle-toolbar'));
@@ -67,7 +74,7 @@ void main() {
       expect(surface.outline, isFalse);
       expect(
         tester.getSize(find.byKey(const ValueKey('rectangle-toolbar'))).height,
-        48,
+        64,
       );
       expect(tester.getTopLeft(rectangle).dy, 0);
       expect(
@@ -79,6 +86,10 @@ void main() {
       demo.changed();
       await tester.pumpAndSettle();
       expect(find.text('对方正在输入中'), findsNothing);
+      expect(
+        tester.widget<Text>(find.byKey(const ValueKey('toolbar-title'))).data,
+        demo.role.name,
+      );
     },
   );
   testWidgets(

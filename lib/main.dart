@@ -340,6 +340,7 @@ class SkiShell extends StatefulWidget {
 
 class _SkiShellState extends State<SkiShell>
     with SingleTickerProviderStateMixin {
+  final _foregroundKey = GlobalKey();
   late final DrawerMotion motion;
   @override
   void initState() {
@@ -381,6 +382,7 @@ class _SkiShellState extends State<SkiShell>
       // Stable subtrees: drag ticks update transforms in SlideDeck, not chat layout.
       final body = widget.route == '/chat'
           ? ChatPage(
+              backdropAnchor: _foregroundKey,
               openWorkspace: () => panel(-1),
               openCall: () => go('/call'),
               openModels: () => go('/settings/models'),
@@ -404,9 +406,10 @@ class _SkiShellState extends State<SkiShell>
         ),
       );
       final capsule = appearance.flag('capsuleToolbar');
+      final typing = widget.route == '/chat' && demo.streaming;
       final toolbar = SizedBox(
         key: ValueKey(capsule ? 'capsule-toolbar' : 'rectangle-toolbar'),
-        height: 48,
+        height: appToolbarHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
@@ -419,35 +422,26 @@ class _SkiShellState extends State<SkiShell>
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: widget.route == '/chat'
-                          ? () {
-                              demo.editCurrentRole();
-                              go('/characters/edit');
-                            }
-                          : null,
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: ink,
-                        ),
-                      ),
+                child: InkWell(
+                  onTap: widget.route == '/chat'
+                      ? () {
+                          demo.editCurrentRole();
+                          go('/characters/edit');
+                        }
+                      : null,
+                  child: Text(
+                    typing ? '对方正在输入中' : title,
+                    key: ValueKey(
+                      typing ? 'typing-indicator' : 'toolbar-title',
                     ),
-                    if (widget.route == '/chat' && demo.streaming)
-                      const Text(
-                        '对方正在输入中',
-                        key: ValueKey('typing-indicator'),
-                        style: TextStyle(fontSize: 11, color: ink),
-                      ),
-                  ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ink,
+                    ),
+                  ),
                 ),
               ),
               SkiGlassButton(
@@ -470,6 +464,7 @@ class _SkiShellState extends State<SkiShell>
         ),
       );
       final foreground = Material(
+        key: _foregroundKey,
         color: Colors.transparent,
         child: SafeArea(
           top: false,
@@ -480,7 +475,10 @@ class _SkiShellState extends State<SkiShell>
                     ? body
                     : Padding(
                         padding: EdgeInsets.only(
-                          top: 56 + MediaQuery.paddingOf(context).top,
+                          top:
+                              appToolbarHeight +
+                              8 +
+                              MediaQuery.paddingOf(context).top,
                         ),
                         child: RepaintBoundary(child: body),
                       ),
@@ -604,48 +602,6 @@ class _SideNavigationState extends State<SideNavigation> {
                 key: const ValueKey('sidebar-scroll'),
                 padding: EdgeInsets.zero,
                 children: [
-                  InkWell(
-                    onTap: () => widget.go('/characters'),
-                    borderRadius: BorderRadius.circular(19),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surface.withValues(alpha: .65),
-                        borderRadius: BorderRadius.circular(19),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.favorite_border_rounded,
-                            color: green,
-                            size: 25,
-                          ),
-                          const SizedBox(width: 13),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                label(
-                                  '角色与陪伴',
-                                  size: 15,
-                                  weight: FontWeight.w600,
-                                ),
-                                label('角色、对话与日常', size: 11, color: muted),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.chevron_right,
-                            color: muted,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
                   Row(
                     children: [
                       const BrandMark(size: 36),
