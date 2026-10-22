@@ -237,16 +237,16 @@ LiquidGlassStyle skiLensStyle(
               .dependOnInheritedWidgetOfExactType<_GlassOpticsScope>()
               ?.refracting ??
           true),
-  shape: LiquidGlassShape.continuousRoundedRectangle(cornerRadius: radius),
+  shape: radius >= 31
+      ? const LiquidGlassShape.roundedRectangle(cornerRadius: 31)
+      : LiquidGlassShape.continuousRoundedRectangle(cornerRadius: radius),
   refractionIndex: 1.08,
   refractionWidth: 16,
   blur: blur,
   saturation: 1.12,
   color: accent
       ? const Color(0xff4386aa).withValues(alpha: demo.dark ? .55 : .26)
-      : (demo.dark ? const Color(0xff24354d) : Colors.white).withValues(
-          alpha: opacity ?? (demo.dark ? .50 : .23),
-        ),
+      : Colors.white.withValues(alpha: opacity ?? (demo.dark ? .50 : .23)),
   specular: const LiquidGlassLight.specular(
     thickness: 2.3,
     intensity: 1.2,
@@ -278,7 +278,7 @@ class SkiGlassButton extends StatelessWidget {
   final bool plain;
   @override
   Widget build(BuildContext context) {
-    final foreground = demo.dark ? Colors.white : const Color(0xff20536b);
+    const foreground = ink;
     if (plain && label == null) {
       return SizedBox(
         width: width,
@@ -369,13 +369,11 @@ class SkiGlassPanel extends StatelessWidget {
                       key: const ValueKey('side-sheet-fill'),
                       style: skiLensStyle(context, 18).copyWith(
                         blur: leftSide ? model.leftBlur : model.rightBlur,
-                        color:
-                            (demo.dark ? const Color(0xff24354d) : Colors.white)
-                                .withValues(
-                                  alpha: appearance.number(
-                                    leftSide ? 'leftOpacity' : 'rightOpacity',
-                                  ),
-                                ),
+                        color: Colors.white.withValues(
+                          alpha: appearance.number(
+                            leftSide ? 'leftOpacity' : 'rightOpacity',
+                          ),
+                        ),
                         specular: const LiquidGlassLight.specular(
                           thickness: 2.6,
                           angle: 0,
@@ -440,7 +438,7 @@ class GlassSurface extends StatelessWidget {
       );
     }
     final alpha = enabled ? opacity : .96;
-    final base = demo.dark ? const Color(0xff24354d) : Colors.white;
+    const base = Colors.white;
     final painted = DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(

@@ -135,7 +135,7 @@ class SettingsHome extends StatelessWidget {
             Icons.account_circle_outlined,
             '/settings/account',
           ),
-          ('内测计划', '设备配对与专属额度', Icons.science_outlined, '/settings/beta'),
+          ('内测计划', '申请状态与专属额度', Icons.science_outlined, '/settings/beta'),
           (
             '模型与服务',
             modelSettings.connections.isEmpty
@@ -166,9 +166,9 @@ class SettingsHome extends StatelessWidget {
           ),
           ('关于 Skivu', '版本信息与开源许可', Icons.info_outline, '/settings/about'),
         ]),
-        Center(child: label('Skivu 0.1.0', size: 10, color: muted)),
+        Center(child: label('Skivu $appVersion', size: 10, color: muted)),
         const SizedBox(height: 6),
-        Center(child: label('语音、工具与设备协同正在准备中', size: 10, color: muted)),
+        Center(child: label('更多扩展能力正在准备中', size: 10, color: muted)),
       ],
     ),
   );
@@ -368,7 +368,10 @@ class PrivacySettings extends StatelessWidget {
         const SizedBox(height: 14),
         label('聊天内容仅在发送时交给你配置的模型服务。API Key 单独加密保存在设备中，聊天备份不包含密钥。', size: 12),
         const SizedBox(height: 14),
-        label('选择自定义背景或字体时，系统会由你挑选文件。当前文字聊天无需麦克风、联系人或定位权限。', size: 12),
+        label(
+          '选择自定义背景或字体时，系统会由你挑选文件。文字聊天无需麦克风、联系人或定位权限。语音通话会按需请求麦克风；系统识别可能联网，App 不保存录音文件。',
+          size: 12,
+        ),
         const SizedBox(height: 14),
         label(
           '浏览器预览使用独立于手机的本地存储；直接访问第三方 API 需要该服务允许浏览器跨域请求。',
@@ -390,7 +393,7 @@ class SkivuAbout extends StatelessWidget {
         const BrandMark(size: 72),
         const SizedBox(height: 18),
         label('Skivu', size: 32, weight: FontWeight.w600),
-        label('0.1.0', size: 12, color: muted),
+        label(appVersion, size: 12, color: muted),
         const SizedBox(height: 22),
         label('让每次对话，都有回应。', size: 14),
         const SizedBox(height: 24),
@@ -401,7 +404,7 @@ class SkivuAbout extends StatelessWidget {
           onTap: () => showLicensePage(
             context: context,
             applicationName: 'Skivu',
-            applicationVersion: '0.1.0',
+            applicationVersion: appVersion,
           ),
         ),
       ],

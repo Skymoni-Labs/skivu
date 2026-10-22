@@ -138,27 +138,36 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
       ),
       theme: ThemeData(
         useMaterial3: true,
-        brightness: demo.dark ? Brightness.dark : Brightness.light,
+        brightness: Brightness.light,
         fontFamily: appearance.fontFamily(),
         fontFamilyFallback: const ['SkiSans'],
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: green,
-          brightness: demo.dark ? Brightness.dark : Brightness.light,
-          surface: demo.dark ? const Color(0xff202b28) : Colors.white,
+        textTheme: ThemeData.light().textTheme.apply(
+          bodyColor: ink,
+          displayColor: ink,
         ),
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: green,
+              brightness: Brightness.light,
+              surface: Colors.white,
+            ).copyWith(
+              onSurface: ink,
+              onSurfaceVariant: muted,
+              onPrimary: ink,
+              onSecondary: ink,
+              onError: ink,
+            ),
         scaffoldBackgroundColor: demo.dark ? const Color(0xff17231f) : paper,
         dividerColor: muted.withValues(alpha: .18),
         dialogTheme: DialogThemeData(
-          backgroundColor: (demo.dark ? const Color(0xff24354d) : Colors.white)
-              .withValues(alpha: .91),
+          backgroundColor: Colors.white.withValues(alpha: .94),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
         ),
         bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: (demo.dark ? const Color(0xff24354d) : Colors.white)
-              .withValues(alpha: .92),
+          backgroundColor: Colors.white.withValues(alpha: .94),
           surfaceTintColor: Colors.transparent,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
@@ -167,8 +176,8 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: green,
-            foregroundColor: Colors.white,
+            backgroundColor: mist,
+            foregroundColor: ink,
             padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 19),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -177,7 +186,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
-            foregroundColor: demo.dark ? Colors.white : ink,
+            foregroundColor: ink,
             padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 18),
             side: BorderSide(color: muted.withValues(alpha: .25)),
             shape: RoundedRectangleBorder(
@@ -187,7 +196,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: demo.dark ? const Color(0xff17231f) : paper,
+          fillColor: paper,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
@@ -392,76 +401,108 @@ class _SkiShellState extends State<SkiShell>
         ),
       );
       final capsule = appearance.flag('capsuleToolbar');
-      final foreground = Material(
-        color: Colors.transparent,
-        child: SafeArea(
-          child: Column(
+      final toolbar = SizedBox(
+        key: ValueKey(capsule ? 'capsule-toolbar' : 'rectangle-toolbar'),
+        height: 62,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
             children: [
-              Padding(
-                padding: capsule
-                    ? const EdgeInsets.fromLTRB(10, 7, 10, 5)
-                    : EdgeInsets.zero,
-                child: ConfigurableGlassSurface(
-                  area: 'toolbarBlur',
-                  radius: capsule ? 26 : 0,
-                  child: SizedBox(
-                    height: 62,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          SkiGlassButton(
-                            tooltip: '打开导航',
-                            plain: !capsule,
-                            onPressed: () => panel(1),
-                            icon: Icons.menu_rounded,
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(
-                                  child: label(
-                                    title,
-                                    size: 17,
-                                    weight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                              ],
-                            ),
-                          ),
-                          if (widget.route == '/chat')
-                            SkiGlassButton(
-                              tooltip: '语音通话演示',
-                              plain: !capsule,
-                              onPressed: () => go('/call'),
-                              icon: Icons.call_outlined,
-                            ),
-                          if (widget.route != '/chat')
-                            SkiGlassButton(
-                              tooltip: '返回聊天',
-                              plain: !capsule,
-                              onPressed: () => go('/chat'),
-                              icon: Icons.chat_bubble_outline,
-                            ),
-                          SkiGlassButton(
-                            tooltip: '打开工作区',
-                            plain: !capsule,
-                            onPressed: () => panel(-1),
-                            icon: Icons.space_dashboard_outlined,
-                          ),
-                        ],
+              SkiGlassButton(
+                tooltip: '打开导航',
+                plain: true,
+                onPressed: () => panel(1),
+                icon: Icons.menu_rounded,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: widget.route == '/chat'
+                          ? () => go('/characters/edit')
+                          : null,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: ink,
+                        ),
                       ),
                     ),
-                  ),
+                    if (widget.route == '/chat' && demo.streaming)
+                      const Text(
+                        '对方正在输入中',
+                        key: ValueKey('typing-indicator'),
+                        style: TextStyle(fontSize: 11, color: ink),
+                      ),
+                  ],
                 ),
               ),
-              Expanded(child: RepaintBoundary(child: body)),
+              SkiGlassButton(
+                tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
+                plain: true,
+                onPressed: () =>
+                    go(widget.route == '/chat' ? '/call' : '/chat'),
+                icon: widget.route == '/chat'
+                    ? Icons.call_outlined
+                    : Icons.chat_bubble_outline,
+              ),
+              SkiGlassButton(
+                tooltip: '打开工作区',
+                plain: true,
+                onPressed: () => panel(-1),
+                icon: Icons.space_dashboard_outlined,
+              ),
             ],
           ),
         ),
       );
+      final foreground = Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: widget.route == '/chat'
+                    ? RepaintBoundary(child: body)
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 76),
+                        child: RepaintBoundary(child: body),
+                      ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: capsule
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(40),
+                          child: ConfigurableGlassSurface(
+                            area: 'toolbarBlur',
+                            radius: 40,
+                            child: toolbar,
+                          ),
+                        ),
+                      )
+                    : ColoredBox(
+                        key: const ValueKey('opaque-rectangle-toolbar'),
+                        color: paper,
+                        child: toolbar,
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (widget.route == '/call') return Scaffold(body: body);
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: SkiGlassScene(

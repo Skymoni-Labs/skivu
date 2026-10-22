@@ -1,0 +1,22 @@
+{
+  "repository": "https://github.com/skyjjgw/starcompanion-operit2",
+  "commit": "51f29da6f68407b0c4aaa651536b5f83054bcb58",
+  "files": [
+    {
+      "source": "apps/flutter/app/lib/ui/features/chat/components/ChatMessageDialModel.dart",
+      "destination": "lib/chat_message_dial_model.dart",
+      "source_sha256": "178e519b9d2f448a2891ab06477f96a809a9c7e7aeaed8ab1923392a62036494"
+    },
+    {
+      "source": "apps/flutter/app/lib/ui/features/chat/components/ChatMessageDial.dart",
+      "destination": "lib/chat_message_dial.dart",
+      "source_sha256": "e45cd9a5ad3a1c8101e8412c3ccc587d01b429df58f5652b3a61589242ae1fd9"
+    },
+    {
+      "source": "apps/flutter/app/lib/ui/features/chat/call/VoiceCallScreen.dart",
+      "destination": "lib/voice_call_screen.dart",
+      "source_sha256": "e9d81faf783e26e3e5900a01af905511ba6eca2f6ab9b09185a6a6aefb241b53"
+    }
+  ],
+  "scope": "Original added dial and call screen; existing upstream chat host excluded; native session adapted to this app"
+}

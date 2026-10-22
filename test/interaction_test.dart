@@ -228,19 +228,31 @@ void main() {
       await tester.pumpWidget(const SkiApp());
       await tester.pumpAndSettle();
       expect(find.byType(ChatPage), findsOneWidget);
-      expect(find.byTooltip('点击定位 · 长按环形导航'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-message-navigation-ball')),
+        findsNothing,
+      );
       await tester.drag(find.byType(ListView).first, const Offset(0, -240));
       await tester.pump(const Duration(milliseconds: 100));
-      final button = find.byTooltip('点击定位 · 长按环形导航');
+      final button = find.byKey(const ValueKey('chat-message-navigation-ball'));
       expect(button, findsOneWidget);
       final before = tester.getCenter(button);
       final hold = await tester.startGesture(before);
       await tester.pump(const Duration(milliseconds: 700));
-      expect(find.text('松开定位'), findsOneWidget);
-      expect((tester.getCenter(button) - before).distance, lessThan(1));
+      await tester.pump(const Duration(milliseconds: 200));
+      final ring = find.byKey(const ValueKey('chat-message-dial-ring'));
+      expect(ring, findsOneWidget);
+      final ringCenter = tester.getCenter(ring);
+      await hold.moveBy(const Offset(-20, -30));
+      await tester.pump();
+      expect((tester.getCenter(ring) - ringCenter).distance, lessThan(1));
       await hold.up();
       await tester.pumpAndSettle();
-      expect(find.text('松开定位'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-message-dial-ring')),
+        findsNothing,
+      );
+      await tester.pump(const Duration(milliseconds: 1300));
       await tester.drag(find.byType(ListView).first, const Offset(0, -90));
       await tester.pump(const Duration(milliseconds: 100));
       if (button.evaluate().isNotEmpty) {

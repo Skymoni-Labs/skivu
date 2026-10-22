@@ -37,19 +37,32 @@ class LocalGlassPreferencesPersistence implements GlassPreferencesPersistence {
   Future<GlassBlurValues?> read() async {
     final raw = await _prefs.getString(_key);
     if (raw == null) return null;
-    return decodeGlassBlurValues(raw);
+    var values = decodeGlassBlurValues(raw);
+    if (await _prefs.getBool('skivu.bubbleGlass.v2') != true) {
+      values = (
+        left: values.left,
+        right: values.right,
+        user: values.user == 0 ? 6 : values.user,
+        assistant: values.assistant == 0 ? 6 : values.assistant,
+      );
+      await write(values);
+    }
+    return values;
   }
 
   @override
-  Future<void> write(GlassBlurValues values) => _prefs.setString(
-    _key,
-    jsonEncode({
-      'left': values.left,
-      'right': values.right,
-      'user': values.user,
-      'assistant': values.assistant,
-    }),
-  );
+  Future<void> write(GlassBlurValues values) async {
+    await _prefs.setBool('skivu.bubbleGlass.v2', true);
+    await _prefs.setString(
+      _key,
+      jsonEncode({
+        'left': values.left,
+        'right': values.right,
+        'user': values.user,
+        'assistant': values.assistant,
+      }),
+    );
+  }
 }
 
 class GlassPreferences extends ChangeNotifier {
@@ -57,7 +70,7 @@ class GlassPreferences extends ChangeNotifier {
     : _persistence = persistence ?? LocalGlassPreferencesPersistence();
   final GlassPreferencesPersistence _persistence;
   double _left = 12, _right = 12;
-  double _user = 0, _assistant = 0;
+  double _user = 6, _assistant = 6;
   double get leftBlur => _left;
   double get rightBlur => _right;
   double get userBlur => _user;

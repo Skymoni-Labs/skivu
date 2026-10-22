@@ -42,6 +42,13 @@ class AppPlatform {
     await _channel.invokeMethod('openWebsite', {'url': url});
   }
 
+  Future<String> encryptPassword(String password, String publicKey) async =>
+      await _channel.invokeMethod<String>('encryptPassword', {
+        'password': password,
+        'publicKey': publicKey,
+      }) ??
+      (throw StateError('登录加密不可用'));
+
   Future<String> prepareUpdate() async =>
       await _channel.invokeMethod<String>('prepareUpdate') ??
       (throw StateError('无法准备更新目录'));

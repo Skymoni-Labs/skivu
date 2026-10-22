@@ -9,19 +9,12 @@ TextStyle chatMessageStyle(
   bool user, {
   double size = 14,
 }) {
-  final dark = Theme.of(context).brightness == Brightness.dark;
   return TextStyle(
     fontSize: size,
     height: 1.75,
     fontFamily: appearance.fontFamily(user ? 'userFont' : 'assistantFont'),
     fontFamilyFallback: const ['SkiSans'],
-    color: appearance.flag('customMessageColors')
-        ? appearance.color(user ? 'userText' : 'assistantText')
-        : dark
-        ? Colors.white
-        : user
-        ? const Color(0xff285c7a)
-        : ink,
+    color: ink,
   );
 }
 
@@ -48,7 +41,6 @@ class ChatBubbleSurface extends StatelessWidget {
       builder: (context, content) {
         final blur = user ? model.userBlur : model.assistantBlur;
         final glass = demo.prefs['毛玻璃效果'] ?? true;
-        final dark = Theme.of(context).brightness == Brightness.dark;
         final document = appearance.text('bubbleStyle') == 'document' && !user;
         final alpha = appearance.number(
           user ? 'userOpacity' : 'assistantOpacity',
@@ -56,14 +48,17 @@ class ChatBubbleSurface extends StatelessWidget {
         final image = appearanceAssets.image(
           appearance.text(user ? 'userImage' : 'assistantImage'),
         );
-        final radius = !appearance.flag('rounded')
-            ? BorderRadius.circular(3)
-            : BorderRadius.only(
-                topLeft: Radius.circular(user ? 21 : 6),
-                topRight: Radius.circular(user ? 6 : 21),
-                bottomLeft: const Radius.circular(21),
-                bottomRight: const Radius.circular(21),
-              );
+        final shape = appearance.text('bubbleShape');
+        final radius = !appearance.flag('rounded') || shape == 'rectangle'
+            ? BorderRadius.circular(2)
+            : shape == 'tail'
+            ? BorderRadius.only(
+                topLeft: Radius.circular(user ? 22 : 5),
+                topRight: Radius.circular(user ? 5 : 22),
+                bottomLeft: const Radius.circular(22),
+                bottomRight: const Radius.circular(22),
+              )
+            : BorderRadius.circular(shape == 'pill' ? 30 : 18);
         return DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: radius,
@@ -71,9 +66,14 @@ class ChatBubbleSurface extends StatelessWidget {
                 ? []
                 : [
                     BoxShadow(
-                      color: const Color(0xff8dabc8).withValues(alpha: .035),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+                      color: const Color(0xff233344).withValues(alpha: .13),
+                      blurRadius: 16,
+                      offset: const Offset(0, 5),
+                    ),
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: .8),
+                      blurRadius: 2,
+                      spreadRadius: .6,
                     ),
                   ],
           ),
@@ -95,10 +95,6 @@ class ChatBubbleSurface extends StatelessWidget {
                       ? appearance
                             .color(user ? 'userColor' : 'assistantColor')
                             .withValues(alpha: glass ? alpha : 1)
-                      : dark
-                      ? const Color(
-                          0xff2a3b50,
-                        ).withValues(alpha: glass ? alpha : .96)
                       : Colors.white.withValues(alpha: glass ? alpha : .96),
                   image: image == null
                       ? null
@@ -111,9 +107,8 @@ class ChatBubbleSurface extends StatelessWidget {
                   border: document
                       ? null
                       : Border.all(
-                          color: dark
-                              ? Colors.white.withValues(alpha: .08)
-                              : Colors.white.withValues(alpha: .86),
+                          color: Colors.white.withValues(alpha: .9),
+                          width: 1.2,
                         ),
                 ),
                 child: content!,

@@ -443,7 +443,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     final values = <List<int>>[
       [0xffc9e6ff, 0xffedf4fa, 0xff234f69, 0xff283947],
       [0xffd7eee3, 0xffedf4ee, 0xff285640, 0xff284033],
-      [0xff283b51, 0xff344257, 0xfff5f8fc, 0xfff5f8fc],
+      [0xffd5dde6, 0xffe2e7ed, 0xff17212b, 0xff17212b],
     ][i - 1];
     for (final e in [
       'userColor',
@@ -464,25 +464,29 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       choices('bubbleStyle', '版式', {'bubble': '对话气泡', 'document': '阅读式'}),
       toggle('compact', '紧凑消息间距'),
       toggle('wideChat', '加宽聊天内容'),
-      toggle('rounded', '圆角消息卡片'),
+      choices('bubbleShape', '气泡形状', {
+        'rounded': '圆矩形',
+        'rectangle': '直角矩形',
+        'tail': '对话尾角',
+        'pill': '柔和圆角',
+      }),
+      toggle('rounded', '启用圆角'),
       title('消息配色'),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          for (final e in ['跟随主题', '清透蓝', '浅苔绿', '深色'].asMap().entries)
+          for (final e in ['跟随主题', '清透蓝', '浅苔绿', '雾灰'].asMap().entries)
             ActionChip(
               label: Text(e.value),
               onPressed: () => messagePalette(e.key),
             ),
         ],
       ),
-      toggle('customMessageColors', '使用自定义消息颜色'),
+      toggle('customMessageColors', '使用自定义气泡底色'),
       for (final e in {
         'userColor': '我的气泡底色',
         'assistantColor': '回复气泡底色',
-        'userText': '我的消息文字',
-        'assistantText': '回复消息文字',
       }.entries)
         colorRow(e.key, e.value),
       slider('userOpacity', '我的气泡不透明度', 0, 1, percent: true),
@@ -530,6 +534,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           'compact',
           'wideChat',
           'rounded',
+          'bubbleShape',
           'customMessageColors',
           'userColor',
           'assistantColor',
@@ -556,7 +561,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       slider('leftOpacity', '左侧栏不透明度', 0, 1, percent: true),
       slider('rightOpacity', '右侧栏不透明度', 0, 1, percent: true),
       title('输入框与顶栏'),
-      toggle('capsuleToolbar', '胶囊顶栏', note: '关闭后使用普通顶栏。'),
+      toggle('capsuleToolbar', '胶囊顶栏', note: '开启为折射玻璃胶囊；关闭为完全遮挡的长方形顶栏。'),
       slider('inputBlur', '输入框玻璃模糊', 0, 30),
       slider('inputOpacity', '输入框不透明度', 0, 1, percent: true),
       slider('toolbarBlur', '顶栏玻璃模糊', 0, 30),
@@ -584,6 +589,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       toggle('avatars', '显示消息头像'),
       toggle('squareAvatars', '使用方形头像'),
       title('输入框'),
+      toggle('showUsage', '显示输入框下方统计', note: '轮次、速度、用量与占用率保持一行。'),
       choices('inputStyle', '输入布局', {'expanded': '展开工具栏', 'compact': '紧凑单行'}),
       toggle('floatingInput', '悬浮输入框'),
       title('动态与状态'),

@@ -129,7 +129,8 @@ ChatFailure _accountHttpError(int status) => switch (status) {
 
 class ChatSession {
   ChatSession(this._client, this.config, this._key, this.history, this.system)
-    : _betaHeaders = null,
+    : _funding = 'relay',
+      _betaHeaders = null,
       _fixedPath = null;
   ChatSession.beta(
     this._client,
@@ -137,7 +138,8 @@ class ChatSession {
     this.history,
     this.system,
     this._betaHeaders,
-  ) : _key = '',
+  ) : _funding = 'relay',
+      _key = '',
       _fixedPath = config.protocol == ApiProtocol.responses
           ? '/api/app-beta/responses'
           : '/api/app-beta/chat/completions';
@@ -146,12 +148,15 @@ class ChatSession {
     this.config,
     this.history,
     this.system,
-    String token,
-  ) : _key = '',
-      _betaHeaders = ((_) async => {'Authorization': 'AppAccount $token'}),
-      _fixedPath = config.protocol == ApiProtocol.responses
-          ? '/api/app-account/responses'
-          : '/api/app-account/chat/completions';
+    String token, {
+    String funding = 'relay',
+  }) : _funding = funding,
+       _key = '',
+       _betaHeaders = ((_) async => {'Authorization': 'AppAccount $token'}),
+       _fixedPath = config.protocol == ApiProtocol.responses
+           ? '/api/app-account/responses'
+           : '/api/app-account/chat/completions';
+  final String _funding;
   final String? _fixedPath;
   final Future<Map<String, String>> Function(String body)? _betaHeaders;
   final http.Client _client;
@@ -176,6 +181,7 @@ class ChatSession {
     if (_betaHeaders != null && config.protocol == ApiProtocol.responses)
       return {
         'model': config.model,
+        if (_funding == 'beta') 'funding': 'beta',
         'input': history,
         'instructions': system,
         'stream': config.streaming,
@@ -185,6 +191,7 @@ class ChatSession {
     if (_betaHeaders != null)
       return {
         'model': config.model,
+        if (_funding == 'beta') 'funding': 'beta',
         'messages': messages,
         'stream': config.streaming,
         'max_tokens': config.maxOutput.clamp(1, 4096),
@@ -275,7 +282,7 @@ class ChatSession {
       final response = await _client
           .send(request)
           .timeout(Duration(seconds: config.timeoutSeconds));
-      if (response.statusCode == 401 &&
+      if (response.statusCode >= 400 &&
           _fixedPath?.startsWith('/api/app-account/') == true) {
         final text = await _boundedText(
           response.stream.timeout(Duration(seconds: config.timeoutSeconds)),
@@ -287,6 +294,18 @@ class ChatSession {
               '账号登录已过期，请重新登录。',
               code: 'APP_SESSION_INVALID',
             );
+          if (raw is Map &&
+              [
+                'BETA_NOT_APPROVED',
+                'BETA_QUOTA_EXHAUSTED',
+                'BETA_CHANNEL_DISABLED',
+              ].contains(raw['code'])) {
+            throw ChatFailure(switch (raw['code']) {
+              'BETA_NOT_APPROVED' => '内测尚未批准或已暂停，请查看内测计划。',
+              'BETA_QUOTA_EXHAUSTED' => '内测额度已用完，请等待管理员发放。',
+              _ => '内测服务暂未开放，请稍后重试。',
+            }, code: raw['code'] as String);
+          }
         } on FormatException {
           /* Use the sanitized generic error below. */
         }

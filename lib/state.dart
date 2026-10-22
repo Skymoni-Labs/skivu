@@ -11,11 +11,11 @@ import 'model_settings.dart';
 import 'beta_access.dart';
 import 'relay_account.dart';
 
-const ink = Color(0xff283947);
+const ink = Color(0xff17212b);
 Color get green => appearance.color('accent');
 Color get mist => Color.lerp(green, Colors.white, .86)!;
 Color get paper => Color.lerp(green, Colors.white, .965)!;
-const muted = Color(0xff83909e);
+const muted = Color(0xff39434f);
 
 class Message {
   Message(this.user, this.text, {this.bookmarked = false, DateTime? created})
@@ -71,6 +71,12 @@ class Persona {
     this.icon,
   );
   String name, subtitle, prompt, group;
+  Map<String, String> card = {};
+  String get compiledPrompt => [
+    prompt,
+    for (final e in card.entries)
+      if (e.value.trim().isNotEmpty && e.key != '开场白') '${e.key}：${e.value}',
+  ].where((s) => s.trim().isNotEmpty).join('\n\n');
   final Color color;
   final IconData icon;
   Map<String, dynamic> toJson() => {
@@ -78,23 +84,36 @@ class Persona {
     'subtitle': subtitle,
     'prompt': prompt,
     'group': group,
+    'card': card,
     'color': color.toARGB32(),
     'icon': icon.codePoint,
   };
-  factory Persona.fromJson(Map<String, dynamic> raw) => Persona(
-    raw['name'] as String,
-    raw['subtitle'] as String,
-    raw['prompt'] as String,
-    raw['group'] as String,
-    Color(raw['color'] as int),
-    [
-          Icons.auto_awesome_outlined,
-          Icons.crop_free,
-          Icons.edit_note,
-          Icons.face_outlined,
-        ].where((icon) => icon.codePoint == raw['icon']).firstOrNull ??
-        Icons.auto_awesome_outlined,
-  );
+  factory Persona.fromJson(Map<String, dynamic> raw) =>
+      Persona(
+          raw['name'] as String,
+          raw['subtitle'] as String,
+          raw['prompt'] as String,
+          raw['group'] as String,
+          Color(raw['color'] as int),
+          [
+                Icons.auto_awesome_outlined,
+                Icons.crop_free,
+                Icons.edit_note,
+                Icons.face_outlined,
+              ].where((icon) => icon.codePoint == raw['icon']).firstOrNull ??
+              Icons.auto_awesome_outlined,
+        )
+        ..card = {
+          for (final e
+              in (raw['card'] is Map
+                  ? (raw['card'] as Map).entries
+                  : <MapEntry>[]))
+            if (e.key is String && e.value is String)
+              e.key as String: (e.value as String).substring(
+                0,
+                (e.value as String).length.clamp(0, 6000),
+              ),
+        };
 }
 
 class Conversation {
@@ -164,6 +183,7 @@ class DemoStore extends ChangeNotifier {
   final RelayAccount account;
   bool useBeta = false;
   bool useAccount = false;
+  Map<String, String> userCard = {};
   ModelConnection? get activeConnection => useBeta
       ? beta.connection
       : useAccount
@@ -303,8 +323,17 @@ class DemoStore extends ChangeNotifier {
           ..addAll(roles!);
       }
       persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
-      useBeta = raw['useBeta'] == true;
-      useAccount = !useBeta && raw['useAccount'] == true;
+      userCard = {
+        for (final e
+            in (raw['userCard'] is Map
+                ? (raw['userCard'] as Map).entries
+                : <MapEntry>[]))
+          if (e.key is String && e.value is String)
+            e.key as String: e.value as String,
+      };
+      useBeta = false;
+      useAccount = raw['useAccount'] == true || raw['useBeta'] == true;
+      if (raw['useBeta'] == true) await account.selectFunding('beta');
       if (raw['groups'] is List) {
         groups
           ..clear()
@@ -327,6 +356,7 @@ class DemoStore extends ChangeNotifier {
     'personas': personas.map((p) => p.toJson()).toList(),
     'persona': persona,
     'groups': groups,
+    'userCard': userCard,
     'useBeta': useBeta,
     'useAccount': useAccount,
   });
@@ -375,6 +405,7 @@ class DemoStore extends ChangeNotifier {
         'personas': personas.map((p) => p.toJson()).toList(),
         'persona': persona,
         'groups': groups,
+        'userCard': userCard,
       }),
     );
     _archiveBlocked = false;
@@ -411,6 +442,12 @@ class DemoStore extends ChangeNotifier {
         ..addAll(roles!);
     }
     persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
+    if (raw['userCard'] is Map)
+      userCard = {
+        for (final e in (raw['userCard'] as Map).entries)
+          if (e.key is String && e.value is String)
+            e.key as String: e.value as String,
+      };
     if (raw['groups'] is List) {
       groups
         ..clear()
@@ -424,7 +461,13 @@ class DemoStore extends ChangeNotifier {
 
   void newChat() {
     stop();
-    conversations.insert(0, Conversation('新的对话', []));
+    conversations.insert(
+      0,
+      Conversation('新的对话', [
+        if ((role.card['开场白'] ?? '').trim().isNotEmpty)
+          Message(false, role.card['开场白']!),
+      ]),
+    );
     conversation = 0;
     changed();
     saveChats();
@@ -458,7 +501,9 @@ class DemoStore extends ChangeNotifier {
       lastError = useBeta
           ? '请先检查内测配对状态与可用模型。'
           : useAccount
-          ? '请先登录中转站并同步模型。'
+          ? (account.signedIn && account.funding == 'beta'
+                ? account.betaMessage
+                : '请先登录中转站并同步模型。')
           : '请先添加一个模型连接。';
       changed();
       return false;
@@ -498,7 +543,21 @@ class DemoStore extends ChangeNotifier {
     _pending = answer;
     streaming = true;
     final generation = ++_generation;
-    final prompt = role.prompt;
+    final prompt =
+        [
+              role.compiledPrompt,
+              if (userCard.values.any((v) => v.trim().isNotEmpty))
+                '用户角色资料：\n${userCard.entries.map((e) => '${e.key}：${e.value}').join('\n')}',
+            ]
+            .where((v) => v.isNotEmpty)
+            .join('\n\n')
+            .replaceAll('{{char}}', role.name)
+            .replaceAll(
+              '{{user}}',
+              userCard['称呼']?.trim().isNotEmpty == true
+                  ? userCard['称呼']!
+                  : '用户',
+            );
     saveChats();
     changed();
     unawaited(

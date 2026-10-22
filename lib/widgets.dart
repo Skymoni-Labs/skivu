@@ -12,7 +12,7 @@ Widget label(
   text,
   style: TextStyle(
     fontSize: size,
-    color: color,
+    color: ink,
     fontWeight: weight,
     height: height ?? 1.65,
   ),

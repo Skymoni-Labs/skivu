@@ -41,7 +41,7 @@ Flutter 的 CanvasKit / Skia Web 运行资源随构建自托管，不使用渲�
 
 新增衬线与等宽字体的固定下载地址、提交、大小和 SHA-256 见 `appearance-font-sources.json`，已与固定提交的原始字体字节核对；OFL 正文分别在 `licenses/NotoSerifSC-OFL.txt`、`licenses/RobotoMono-OFL.txt`。自定义媒体与字体由用户从本机选取，不作为仓库资源发布。
 
-SDK 产物许可在 `licenses/Flutter-engine-NOTICES.txt`；Flutter/Dart、图标字体和 Noto 字体正文也各自保留。发布构建中的 `assets/NOTICES` 由 Flutter 生成；工程许可目录与本说明另外复制到交付目录的 `third-party/`，应用内“关于 ski → 查看开源许可”可查看运行时许可。
+SDK 产物许可在 `licenses/Flutter-engine-NOTICES.txt`；Flutter/Dart、图标字体和 Noto 字体正文也各自保留。发布构建中的 `assets/NOTICES` 由 Flutter 生成；工程许可目录与本说明另外复制到交付目录的 `third-party/`，应用内“关于 Skivu → 查看开源许可”可查看运行时许可。
 
 ## 条款依据
 
@@ -53,3 +53,5 @@ SDK 产物许可在 `licenses/Flutter-engine-NOTICES.txt`；Flutter/Dart、图�
 - [Mozilla MPL 2.0 FAQ：文件级义务与 proprietary larger works](https://www.mozilla.org/en-US/MPL/2.0/FAQ/)
 
 没有纳入 Operit1/2 官方宿主的业务代码、生成代码、补丁或素材。2026-10-21 用户要求迁入其旧星伴原创水滴光球，来源与适配记录另附；不再将该模块描述为全新从零编写。根据用户选择，纳入 Liquid Glass Easy 材质与触摸组件；没有导入其示例 App、照片或其他候选项目。新增后端、原生能力、模型、音色、插件或依赖时应重新核对实际版本和产物。
+
+2026-10-22 又按用户明确要求迁入其自行新增的消息定位拨盘和通话界面，固定文件、提交和适配范围见 MODULE-MIGRATION.md 与 module-migration-sources.json。没有整份导入上游已有的 ChatScrollNavigator 或旧宿主；当前原生语音适配使用 Android 平台 API，没有新增音频库或音色/模型权重。原有第三方许可继续保留。

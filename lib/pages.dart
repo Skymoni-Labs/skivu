@@ -1,20 +1,19 @@
-import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'state.dart';
 import 'widgets.dart';
-import 'voice_call_orb.dart';
+import 'voice_call_screen.dart';
+import 'voice_call_session.dart';
 import 'appearance_settings.dart';
 import 'settings_home.dart';
 import 'model_settings_page.dart';
-import 'beta_settings_page.dart';
+import 'account_beta_page.dart';
 import 'relay_account_page.dart';
 import 'app_updates_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
   ('updates', '检查更新', '新版本与手机内升级', Icons.system_update_outlined),
-  ('beta', '内测计划', '设备配对与专属内测额度', Icons.science_outlined),
+  ('beta', '内测计划', '申请状态与专属内测额度', Icons.science_outlined),
   ('models', '模型与服务', '管理连接，选择适合你的模型', Icons.hub_outlined),
   ('speech', '语音', '语音识别与声音合成', Icons.graphic_eq),
   ('appearance', '外观', '壁纸、主题与文字大小', Icons.palette_outlined),
@@ -268,6 +267,18 @@ class _CharacterEditorState extends State<CharacterEditor> {
   late final name = TextEditingController(text: demo.role.name),
       subtitle = TextEditingController(text: demo.role.subtitle),
       prompt = TextEditingController(text: demo.role.prompt);
+  final cardFields = <String, TextEditingController>{
+    for (final key in [
+      '角色描述',
+      '性格与说话方式',
+      '场景与世界观',
+      '与用户的关系',
+      '示例对话',
+      '开场白',
+      '回复规则与边界',
+    ])
+      key: TextEditingController(text: demo.role.card[key] ?? ''),
+  };
   late String group = demo.role.group;
   final form = GlobalKey<FormState>();
   @override
@@ -275,6 +286,9 @@ class _CharacterEditorState extends State<CharacterEditor> {
     name.dispose();
     subtitle.dispose();
     prompt.dispose();
+    for (final field in cardFields.values) {
+      field.dispose();
+    }
     super.dispose();
   }
 
@@ -349,7 +363,29 @@ class _CharacterEditorState extends State<CharacterEditor> {
                 ),
               ),
               const SizedBox(height: 12),
-              label('此设定会作为角色提示词，用于之后的对话。', size: 11, color: muted),
+              label(
+                '设定用于之后的对话，支持 {{char}} 与 {{user}}。留空的字段不会加入提示词。',
+                size: 11,
+                color: muted,
+              ),
+              for (final e in cardFields.entries) ...[
+                const SizedBox(height: 18),
+                TextFormField(
+                  controller: e.value,
+                  maxLength: 6000,
+                  minLines: 2,
+                  maxLines: 6,
+                  decoration: InputDecoration(
+                    labelText: e.key,
+                    helperText: e.key == '示例对话'
+                        ? '例如：用户：今天好累。角色：先坐下来，我听你说。'
+                        : e.key == '开场白'
+                        ? '仅新建对话时显示，不请求模型。'
+                        : '可选；填写具体行为、背景与表达习惯。',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
               Wrap(
                 spacing: 12,
@@ -360,6 +396,10 @@ class _CharacterEditorState extends State<CharacterEditor> {
                     demo.role.subtitle = subtitle.text;
                     demo.role.prompt = prompt.text;
                     demo.role.group = group;
+                    demo.role.card = {
+                      for (final e in cardFields.entries)
+                        e.key: e.value.text.trim(),
+                    };
                     demo.changed();
                     demo.saveChats();
                     toast(context, '角色已保存');
@@ -413,7 +453,7 @@ class _SettingsDetailState extends State<SettingsDetail> {
         switch (widget.section) {
           'account' => RelayAccountPage(go: widget.go),
           'updates' => const AppUpdatesPage(),
-          'beta' => BetaSettingsPage(go: widget.go),
+          'beta' => AccountBetaPage(go: widget.go),
           'models' => models(),
           'speech' => speech(),
           'appearance' => appearance(),
@@ -440,62 +480,41 @@ class _SettingsDetailState extends State<SettingsDetail> {
     ),
   );
   Widget models() => const ModelSettingsPage();
-  Widget speech() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Pane(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            label('语音识别', size: 16, weight: FontWeight.w500),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: demo.recognition,
-              decoration: const InputDecoration(labelText: '识别方式'),
-              items: [
-                for (final v in ['浏览器演示识别', '本地识别 · 待接入', '云端识别 · 待接入'])
-                  DropdownMenuItem(
-                    value: v,
-                    child: Text(v, style: const TextStyle(fontSize: 12)),
-                  ),
-              ],
-              onChanged: (v) {
-                demo.recognition = v!;
-                demo.changed();
-              },
-            ),
-            const SizedBox(height: 20),
-            label('语音合成', size: 16, weight: FontWeight.w500),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              children: [
-                for (final v in ['清澈', '温暖', '沉静'])
-                  ChoiceChip(
-                    label: Text(v),
-                    selected: demo.voice == v,
-                    onSelected: (_) {
-                      demo.voice = v;
-                      demo.changed();
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            toggle('声音反馈', '仅切换演示偏好，不播放音频'),
-            const SizedBox(height: 10),
-            actionButton(
-              '体验语音通话',
-              Icons.graphic_eq,
-              () => widget.go('/call'),
-              filled: true,
-            ),
-          ],
+  Widget speech() => Pane(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        label('角色语音通话', size: 22, weight: FontWeight.w600),
+        const SizedBox(height: 16),
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.mic_none),
+          title: Text('Android 系统语音识别'),
+          subtitle: Text('首次开启时请求麦克风权限。识别服务可能联网。'),
         ),
-      ),
-      const SizedBox(height: 18),
-      label('本阶段不请求麦克风权限，不采集、不识别、不播放真实语音。', size: 11, color: muted),
-    ],
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.chat_bubble_outline),
+          title: Text('当前对话模型'),
+          subtitle: Text('沿用聊天记录、角色设定和所选额度通道。'),
+        ),
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.volume_up_outlined),
+          title: Text('Android 系统朗读'),
+          subtitle: Text('使用系统中文语音引擎；需要本机安装对应语言包。'),
+        ),
+        const SizedBox(height: 16),
+        label('切到后台会暂停收音；退出通话会释放语音资源。App 不保存录音文件。', size: 12),
+        const SizedBox(height: 18),
+        actionButton(
+          '打开语音通话',
+          Icons.call_outlined,
+          () => widget.go('/call'),
+          filled: true,
+        ),
+      ],
+    ),
   );
   Widget appearance() => const Pane(child: AppearanceSettings());
   Widget permissions() => Column(
@@ -643,225 +662,25 @@ class _SettingsDetailState extends State<SettingsDetail> {
   Widget about() => const SkivuAbout();
 }
 
-class PluginsPage extends StatefulWidget {
+class PluginsPage extends StatelessWidget {
   const PluginsPage({super.key, required this.market, required this.go});
   final bool market;
   final ValueChanged<String> go;
   @override
-  State<PluginsPage> createState() => _PluginsPageState();
-}
-
-class _PluginsPageState extends State<PluginsPage> {
-  String query = '';
-  String category = '全部';
-  List<(String, String, String, IconData, Color)> get catalog =>
-      <(String, String, String, IconData, Color)>[
-        ('灵感笔记', '随手记录，把想法留在当下。', '效率', Icons.edit_note, green),
-        ('轻计划', '把一个大目标，变成小步骤。', '效率', Icons.checklist, Color(0xff859a65)),
-        (
-          '文字工坊',
-          '打磨表达，让文字恰如其分。',
-          '创作',
-          Icons.auto_fix_high_outlined,
-          Color(0xffab805c),
-        ),
-        (
-          '灵感漫游',
-          '用一个问题，打开另一种可能。',
-          '创作',
-          Icons.explore_outlined,
-          Color(0xff7e8daa),
-        ),
-      ];
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      PageHeading(
-        widget.market ? 'Room to explore' : 'A little more possibility',
-        widget.market ? '插件市场' : '插件管理',
-        widget.market ? '这里的每一个条目，都是独立编写的概念插件示例。' : '选择适合你的工具，保持空间的轻盈。',
-        action: actionButton(
-          widget.market ? '已添加的插件' : '探索市场',
-          widget.market ? Icons.extension_outlined : Icons.north_east,
-          () => widget.go(widget.market ? '/plugins' : '/market'),
-        ),
-      ),
-      if (widget.market) ...[
-        Pane(
-          color: demo.dark ? null : const Color(0xffe2ecf8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const TinyTag('精选 / CONCEPT'),
-                    const SizedBox(height: 14),
-                    label('拓展你的 Skivu', size: 22, weight: FontWeight.w500),
-                    const SizedBox(height: 8),
-                    label('从一条笔记开始，建立自己的工作节奏。', size: 12, color: muted),
-                  ],
-                ),
-              ),
-              Icon(Icons.eco_outlined, size: 68, color: green),
-            ],
-          ),
-        ),
-        const SizedBox(height: 25),
-      ],
-      TextField(
-        decoration: const InputDecoration(
-          hintText: '搜索概念插件',
-          prefixIcon: Icon(Icons.search, size: 20),
-        ),
-        onChanged: (v) => setState(() => query = v),
-      ),
-      const SizedBox(height: 16),
-      Wrap(
-        spacing: 8,
+  Widget build(BuildContext context) => Pane(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 44),
+      child: Column(
         children: [
-          for (final cat in ['全部', '效率', '创作'])
-            ChoiceChip(
-              label: Text(cat),
-              selected: cat == category,
-              onSelected: (_) => setState(() => category = cat),
-            ),
+          Icon(Icons.extension_outlined, size: 42, color: ink),
+          const SizedBox(height: 20),
+          label(market ? '插件市场' : '插件', size: 24, weight: FontWeight.w600),
+          const SizedBox(height: 12),
+          label('即将开放', size: 18),
+          const SizedBox(height: 10),
+          label('更多扩展能力正在准备中。', size: 12),
         ],
       ),
-      const SizedBox(height: 23),
-      LayoutBuilder(
-        builder: (context, box) => Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: [
-            for (final p in catalog)
-              if ((widget.market || demo.installed.contains(p.$1)) &&
-                  p.$1.contains(query) &&
-                  (category == '全部' || category == p.$3))
-                SizedBox(
-                  width: box.maxWidth > 650
-                      ? (box.maxWidth - 16) / 2
-                      : box.maxWidth,
-                  child: Pane(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: p.$5.withValues(alpha: .12),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Icon(p.$4, color: p.$5),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  label(
-                                    p.$1,
-                                    size: 16,
-                                    weight: FontWeight.w500,
-                                  ),
-                                  label(
-                                    'Skivu 自主概念 · ${p.$3}',
-                                    size: 10,
-                                    color: muted,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const TinyTag('演示'),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        label(p.$2, size: 12, color: muted),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed: () => details(p),
-                              child: const Text(
-                                '查看详情',
-                                style: TextStyle(fontSize: 11),
-                              ),
-                            ),
-                            const Spacer(),
-                            OutlinedButton(
-                              onPressed: () {
-                                if (demo.installed.contains(p.$1)) {
-                                  demo.installed.remove(p.$1);
-                                } else {
-                                  demo.installed.add(p.$1);
-                                }
-                                demo.changed();
-                                setState(() {});
-                                toast(
-                                  context,
-                                  demo.installed.contains(p.$1)
-                                      ? '已添加概念插件，没有下载或运行代码'
-                                      : '已移出演示插件列表',
-                                );
-                              },
-                              child: Text(
-                                demo.installed.contains(p.$1)
-                                    ? '移除'
-                                    : '添加到 Skivu',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-          ],
-        ),
-      ),
-      if (!widget.market && demo.installed.isEmpty)
-        Padding(
-          padding: const EdgeInsets.all(30),
-          child: Center(
-            child: label('还没有插件。去市场挑一个概念示例吧。', size: 12, color: muted),
-          ),
-        ),
-      const SizedBox(height: 24),
-      label('所有条目仅改变本地演示列表，不下载、安装或执行插件包。', size: 11, color: muted),
-    ],
-  );
-  void details((String, String, String, IconData, Color) p) => showDialog(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: Text(p.$1),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            label(p.$2, size: 14),
-            const SizedBox(height: 20),
-            const TinyTag('第一方概念示例'),
-            const SizedBox(height: 15),
-            label(
-              '版本：0.1 concept\n作者：Skivu\n权限：无真实权限\n来源：本工程自主编写\n状态：没有插件运行时或外部依赖',
-              size: 12,
-              color: muted,
-            ),
-            const SizedBox(height: 16),
-            const Text('可到工作区「工具」面板查看固定演示结果。', style: TextStyle(fontSize: 12)),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(c), child: const Text('关闭')),
-      ],
     ),
   );
 }
@@ -874,181 +693,11 @@ class CallPage extends StatefulWidget {
 }
 
 class _CallPageState extends State<CallPage> {
-  final level = ValueNotifier<double>(0);
-  Timer? elapsedTimer;
-  bool transcript = false;
-  DateTime? began;
-
+  late final session = VoiceCallSession();
   @override
-  void initState() {
-    super.initState();
-    elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (demo.callActive) setState(() {});
-    });
-  }
-
-  ValueNotifier<double> get orbLevel {
-    level.value = demo.callActive
-        ? (demo.speaking ? .55 : (demo.mutedCall ? 0 : .08))
-        : 0;
-    return level;
-  }
-
-  @override
-  void dispose() {
-    elapsedTimer?.cancel();
-    level.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => SingleChildScrollView(
-      child: SizedBox(
-        height: math.max(650, box.maxHeight),
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            const TinyTag('语音通话 · 本地演示'),
-            const SizedBox(height: 20),
-            label('此刻，听见你的想法。', size: 26, weight: FontWeight.w500),
-            const SizedBox(height: 7),
-            label(
-              '${demo.role.name} · ${demo.voice}声音',
-              size: 12,
-              color: muted,
-            ),
-            Expanded(
-              child: Center(
-                child: SizedBox(
-                  width: 280,
-                  height: 280,
-                  child: VoiceCallOrb(
-                    level: orbLevel,
-                    dark: demo.dark,
-                    reducedMotion: demo.prefs['减少动态效果'] ?? false,
-                    semanticLabel: demo.callActive && demo.speaking
-                        ? '水滴光球，轻触结束回应演示'
-                        : '水滴光球',
-                    onTap: () {
-                      if (demo.callActive && demo.speaking) {
-                        demo.speaking = false;
-                        demo.changed();
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-            label(
-              demo.callActive
-                  ? (demo.mutedCall
-                        ? '麦克风已静音 · 演示'
-                        : demo.speaking
-                        ? '${demo.role.name} 正在回应 · 演示'
-                        : '正在聆听 · 演示')
-                  : '准备好，开始一段轻松的对话',
-              size: 15,
-              color: green,
-            ),
-            const SizedBox(height: 8),
-            label(
-              demo.callActive
-                  ? '${began == null ? 0 : DateTime.now().difference(began!).inMinutes}:${(began == null ? 0 : DateTime.now().difference(began!).inSeconds % 60).toString().padLeft(2, '0')} · 未连接语音服务'
-                  : '水滴光球 · 原创液体材质',
-              size: 10,
-              color: muted,
-            ),
-            const SizedBox(height: 24),
-            if (transcript)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Pane(
-                  padding: const EdgeInsets.all(15),
-                  child: label(
-                    '演示字幕\n你：想聊聊今天的灵感。\nski：我在，慢慢说。',
-                    size: 12,
-                    color: muted,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 20),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 18,
-              runSpacing: 16,
-              children: [
-                callControl(
-                  demo.mutedCall ? Icons.mic_off_outlined : Icons.mic_none,
-                  '静音',
-                  () {
-                    demo.mutedCall = !demo.mutedCall;
-                    demo.changed();
-                  },
-                ),
-                callControl(
-                  Icons.closed_caption_outlined,
-                  '字幕',
-                  () => setState(() => transcript = !transcript),
-                ),
-                callControl(
-                  demo.callActive ? Icons.call_end : Icons.call_outlined,
-                  demo.callActive ? '结束演示' : '开始演示',
-                  () {
-                    demo.callActive = !demo.callActive;
-                    began = demo.callActive ? DateTime.now() : null;
-                    demo.changed();
-                  },
-                  primary: true,
-                ),
-                callControl(Icons.graphic_eq, '切换回应', () {
-                  if (!demo.callActive) {
-                    toast(context, '先开始通话演示');
-                    return;
-                  }
-                  demo.speaking = !demo.speaking;
-                  demo.changed();
-                }),
-              ],
-            ),
-            const SizedBox(height: 28),
-            label('不请求麦克风权限 · 不录音 · 不播放真实语音', size: 10, color: muted),
-            const SizedBox(height: 18),
-            TextButton(
-              onPressed: () {
-                demo.callActive = false;
-                demo.changed();
-                widget.go('/chat');
-              },
-              child: const Text('回到对话', style: TextStyle(fontSize: 12)),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    ),
-  );
-  Widget callControl(
-    IconData icon,
-    String title,
-    VoidCallback action, {
-    bool primary = false,
-  }) => Column(
-    children: [
-      IconButton.filledTonal(
-        tooltip: title,
-        onPressed: action,
-        style: IconButton.styleFrom(
-          backgroundColor: primary
-              ? (demo.callActive ? const Color(0xffb96558) : green)
-              : mist,
-          foregroundColor: primary ? Colors.white : green,
-          fixedSize: const Size(52, 52),
-        ),
-        icon: Icon(icon, size: 23),
-      ),
-      const SizedBox(height: 8),
-      label(title, size: 10, color: muted),
-    ],
+  Widget build(BuildContext context) => VoiceCallScreen(
+    session: session,
+    roleName: demo.role.name,
+    onHangUp: () => widget.go('/chat'),
   );
 }

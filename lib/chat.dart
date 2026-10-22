@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -9,9 +8,9 @@ import 'glass.dart';
 import 'chat_bubble_surface.dart';
 import 'chat_status_bar.dart';
 import 'appearance.dart';
-import 'model_settings.dart';
+import 'chat_controls.dart';
 import 'relay_account.dart';
-import 'relay_account_page.dart';
+import 'chat_message_dial.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -34,8 +33,8 @@ class _ChatPageState extends State<ChatPage> {
   // Each non-overlapping role shares one backdrop input at its own blur value.
   final _userBackdrop = BackdropKey(), _replyBackdrop = BackdropKey();
   Timer? navTimer;
-  bool showNav = false, radial = false, follow = true;
-  int selected = 0, oldCount = 0;
+  bool showNav = false, follow = true;
+  int oldCount = 0, _centeredIndex = 0;
   late Conversation _conversation;
   @override
   void initState() {
@@ -89,7 +88,6 @@ class _ChatPageState extends State<ChatPage> {
     if (mounted)
       setState(() {
         showNav = false;
-        radial = false;
       });
   }
 
@@ -97,8 +95,14 @@ class _ChatPageState extends State<ChatPage> {
     if (focus.hasFocus || demo.messages.isEmpty) return;
     navTimer?.cancel();
     setState(() => showNav = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final index = selectedMessageIndex();
+        if (index != _centeredIndex) setState(() => _centeredIndex = index);
+      }
+    });
     navTimer = Timer(const Duration(milliseconds: 2200), () {
-      if (mounted && !radial) hideNavigation();
+      if (mounted) hideNavigation();
     });
   }
 
@@ -113,7 +117,6 @@ class _ChatPageState extends State<ChatPage> {
         alignment: .13,
       );
     setState(() {
-      radial = false;
       showNav = false;
       follow = false;
     });
@@ -136,7 +139,9 @@ class _ChatPageState extends State<ChatPage> {
 
   void openModels() {
     if (demo.useAccount) {
-      Navigator.of(context).pushReplacementNamed('/settings/account');
+      Navigator.of(context).pushReplacementNamed(
+        relayAccount.funding == 'beta' ? '/settings/beta' : '/settings/account',
+      );
       return;
     }
     if (demo.useBeta) {
@@ -150,139 +155,8 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void picker(bool role) => showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    constraints: const BoxConstraints(maxWidth: 560),
-    builder: (c) => ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * .8),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            label(role ? '对话角色' : '选择模型', size: 21, weight: FontWeight.w600),
-            const SizedBox(height: 6),
-            label(
-              role ? '角色设定用于之后发送的消息。' : '选择已配置的模型连接。',
-              size: 12,
-              color: muted,
-            ),
-            const SizedBox(height: 18),
-            if (role)
-              for (int i = 0; i < demo.personas.length; i++)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: demo.personas[i].color.withValues(
-                      alpha: .12,
-                    ),
-                    child: Icon(
-                      demo.personas[i].icon,
-                      color: demo.personas[i].color,
-                      size: 21,
-                    ),
-                  ),
-                  title: Text(demo.personas[i].name),
-                  subtitle: Text(
-                    demo.personas[i].subtitle,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: i == demo.persona
-                      ? Icon(Icons.check_circle, color: green, size: 20)
-                      : null,
-                  onTap: () {
-                    demo.persona = i;
-                    demo.changed();
-                    demo.saveChats();
-                    Navigator.pop(c);
-                  },
-                )
-            else ...[
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.account_circle_outlined, color: green),
-                title: const Text('中转站账号'),
-                subtitle: Text(
-                  relayAccount.signedIn
-                      ? relayAccount.activeModel ?? '同步可用模型'
-                      : '登录即可同步模型和额度',
-                  style: const TextStyle(fontSize: 11),
-                ),
-                trailing: demo.useAccount
-                    ? Icon(Icons.check_circle, color: green, size: 20)
-                    : null,
-                onTap: demo.streaming
-                    ? null
-                    : () async {
-                        Navigator.pop(c);
-                        if (relayAccount.canChat)
-                          await pickRelayModel(context);
-                        else
-                          Navigator.of(
-                            context,
-                          ).pushReplacementNamed('/settings/account');
-                      },
-              ),
-              for (final profile in modelSettings.connections)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.hub_outlined, color: green),
-                  title: Text(profile.name),
-                  subtitle: Text(
-                    profile.model,
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  trailing: profile.id == modelSettings.activeId
-                      ? Icon(Icons.check_circle, color: green, size: 20)
-                      : null,
-                  onTap: demo.streaming
-                      ? null
-                      : () async {
-                          try {
-                            await modelSettings.select(profile.id);
-                            demo.useBeta = false;
-                            demo.useAccount = false;
-                            demo.changed();
-                            demo.saveChats();
-                            if (c.mounted) Navigator.pop(c);
-                          } catch (_) {
-                            if (c.mounted) toast(c, '无法保存选择，请重试');
-                          }
-                        },
-                ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(c);
-                  Navigator.of(
-                    context,
-                  ).pushReplacementNamed('/settings/models');
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('管理模型连接'),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.science_outlined, color: green),
-                title: const Text('Skymoni 内测'),
-                subtitle: const Text(
-                  '配对设备，使用独立内测额度',
-                  style: TextStyle(fontSize: 11),
-                ),
-                onTap: () {
-                  Navigator.pop(c);
-                  Navigator.of(context).pushReplacementNamed('/settings/beta');
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    ),
-  );
+  void picker(bool role) =>
+      role ? showChatControls(context) : showChatModelPicker(context);
   void messageNavigator() {
     hideNavigation();
     showModalBottomSheet(
@@ -371,40 +245,28 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  void attachments() => showModalBottomSheet(
+  void attachments() => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    constraints: const BoxConstraints(maxWidth: 560),
-    builder: (c) => Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          label('添加到这段对话', size: 22, weight: FontWeight.w600),
-          const SizedBox(height: 8),
-          label('本阶段只添加示例附件，不读取你的文件。', size: 12, color: muted),
-          const SizedBox(height: 20),
-          SettingRow(
-            '灵感笔记.md',
-            '演示文件 · 1.2 KB',
-            icon: Icons.description_outlined,
-            onTap: () {
-              demo.attached = true;
-              demo.changed();
-              Navigator.pop(c);
-            },
-          ),
-          SettingRow(
-            '从工作区选择',
-            '浏览示例文件与预览',
-            icon: Icons.folder_outlined,
-            onTap: () {
-              Navigator.pop(c);
-              widget.openWorkspace();
-            },
-          ),
-        ],
+    builder: (_) => const SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(title: Text('添加内容'), subtitle: Text('即将开放')),
+            ListTile(
+              leading: Icon(Icons.image_outlined),
+              title: Text('图片'),
+              trailing: Text('即将开放'),
+            ),
+            ListTile(
+              leading: Icon(Icons.attach_file),
+              title: Text('文件'),
+              trailing: Text('即将开放'),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -428,7 +290,7 @@ class _ChatPageState extends State<ChatPage> {
                 controller: scroll,
                 padding: EdgeInsets.fromLTRB(
                   appearance.flag('wideChat') ? 8 : 14,
-                  20,
+                  88,
                   appearance.flag('wideChat') ? 8 : 14,
                   24,
                 ),
@@ -482,108 +344,57 @@ class _ChatPageState extends State<ChatPage> {
             ),
         ],
       ),
-      if (showNav && demo.messages.isNotEmpty)
-        Positioned(
-          right: radial ? 21 : 95,
-          bottom: radial ? 146 : 220,
-          child: MouseRegion(
-            onExit: (_) {
-              if (radial) hideNavigation();
-            },
-            child: SizedBox(
-              width: radial ? 190 : 42,
-              height: radial ? 190 : 42,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (radial) ...[
-                    Container(
-                      width: 184,
-                      height: 184,
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surface.withValues(alpha: .96),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: ink.withValues(alpha: .12),
-                            blurRadius: 20,
-                          ),
-                        ],
-                      ),
-                      child: CustomPaint(
-                        painter: NavigationTicks(
-                          demo.messages.length,
-                          selected,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 24,
-                      child: label(
-                        '${selected + 1} / ${demo.messages.length}',
-                        size: 11,
-                        color: green,
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 22,
-                      child: label('松开定位', size: 9, color: muted),
-                    ),
-                  ],
-                  Semantics(
-                    label: '消息导航：点击定位，长按环形导航',
-                    button: true,
-                    child: GestureDetector(
-                      onTap: messageNavigator,
-                      onLongPressStart: (_) {
-                        navTimer?.cancel();
-                        setState(() {
-                          radial = true;
-                          selected = 0;
-                        });
-                      },
-                      onLongPressMoveUpdate: (d) {
-                        final vector = d.offsetFromOrigin;
-                        final angle =
-                            (math.atan2(vector.dy, vector.dx) + math.pi * 2) %
-                            (math.pi * 2);
-                        setState(
-                          () => selected =
-                              (angle / (math.pi * 2) * demo.messages.length)
-                                  .floor()
-                                  .clamp(0, demo.messages.length - 1),
-                        );
-                      },
-                      onLongPressEnd: (_) => locate(selected),
-                      onLongPressCancel: hideNavigation,
-                      child: Tooltip(
-                        triggerMode: TooltipTriggerMode.manual,
-                        message: '点击定位 · 长按环形导航',
-                        child: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: green.withValues(alpha: .64),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back,
-                            size: 19,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
+      if (demo.messages.isNotEmpty)
+        Positioned.fill(
+          child: LayoutBuilder(
+            builder: (context, bounds) => ChatMessageDial(
+              key: ObjectKey(_conversation),
+              visible: showNav,
+              viewportHeight: bounds.maxHeight - 180,
+              currentTimestamp: _centeredIndex,
+              loadEntries: () async => [
+                for (int i = 0; i < demo.messages.length; i++)
+                  ChatMessageLocatorPreview(
+                    timestamp: i,
+                    sender: demo.messages[i].user ? 'user' : 'assistant',
+                    previewContent: demo.messages[i].text,
+                    messageIndex: i,
                   ),
-                ],
-              ),
+              ],
+              onOpenLocator: messageNavigator,
+              onJump: locate,
+              onHidden: hideNavigation,
+              senderName: (sender) => sender == 'user' ? '你' : demo.role.name,
             ),
           ),
         ),
     ],
   );
+
+  int selectedMessageIndex() {
+    if (!scroll.hasClients) return 0;
+    final center = scroll.offset + scroll.position.viewportDimension / 2;
+    double distance = double.infinity;
+    int found = 0;
+    for (int i = 0; i < demo.messages.length; i++) {
+      final ctx = keys[demo.messages[i]]?.currentContext;
+      final render = ctx?.findRenderObject();
+      if (render is RenderBox && render.hasSize) {
+        final dy = render.localToGlobal(Offset.zero).dy;
+        final host = context.findRenderObject() as RenderBox?;
+        final local =
+            dy -
+            (host?.localToGlobal(Offset.zero).dy ?? 0) +
+            scroll.offset +
+            render.size.height / 2;
+        if ((local - center).abs() < distance) {
+          distance = (local - center).abs();
+          found = i;
+        }
+      }
+    }
+    return found;
+  }
 
   Widget composer() => Padding(
     padding: EdgeInsets.fromLTRB(
@@ -661,68 +472,62 @@ class _ChatPageState extends State<ChatPage> {
                         color: muted,
                       ),
                     ),
-                    if (appearance.text('inputStyle') == 'compact')
-                      sendControl(),
                   ],
                 ),
-                if (appearance.text('inputStyle') != 'compact')
-                  const SizedBox(height: 5),
-                if (appearance.text('inputStyle') != 'compact')
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () => picker(false),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 9),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 16,
-                                  color: green,
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(9),
+                        onTap: () => picker(false),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          child: Row(
+                            children: [
+                              Icon(Icons.auto_awesome, size: 16, color: green),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  demo.model,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    demo.model,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 16,
-                                  color: muted,
-                                ),
-                              ],
-                            ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 16,
+                                color: muted,
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      IconButton(
-                        tooltip: '模型与角色选项',
-                        onPressed: () => picker(true),
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.tune, size: 20, color: muted),
-                      ),
-                      IconButton(
-                        tooltip: '附件即将支持',
-                        onPressed: null,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.add, size: 23, color: muted),
-                      ),
-                      const SizedBox(width: 4),
-                      sendControl(),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      tooltip: '对话设置',
+                      onPressed: () => picker(true),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.tune, size: 20, color: muted),
+                    ),
+                    IconButton(
+                      tooltip: '添加内容',
+                      onPressed: attachments,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.add, size: 23, color: muted),
+                    ),
+                    const SizedBox(width: 4),
+                    sendControl(),
+                  ],
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        ChatStatusBar(conversation: demo.conversations[demo.conversation]),
+        if (appearance.flag('showUsage')) ...[
+          const SizedBox(height: 6),
+          ChatStatusBar(conversation: demo.conversations[demo.conversation]),
+        ],
       ],
     ),
   );
@@ -734,30 +539,6 @@ class _ChatPageState extends State<ChatPage> {
     tooltip: demo.streaming ? '停止生成' : '发送消息',
   );
 
-  void voiceInput() => showModalBottomSheet(
-    context: context,
-    showDragHandle: true,
-    builder: (c) => Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.graphic_eq, size: 48, color: green),
-          const SizedBox(height: 16),
-          label('语音输入演示', size: 21, weight: FontWeight.w600),
-          const SizedBox(height: 9),
-          label('不请求麦克风权限，点按按钮填入示例文字。', size: 12, color: muted),
-          const SizedBox(height: 22),
-          actionButton('模拟转写', Icons.mic_none, () {
-            input.text = '今天想和你聊聊我的新想法。';
-            Navigator.pop(c);
-            focus.requestFocus();
-            setState(() {});
-          }, filled: true),
-        ],
-      ),
-    ),
-  );
   void expandDraft() {
     final draft = TextEditingController(text: input.text);
     showDialog(
@@ -798,7 +579,12 @@ class _ChatPageState extends State<ChatPage> {
         CircleAvatar(
           radius: 35,
           backgroundColor: mist,
-          child: Icon(demo.role.icon, size: 33, color: green),
+          child: IconButton(
+            tooltip: '编辑角色卡',
+            onPressed: () =>
+                Navigator.of(context).pushReplacementNamed('/characters/edit'),
+            icon: Icon(demo.role.icon, size: 33, color: ink),
+          ),
         ),
         const SizedBox(height: 24),
         label('你好，我是 ${demo.role.name}', size: 23, weight: FontWeight.w500),
@@ -844,19 +630,28 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget message(Message m, int i) {
     keys.putIfAbsent(m, () => GlobalKey());
-    final avatar = Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: m.user ? const Color(0xffcce6fa) : mist,
-        borderRadius: BorderRadius.circular(
-          appearance.flag('squareAvatars') ? 7 : 16,
+    final avatar = Tooltip(
+      message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
+      child: InkWell(
+        onTap: () => m.user
+            ? editUserCard(context)
+            : Navigator.of(context).pushReplacementNamed('/characters/edit'),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: m.user ? const Color(0xffcce6fa) : mist,
+            borderRadius: BorderRadius.circular(
+              appearance.flag('squareAvatars') ? 7 : 16,
+            ),
+          ),
+          child: Icon(
+            m.user ? Icons.person_rounded : demo.role.icon,
+            color: green,
+            size: m.user ? 23 : 18,
+          ),
         ),
-      ),
-      child: Icon(
-        m.user ? Icons.person_rounded : demo.role.icon,
-        color: green,
-        size: m.user ? 23 : 18,
       ),
     );
     final bubble = ChatBubbleSurface(
@@ -1023,33 +818,4 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
-}
-
-class NavigationTicks extends CustomPainter {
-  NavigationTicks(this.count, this.selected);
-  final int count, selected;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final ticks = math.max(count, 12);
-    for (int i = 0; i < ticks; i++) {
-      final a = i / ticks * math.pi * 2;
-      final start = center + Offset(math.cos(a), math.sin(a)) * 68;
-      final end = center + Offset(math.cos(a), math.sin(a)) * 79;
-      canvas.drawLine(
-        start,
-        end,
-        Paint()
-          ..color = (i / ticks * count).floor() == selected
-              ? green
-              : muted.withValues(alpha: .3)
-          ..strokeWidth = 2
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(NavigationTicks old) =>
-      old.count != count || old.selected != selected;
 }

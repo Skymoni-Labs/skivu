@@ -72,7 +72,7 @@ void main() {
     expect(restarted.leftBlur, 30);
     expect(restarted.rightBlur, 27);
     await restarted.reset();
-    expect(disk.saved, (left: 12.0, right: 12.0, user: 0.0, assistant: 0.0));
+    expect(disk.saved, (left: 12.0, right: 12.0, user: 6.0, assistant: 6.0));
     disk.failRead = true;
     restarted.setBlur(leftSide: true, value: 2);
     await restarted.restore();
@@ -102,7 +102,7 @@ void main() {
       expect(writes, 1);
       blocked.complete();
       await Future.wait([first, second]);
-      expect(disk.saved, (left: 4.0, right: 30.0, user: 0.0, assistant: 0.0));
+      expect(disk.saved, (left: 4.0, right: 30.0, user: 6.0, assistant: 6.0));
       expect(model.error, isNull);
       disk.beforeWrite = () async => throw StateError('Storage full');
       await model.save();
@@ -213,7 +213,7 @@ void main() {
         const Offset(200, 0),
       );
       await tester.pumpAndSettle();
-      expect(disk.saved, (left: 0.0, right: 30.0, user: 0.0, assistant: 0.0));
+      expect(disk.saved, (left: 0.0, right: 30.0, user: 6.0, assistant: 6.0));
       await tester.tap(find.text('预览左侧'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('left-preview')), findsOneWidget);

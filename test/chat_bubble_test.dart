@@ -63,6 +63,8 @@ void main() {
     'role blur changes the backdrop while text and layout stay stable',
     (tester) async {
       final model = GlassPreferences(persistence: MemoryGlassPreferences());
+      model.setBubbleBlur(user: true, value: 0);
+      model.setBubbleBlur(user: false, value: 0);
       final userKey = BackdropKey(), replyKey = BackdropKey();
       var builds = 0;
       Widget bubble(bool user) => ChatBubbleSurface(

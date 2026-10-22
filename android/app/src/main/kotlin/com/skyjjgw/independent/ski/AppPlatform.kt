@@ -25,6 +25,15 @@ class AppPlatform(private val activity: Activity) {
                 try {
                     when (call.method) {
                         "info" -> answer(result, info())
+                        "encryptPassword" -> {
+                            val pem = call.argument<String>("publicKey") ?: error("missing key")
+                            val password = call.argument<String>("password") ?: error("missing password")
+                            val der = android.util.Base64.decode(pem.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replace(Regex("\\s"), ""), android.util.Base64.DEFAULT)
+                            val key = java.security.KeyFactory.getInstance("RSA").generatePublic(java.security.spec.X509EncodedKeySpec(der))
+                            val cipher = javax.crypto.Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
+                            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, key, javax.crypto.spec.OAEPParameterSpec("SHA-256", "MGF1", java.security.spec.MGF1ParameterSpec.SHA256, javax.crypto.spec.PSource.PSpecified.DEFAULT))
+                            answer(result, android.util.Base64.encodeToString(cipher.doFinal(password.toByteArray(Charsets.UTF_8)), android.util.Base64.NO_WRAP))
+                        }
                         "prepareUpdate" -> {
                             val directory = updateDirectory()
                             require(directory.isDirectory || directory.mkdirs())

@@ -1,8 +1,14 @@
 # 中转站账号与 App 更新
 
-Skivu Android 客户端使用固定的 `https://skymoni.com` 服务。账号授权与普通钱包/订阅相连；自定义 API 连接和内测设备通道继续分别管理。服务端契约见 [Skymoni SKIVU_APP_API](https://github.com/skyjjgw/skymoni-source/blob/main/docs/SKIVU_APP_API.md)。
+Skivu Android 客户端使用固定的 `https://skymoni.com` 服务。账号可明确选择站内钱包/订阅或管理员批准的独立内测额度；自定义 API 连接与旧设备通道继续分别管理。服务端契约见 [Skymoni SKIVU_APP_API](https://github.com/skyjjgw/skymoni-source/blob/main/docs/SKIVU_APP_API.md)。
 
-## 账号登录
+## App 内账号登录（主要入口）
+
+“设置 → 中转站账号”直接填写普通账号和密码。客户端读取 `GET /api/app-account/login/options`，按站点当前要求使用 HTTPS 密码提交或原生 RSA-OAEP SHA-256/MGF1-SHA256 加密提交到 `POST /api/app-account/login`。App 不保存密码；只把受限、可撤销的 `AppAccount` 会话存入系统安全存储。
+
+需要 TOTP/备用码时，在 App 中使用 `POST /api/app-account/login/verify` 完成验证。Passkey 或站点验证码需要额外网页验证时，保留下面的浏览器授权作为备用入口，不跳过原有账号保护、登录限流或会话上限。
+
+## 备用网页登录
 
 1. App 生成随机 PKCE verifier，把其 SHA-256 / base64url challenge 交给 `POST /api/app-account/authorize`。
 2. 打开服务端返回的同域 HTTPS 授权页面。用户在网站完成原有登录、验证码、MFA 和设备确认。16 位授权码区分大小写，App 原样显示与复制。
@@ -11,7 +17,15 @@ Skivu Android 客户端使用固定的 `https://skymoni.com` 服务。账号授�
 5. 聊天请求送至固定的 `/api/app-account/chat/completions` 或 `/api/app-account/responses`，仅发送约定文字字段。Responses 使用 `store:false`。聊天结束及打开账号页时同步额度，用户也可以手动刷新。
 6. 退出会调用 `DELETE /api/app-account/session`。过期或撤销的会话会从本机移除，账号通道不会自动回退到手动 API Key；会话上限错误不会自动踢下其他设备。
 
-会话与进行中的 PKCE 凭据使用 `flutter_secure_storage` 保存，不进入聊天备份。服务端保留普通账号的原有资金与权限规则，内测资金和正式签名门禁不因账号登录而开放。
+会话与备用登录中进行的 PKCE 凭据使用 `flutter_secure_storage` 保存，不进入聊天备份。服务端保留普通账号的资金和模型权限。新的账号内测通道按服务器批准资格与独立账本生效；旧硬件 BetaDevice 通道和正式签名门禁保持原状。
+
+## 内测计划与模型选择
+
+- `/me.beta` 和 `GET /api/app-account/beta-status` 同步 none/pending/approved/rejected/suspended、是否开通、渠道开关及真实内测余额。`balance` 已是可用额，不再减去 `reserved`；预留与已用分别显示。
+- 未申请用户保留 `https://skymoni.com/creators` 网页申请入口；申请、审核、暂停和额度发放由管理员后台控制，App 无审批或自增额度能力。
+- 已批准且额度有效的账号可直接选择内测资金，无需设备配对。输入框模型入口可搜索服务器返回的可聊天模型，并选择站内或内测额度；模型权限始终由账号原有组控制。
+- 内测目录使用 `GET /api/app-account/models?funding=beta`；聊天显式携带 `funding:"beta"`。未指定资金仍为站内额度；内测未批准、暂停、耗尽或渠道不可用时拒绝，不转扣站内钱包。两类账本不相加。
+- 普通账号聊天支持当前协议约定的最大输出和流式参数。输入区可直接调整，并访问角色卡、思考显示和单行统计开关。其他自定义连接的高级参数仍在模型设置。
 
 ## 手机内更新
 

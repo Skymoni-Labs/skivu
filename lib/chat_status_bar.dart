@@ -13,46 +13,53 @@ class ChatStatusBar extends StatelessWidget {
     final rounds = conversation.messages
         .where((message) => message.user)
         .length;
-    final color = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xffacb5c0)
-        : muted;
+    const color = ink;
     return DefaultTextStyle.merge(
       style: TextStyle(fontSize: 10, height: 1.4, color: color),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 14,
-        runSpacing: 4,
-        children: [
-          _item(
-            '当前会话轮次、执行步数与生成速度；— 表示暂无统计',
-            Icon(Icons.speed_outlined, size: 13, color: color),
-            '$rounds 轮 ${_count(usage.steps)} 步 · '
-                '${_speed(usage.tokensPerSecond)} tok/s',
-          ),
-          _item(
-            '当前会话 Token 用量与缓存命中率；— 表示暂无统计',
-            CustomPaint(
-              size: const Size(12, 13),
-              painter: _TokenStackPainter(color),
-            ),
-            '${_count(usage.totalTokens)} tok · '
-                '缓存命中 ${_percent(usage.cacheHitRate)}',
-          ),
-          _item(
-            '上下文占用；— 表示暂无统计',
-            SizedBox.square(
-              dimension: 11,
-              child: CircularProgressIndicator(
-                value: _ratio(usage.contextUsage) ?? 0,
-                strokeWidth: 1.7,
-                color: color,
-                backgroundColor: color.withValues(alpha: .25),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .55),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 8,
+            children: [
+              _item(
+                '当前会话轮次、执行步数与生成速度；— 表示暂无统计',
+                Icon(Icons.speed_outlined, size: 13, color: color),
+                '$rounds 轮 ${_count(usage.steps)} 步 · '
+                    '${_speed(usage.tokensPerSecond)} tok/s',
               ),
-            ),
-            _percent(usage.contextUsage),
+              _item(
+                '当前会话 Token 用量与缓存命中率；— 表示暂无统计',
+                CustomPaint(
+                  size: const Size(12, 13),
+                  painter: _TokenStackPainter(color),
+                ),
+                '${_count(usage.totalTokens)} tok · '
+                    '缓存命中 ${_percent(usage.cacheHitRate)}',
+              ),
+              _item(
+                '上下文占用；— 表示暂无统计',
+                SizedBox.square(
+                  dimension: 11,
+                  child: CircularProgressIndicator(
+                    value: _ratio(usage.contextUsage) ?? 0,
+                    strokeWidth: 1.7,
+                    color: color,
+                    backgroundColor: color.withValues(alpha: .25),
+                  ),
+                ),
+                _percent(usage.contextUsage),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -63,8 +70,8 @@ class ChatStatusBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         icon,
-        const SizedBox(width: 5),
-        Flexible(child: Text(text)),
+        const SizedBox(width: 3),
+        Text(text, maxLines: 1, softWrap: false),
       ],
     ),
   );

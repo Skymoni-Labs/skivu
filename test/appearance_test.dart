@@ -245,17 +245,19 @@ void main() {
       final chrome = tester.widgetList<ConfigurableGlassSurface>(
         find.byType(ConfigurableGlassSurface),
       );
-      for (final area in ['inputBlur', 'toolbarBlur']) {
-        final surface = find.byWidget(chrome.firstWhere((w) => w.area == area));
-        final lens = tester.widget<LiquidGlassLens>(
-          find
-              .descendant(of: surface, matching: find.byType(LiquidGlassLens))
-              .first,
-        );
-        expect(lens.style.blur, area == 'inputBlur' ? 24 : 8);
-        if (area == 'toolbarBlur')
-          expect(tester.widget<ConfigurableGlassSurface>(surface).radius, 0);
-      }
+      final surface = find.byWidget(
+        chrome.firstWhere((w) => w.area == 'inputBlur'),
+      );
+      final lens = tester.widget<LiquidGlassLens>(
+        find
+            .descendant(of: surface, matching: find.byType(LiquidGlassLens))
+            .first,
+      );
+      expect(lens.style.blur, 24);
+      expect(
+        find.byKey(const ValueKey('opaque-rectangle-toolbar')),
+        findsOneWidget,
+      );
       expect(
         tester
             .widget<SkiGlassButton>(

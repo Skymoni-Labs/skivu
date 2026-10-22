@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'brand.dart';
+import 'native_login_form.dart';
+import 'account_beta_page.dart';
 import 'relay_account.dart';
 import 'state.dart';
 import 'widgets.dart';
@@ -178,11 +180,7 @@ class _RelayAccountPageState extends State<RelayAccountPage>
                   ],
                 ),
               ] else if (!account.signedIn)
-                FilledButton.icon(
-                  onPressed: account.busy ? null : login,
-                  icon: const Icon(Icons.login),
-                  label: const Text('登录中转站账号'),
-                )
+                NativeLoginForm(browserLogin: login)
               else ...[
                 label(
                   '@${account.user?['username'] ?? ''}',
@@ -229,6 +227,8 @@ class _RelayAccountPageState extends State<RelayAccountPage>
           ),
         ),
         if (account.signedIn) ...[
+          const SizedBox(height: 16),
+          AccountBetaPage(go: widget.go),
           const SizedBox(height: 16),
           Pane(
             child: Column(
@@ -343,7 +343,7 @@ class _RelayAccountPageState extends State<RelayAccountPage>
         ],
         const SizedBox(height: 18),
         label(
-          '登录验证在 skymoni.com 完成，App 不保存账号密码。此设备仅持有独立、可撤销的聊天授权；手动 API 连接与内测额度继续独立。',
+          '账号信息通过加密连接提交给 skymoni.com，App 不保存密码；登录会话可在站点撤销。',
           size: 11,
           color: muted,
         ),
