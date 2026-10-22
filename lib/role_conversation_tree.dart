@@ -128,10 +128,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
               },
               child: Container(
                 constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 9,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: expanded ? .42 : .22),
                   borderRadius: BorderRadius.circular(15),

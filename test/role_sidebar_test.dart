@@ -43,6 +43,10 @@ void main() {
       final role = store.personas.first;
       await tester.pumpWidget(host(store));
       await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(ValueKey('role-folder-${role.id}'))).height,
+        48,
+      );
       await tester.tap(find.byKey(ValueKey('role-menu-${role.id}')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('删除角色'));
