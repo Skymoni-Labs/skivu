@@ -102,6 +102,29 @@ class _RelayAccountPageState extends State<RelayAccountPage>
         : '—';
   }
 
+  Future<void> logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('退出中转站账号？'),
+        content: const Text('本机聊天记录和角色卡会保留，退出后可登录其他账号。正在生成的账号回复会停止。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('退出'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (demo.useAccount && demo.streaming) demo.stop();
+    await relayAccount.logout();
+  }
+
   @override
   Widget build(BuildContext context) {
     final account = relayAccount;
@@ -203,6 +226,11 @@ class _RelayAccountPageState extends State<RelayAccountPage>
                       onPressed: account.busy ? null : account.refresh,
                       icon: const Icon(Icons.refresh),
                       label: const Text('同步额度'),
+                    ),
+                    TextButton.icon(
+                      onPressed: account.loggingOut ? null : logout,
+                      icon: const Icon(Icons.logout, size: 18),
+                      label: const Text('退出账号'),
                     ),
                   ],
                 ),
@@ -313,32 +341,6 @@ class _RelayAccountPageState extends State<RelayAccountPage>
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: account.busy || demo.streaming
-                ? null
-                : () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (c) => AlertDialog(
-                        title: const Text('退出中转站账号？'),
-                        content: const Text('会撤销此 App 的登录授权，本机聊天记录仍保留。'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(c, false),
-                            child: const Text('取消'),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(c, true),
-                            child: const Text('退出'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true) await account.logout();
-                  },
-            child: const Text('退出账号'),
           ),
         ],
         const SizedBox(height: 18),

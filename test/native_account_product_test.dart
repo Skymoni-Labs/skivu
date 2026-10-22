@@ -32,6 +32,105 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
   test(
+    'logout clears local credentials offline and another account gets a fresh catalog',
+    () async {
+      var username = '', deleted = '';
+      final account = RelayAccount(
+        platform: AccountPlatform(),
+        clientFactory: () => MockClient((r) async {
+          if (r.method == 'DELETE') {
+            deleted = r.headers['Authorization']!;
+            throw http.ClientException('fixture offline');
+          }
+          switch (r.url.path.split('/').last) {
+            case 'options':
+              return ok({
+                'password_login_enabled': true,
+                'encryption': {'enabled': false},
+                'captcha': {'required': false},
+              });
+            case 'login':
+              username = (jsonDecode(r.body) as Map)['username'] as String;
+              return ok({
+                ...token(),
+                'access_token': 'fixture-$username-token',
+              });
+            case 'me':
+              return ok({
+                ...me(),
+                'user': {'username': username},
+              });
+            case 'models':
+              return ok({
+                'models': ['$username-model'],
+                'model_protocols': {'$username-model': 'chat'},
+              });
+            default:
+              return ok({});
+          }
+        }),
+      );
+      await account.signIn('first', 'fixture-password');
+      expect(account.activeModel, 'first-model');
+      await account.logout();
+      expect(account.signedIn, isFalse);
+      expect(account.models, isEmpty);
+      expect(account.activeModel, isNull);
+      expect(account.funding, 'relay');
+      expect(deleted, 'AppAccount fixture-first-token');
+      expect(await const FlutterSecureStorage().readAll(), isEmpty);
+      expect(account.error, contains('已退出本机'));
+      await account.signIn('second', 'fixture-password');
+      expect(account.signedIn, isTrue);
+      expect(account.user?['username'], 'second');
+      expect(account.models, ['second-model']);
+      expect(account.error, isNull);
+      account.dispose();
+    },
+  );
+  test(
+    'logout during refresh prevents a late response from restoring the old account',
+    () async {
+      final pending = Completer<http.Response>();
+      var refreshing = false;
+      final account = RelayAccount(
+        platform: AccountPlatform(),
+        clientFactory: () => MockClient((r) async {
+          switch (r.url.path.split('/').last) {
+            case 'options':
+              return ok({
+                'password_login_enabled': true,
+                'encryption': {'enabled': false},
+                'captcha': {'required': false},
+              });
+            case 'login':
+              return ok(token());
+            case 'me':
+              return refreshing ? pending.future : ok(me());
+            case 'models':
+              return ok(catalog());
+            default:
+              return ok({});
+          }
+        }),
+      );
+      await account.signIn('fixture', 'fixture-password');
+      refreshing = true;
+      final refresh = account.refresh();
+      await Future<void>.delayed(Duration.zero);
+      expect(account.busy, isTrue);
+      await account.logout();
+      pending.complete(ok(me()));
+      await refresh;
+      expect(account.signedIn, isFalse);
+      expect(account.user, isNull);
+      expect(account.models, isEmpty);
+      expect(account.busy, isFalse);
+      expect(await const FlutterSecureStorage().readAll(), isEmpty);
+      account.dispose();
+    },
+  );
+  test(
     'native login encrypts password and persists only scoped session; beta funding is explicit',
     () async {
       final platform = EncryptedPlatform();

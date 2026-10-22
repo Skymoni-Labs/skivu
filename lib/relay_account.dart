@@ -24,6 +24,7 @@ class RelayAccount extends ChangeNotifier {
   String? _token, _deviceCode, _verifier;
   int _generation = 0;
   bool busy = false;
+  bool loggingOut = false;
   String? error, userCode, verificationUrl, activeModel;
   DateTime? expiresAt, authorizationExpires;
   int pollInterval = 5;
@@ -563,9 +564,9 @@ class RelayAccount extends ChangeNotifier {
       if (e.code == 'APP_SESSION_INVALID') await invalidate();
       error = e.message;
     } catch (_) {
-      error = '账号信息暂未同步，请刷新重试。';
+      if (generation == _generation) error = '账号信息暂未同步，请刷新重试。';
     } finally {
-      busy = false;
+      if (generation == _generation) busy = false;
       notifyListeners();
     }
   }
@@ -585,6 +586,9 @@ class RelayAccount extends ChangeNotifier {
 
   Future<void> invalidate() async {
     ++_generation;
+    // If secure storage fails, keep the account visible so logout can be
+    // retried; never present a successful logout with a restorable token.
+    await _secure.delete(key: _storageKey);
     _token = null;
     expiresAt = null;
     user = null;
@@ -599,27 +603,38 @@ class RelayAccount extends ChangeNotifier {
     verificationMethods = [];
     funding = 'relay';
     _clearPending();
-    await _secure.delete(key: _storageKey);
     notifyListeners();
   }
 
   Future<void> logout() async {
-    if (busy) return;
+    if (loggingOut) return;
+    final token = _token;
+    loggingOut = true;
     busy = true;
     notifyListeners();
     try {
-      if (_token != null) {
-        try {
-          await _request('DELETE', 'session', token: _token);
-        } on ChatFailure catch (e) {
-          if (e.code != 'APP_SESSION_INVALID') rethrow;
-        }
-      }
+      // Local logout must work offline and invalidate any in-flight refresh.
       await invalidate();
       error = null;
-    } catch (e) {
-      error = e is ChatFailure ? e.message : '退出未完成，请重试。';
+      if (token != null) {
+        try {
+          await _request(
+            'DELETE',
+            'session',
+            token: token,
+          ).timeout(const Duration(seconds: 5));
+        } on ChatFailure catch (e) {
+          if (e.code != 'APP_SESSION_INVALID') {
+            error = '已退出本机。远端授权未能撤销，可在站点的设备管理中撤销。';
+          }
+        } catch (_) {
+          error = '已退出本机。远端授权未能撤销，可在站点的设备管理中撤销。';
+        }
+      }
+    } catch (_) {
+      error = '本机登录信息清理未完成，请重试退出。';
     } finally {
+      loggingOut = false;
       busy = false;
       notifyListeners();
     }

@@ -25,12 +25,10 @@ class ChatBubbleSurface extends StatelessWidget {
     required this.user,
     required this.child,
     this.preferences,
-    this.backdropKey,
   });
   final bool user;
   final Widget child;
   final GlassPreferences? preferences;
-  final BackdropKey? backdropKey;
 
   @override
   Widget build(BuildContext context) {
@@ -59,29 +57,14 @@ class ChatBubbleSurface extends StatelessWidget {
                 bottomRight: const Radius.circular(22),
               )
             : BorderRadius.circular(shape == 'pill' ? 30 : 18);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            boxShadow: document
-                ? []
-                : [
-                    BoxShadow(
-                      color: const Color(0xff233344).withValues(alpha: .13),
-                      blurRadius: 16,
-                      offset: const Offset(0, 5),
-                    ),
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: .8),
-                      blurRadius: 2,
-                      spreadRadius: .6,
-                    ),
-                  ],
-          ),
+        return CustomPaint(
+          // Paint the rim after the filter and explicitly exclude its interior.
+          // Otherwise a solid white shadow becomes part of the blur input.
+          foregroundPainter: document ? null : _BubbleRim(radius),
           child: ClipRRect(
             borderRadius: radius,
             child: BackdropFilter(
               enabled: glass && blur > 0 && !document,
-              backdropGroupKey: backdropKey,
               filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -119,4 +102,36 @@ class ChatBubbleSurface extends StatelessWidget {
       },
     );
   }
+}
+
+class _BubbleRim extends CustomPainter {
+  const _BubbleRim(this.radius);
+  final BorderRadius radius;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final outline = radius.toRRect(rect);
+    final outside = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(24))
+      ..addRRect(outline);
+    canvas.save();
+    canvas.clipPath(outside);
+    canvas.drawRRect(
+      outline.shift(const Offset(0, 5)),
+      Paint()
+        ..color = const Color(0x21233344)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 9),
+    );
+    canvas.drawRRect(
+      outline.inflate(.6),
+      Paint()
+        ..color = const Color(0xccffffff)
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 1.6),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_BubbleRim oldDelegate) => oldDelegate.radius != radius;
 }

@@ -15,7 +15,7 @@ Skivu Android 客户端使用固定的 `https://skymoni.com` 服务。账号可�
 3. App 按服务端间隔轮询 `POST /api/app-account/token`；授权码与 verifier 匹配后，获得受限、可撤销的 `AppAccount` 会话。不会读取或保存用户密码，也不自动创建人工 API Key。
 4. `GET /api/app-account/me` 同步账号、钱包、订阅和会话；`GET /api/app-account/models` 同步账号权限下的模型及 chat/responses 协议。钱包和各项订阅分别展示，金额使用服务端 `quota_per_unit` 换算，不固定假设比例、不将钱包和订阅相加。
 5. 聊天请求送至固定的 `/api/app-account/chat/completions` 或 `/api/app-account/responses`，仅发送约定文字字段。Responses 使用 `store:false`。聊天结束及打开账号页时同步额度，用户也可以手动刷新。
-6. 退出会调用 `DELETE /api/app-account/session`。过期或撤销的会话会从本机移除，账号通道不会自动回退到手动 API Key；会话上限错误不会自动踢下其他设备。
+6. 账号页顶部可直接退出。先删除本机安全存储中的会话，再清除内存状态，并尝试调用 `DELETE /api/app-account/session`（最多等待 5 秒）；断网时本机仍可退出，服务端撤销失败会显示提示。退出时停止本机账号生成，迟到的同步响应不会恢复旧账号。过期或撤销的会话会从本机移除，账号通道不会自动回退到手动 API Key；会话上限错误不会自动踢下其他设备。
 
 会话与备用登录中进行的 PKCE 凭据使用 `flutter_secure_storage` 保存，不进入聊天备份。服务端保留普通账号的资金和模型权限。新的账号内测通道按服务器批准资格与独立账本生效；旧硬件 BetaDevice 通道和正式签名门禁保持原状。
 

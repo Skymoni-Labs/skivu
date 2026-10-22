@@ -6,6 +6,7 @@ import 'package:ski/chat_status_bar.dart';
 import 'package:ski/main.dart';
 import 'package:ski/state.dart';
 import 'package:ski/workspace.dart';
+import 'package:ski/glass.dart';
 import 'preview_fixture.dart';
 
 void main() {
@@ -20,6 +21,13 @@ void main() {
       await tester.pumpWidget(const SkiApp());
       await tester.pumpAndSettle();
       expect(tester.getSize(find.byType(ChatStatusBar)).height, lessThan(20));
+      expect(
+        find.descendant(
+          of: find.byType(ChatStatusBar),
+          matching: find.byType(DecoratedBox),
+        ),
+        findsNothing,
+      );
       appearance.set('showUsage', false);
       await tester.pumpAndSettle();
       expect(find.byType(ChatStatusBar), findsNothing);
@@ -29,9 +37,12 @@ void main() {
     },
   );
   testWidgets(
-    'typing appears in capsule and rectangle is a completely opaque alternative',
+    'typing appears in capsule and rectangular glass extends behind status bar',
     (tester) async {
       appearance.set('capsuleToolbar', true);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 32, bottom: 24);
+      addTearDown(tester.view.reset);
       demo.streaming = true;
       addTearDown(() {
         demo.streaming = false;
@@ -42,15 +53,51 @@ void main() {
       expect(find.byKey(const ValueKey('typing-indicator')), findsOneWidget);
       appearance.set('capsuleToolbar', false);
       await tester.pump();
-      final opaque = tester.widget<ColoredBox>(
-        find.byKey(const ValueKey('opaque-rectangle-toolbar')),
+      final rectangle = find.byKey(const ValueKey('glass-rectangle-toolbar'));
+      final glass = tester.widget<ConfigurableGlassSurface>(rectangle);
+      expect(glass.area, 'toolbarBlur');
+      expect(glass.radius, 0);
+      expect(tester.getTopLeft(rectangle).dy, 0);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('rectangle-toolbar'))).dy,
+        32,
       );
-      expect(opaque.color.a, 1);
       expect(find.byKey(const ValueKey('typing-indicator')), findsOneWidget);
       demo.streaming = false;
       demo.changed();
       await tester.pumpAndSettle();
       expect(find.text('对方正在输入中'), findsNothing);
+    },
+  );
+  testWidgets(
+    'assistant leaves a right gutter and reasoning is above its bubble',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      appearance.set('showThinking', true);
+      demo.messages
+        ..clear()
+        ..add(
+          Message(false, List.filled(12, '这是一段用于检查气泡宽度的回复。').join())
+            ..thinking = '这是可折叠的思考摘要。',
+        );
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final bubble = find.byType(ChatBubbleSurface);
+      expect(tester.getBottomRight(bubble).dx, lessThanOrEqualTo(390 - 50));
+      expect(
+        tester.getBottomLeft(find.byType(ExpansionTile)).dy,
+        lessThanOrEqualTo(tester.getTopLeft(bubble).dy),
+      );
+      await tester.tap(find.text('思考过程'));
+      await tester.pumpAndSettle();
+      expect(find.text('这是可折叠的思考摘要。'), findsOneWidget);
+      appearance.set('showThinking', false);
+      await tester.pumpAndSettle();
+      expect(find.byType(ExpansionTile), findsNothing);
+      appearance.set('showThinking', true);
+      expect(tester.takeException(), isNull);
     },
   );
   testWidgets(

@@ -23,6 +23,7 @@ import 'beta_access.dart';
 import 'brand.dart';
 import 'relay_account.dart';
 import 'app_updates.dart';
+import 'character_avatar.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -466,13 +467,16 @@ class _SkiShellState extends State<SkiShell>
       final foreground = Material(
         color: Colors.transparent,
         child: SafeArea(
+          top: false,
           child: Stack(
             children: [
               Positioned.fill(
                 child: widget.route == '/chat'
                     ? RepaintBoundary(child: body)
                     : Padding(
-                        padding: const EdgeInsets.only(top: 76),
+                        padding: EdgeInsets.only(
+                          top: 76 + MediaQuery.paddingOf(context).top,
+                        ),
                         child: RepaintBoundary(child: body),
                       ),
               ),
@@ -482,7 +486,12 @@ class _SkiShellState extends State<SkiShell>
                 right: 0,
                 child: capsule
                     ? Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
+                        padding: EdgeInsets.fromLTRB(
+                          10,
+                          MediaQuery.paddingOf(context).top + 7,
+                          10,
+                          5,
+                        ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(40),
                           child: ConfigurableGlassSurface(
@@ -492,10 +501,16 @@ class _SkiShellState extends State<SkiShell>
                           ),
                         ),
                       )
-                    : ColoredBox(
-                        key: const ValueKey('opaque-rectangle-toolbar'),
-                        color: paper,
-                        child: toolbar,
+                    : ConfigurableGlassSurface(
+                        key: const ValueKey('glass-rectangle-toolbar'),
+                        area: 'toolbarBlur',
+                        radius: 0,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: MediaQuery.paddingOf(context).top,
+                          ),
+                          child: toolbar,
+                        ),
                       ),
               ),
             ],
@@ -642,11 +657,7 @@ class _SideNavigationState extends State<SideNavigation> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 15,
-                      backgroundColor: mist,
-                      child: Icon(demo.role.icon, color: green, size: 18),
-                    ),
+                    CharacterAvatar(persona: demo.role, size: 30),
                     const SizedBox(width: 10),
                     label(demo.role.name, size: 16, weight: FontWeight.w600),
                     const SizedBox(width: 8),

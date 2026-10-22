@@ -71,6 +71,7 @@ class Persona {
     this.icon,
   );
   String name, subtitle, prompt, group;
+  Uint8List? avatar;
   Map<String, String> card = {};
   String get compiledPrompt => [
     prompt,
@@ -87,6 +88,7 @@ class Persona {
     'card': card,
     'color': color.toARGB32(),
     'icon': icon.codePoint,
+    if (avatar != null) 'avatar': base64Encode(avatar!),
   };
   factory Persona.fromJson(Map<String, dynamic> raw) =>
       Persona(
@@ -103,6 +105,7 @@ class Persona {
               ].where((icon) => icon.codePoint == raw['icon']).firstOrNull ??
               Icons.auto_awesome_outlined,
         )
+        ..avatar = _readAvatar(raw['avatar'])
         ..card = {
           for (final e
               in (raw['card'] is Map
@@ -114,6 +117,16 @@ class Persona {
                 (e.value as String).length.clamp(0, 6000),
               ),
         };
+
+  static Uint8List? _readAvatar(dynamic encoded) {
+    if (encoded is! String || encoded.length > 410000) return null;
+    try {
+      final bytes = base64Decode(encoded);
+      return bytes.length <= 300 * 1024 ? bytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class Conversation {

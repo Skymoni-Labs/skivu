@@ -561,7 +561,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       slider('leftOpacity', '左侧栏不透明度', 0, 1, percent: true),
       slider('rightOpacity', '右侧栏不透明度', 0, 1, percent: true),
       title('输入框与顶栏'),
-      toggle('capsuleToolbar', '胶囊顶栏', note: '开启为折射玻璃胶囊；关闭为完全遮挡的长方形顶栏。'),
+      toggle('capsuleToolbar', '胶囊顶栏', note: '开启为折射玻璃胶囊；关闭为延伸到屏幕顶部的长方形玻璃顶栏。'),
       slider('inputBlur', '输入框玻璃模糊', 0, 30),
       slider('inputOpacity', '输入框不透明度', 0, 1, percent: true),
       slider('toolbarBlur', '顶栏玻璃模糊', 0, 30),

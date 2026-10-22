@@ -2,7 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum MediaDestination { wallpaper, userBubble, assistantBubble, video }
+enum MediaDestination {
+  wallpaper,
+  userBubble,
+  assistantBubble,
+  video,
+  characterAvatar,
+}
 
 abstract interface class PendingMediaStore {
   Future<String?> read();

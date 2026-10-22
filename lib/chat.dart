@@ -11,6 +11,7 @@ import 'appearance.dart';
 import 'chat_controls.dart';
 import 'relay_account.dart';
 import 'chat_message_dial.dart';
+import 'character_avatar.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -30,8 +31,6 @@ class _ChatPageState extends State<ChatPage> {
   final focus = FocusNode();
   final scroll = ScrollController();
   final keys = <Message, GlobalKey>{};
-  // Each non-overlapping role shares one backdrop input at its own blur value.
-  final _userBackdrop = BackdropKey(), _replyBackdrop = BackdropKey();
   Timer? navTimer;
   bool showNav = false, follow = true;
   int oldCount = 0, _centeredIndex = 0;
@@ -290,7 +289,7 @@ class _ChatPageState extends State<ChatPage> {
                 controller: scroll,
                 padding: EdgeInsets.fromLTRB(
                   appearance.flag('wideChat') ? 8 : 14,
-                  88,
+                  88 + MediaQuery.paddingOf(context).top,
                   appearance.flag('wideChat') ? 8 : 14,
                   24,
                 ),
@@ -583,7 +582,7 @@ class _ChatPageState extends State<ChatPage> {
             tooltip: '编辑角色卡',
             onPressed: () =>
                 Navigator.of(context).pushReplacementNamed('/characters/edit'),
-            icon: Icon(demo.role.icon, size: 33, color: ink),
+            icon: CharacterAvatar(persona: demo.role, size: 52),
           ),
         ),
         const SizedBox(height: 24),
@@ -646,17 +645,17 @@ class _ChatPageState extends State<ChatPage> {
               appearance.flag('squareAvatars') ? 7 : 16,
             ),
           ),
-          child: Icon(
-            m.user ? Icons.person_rounded : demo.role.icon,
-            color: green,
-            size: m.user ? 23 : 18,
-          ),
+          child: m.user
+              ? Icon(Icons.person_rounded, color: green, size: 23)
+              : CharacterAvatar(
+                  persona: demo.role,
+                  square: appearance.flag('squareAvatars'),
+                ),
         ),
       ),
     );
     final bubble = ChatBubbleSurface(
       user: m.user,
-      backdropKey: m.user ? _userBackdrop : _replyBackdrop,
       child: SelectableText(
         m.text.isEmpty
             ? (m.status == 'pending'
@@ -682,132 +681,146 @@ class _ChatPageState extends State<ChatPage> {
             const SizedBox(width: 9),
           ],
           Flexible(
-            child: Column(
-              crossAxisAlignment: m.user
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                bubble,
-                if (m.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 6,
-                      children: [
-                        Text(
-                          m.error!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: m.status == 'failed'
-                                ? Theme.of(context).colorScheme.error
-                                : muted,
-                          ),
-                        ),
-                        if (!demo.streaming && i == demo.messages.length - 1)
-                          TextButton.icon(
-                            onPressed: demo.regenerate,
-                            icon: const Icon(Icons.refresh, size: 15),
-                            label: const Text(
-                              '重试',
-                              style: TextStyle(fontSize: 11),
+            child: Padding(
+              padding: EdgeInsets.only(right: m.user ? 0 : 40),
+              child: Column(
+                crossAxisAlignment: m.user
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (appearance.flag('showThinking') &&
+                      m.thinking?.isNotEmpty == true)
+                    ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                      childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                      collapsedBackgroundColor: Colors.transparent,
+                      backgroundColor: Colors.transparent,
+                      collapsedShape: const Border(),
+                      shape: const Border(),
+                      title: label('思考过程', size: 11),
+                      children: [SelectableText(m.thinking!)],
+                    ),
+                  bubble,
+                  if (m.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        children: [
+                          Text(
+                            m.error!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: m.status == 'failed'
+                                  ? Theme.of(context).colorScheme.error
+                                  : muted,
                             ),
                           ),
-                      ],
-                    ),
-                  ),
-                if (appearance.flag('showThinking') &&
-                    m.thinking?.isNotEmpty == true)
-                  ExpansionTile(
-                    title: label('思考过程', size: 11),
-                    children: [Text(m.thinking!)],
-                  ),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    if (m.user && appearance.flag('showUser'))
-                      label('我', size: 10, color: muted),
-                    if (!m.user && appearance.flag('showModel'))
-                      label(m.modelName ?? '模型 —', size: 10, color: muted),
-                    if (!m.user && appearance.flag('showProvider'))
-                      label(m.provider ?? '供应商 —', size: 10, color: muted),
-                    if (!m.user && appearance.flag('showTokens'))
-                      label('Token ${m.tokens ?? '—'}', size: 10, color: muted),
-                    if (!m.user && appearance.flag('showElapsed'))
-                      label(
-                        m.elapsedMs == null
-                            ? '耗时 —'
-                            : '${(m.elapsedMs! / 1000).toStringAsFixed(2)} s',
-                        size: 10,
-                        color: muted,
-                      ),
-                    if (appearance.flag('showTime'))
-                      label(
-                        '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
-                        size: 10,
-                        color: muted,
-                      ),
-                  ],
-                ),
-                if (!m.user)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(width: 4),
-                      if (appearance.flag('showRole'))
-                        label(demo.role.name, size: 10, color: muted),
-                      if (m.bookmarked) ...[
-                        const SizedBox(width: 6),
-                        Icon(Icons.bookmark, size: 12, color: green),
-                      ],
-                      PopupMenuButton<String>(
-                        tooltip: '消息菜单 ${i + 1}',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        iconSize: 17,
-                        icon: const Icon(Icons.more_horiz, color: muted),
-                        onSelected: (v) async {
-                          if (v == 'save') {
-                            m.bookmarked = !m.bookmarked;
-                            demo.changed();
-                            demo.saveChats();
-                          } else if (v == 'copy') {
-                            await Clipboard.setData(
-                              ClipboardData(text: m.text),
-                            );
-                            if (mounted) toast(context, '消息已复制');
-                          } else if (v == 'retry') {
-                            follow = true;
-                            demo.regenerate();
-                          } else {
-                            input.text = m.text;
-                            focus.requestFocus();
-                            setState(() {});
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: 'copy',
-                            child: Text('复制消息'),
-                          ),
-                          PopupMenuItem(
-                            value: 'save',
-                            child: Text(m.bookmarked ? '取消收藏' : '收藏消息'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'quote',
-                            child: Text('引用到输入框'),
-                          ),
-                          if (i == demo.messages.length - 1 && !demo.streaming)
-                            const PopupMenuItem(
-                              value: 'retry',
-                              child: Text('重新生成'),
+                          if (!demo.streaming && i == demo.messages.length - 1)
+                            TextButton.icon(
+                              onPressed: demo.regenerate,
+                              icon: const Icon(Icons.refresh, size: 15),
+                              label: const Text(
+                                '重试',
+                                style: TextStyle(fontSize: 11),
+                              ),
                             ),
                         ],
                       ),
+                    ),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (m.user && appearance.flag('showUser'))
+                        label('我', size: 10, color: muted),
+                      if (!m.user && appearance.flag('showModel'))
+                        label(m.modelName ?? '模型 —', size: 10, color: muted),
+                      if (!m.user && appearance.flag('showProvider'))
+                        label(m.provider ?? '供应商 —', size: 10, color: muted),
+                      if (!m.user && appearance.flag('showTokens'))
+                        label(
+                          'Token ${m.tokens ?? '—'}',
+                          size: 10,
+                          color: muted,
+                        ),
+                      if (!m.user && appearance.flag('showElapsed'))
+                        label(
+                          m.elapsedMs == null
+                              ? '耗时 —'
+                              : '${(m.elapsedMs! / 1000).toStringAsFixed(2)} s',
+                          size: 10,
+                          color: muted,
+                        ),
+                      if (appearance.flag('showTime'))
+                        label(
+                          '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
+                          size: 10,
+                          color: muted,
+                        ),
                     ],
                   ),
-              ],
+                  if (!m.user)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 4),
+                        if (appearance.flag('showRole'))
+                          label(demo.role.name, size: 10, color: muted),
+                        if (m.bookmarked) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.bookmark, size: 12, color: green),
+                        ],
+                        PopupMenuButton<String>(
+                          tooltip: '消息菜单 ${i + 1}',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          iconSize: 17,
+                          icon: const Icon(Icons.more_horiz, color: muted),
+                          onSelected: (v) async {
+                            if (v == 'save') {
+                              m.bookmarked = !m.bookmarked;
+                              demo.changed();
+                              demo.saveChats();
+                            } else if (v == 'copy') {
+                              await Clipboard.setData(
+                                ClipboardData(text: m.text),
+                              );
+                              if (mounted) toast(context, '消息已复制');
+                            } else if (v == 'retry') {
+                              follow = true;
+                              demo.regenerate();
+                            } else {
+                              input.text = m.text;
+                              focus.requestFocus();
+                              setState(() {});
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'copy',
+                              child: Text('复制消息'),
+                            ),
+                            PopupMenuItem(
+                              value: 'save',
+                              child: Text(m.bookmarked ? '取消收藏' : '收藏消息'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'quote',
+                              child: Text('引用到输入框'),
+                            ),
+                            if (i == demo.messages.length - 1 &&
+                                !demo.streaming)
+                              const PopupMenuItem(
+                                value: 'retry',
+                                child: Text('重新生成'),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
           if (m.user && appearance.flag('avatars')) ...[

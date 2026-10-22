@@ -255,7 +255,7 @@ void main() {
       );
       expect(lens.style.blur, 24);
       expect(
-        find.byKey(const ValueKey('opaque-rectangle-toolbar')),
+        find.byKey(const ValueKey('glass-rectangle-toolbar')),
         findsOneWidget,
       );
       expect(

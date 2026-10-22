@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/chat_bubble_surface.dart';
 import 'package:ski/glass_preferences.dart';
@@ -9,6 +10,90 @@ import 'package:ski/appearance.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets(
+    'glass keeps the background tint consistently before and after scrolling',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final old = appearance.values;
+      addTearDown(() {
+        for (final e in old.entries) {
+          appearance.set(e.key, e.value);
+        }
+      });
+      appearance.set('assistantOpacity', .38);
+      appearance.set('customMessageColors', false);
+      final capture = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: capture,
+            child: ColoredBox(
+              color: const Color(0xff203040),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  for (var i = 0; i < 8; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 30),
+                      child: ChatBubbleSurface(
+                        key: ValueKey('sample-$i'),
+                        user: false,
+                        child: const SizedBox(height: 65),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Future<List<int>> pixels(List<int> indexes) async {
+        final boundary =
+            capture.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        return (await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          try {
+            final bytes = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!;
+            return [
+              for (final index in indexes)
+                bytes.getUint8(
+                  (tester
+                                  .getCenter(
+                                    find.byKey(ValueKey('sample-$index')),
+                                  )
+                                  .dy
+                                  .round() *
+                              image.width +
+                          160) *
+                      4,
+                ),
+            ];
+          } finally {
+            image.dispose();
+          }
+        }))!;
+      }
+
+      final before = await pixels([0, 1, 2]);
+      // A white shadow painted under the blur used to make the first bubble
+      // opaque, with subsequent grouped bubbles taking a different input.
+      expect(
+        before.every((red) => red > 90 && red < 150),
+        isTrue,
+        reason: '$before',
+      );
+      expect(before.toSet().length, 1);
+      await tester.drag(find.byType(ListView), const Offset(0, -260));
+      await tester.pumpAndSettle();
+      expect(await pixels([3, 4]), everyElement(before.first));
+    },
+  );
   testWidgets('both dark and light bubbles obey independent opacity', (
     tester,
   ) async {
@@ -65,13 +150,11 @@ void main() {
       final model = GlassPreferences(persistence: MemoryGlassPreferences());
       model.setBubbleBlur(user: true, value: 0);
       model.setBubbleBlur(user: false, value: 0);
-      final userKey = BackdropKey(), replyKey = BackdropKey();
       var builds = 0;
       Widget bubble(bool user) => ChatBubbleSurface(
         key: ValueKey(user ? 'mine' : 'reply'),
         user: user,
         preferences: model,
-        backdropKey: user ? userKey : replyKey,
         child: Builder(
           builder: (_) {
             builds++;
@@ -104,8 +187,8 @@ void main() {
       model.setBubbleBlur(user: false, value: 8);
       await tester.pump();
       expect(filter(false).filter, ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8));
-      expect(filter(true).backdropGroupKey, userKey);
-      expect(filter(false).backdropGroupKey, replyKey);
+      expect(filter(true).backdropGroupKey, isNull);
+      expect(filter(false).backdropGroupKey, isNull);
       expect(builds, oldBuilds);
       expect(tester.getSize(surface(true)), oldSize);
       expect(

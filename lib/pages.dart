@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'character_avatar.dart';
 import 'state.dart';
 import 'widgets.dart';
 import 'voice_call_screen.dart';
@@ -154,11 +156,7 @@ class _CharactersPageState extends State<CharactersPage> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: p.color.withValues(alpha: .12),
-                child: Icon(p.icon, color: p.color, size: 26),
-              ),
+              CharacterAvatar(persona: p, size: 52),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -264,6 +262,20 @@ class CharacterEditor extends StatefulWidget {
 }
 
 class _CharacterEditorState extends State<CharacterEditor> {
+  late Uint8List? avatar = demo.role.avatar;
+  bool pickingAvatar = false;
+  Future<void> chooseAvatar() async {
+    setState(() => pickingAvatar = true);
+    try {
+      final selected = await pickCharacterAvatar();
+      if (mounted && selected != null) setState(() => avatar = selected);
+    } catch (_) {
+      if (mounted) toast(context, '头像未导入，请选择有效图片（最大 3 MB）。');
+    } finally {
+      if (mounted) setState(() => pickingAvatar = false);
+    }
+  }
+
   late final name = TextEditingController(text: demo.role.name),
       subtitle = TextEditingController(text: demo.role.subtitle),
       prompt = TextEditingController(text: demo.role.prompt);
@@ -311,21 +323,35 @@ class _CharacterEditorState extends State<CharacterEditor> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: demo.role.color.withValues(alpha: .12),
-                    child: Icon(
-                      demo.role.icon,
-                      size: 30,
-                      color: demo.role.color,
+                  InkWell(
+                    onTap: pickingAvatar ? null : chooseAvatar,
+                    child: CharacterAvatar(
+                      persona: demo.role,
+                      size: 64,
+                      bytes: avatar,
+                      showDefault: avatar == null,
                     ),
                   ),
                   const SizedBox(width: 20),
                   Expanded(
-                    child: label(
-                      '自主绘制的角色标识\n不使用第三方头像素材',
-                      size: 11,
-                      color: muted,
+                    child: Wrap(
+                      children: [
+                        TextButton.icon(
+                          onPressed: pickingAvatar ? null : chooseAvatar,
+                          icon: const Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 18,
+                          ),
+                          label: Text(pickingAvatar ? '正在导入…' : '更换头像'),
+                        ),
+                        if (avatar != null)
+                          TextButton(
+                            onPressed: pickingAvatar
+                                ? null
+                                : () => setState(() => avatar = null),
+                            child: const Text('恢复默认头像'),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -393,6 +419,7 @@ class _CharacterEditorState extends State<CharacterEditor> {
                   actionButton('保存角色', Icons.check, () {
                     if (!form.currentState!.validate()) return;
                     demo.role.name = name.text.trim();
+                    demo.role.avatar = avatar;
                     demo.role.subtitle = subtitle.text;
                     demo.role.prompt = prompt.text;
                     demo.role.group = group;

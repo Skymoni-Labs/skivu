@@ -16,12 +16,8 @@ class ChatStatusBar extends StatelessWidget {
     const color = ink;
     return DefaultTextStyle.merge(
       style: TextStyle(fontSize: 10, height: 1.4, color: color),
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .55),
-          borderRadius: BorderRadius.circular(10),
-        ),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.center,

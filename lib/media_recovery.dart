@@ -20,6 +20,10 @@ Future<void> recoverInterruptedMedia() async {
             await appearance.importBubbleImage(false, bytes);
           case MediaDestination.video:
             await appearance.importVideo(bytes);
+          case MediaDestination.characterAvatar:
+            // The editor's unsaved target may no longer exist after process
+            // death. Never apply this image to the wallpaper or another role.
+            appearance.reportImportError('上次的角色头像选择中断，请在角色卡中重新选择。');
         }
       },
     );
