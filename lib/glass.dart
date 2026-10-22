@@ -452,12 +452,14 @@ class GlassSurface extends StatelessWidget {
     this.liquid = false,
     this.liquidBlur = 2,
     this.liquidOpacity,
+    this.outline = true,
   });
   final Widget child;
   final double radius, blur, opacity;
   final bool grouped, liquid;
   final double liquidBlur;
   final double? liquidOpacity;
+  final bool outline;
   @override
   Widget build(BuildContext context) {
     final enabled = demo.prefs['毛玻璃效果'] ?? true;
@@ -484,12 +486,14 @@ class GlassSurface extends StatelessWidget {
             base.withValues(alpha: alpha),
           ],
         ),
-        border: Border.all(
-          color: demo.dark
-              ? Colors.white.withValues(alpha: .12)
-              : Colors.white.withValues(alpha: .8),
-          width: .9,
-        ),
+        border: !outline
+            ? null
+            : Border.all(
+                color: demo.dark
+                    ? Colors.white.withValues(alpha: .12)
+                    : Colors.white.withValues(alpha: .8),
+                width: .9,
+              ),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: child,
@@ -532,7 +536,10 @@ class ConfigurableGlassSurface extends StatelessWidget {
       child: child,
       builder: (context, content) => GlassSurface(
         radius: radius,
-        liquid: true,
+        liquid: radius > 0,
+        outline: radius > 0,
+        blur: model.number(area),
+        opacity: model.number(area.replaceFirst('Blur', 'Opacity')),
         liquidBlur: model.number(area),
         liquidOpacity: model.number(area.replaceFirst('Blur', 'Opacity')),
         child: content!,

@@ -3,6 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/voice_call_session.dart';
+import 'package:ski/speech_api.dart';
+import 'package:ski/speech_settings.dart';
+
+class PendingSpeech extends SpeechApi {
+  final result = Completer<Uint8List>();
+  @override
+  Future<Uint8List> synthesize(SpeechProfile p, String text) => result.future;
+}
 
 class VoiceFixtureBackend extends CurrentChatVoiceBackend {
   final result = Completer<String>();
@@ -47,6 +55,56 @@ void main() {
       expect(backend.replies, 0);
       await session.setMuted(true);
       expect(session.phase, VoiceCallPhase.muted);
+      await session.end();
+      session.dispose();
+    },
+  );
+  test(
+    'unused settings preview cannot close the current call channel',
+    () async {
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (m) async {
+        calls.add(m.method);
+        return m.method == 'listen' ? 'listening' : null;
+      });
+      final unused = VoiceCallSession();
+      final active = VoiceCallSession();
+      await active.start();
+      await unused.end();
+      expect(calls, isNot(contains('close')));
+      await active.end();
+      expect(calls.last, 'close');
+      unused.dispose();
+      active.dispose();
+    },
+  );
+  test(
+    'cancelled cloud preview neither plays late audio nor starts microphone',
+    () async {
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(channel, (m) async {
+        calls.add(m.method);
+        return null;
+      });
+      final api = PendingSpeech();
+      final session = VoiceCallSession(synthesis: api);
+      final playing = session.previewVoice(
+        profile: const SpeechProfile(
+          id: 'cloud',
+          name: 'Cloud',
+          provider: SpeechProvider.openai,
+          endpoint: 'https://voice.example/tts',
+          voice: 'a',
+          model: 'tts',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(session.previewing, isTrue);
+      await session.stopPreview();
+      api.result.complete(Uint8List.fromList([73, 68, 51, 1]));
+      await playing;
+      expect(calls, isNot(contains('playAudio')));
+      expect(calls, isNot(contains('listen')));
       await session.end();
       session.dispose();
     },

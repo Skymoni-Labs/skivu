@@ -19,6 +19,19 @@
 
 内测模型目录按后台返回的 model_protocols 选择 chat 或 responses，分别签名并请求固定的 /api/app-beta/chat/completions 或 /api/app-beta/responses。Responses 仅发送约定的 input、instructions、stream、max_output_tokens 与 store:false；未支持的协议标记不会作为可聊模型显示。
 
-范围为文字聊天、流式/非流式、多轮历史、停止/重试、配置和消息本地保存。Codex 网页账号登录、嵌入式模型运行、语音、附件和工具执行未实现。供应商列表是协议预设；本地协议测试不等于每家服务商真实账户均已逐一验收。
+原文字聊天接入范围为流式/非流式、多轮历史、停止/重试、配置和消息本地保存。后续迁入的通话界面使用 Android 系统识别和可配置语音合成；嵌入式模型、附件和工具执行未实现。供应商列表是协议预设；本地协议测试不等于每家服务商真实账户均已逐一验收。
 
 2026-10-22 新增普通 Skymoni 账号的系统浏览器 PKCE 授权、模型/钱包/订阅同步及同域服务器转发 APK 更新。依据独立服务端公开契约 [SKIVU_APP_API.md](https://github.com/skyjjgw/skymoni-source/blob/main/docs/SKIVU_APP_API.md) 实现；与 Codex 网页账号登录及硬件内测配对是不同能力。流程、限制和品牌源文件见 APP-ACCOUNT-UPDATES.md。
+
+## 0.2.3 语音合成与流式呈现
+
+独立实现语音连接、密钥安全存储、音色/语速、试听与通话适配；不复制旧项目的供应商实现、模板或响应管道代码。按用户要求核对旧星伴配置项，并参考以下官方资料：
+
+- [SillyTavern TTS 配置](https://docs.sillytavern.app/extensions/tts/)：将语音服务商、声音选择和试听与聊天模型配置分开，是功能组织参考；未引入其扩展代码。
+- [OpenAI Speech 文档](https://developers.openai.com/api/docs/guides/text-to-speech)：完整 `/v1/audio/speech` 地址、模型/音色、文本、语速与可选风格，返回 MP3。兼容服务的实际能力由其实现决定。
+- [ElevenLabs Create speech](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)：音色位于 URL、`xi-api-key`、`model_id` 与语音设置。
+- [Azure Speech REST](https://learn.microsoft.com/en-us/azure/ai-services/speech-service/rest-text-to-speech)：区域完整地址、订阅密钥、SSML 与音频输出头。
+
+自定义 HTTP 支持 GET/POST、JSON 请求头/请求体变量、直接音频或 JSON Base64/Hex/音频 URL 字段。音频 URL 不继承鉴权，拒绝自动跳转，限制音频大小与超时；原始 PCM 要由服务包装成 WAV。全配置（含请求头、模板）只进入安全存储，不进入聊天备份。没有下载离线语音模型，也没有默认调用云端或共享中转站密钥。
+
+流式呈现独立于 SSE 包边界，按字素逐帧显示并随积压量调节；停止保留收到的前缀，换会话/退出不会向新回复写入晚包。用 characters 1.4.1 处理组合字符与 emoji，保留其 BSD-3-Clause 通知。此机制不改变服务端推理速度、首包等待或请求用量。

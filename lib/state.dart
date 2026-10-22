@@ -10,6 +10,7 @@ import 'model_connection.dart';
 import 'model_settings.dart';
 import 'beta_access.dart';
 import 'relay_account.dart';
+import 'stream_reveal.dart';
 
 const ink = Color(0xff17212b);
 Color get green => appearance.color('accent');
@@ -203,6 +204,7 @@ class DemoStore extends ChangeNotifier {
       ? account.connection
       : models.active;
   ChatSession? _session;
+  StreamReveal? _reveal;
   Message? _pending;
   Timer? _saveTimer;
   Future<void> _writes = Future.value();
@@ -494,6 +496,9 @@ class DemoStore extends ChangeNotifier {
   }
 
   void stop() {
+    _reveal?.flush();
+    _reveal?.dispose();
+    _reveal = null;
     _generation++;
     _session?.cancel();
     _session = null;
@@ -599,6 +604,15 @@ class DemoStore extends ChangeNotifier {
   ) async {
     final watch = Stopwatch()..start();
     var usage = const ApiUsage();
+    final reveal = StreamReveal((text, thinking) {
+      if (generation != _generation) return;
+      answer.text += text;
+      if (thinking.isNotEmpty)
+        answer.thinking = '${answer.thinking ?? ''}$thinking';
+      _saveSoon();
+      changed();
+    });
+    _reveal = reveal;
     try {
       final key = betaRequest || accountRequest
           ? ''
@@ -618,9 +632,13 @@ class DemoStore extends ChangeNotifier {
       _session = session;
       await for (final event in session.events) {
         if (generation != _generation) return;
-        answer.text += event.text;
-        if (event.thinking.isNotEmpty)
-          answer.thinking = '${answer.thinking ?? ''}${event.thinking}';
+        if (config.streaming) {
+          reveal.add(event.text, event.thinking);
+        } else {
+          answer.text += event.text;
+          if (event.thinking.isNotEmpty)
+            answer.thinking = '${answer.thinking ?? ''}${event.thinking}';
+        }
         if (event.usage != null) usage = usage.merge(event.usage!);
         if (event.limited) answer.error = '已达到输出上限，可在模型设置中增加最大输出。';
         answer.elapsedMs = watch.elapsedMilliseconds;
@@ -645,14 +663,17 @@ class DemoStore extends ChangeNotifier {
               : null,
         );
         _saveSoon();
-        changed();
+        if (!config.streaming || event.usage != null) changed();
       }
+      watch.stop();
+      await reveal.finish();
       if (generation != _generation) return;
       if (answer.text.trim().isEmpty)
         throw const ChatFailure('服务没有返回文字回复，请检查模型、输出上限或重试。');
       answer.status = 'complete';
     } catch (e) {
       if (generation != _generation) return;
+      reveal.flush();
       if (accountRequest &&
           e is ChatFailure &&
           e.code == 'APP_SESSION_INVALID') {
@@ -665,6 +686,8 @@ class DemoStore extends ChangeNotifier {
           ? e.message
           : '读取连接配置失败，请重新保存 API Key 后重试。';
     } finally {
+      reveal.dispose();
+      if (identical(_reveal, reveal)) _reveal = null;
       if (accountRequest && account.signedIn) unawaited(account.refresh());
       watch.stop();
       if (generation == _generation) {
@@ -688,6 +711,7 @@ class DemoStore extends ChangeNotifier {
     beta.removeListener(changed);
     account.removeListener(changed);
     _generation++;
+    _reveal?.dispose();
     _session?.cancel();
     _saveTimer?.cancel();
     super.dispose();

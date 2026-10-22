@@ -7,6 +7,7 @@ import 'package:ski/main.dart';
 import 'package:ski/state.dart';
 import 'package:ski/workspace.dart';
 import 'package:ski/glass.dart';
+import 'package:ski/thinking_disclosure.dart';
 import 'preview_fixture.dart';
 
 void main() {
@@ -57,6 +58,16 @@ void main() {
       final glass = tester.widget<ConfigurableGlassSurface>(rectangle);
       expect(glass.area, 'toolbarBlur');
       expect(glass.radius, 0);
+      final surface = tester.widget<GlassSurface>(
+        find
+            .descendant(of: rectangle, matching: find.byType(GlassSurface))
+            .first,
+      );
+      expect(surface.outline, isFalse);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('rectangle-toolbar'))).height,
+        48,
+      );
       expect(tester.getTopLeft(rectangle).dy, 0);
       expect(
         tester.getTopLeft(find.byKey(const ValueKey('rectangle-toolbar'))).dy,
@@ -87,7 +98,7 @@ void main() {
       final bubble = find.byType(ChatBubbleSurface);
       expect(tester.getBottomRight(bubble).dx, lessThanOrEqualTo(390 - 50));
       expect(
-        tester.getBottomLeft(find.byType(ExpansionTile)).dy,
+        tester.getBottomLeft(find.byType(ThinkingDisclosure)).dy,
         lessThanOrEqualTo(tester.getTopLeft(bubble).dy),
       );
       await tester.tap(find.text('思考过程'));
@@ -95,7 +106,7 @@ void main() {
       expect(find.text('这是可折叠的思考摘要。'), findsOneWidget);
       appearance.set('showThinking', false);
       await tester.pumpAndSettle();
-      expect(find.byType(ExpansionTile), findsNothing);
+      expect(find.byType(ThinkingDisclosure), findsNothing);
       appearance.set('showThinking', true);
       expect(tester.takeException(), isNull);
     },
@@ -113,6 +124,48 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('编辑角色卡'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, '角色描述'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'history control sits above latest and latest resumes bottom following',
+    (tester) async {
+      demo.messages
+        ..clear()
+        ..addAll(
+          List.generate(
+            16,
+            (i) => Message(
+              i.isEven,
+              '消息 $i：${List.filled(8, '用于检查定位的长内容。').join()}',
+            ),
+          ),
+        );
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      demo.changed();
+      await tester.pumpAndSettle();
+      final list = find.byType(ListView).first;
+      await tester.drag(list, const Offset(0, 260));
+      await tester.pump(const Duration(milliseconds: 100));
+      final latest = find.byKey(const ValueKey('chat-jump-latest'));
+      final history = find.byKey(
+        const ValueKey('chat-message-navigation-ball'),
+      );
+      expect(latest, findsOneWidget);
+      expect(history, findsOneWidget);
+      expect(
+        tester.getCenter(latest).dy,
+        greaterThan(tester.getCenter(history).dy),
+      );
+      await tester.tap(latest);
+      await tester.pumpAndSettle();
+      final controller = tester.widget<ListView>(list).controller!;
+      expect(
+        controller.offset,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+      expect(latest, findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

@@ -205,8 +205,9 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 5));
       final old = store.conversations.first;
-      expect(old.messages.last.text, '已有内容');
       store.newChat();
+      // Stop retains even the received prefix still waiting for a display frame.
+      expect(old.messages.last.text, '已有内容');
       controller.add(
         utf8.encode(
           sse([

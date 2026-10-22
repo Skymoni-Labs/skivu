@@ -12,6 +12,7 @@ import 'chat_controls.dart';
 import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
+import 'thinking_disclosure.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -33,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   final keys = <Message, GlobalKey>{};
   Timer? navTimer;
   bool showNav = false, follow = true;
+  bool _followQueued = false;
   int oldCount = 0, _centeredIndex = 0;
   late Conversation _conversation;
   @override
@@ -59,15 +61,23 @@ class _ChatPageState extends State<ChatPage> {
     }
     if (demo.messages.length != oldCount || (demo.streaming && follow)) {
       oldCount = demo.messages.length;
-      if (follow)
+      if (follow && !_followQueued) {
+        _followQueued = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && scroll.hasClients)
-            scroll.animateTo(
-              scroll.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOut,
-            );
+          _followQueued = false;
+          if (mounted && follow && scroll.hasClients) {
+            if (demo.streaming) {
+              scroll.jumpTo(scroll.position.maxScrollExtent);
+            } else {
+              scroll.animateTo(
+                scroll.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOut,
+              );
+            }
+          }
         });
+      }
     }
     setState(() {});
   }
@@ -118,6 +128,20 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       showNav = false;
       follow = false;
+    });
+  }
+
+  void latest() {
+    hideNavigation();
+    setState(() => follow = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && scroll.hasClients) {
+        scroll.animateTo(
+          scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+        );
+      }
     });
   }
 
@@ -293,7 +317,7 @@ class _ChatPageState extends State<ChatPage> {
                 addRepaintBoundaries: false,
                 padding: EdgeInsets.fromLTRB(
                   appearance.flag('wideChat') ? 8 : 14,
-                  88 + MediaQuery.paddingOf(context).top,
+                  68 + MediaQuery.paddingOf(context).top,
                   appearance.flag('wideChat') ? 8 : 14,
                   24,
                 ),
@@ -365,6 +389,8 @@ class _ChatPageState extends State<ChatPage> {
                   ),
               ],
               onOpenLocator: messageNavigator,
+              onLatest: latest,
+              showLatest: !follow && !focus.hasFocus,
               onJump: locate,
               onHidden: hideNavigation,
               senderName: (sender) => sender == 'user' ? '你' : demo.role.name,
@@ -694,16 +720,7 @@ class _ChatPageState extends State<ChatPage> {
                 children: [
                   if (appearance.flag('showThinking') &&
                       m.thinking?.isNotEmpty == true)
-                    ExpansionTile(
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                      childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-                      collapsedBackgroundColor: Colors.transparent,
-                      backgroundColor: Colors.transparent,
-                      collapsedShape: const Border(),
-                      shape: const Border(),
-                      title: label('思考过程', size: 11),
-                      children: [SelectableText(m.thinking!)],
-                    ),
+                    ThinkingDisclosure(text: m.thinking!),
                   bubble,
                   if (m.error != null)
                     Padding(

@@ -24,6 +24,7 @@ import 'brand.dart';
 import 'relay_account.dart';
 import 'app_updates.dart';
 import 'character_avatar.dart';
+import 'speech_settings.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -84,6 +85,7 @@ Future<void> main() async {
   ]);
   await appearanceProfiles.restore();
   await modelSettings.restore();
+  await speechSettings.restore();
   await betaAccess.restore();
   await relayAccount.restore();
   await demo.restore();
@@ -404,7 +406,7 @@ class _SkiShellState extends State<SkiShell>
       final capsule = appearance.flag('capsuleToolbar');
       final toolbar = SizedBox(
         key: ValueKey(capsule ? 'capsule-toolbar' : 'rectangle-toolbar'),
-        height: 62,
+        height: 48,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
@@ -475,7 +477,7 @@ class _SkiShellState extends State<SkiShell>
                     ? body
                     : Padding(
                         padding: EdgeInsets.only(
-                          top: 76 + MediaQuery.paddingOf(context).top,
+                          top: 56 + MediaQuery.paddingOf(context).top,
                         ),
                         child: RepaintBoundary(child: body),
                       ),
@@ -488,7 +490,7 @@ class _SkiShellState extends State<SkiShell>
                     ? Padding(
                         padding: EdgeInsets.fromLTRB(
                           10,
-                          MediaQuery.paddingOf(context).top + 7,
+                          MediaQuery.paddingOf(context).top + 2,
                           10,
                           5,
                         ),

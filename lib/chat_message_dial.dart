@@ -20,12 +20,16 @@ class ChatMessageDial extends StatefulWidget {
     required this.onJump,
     required this.onHidden,
     required this.senderName,
+    this.onLatest,
+    this.showLatest = false,
   });
   final bool visible;
   final double viewportHeight;
   final int? currentTimestamp;
   final Future<List<ChatMessageLocatorPreview>> Function() loadEntries;
   final VoidCallback onOpenLocator, onHidden;
+  final VoidCallback? onLatest;
+  final bool showLatest;
   final ValueChanged<int> onJump;
   final String Function(String) senderName;
   @override
@@ -139,8 +143,8 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
     final colors = Theme.of(context).colorScheme, l10n = const _DialStrings();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final y = (widget.viewportHeight / 2)
-            .clamp(84.0, math.max(84.0, constraints.maxHeight - 84))
+        final y = (widget.viewportHeight / 2 + 60)
+            .clamp(84.0, math.max(84.0, constraints.maxHeight - 250))
             .toDouble();
         _center = Offset(math.max(82.0, constraints.maxWidth - 92), y);
         final center = _holding
@@ -151,6 +155,37 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
           key: _surfaceKey,
           fit: StackFit.expand,
           children: [
+            if (!_holding &&
+                widget.onLatest != null &&
+                (widget.visible || widget.showLatest))
+              Positioned(
+                right: 4,
+                top: y + 30,
+                child: ClipOval(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Material(
+                      color: colors.surfaceContainerHighest.withValues(
+                        alpha: .58,
+                      ),
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        key: const ValueKey('chat-jump-latest'),
+                        tooltip: '回到最新消息',
+                        onPressed: widget.onLatest,
+                        icon: const Icon(
+                          Icons.keyboard_double_arrow_down_rounded,
+                        ),
+                        iconSize: 23,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (_holding)
               Positioned(
                 left: _center.dx - 82,

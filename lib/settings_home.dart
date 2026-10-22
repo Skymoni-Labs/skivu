@@ -11,37 +11,63 @@ class SettingsHome extends StatelessWidget {
   const SettingsHome({super.key, required this.go});
   final ValueChanged<String> go;
 
-  Widget group(
-    String title,
-    List<(String, String, IconData, String)> rows,
-  ) => Padding(
-    padding: const EdgeInsets.only(bottom: 22),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 9),
-          child: label(title, size: 11, color: muted, weight: FontWeight.w600),
+  Widget group(String title, List<(String, String, IconData, String)> rows) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 0, 8),
+              child: label(title, size: 12, weight: FontWeight.w600),
+            ),
+            Pane(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+              child: Column(
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 3,
+                      ),
+                      minLeadingWidth: 32,
+                      horizontalTitleGap: 12,
+                      leading: Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: green.withValues(alpha: .08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(rows[i].$3, size: 20, color: ink),
+                      ),
+                      title: Text(
+                        rows[i].$1,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        rows[i].$2,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 11, height: 1.5),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, size: 19),
+                      onTap: () => go(rows[i].$4),
+                    ),
+                    if (i < rows.length - 1)
+                      const Divider(height: 1, indent: 48),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        Pane(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          child: Column(
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                SettingRow(
-                  rows[i].$1,
-                  rows[i].$2,
-                  icon: rows[i].$3,
-                  onTap: () => go(rows[i].$4),
-                ),
-                if (i < rows.length - 1) const Divider(height: 1, indent: 42),
-              ],
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
+      );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -49,126 +75,64 @@ class SettingsHome extends StatelessWidget {
     builder: (context, _) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: green.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const BrandMark(),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  label('Skivu', size: 24, weight: FontWeight.w600),
-                  label('把对话，留给重要的人和事', size: 11, color: muted),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
         Pane(
-          padding: const EdgeInsets.all(18),
-          color: green.withValues(alpha: .12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    !relayAccount.signedIn
-                        ? Icons.account_circle_outlined
-                        : Icons.check_circle_outline,
-                    size: 19,
-                    color: green,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: label(
-                      relayAccount.signedIn ? '中转站账号' : '登录，直接开始',
-                      size: 13,
-                      weight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              label(
-                relayAccount.user?['display_name']?.toString() ??
-                    '一个账号，连接所有可用模型',
-                size: 17,
-                weight: FontWeight.w600,
-              ),
-              const SizedBox(height: 5),
-              label(
-                relayAccount.signedIn
-                    ? '${relayAccount.models.length} 个模型 · 钱包与订阅自动同步'
-                    : '使用 Skymoni 账号登录，无需逐个填写接口。',
-                size: 11,
-                color: muted,
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: () => go('/settings/account'),
-                icon: Icon(
-                  relayAccount.signedIn
-                      ? Icons.account_circle_outlined
-                      : Icons.login,
-                  size: 17,
-                ),
-                label: Text(relayAccount.signedIn ? '管理账号与额度' : '登录中转站'),
-              ),
-            ],
+          padding: const EdgeInsets.all(6),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            leading: const SizedBox(width: 44, height: 44, child: BrandMark()),
+            title: Text(
+              relayAccount.signedIn
+                  ? (relayAccount.user?['display_name']?.toString() ?? '我的账号')
+                  : '登录 Skymoni',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              relayAccount.signedIn ? '模型、余额与内测计划' : '登录后同步模型和额度',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go('/settings/account'),
           ),
         ),
         const SizedBox(height: 24),
-        group('为你而设', [
-          (
-            '中转站账号',
-            relayAccount.signedIn ? '模型与额度已连接' : '登录即可同步模型和额度',
-            Icons.account_circle_outlined,
-            '/settings/account',
-          ),
-          ('内测计划', '申请状态与专属额度', Icons.science_outlined, '/settings/beta'),
+        group('连接与服务', [
           (
             '模型与服务',
             modelSettings.connections.isEmpty
-                ? '添加你的模型连接'
-                : '${modelSettings.connections.length} 个连接 · 随时切换',
+                ? '接入自己的模型 API'
+                : '${modelSettings.connections.length} 个自定义连接',
             Icons.hub_outlined,
             '/settings/models',
           ),
+          ('语音与通话', '语音合成、音色、语速与试听', Icons.graphic_eq, '/settings/speech'),
+          ('内测计划', '申请状态与专属额度', Icons.science_outlined, '/settings/beta'),
+        ]),
+        group('使用偏好', [
           (
             '外观与体验',
-            '主题、背景、字体与玻璃材质',
+            '主题、壁纸、文字与玻璃材质',
             Icons.palette_outlined,
             '/settings/appearance',
           ),
-        ]),
-        group('数据与隐私', [
           ('聊天记录', '本地保存、备份与清理', Icons.history_rounded, '/settings/data'),
           ('隐私与权限', '了解数据如何使用', Icons.shield_outlined, '/settings/permissions'),
         ]),
-        group('更多', [
+        group('应用', [
           (
             '检查更新',
             appUpdates.release == null
-                ? '版本信息与手机内升级'
+                ? 'Skivu $appVersion'
                 : '发现新版本 ${appUpdates.release!.version}',
             Icons.system_update_outlined,
             '/settings/updates',
           ),
-          ('关于 Skivu', '版本信息与开源许可', Icons.info_outline, '/settings/about'),
+          ('关于 Skivu', '开源许可与应用信息', Icons.info_outline, '/settings/about'),
         ]),
-        Center(child: label('Skivu $appVersion', size: 10, color: muted)),
-        const SizedBox(height: 6),
-        Center(child: label('更多扩展能力正在准备中', size: 10, color: muted)),
+        Center(child: label('Skivu $appVersion', size: 11)),
+        const SizedBox(height: 12),
       ],
     ),
   );

@@ -11,13 +11,14 @@ import 'model_settings_page.dart';
 import 'account_beta_page.dart';
 import 'relay_account_page.dart';
 import 'app_updates_page.dart';
+import 'speech_settings_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
   ('updates', '检查更新', '新版本与手机内升级', Icons.system_update_outlined),
   ('beta', '内测计划', '申请状态与专属内测额度', Icons.science_outlined),
   ('models', '模型与服务', '管理连接，选择适合你的模型', Icons.hub_outlined),
-  ('speech', '语音', '语音识别与声音合成', Icons.graphic_eq),
+  ('speech', '语音与通话', '合成服务、音色与语速', Icons.graphic_eq),
   ('appearance', '外观', '壁纸、主题与文字大小', Icons.palette_outlined),
   ('permissions', '隐私与权限', '了解数据如何使用', Icons.shield_outlined),
   ('data', '聊天记录', '本地保存、备份与清理', Icons.history),
@@ -53,10 +54,12 @@ class ContentPage extends StatelessWidget {
       );
     }
     return SingleChildScrollView(
-      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 700 ? 24 : 42),
+      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 700 ? 16 : 32),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1050),
+          constraints: BoxConstraints(
+            maxWidth: route.startsWith('/settings') ? 680 : 1050,
+          ),
           child: child,
         ),
       ),
@@ -471,11 +474,12 @@ class _SettingsDetailState extends State<SettingsDetail> {
           icon: const Icon(Icons.arrow_back, size: 16),
           label: const Text('所有设置'),
         ),
-        const SizedBox(height: 18),
-        PageHeading(
-          'Your preferences',
-          section?.$2 ?? '设置',
-          section?.$3 ?? '选择你的偏好。',
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 18),
+          child: Text(
+            section?.$3 ?? '选择你的偏好。',
+            style: const TextStyle(fontSize: 12, height: 1.5, color: ink),
+          ),
         ),
         switch (widget.section) {
           'account' => RelayAccountPage(go: widget.go),
@@ -507,43 +511,8 @@ class _SettingsDetailState extends State<SettingsDetail> {
     ),
   );
   Widget models() => const ModelSettingsPage();
-  Widget speech() => Pane(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        label('角色语音通话', size: 22, weight: FontWeight.w600),
-        const SizedBox(height: 16),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.mic_none),
-          title: Text('Android 系统语音识别'),
-          subtitle: Text('首次开启时请求麦克风权限。识别服务可能联网。'),
-        ),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.chat_bubble_outline),
-          title: Text('当前对话模型'),
-          subtitle: Text('沿用聊天记录、角色设定和所选额度通道。'),
-        ),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.volume_up_outlined),
-          title: Text('Android 系统朗读'),
-          subtitle: Text('使用系统中文语音引擎；需要本机安装对应语言包。'),
-        ),
-        const SizedBox(height: 16),
-        label('切到后台会暂停收音；退出通话会释放语音资源。App 不保存录音文件。', size: 12),
-        const SizedBox(height: 18),
-        actionButton(
-          '打开语音通话',
-          Icons.call_outlined,
-          () => widget.go('/call'),
-          filled: true,
-        ),
-      ],
-    ),
-  );
-  Widget appearance() => const Pane(child: AppearanceSettings());
+  Widget speech() => const SpeechSettingsPage();
+  Widget appearance() => const AppearanceSettings();
   Widget permissions() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

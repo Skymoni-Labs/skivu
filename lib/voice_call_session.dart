@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'state.dart';
+import 'speech_settings.dart';
+import 'speech_api.dart';
 
 enum VoiceCallPhase {
   preparing,
@@ -26,7 +28,8 @@ class CallTranscriptEntry {
 class CurrentChatVoiceBackend extends ChangeNotifier {
   bool get hasLocalVoice => false;
   bool get usesLocalVoice => false;
-  String get speechDescription => 'Android 系统语音识别与朗读；识别服务可能联网。对话使用当前模型与额度。';
+  String get speechDescription =>
+      '系统语音识别 · ${speechSettings.active.name}合成。对话使用当前模型与额度。';
   bool _ownsReply = false;
   VoidCallback? _listener;
   Completer<String>? _pending;
@@ -73,11 +76,25 @@ class CurrentChatVoiceBackend extends ChangeNotifier {
 }
 
 class VoiceCallSession extends ChangeNotifier {
-  VoiceCallSession({CurrentChatVoiceBackend? backend, MethodChannel? channel})
-    : backend = backend ?? CurrentChatVoiceBackend(),
-      _channel = channel ?? const MethodChannel('skivu/voice_call');
+  static VoiceCallSession? _owner;
+  VoiceCallSession({
+    CurrentChatVoiceBackend? backend,
+    MethodChannel? channel,
+    SpeechSettings? speech,
+    SpeechApi? synthesis,
+  }) : backend = backend ?? CurrentChatVoiceBackend(),
+       speech = speech ?? speechSettings,
+       synthesis = synthesis ?? SpeechApi(),
+       _channel = channel ?? const MethodChannel('skivu/voice_call');
+  final SpeechSettings speech;
+  final SpeechApi synthesis;
   final CurrentChatVoiceBackend backend;
   final MethodChannel _channel;
+  void _claim() {
+    _owner = this;
+    _channel.setMethodCallHandler(_event);
+  }
+
   final level = ValueNotifier<double>(0);
   final elapsed = Stopwatch();
   final transcript = <CallTranscriptEntry>[];
@@ -104,14 +121,14 @@ class VoiceCallSession extends ChangeNotifier {
     if (_closed || _turnBusy) return;
     error = null;
     needsPermission = false;
-    _channel.setMethodCallHandler(_event);
+    _claim();
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       error = '语音通话请在 Android 客户端使用。';
       _change(VoiceCallPhase.error);
       return;
     }
     try {
-      await _channel.invokeMethod('prepare');
+      await _prepare();
       if (_closed) return;
       _ready = true;
       muted = false;
@@ -181,7 +198,7 @@ class VoiceCallSession extends ChangeNotifier {
         break;
       case 'ttsError':
         if (_spoken?.isCompleted == false)
-          _spoken!.completeError(StateError('系统朗读失败，请检查语音引擎。'));
+          _spoken!.completeError(StateError('语音播放失败，请检查语音服务和音频格式。'));
         break;
     }
   }
@@ -195,13 +212,29 @@ class VoiceCallSession extends ChangeNotifier {
     }
   }
 
-  Future<void> _speak(String text) async {
+  Future<void> _prepare([SpeechProfile? profile]) => _channel.invokeMethod(
+    'prepare',
+    {'systemTts': (profile ?? speech.active).provider == SpeechProvider.system},
+  );
+
+  Future<void> _speak(String text, {SpeechProfile? profile}) async {
     if (text.trim().isEmpty || _closed) return;
     final done = _spoken = Completer<void>();
     level.value = .4;
     _change(VoiceCallPhase.speaking);
     try {
-      await _channel.invokeMethod('speak', {'text': text});
+      final selected = profile ?? speech.active;
+      if (selected.provider == SpeechProvider.system) {
+        await _channel.invokeMethod('speak', {
+          'text': text,
+          'speed': selected.speed,
+          'voice': selected.voice,
+        });
+      } else {
+        final bytes = await synthesis.synthesize(selected, text);
+        if (_closed || !identical(_spoken, done) || done.isCompleted) return;
+        await _channel.invokeMethod('playAudio', {'bytes': bytes});
+      }
       await done.future.timeout(const Duration(minutes: 10));
     } finally {
       if (identical(_spoken, done)) _spoken = null;
@@ -235,7 +268,11 @@ class VoiceCallSession extends ChangeNotifier {
       if (_ready && reply.isNotEmpty) await _speak(reply);
     } catch (e) {
       if (!_closed && generation == _generation) {
-        error = e is StateError ? e.message.toString() : '通话暂时中断，请重试。';
+        error = e is SpeechFailure
+            ? e.message
+            : e is StateError
+            ? e.message.toString()
+            : '通话暂时中断，请重试。';
         _change(VoiceCallPhase.error);
       }
     } finally {
@@ -259,9 +296,10 @@ class VoiceCallSession extends ChangeNotifier {
     _turnBusy = false;
     previewing = false;
     _retry?.cancel();
+    synthesis.cancel();
     if (_spoken?.isCompleted == false) _spoken!.complete();
     await backend.cancelReply();
-    if (_ready) {
+    if (_ready && identical(_owner, this)) {
       try {
         await _channel.invokeMethod('stop');
       } catch (_) {}
@@ -292,27 +330,42 @@ class VoiceCallSession extends ChangeNotifier {
     }
   }
 
-  Future<void> previewVoice() async {
+  Future<void> previewVoice({
+    SpeechProfile? profile,
+    String text = '你好，我在这里。你可以慢慢说。',
+  }) async {
     if (_closed || _turnBusy) return;
+    final generation = ++_generation;
     _turnBusy = true;
     previewing = true;
     error = null;
     try {
-      await _channel.invokeMethod('prepare');
+      _claim();
+      await _prepare(profile);
       _ready = true;
       await _channel.invokeMethod('stopListening');
-      await _speak('你好，我在这里。你可以慢慢说。');
-    } catch (_) {
-      error = '当前系统语音不可用，请检查朗读引擎。';
-      _change(VoiceCallPhase.error);
+      await _speak(text, profile: profile);
+    } catch (failure) {
+      if (!_closed && generation == _generation) {
+        error = failure is SpeechFailure
+            ? failure.message
+            : '语音试听失败，请检查服务配置或系统朗读引擎。';
+        _change(VoiceCallPhase.error);
+      }
     } finally {
       _turnBusy = false;
       previewing = false;
-      if (!_closed) {
+      if (!_closed && generation == _generation) {
         muted = true;
         if (phase != VoiceCallPhase.error) _change(VoiceCallPhase.muted);
       }
     }
+  }
+
+  Future<void> stopPreview() async {
+    if (!previewing || _closed) return;
+    muted = true;
+    await interrupt();
   }
 
   Future<void> selectLocalVoice(bool selected) async {}
@@ -321,13 +374,17 @@ class VoiceCallSession extends ChangeNotifier {
     _closed = true;
     ++_generation;
     _retry?.cancel();
+    synthesis.cancel();
     elapsed.stop();
     if (_spoken?.isCompleted == false) _spoken!.complete();
     await backend.cancelReply();
-    try {
-      await _channel.invokeMethod('close');
-    } catch (_) {}
-    _channel.setMethodCallHandler(null);
+    if (identical(_owner, this)) {
+      _owner = null;
+      _channel.setMethodCallHandler(null);
+      try {
+        await _channel.invokeMethod('close');
+      } catch (_) {}
+    }
     level.value = 0;
     _change(VoiceCallPhase.ended);
   }
