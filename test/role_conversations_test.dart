@@ -9,6 +9,65 @@ import 'real_chat_store_test.dart' show MemoryChats, TestModels, waitForReply;
 
 void main() {
   test(
+    'deleting a role keeps other chats and restores valid ownership',
+    () async {
+      final disk = MemoryChats();
+      final store = DemoStore(storage: disk);
+      await store.restore();
+      final a = store.personas[0], b = store.personas[1];
+      store.newChat(personaId: a.id);
+      final kept = store.conversations.first;
+      kept.messages.add(Message(true, 'keep this context'));
+      store.newChat(personaId: b.id);
+      store.conversations.first.messages.add(Message(true, 'remove with role'));
+      expect(store.removePersona(b.id), isTrue);
+      expect(store.role.id, a.id);
+      expect(store.conversations[store.conversation], same(kept));
+      expect(kept.messages.single.text, 'keep this context');
+      await store.saveChats();
+      final restored = DemoStore(storage: disk);
+      await restored.restore();
+      expect(restored.personas.any((p) => p.id == b.id), isFalse);
+      expect(restored.conversations.any((c) => c.personaId == b.id), isFalse);
+      expect(restored.role.id, a.id);
+      for (final p in restored.personas.toList().skip(1))
+        restored.removePersona(p.id);
+      expect(restored.removePersona(restored.personas.single.id), isFalse);
+      expect(restored.role.id, restored.personas.single.id);
+      store.dispose();
+      restored.dispose();
+    },
+  );
+  test(
+    'group removal moves roles without deleting histories and persists',
+    () async {
+      final disk = MemoryChats();
+      final store = DemoStore(storage: disk);
+      await store.restore();
+      expect(store.addGroup('  QA group  '), isTrue);
+      expect(store.addGroup('QA group'), isFalse);
+      final role = store.personas.first;
+      role.group = 'QA group';
+      store.newChat(personaId: role.id);
+      final id = store.conversations.first.id;
+      store.messages.add(Message(true, 'retained after group removal'));
+      expect(store.deleteGroup('QA group'), isTrue);
+      expect(role.group, '未分组');
+      expect(store.groups, contains('未分组'));
+      expect(store.deleteGroup('全部'), isFalse);
+      expect(store.deleteGroup('未分组'), isFalse);
+      await store.saveChats();
+      final restored = DemoStore(storage: disk);
+      await restored.restore();
+      expect(restored.groups, isNot(contains('QA group')));
+      expect(restored.personas.first.group, '未分组');
+      expect(restored.conversations.first.id, id);
+      expect(restored.messages.single.text, 'retained after group removal');
+      store.dispose();
+      restored.dispose();
+    },
+  );
+  test(
     'same-role chats share current card but their requests, drafts and histories stay isolated',
     () async {
       final requests = <Map<String, dynamic>>[];

@@ -370,11 +370,63 @@ class DemoStore extends ChangeNotifier {
   }
 
   void addPersona(Persona value) {
+    if (value.group == '全部') value.group = '未分组';
+    if (!groups.contains(value.group)) groups.add(value.group);
     personas.add(value);
     persona = personas.length - 1;
     roleFolders[value.id] = true;
     changed();
     saveChats();
+  }
+
+  bool addGroup(String name) {
+    final value = name.trim().characters.take(40).join();
+    if (value.isEmpty || groups.contains(value)) return false;
+    groups.add(value);
+    changed();
+    saveChats();
+    return true;
+  }
+
+  bool deleteGroup(String name) {
+    if (name == '全部' || name == '未分组' || !groups.contains(name)) return false;
+    groups.remove(name);
+    for (final role in personas.where((p) => p.group == name)) {
+      role.group = '未分组';
+      if (!groups.contains('未分组')) groups.add('未分组');
+    }
+    changed();
+    saveChats();
+    return true;
+  }
+
+  bool removePersona(String id) {
+    final target = personas.where((p) => p.id == id).firstOrNull;
+    if (target == null || personas.length <= 1) return false;
+    final active = conversations[conversation], editorId = editingRole.id;
+    final activeRemoved = active.personaId == id;
+    if (activeRemoved) stop();
+    personas.remove(target);
+    conversations.removeWhere((c) => c.personaId == id);
+    roleFolders.remove(id);
+    if (conversations.isEmpty) {
+      conversations.add(
+        Conversation(
+          '新的对话',
+          [],
+          personaId: personas.first.id,
+          placeholder: true,
+        ),
+      );
+    }
+    conversation = activeRemoved ? 0 : conversations.indexOf(active);
+    final nextRoleId = conversations[conversation].personaId;
+    persona = personas.indexWhere((p) => p.id == editorId);
+    if (persona < 0) persona = personas.indexWhere((p) => p.id == nextRoleId);
+    if (activeRemoved && nextRoleId != null) roleFolders[nextRoleId] = true;
+    changed();
+    saveChats();
+    return true;
   }
 
   Map<String, dynamic> _normalizeArchive(Map<String, dynamic> raw) {

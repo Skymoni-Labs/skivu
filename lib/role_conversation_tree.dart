@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'state.dart';
 import 'glass.dart';
+import 'role_actions.dart';
 
 class RoleConversationTree extends StatefulWidget {
   const RoleConversationTree({
@@ -168,6 +169,18 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                       expanded ? Icons.expand_less : Icons.expand_more,
                       size: 18,
                       color: ink,
+                    ),
+                    PopupMenuButton<String>(
+                      key: ValueKey('role-menu-${role.id}'),
+                      tooltip: '角色菜单：${role.name}',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 140),
+                      icon: const Icon(Icons.more_horiz, size: 18, color: ink),
+                      onSelected: (_) =>
+                          confirmDeletePersona(context, store, role),
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'delete', child: Text('删除角色')),
+                      ],
                     ),
                   ],
                 ),

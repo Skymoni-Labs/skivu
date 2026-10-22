@@ -37,6 +37,34 @@ Widget host(DemoStore store, {String query = '', VoidCallback? open}) =>
 
 void main() {
   testWidgets(
+    'role folder menu confirms deletion with its conversation count',
+    (tester) async {
+      final store = await fixture();
+      final role = store.personas.first;
+      await tester.pumpWidget(host(store));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('role-menu-${role.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除角色'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('2 段对话和聊天记录'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(store.personas, contains(role));
+      await tester.tap(find.byKey(ValueKey('role-menu-${role.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除角色'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除角色及对话'));
+      await tester.pumpAndSettle();
+      expect(store.personas, isNot(contains(role)));
+      expect(store.conversationsFor(role.id), isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      store.dispose();
+    },
+  );
+  testWidgets(
     'one folder per role, counts, inside creation and title search retain role ownership',
     (tester) async {
       final store = await fixture();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'character_avatar.dart';
+import 'role_actions.dart';
 import 'state.dart';
 import 'widgets.dart';
 import 'voice_call_screen.dart';
@@ -92,7 +93,7 @@ class _CharactersPageState extends State<CharactersPage> {
               '新的伙伴',
               '写下一句角色介绍',
               '用温和、清晰的语言与用户交流。',
-              '日常',
+              demo.groups.where((g) => g != '全部').firstOrNull ?? '未分组',
               green,
               Icons.face_outlined,
             ),
@@ -175,13 +176,22 @@ class _CharactersPageState extends State<CharactersPage> {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: '编辑 ${p.name}',
-                onPressed: () {
-                  demo.persona = i;
-                  widget.go('/characters/edit');
+              PopupMenuButton<String>(
+                tooltip: '角色操作：${p.name}',
+                icon: const Icon(Icons.more_vert, size: 19, color: muted),
+                onSelected: (action) async {
+                  if (action == 'edit') {
+                    demo.persona = i;
+                    widget.go('/characters/edit');
+                  } else if (await confirmDeletePersona(context, demo, p) &&
+                      mounted) {
+                    setState(() {});
+                  }
                 },
-                icon: const Icon(Icons.tune, size: 19, color: muted),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('编辑角色卡')),
+                  PopupMenuItem(value: 'delete', child: Text('删除角色')),
+                ],
               ),
             ],
           ),
@@ -202,56 +212,122 @@ class _CharactersPageState extends State<CharactersPage> {
   }
 
   void groupDialog() {
-    final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (c) => StatefulBuilder(
-        builder: (c, change) => AlertDialog(
-          title: const Text('管理角色分组'),
-          content: SizedBox(
-            width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final g in demo.groups.where((g) => g != '全部'))
-                      Chip(label: Text(g)),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                TextField(
-                  controller: controller,
-                  decoration: const InputDecoration(hintText: '新分组名称'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: const Text('完成'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = controller.text.trim();
-                if (value.isEmpty || demo.groups.contains(value)) return;
-                demo.groups.add(value);
-                controller.clear();
-                demo.changed();
-                change(() {});
-                setState(() {});
-              },
-              child: const Text('添加分组'),
-            ),
-          ],
-        ),
+      builder: (_) => _RoleGroupDialog(
+        onChanged: () {
+          if (mounted)
+            setState(() {
+              if (!demo.groups.contains(group)) group = '全部';
+            });
+        },
       ),
     );
   }
+}
+
+class _RoleGroupDialog extends StatefulWidget {
+  const _RoleGroupDialog({required this.onChanged});
+  final VoidCallback onChanged;
+  @override
+  State<_RoleGroupDialog> createState() => _RoleGroupDialogState();
+}
+
+class _RoleGroupDialogState extends State<_RoleGroupDialog> {
+  final controller = TextEditingController();
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> remove(String group) async {
+    final count = demo.personas.where((p) => p.group == group).length;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('删除分组“$group”？'),
+        content: Text(
+          count == 0
+              ? '仅删除这个分组。角色卡和聊天记录会保留。'
+              : '组内 $count 个角色会移到“未分组”。角色卡和聊天记录会保留。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('删除分组'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true && mounted && demo.deleteGroup(group)) {
+      setState(() {});
+      widget.onChanged();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('管理角色分组'),
+    content: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight:
+            (MediaQuery.sizeOf(context).height -
+                    MediaQuery.viewInsetsOf(context).bottom -
+                    220)
+                .clamp(80.0, 380.0),
+      ),
+      child: SingleChildScrollView(
+        child: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final g in demo.groups.where((g) => g != '全部'))
+                    InputChip(
+                      key: ValueKey('role-group-$g'),
+                      label: Text(g),
+                      deleteButtonTooltipMessage: '删除分组：$g',
+                      onDeleted: g == '未分组' ? null : () => remove(g),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              TextField(
+                controller: controller,
+                maxLength: 40,
+                decoration: const InputDecoration(hintText: '新分组名称'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('完成'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (!demo.addGroup(controller.text)) return;
+          controller.clear();
+          setState(() {});
+          widget.onChanged();
+        },
+        child: const Text('添加分组'),
+      ),
+    ],
+  );
 }
 
 class CharacterEditor extends StatefulWidget {
