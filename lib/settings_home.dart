@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'model_settings.dart';
 import 'state.dart';
 import 'widgets.dart';
+import 'brand.dart';
+import 'relay_account.dart';
+import 'app_updates.dart';
 
 class SettingsHome extends StatelessWidget {
   const SettingsHome({super.key, required this.go});
@@ -42,7 +45,7 @@ class SettingsHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: modelSettings,
+    animation: Listenable.merge([modelSettings, relayAccount, appUpdates]),
     builder: (context, _) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -55,7 +58,7 @@ class SettingsHome extends StatelessWidget {
                 color: green.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(Icons.auto_awesome_outlined, color: green, size: 26),
+              child: const BrandMark(),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -79,8 +82,8 @@ class SettingsHome extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    modelSettings.active == null
-                        ? Icons.add_link
+                    !relayAccount.signedIn
+                        ? Icons.account_circle_outlined
                         : Icons.check_circle_outline,
                     size: 19,
                     color: green,
@@ -88,7 +91,7 @@ class SettingsHome extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: label(
-                      modelSettings.active == null ? '开始你的第一段对话' : '当前模型',
+                      relayAccount.signedIn ? '中转站账号' : '登录，直接开始',
                       size: 13,
                       weight: FontWeight.w600,
                     ),
@@ -97,32 +100,41 @@ class SettingsHome extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               label(
-                modelSettings.active?.model ?? '连接一个模型，即可开始聊天',
+                relayAccount.user?['display_name']?.toString() ??
+                    '一个账号，连接所有可用模型',
                 size: 17,
                 weight: FontWeight.w600,
               ),
               const SizedBox(height: 5),
               label(
-                modelSettings.active == null
-                    ? '支持多种模型服务，也可以使用自定义接口。'
-                    : '${modelSettings.active!.name} · ${modelSettings.active!.protocol.label}',
+                relayAccount.signedIn
+                    ? '${relayAccount.models.length} 个模型 · 钱包与订阅自动同步'
+                    : '使用 Skymoni 账号登录，无需逐个填写接口。',
                 size: 11,
                 color: muted,
               ),
               const SizedBox(height: 14),
               FilledButton.icon(
-                onPressed: () => go('/settings/models'),
+                onPressed: () => go('/settings/account'),
                 icon: Icon(
-                  modelSettings.active == null ? Icons.add : Icons.tune,
+                  relayAccount.signedIn
+                      ? Icons.account_circle_outlined
+                      : Icons.login,
                   size: 17,
                 ),
-                label: Text(modelSettings.active == null ? '连接模型' : '管理模型连接'),
+                label: Text(relayAccount.signedIn ? '管理账号与额度' : '登录中转站'),
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
         group('为你而设', [
+          (
+            '中转站账号',
+            relayAccount.signedIn ? '模型与额度已连接' : '登录即可同步模型和额度',
+            Icons.account_circle_outlined,
+            '/settings/account',
+          ),
           ('内测计划', '设备配对与专属额度', Icons.science_outlined, '/settings/beta'),
           (
             '模型与服务',
@@ -144,6 +156,14 @@ class SettingsHome extends StatelessWidget {
           ('隐私与权限', '了解数据如何使用', Icons.shield_outlined, '/settings/permissions'),
         ]),
         group('更多', [
+          (
+            '检查更新',
+            appUpdates.release == null
+                ? '版本信息与手机内升级'
+                : '发现新版本 ${appUpdates.release!.version}',
+            Icons.system_update_outlined,
+            '/settings/updates',
+          ),
           ('关于 Skivu', '版本信息与开源许可', Icons.info_outline, '/settings/about'),
         ]),
         Center(child: label('Skivu 0.1.0', size: 10, color: muted)),
@@ -367,7 +387,7 @@ class SkivuAbout extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(Icons.auto_awesome_outlined, size: 48, color: green),
+        const BrandMark(size: 72),
         const SizedBox(height: 18),
         label('Skivu', size: 32, weight: FontWeight.w600),
         label('0.1.0', size: 12, color: muted),

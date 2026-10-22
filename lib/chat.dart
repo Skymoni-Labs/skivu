@@ -10,6 +10,8 @@ import 'chat_bubble_surface.dart';
 import 'chat_status_bar.dart';
 import 'appearance.dart';
 import 'model_settings.dart';
+import 'relay_account.dart';
+import 'relay_account_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -133,6 +135,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void openModels() {
+    if (demo.useAccount) {
+      Navigator.of(context).pushReplacementNamed('/settings/account');
+      return;
+    }
     if (demo.useBeta) {
       Navigator.of(context).pushReplacementNamed('/settings/beta');
       return;
@@ -195,6 +201,31 @@ class _ChatPageState extends State<ChatPage> {
                   },
                 )
             else ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.account_circle_outlined, color: green),
+                title: const Text('中转站账号'),
+                subtitle: Text(
+                  relayAccount.signedIn
+                      ? relayAccount.activeModel ?? '同步可用模型'
+                      : '登录即可同步模型和额度',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                trailing: demo.useAccount
+                    ? Icon(Icons.check_circle, color: green, size: 20)
+                    : null,
+                onTap: demo.streaming
+                    ? null
+                    : () async {
+                        Navigator.pop(c);
+                        if (relayAccount.canChat)
+                          await pickRelayModel(context);
+                        else
+                          Navigator.of(
+                            context,
+                          ).pushReplacementNamed('/settings/account');
+                      },
+              ),
               for (final profile in modelSettings.connections)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -213,6 +244,7 @@ class _ChatPageState extends State<ChatPage> {
                           try {
                             await modelSettings.select(profile.id);
                             demo.useBeta = false;
+                            demo.useAccount = false;
                             demo.changed();
                             demo.saveChats();
                             if (c.mounted) Navigator.pop(c);
@@ -225,7 +257,9 @@ class _ChatPageState extends State<ChatPage> {
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(c);
-                  openModels();
+                  Navigator.of(
+                    context,
+                  ).pushReplacementNamed('/settings/models');
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('管理模型连接'),
@@ -771,7 +805,7 @@ class _ChatPageState extends State<ChatPage> {
         const SizedBox(height: 10),
         label(
           demo.activeConnection == null
-              ? (demo.useBeta ? '先检查内测状态，继续你的对话。' : '连接一个模型，开启第一段对话。')
+              ? (demo.useBeta ? '先检查内测状态，继续你的对话。' : '登录中转站或使用自己的模型连接。')
               : '想聊点什么？我在这里。',
           size: 13,
           color: muted,
@@ -779,9 +813,13 @@ class _ChatPageState extends State<ChatPage> {
         if (demo.activeConnection == null) ...[
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: openModels,
-            icon: const Icon(Icons.add_link, size: 18),
-            label: const Text('连接模型'),
+            onPressed: demo.useBeta
+                ? openModels
+                : () => Navigator.of(
+                    context,
+                  ).pushReplacementNamed('/settings/account'),
+            icon: const Icon(Icons.login, size: 18),
+            label: Text(demo.useBeta ? '检查内测状态' : '登录中转站'),
           ),
         ],
         const SizedBox(height: 30),

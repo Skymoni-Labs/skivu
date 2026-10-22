@@ -11,7 +11,7 @@ if not (web / 'main.dart.js').is_file():
 notices = web / 'third-party'
 notices.mkdir(exist_ok=True)
 shutil.copytree(root / 'licenses', notices / 'licenses', dirs_exist_ok=True)
-for name in ['THIRD_PARTY_NOTICES.md', 'dependency-audit.json', 'ORB-PROVENANCE.txt', 'appearance-font-sources.json']:
+for name in ['LICENSE', 'COPYRIGHT', 'THIRD_PARTY_NOTICES.md', 'dependency-audit.json', 'ORB-PROVENANCE.txt', 'appearance-font-sources.json']:
     shutil.copy2(root / name, notices / name)
 files = {str(p.relative_to(web)).replace('\\', '/'): hashlib.sha256(p.read_bytes()).hexdigest() for p in web.rglob('*') if p.is_file() and p.name != 'release-manifest.json'}
 (web / 'release-manifest.json').write_text(json.dumps({'application': 'Skivu', 'version': '0.1.0', 'mode': 'independent-mobile-preview', 'files': files}, indent=2), encoding='utf-8')

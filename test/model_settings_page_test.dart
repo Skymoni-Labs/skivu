@@ -72,7 +72,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('连接模型'), findsOneWidget);
+      expect(find.text('登录中转站'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(
         const MaterialApp(

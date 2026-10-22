@@ -8,8 +8,12 @@ import 'appearance_settings.dart';
 import 'settings_home.dart';
 import 'model_settings_page.dart';
 import 'beta_settings_page.dart';
+import 'relay_account_page.dart';
+import 'app_updates_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
+  ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
+  ('updates', '检查更新', '新版本与手机内升级', Icons.system_update_outlined),
   ('beta', '内测计划', '设备配对与专属内测额度', Icons.science_outlined),
   ('models', '模型与服务', '管理连接，选择适合你的模型', Icons.hub_outlined),
   ('speech', '语音', '语音识别与声音合成', Icons.graphic_eq),
@@ -407,6 +411,8 @@ class _SettingsDetailState extends State<SettingsDetail> {
           section?.$3 ?? '选择你的偏好。',
         ),
         switch (widget.section) {
+          'account' => RelayAccountPage(go: widget.go),
+          'updates' => const AppUpdatesPage(),
           'beta' => BetaSettingsPage(go: widget.go),
           'models' => models(),
           'speech' => speech(),
@@ -692,7 +698,7 @@ class _PluginsPageState extends State<PluginsPage> {
                   children: [
                     const TinyTag('精选 / CONCEPT'),
                     const SizedBox(height: 14),
-                    label('拓展你的 ski', size: 22, weight: FontWeight.w500),
+                    label('拓展你的 Skivu', size: 22, weight: FontWeight.w500),
                     const SizedBox(height: 8),
                     label('从一条笔记开始，建立自己的工作节奏。', size: 12, color: muted),
                   ],
@@ -763,7 +769,7 @@ class _PluginsPageState extends State<PluginsPage> {
                                     weight: FontWeight.w500,
                                   ),
                                   label(
-                                    'ski 自主概念 · ${p.$3}',
+                                    'Skivu 自主概念 · ${p.$3}',
                                     size: 10,
                                     color: muted,
                                   ),
@@ -805,7 +811,7 @@ class _PluginsPageState extends State<PluginsPage> {
                               child: Text(
                                 demo.installed.contains(p.$1)
                                     ? '移除'
-                                    : '添加到 ski',
+                                    : '添加到 Skivu',
                                 style: const TextStyle(fontSize: 11),
                               ),
                             ),
@@ -844,7 +850,7 @@ class _PluginsPageState extends State<PluginsPage> {
             const TinyTag('第一方概念示例'),
             const SizedBox(height: 15),
             label(
-              '版本：0.1 concept\n作者：ski\n权限：无真实权限\n来源：本工程自主编写\n状态：没有插件运行时或外部依赖',
+              '版本：0.1 concept\n作者：Skivu\n权限：无真实权限\n来源：本工程自主编写\n状态：没有插件运行时或外部依赖',
               size: 12,
               color: muted,
             ),
@@ -939,7 +945,7 @@ class _CallPageState extends State<CallPage> {
                   ? (demo.mutedCall
                         ? '麦克风已静音 · 演示'
                         : demo.speaking
-                        ? 'ski 正在回应 · 演示'
+                        ? '${demo.role.name} 正在回应 · 演示'
                         : '正在聆听 · 演示')
                   : '准备好，开始一段轻松的对话',
               size: 15,

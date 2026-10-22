@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,49 @@ import 'scaled_viewport.dart';
 import 'media_recovery.dart';
 import 'model_settings.dart';
 import 'beta_access.dart';
+import 'brand.dart';
+import 'relay_account.dart';
+import 'app_updates.dart';
+
+final appNavigator = GlobalKey<NavigatorState>();
+
+Future<void> checkStartupUpdate() async {
+  await WidgetsBinding.instance.endOfFrame;
+  await appUpdates.check(silent: true);
+  final release = appUpdates.release;
+  final context = appNavigator.currentContext;
+  if (release == null || context == null || !context.mounted) return;
+  final open = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('Skivu ${release.version} 已可更新'),
+      content: Text(
+        '新版本约 ${(release.size / 1048576).toStringAsFixed(1)} MB，可在 App 内下载并安装。',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(c, false),
+          child: const Text('稍后'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(c, true),
+          child: const Text('查看更新'),
+        ),
+      ],
+    ),
+  );
+  if (open == true) appNavigator.currentState?.pushNamed('/settings/updates');
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
   SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      [appName],
+      '${await rootBundle.loadString('COPYRIGHT')}\n${await rootBundle.loadString('LICENSE')}',
+    );
     yield LicenseEntryWithLineBreaks([
       'Noto Sans SC',
     ], await rootBundle.loadString('licenses/NotoSansSC-OFL.txt'));
@@ -46,9 +84,11 @@ Future<void> main() async {
   await appearanceProfiles.restore();
   await modelSettings.restore();
   await betaAccess.restore();
+  await relayAccount.restore();
   await demo.restore();
   await recoverInterruptedMedia();
   runApp(const SkiApp());
+  unawaited(checkStartupUpdate());
 }
 
 class SkiApp extends StatefulWidget {
@@ -86,7 +126,8 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: demo,
     builder: (context, _) => MaterialApp(
-      title: 'Skivu',
+      title: appName,
+      navigatorKey: appNavigator,
       debugShowCheckedModeBanner: false,
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         dragDevices: {
@@ -315,7 +356,7 @@ class _SkiShellState extends State<SkiShell>
               .where((s) => widget.route == '/settings/${s.$1}')
               .firstOrNull
               ?.$2 ??
-          'ski',
+          appName,
   };
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -510,7 +551,9 @@ class _SideNavigationState extends State<SideNavigation> {
           const SizedBox(height: 22),
           Row(
             children: [
-              label('ski', size: 30, weight: FontWeight.w600),
+              const BrandMark(size: 36),
+              const SizedBox(width: 10),
+              label(appName, size: 30, weight: FontWeight.w600),
               const SizedBox(width: 9),
               const Spacer(),
               IconButton(

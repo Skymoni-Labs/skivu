@@ -9,6 +9,7 @@ import 'chat_storage.dart';
 import 'model_connection.dart';
 import 'model_settings.dart';
 import 'beta_access.dart';
+import 'relay_account.dart';
 
 const ink = Color(0xff283947);
 Color get green => appearance.color('accent');
@@ -145,21 +146,29 @@ class DemoStore extends ChangeNotifier {
     ModelSettings? settings,
     ChatStorage? storage,
     BetaAccess? beta,
+    RelayAccount? account,
   }) : _api = api ?? ChatApi(),
        models = settings ?? modelSettings,
        _storage = storage ?? ChatStorage(),
-       beta = beta ?? betaAccess {
+       beta = beta ?? betaAccess,
+       account = account ?? relayAccount {
     appearance.addListener(_appearanceChanged);
     models.addListener(changed);
     this.beta.addListener(changed);
+    this.account.addListener(changed);
   }
   final ChatApi _api;
   final ChatStorage _storage;
   final ModelSettings models;
   final BetaAccess beta;
+  final RelayAccount account;
   bool useBeta = false;
-  ModelConnection? get activeConnection =>
-      useBeta ? beta.connection : models.active;
+  bool useAccount = false;
+  ModelConnection? get activeConnection => useBeta
+      ? beta.connection
+      : useAccount
+      ? account.connection
+      : models.active;
   ChatSession? _session;
   Message? _pending;
   Timer? _saveTimer;
@@ -197,7 +206,7 @@ class DemoStore extends ChangeNotifier {
   int conversation = 0;
   final personas = <Persona>[
     Persona(
-      'ski',
+      'Skivu',
       '聊聊日常，也一起探索新的想法',
       '用清晰、温和的语言，帮助用户拆解问题。',
       '日常',
@@ -231,7 +240,13 @@ class DemoStore extends ChangeNotifier {
   ];
   final groups = <String>['全部', '日常', '工作', '创作'];
   int persona = 0;
-  String get model => activeConnection?.model ?? (useBeta ? '选择内测模型' : '选择模型');
+  String get model =>
+      activeConnection?.model ??
+      (useBeta
+          ? '选择内测模型'
+          : useAccount
+          ? '登录中转站'
+          : '选择模型');
   bool get dark => appearance.dark;
   set dark(bool v) => appearance.set('mode', v ? 'dark' : 'light');
   bool get compact => appearance.flag('compact');
@@ -289,6 +304,7 @@ class DemoStore extends ChangeNotifier {
       }
       persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
       useBeta = raw['useBeta'] == true;
+      useAccount = !useBeta && raw['useAccount'] == true;
       if (raw['groups'] is List) {
         groups
           ..clear()
@@ -312,6 +328,7 @@ class DemoStore extends ChangeNotifier {
     'persona': persona,
     'groups': groups,
     'useBeta': useBeta,
+    'useAccount': useAccount,
   });
 
   Future<void> saveChats() {
@@ -438,7 +455,11 @@ class DemoStore extends ChangeNotifier {
     if (input.trim().isEmpty || streaming) return false;
     final config = activeConnection;
     if (config == null) {
-      lastError = useBeta ? '请先检查内测配对状态与可用模型。' : '请先添加一个模型连接。';
+      lastError = useBeta
+          ? '请先检查内测配对状态与可用模型。'
+          : useAccount
+          ? '请先登录中转站并同步模型。'
+          : '请先添加一个模型连接。';
       changed();
       return false;
     }
@@ -481,7 +502,16 @@ class DemoStore extends ChangeNotifier {
     saveChats();
     changed();
     unawaited(
-      _generate(target, answer, config, history, prompt, generation, useBeta),
+      _generate(
+        target,
+        answer,
+        config,
+        history,
+        prompt,
+        generation,
+        useBeta,
+        useAccount && !useBeta,
+      ),
     );
   }
 
@@ -493,19 +523,25 @@ class DemoStore extends ChangeNotifier {
     String prompt,
     int generation,
     bool betaRequest,
+    bool accountRequest,
   ) async {
     final watch = Stopwatch()..start();
     var usage = const ApiUsage();
     try {
-      final key = betaRequest ? '' : await models.keyFor(config.id);
+      final key = betaRequest || accountRequest
+          ? ''
+          : await models.keyFor(config.id);
       if (generation != _generation) return;
       if (!betaRequest &&
+          !accountRequest &&
           key.isEmpty &&
           config.auth != 'none' &&
           !['Ollama', 'LM Studio'].contains(config.provider))
         throw const ChatFailure('此连接未填写 API Key，请在模型设置中补充。');
       final session = betaRequest
           ? beta.startChat(history, prompt)
+          : accountRequest
+          ? account.startChat(history, prompt)
           : _api.start(config, key, history, prompt);
       _session = session;
       await for (final event in session.events) {
@@ -545,11 +581,19 @@ class DemoStore extends ChangeNotifier {
       answer.status = 'complete';
     } catch (e) {
       if (generation != _generation) return;
+      if (accountRequest &&
+          e is ChatFailure &&
+          e.code == 'APP_SESSION_INVALID') {
+        try {
+          await account.invalidate();
+        } catch (_) {}
+      }
       answer.status = 'failed';
       answer.error = e is ChatFailure
           ? e.message
           : '读取连接配置失败，请重新保存 API Key 后重试。';
     } finally {
+      if (accountRequest && account.signedIn) unawaited(account.refresh());
       watch.stop();
       if (generation == _generation) {
         answer.elapsedMs = watch.elapsedMilliseconds;
@@ -570,6 +614,7 @@ class DemoStore extends ChangeNotifier {
     appearance.removeListener(_appearanceChanged);
     models.removeListener(changed);
     beta.removeListener(changed);
+    account.removeListener(changed);
     _generation++;
     _session?.cancel();
     _saveTimer?.cancel();

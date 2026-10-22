@@ -97,6 +97,7 @@ class ModelSettingsPage extends StatelessWidget {
                                 try {
                                   await modelSettings.select(profile.id);
                                   demo.useBeta = false;
+                                  demo.useAccount = false;
                                   demo.changed();
                                   demo.saveChats();
                                 } catch (_) {

@@ -232,6 +232,7 @@ class _BetaSettingsPageState extends State<BetaSettingsPage>
                       ? null
                       : () {
                           demo.useBeta = true;
+                          demo.useAccount = false;
                           demo.changed();
                           demo.saveChats();
                           widget.go('/chat');

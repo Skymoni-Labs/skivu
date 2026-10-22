@@ -20,3 +20,5 @@
 内测模型目录按后台返回的 model_protocols 选择 chat 或 responses，分别签名并请求固定的 /api/app-beta/chat/completions 或 /api/app-beta/responses。Responses 仅发送约定的 input、instructions、stream、max_output_tokens 与 store:false；未支持的协议标记不会作为可聊模型显示。
 
 范围为文字聊天、流式/非流式、多轮历史、停止/重试、配置和消息本地保存。Codex 网页账号登录、嵌入式模型运行、语音、附件和工具执行未实现。供应商列表是协议预设；本地协议测试不等于每家服务商真实账户均已逐一验收。
+
+2026-10-22 新增普通 Skymoni 账号的系统浏览器 PKCE 授权、模型/钱包/订阅同步及同域服务器转发 APK 更新。依据独立服务端公开契约 [SKIVU_APP_API.md](https://github.com/skyjjgw/skymoni-source/blob/main/docs/SKIVU_APP_API.md) 实现；与 Codex 网页账号登录及硬件内测配对是不同能力。流程、限制和品牌源文件见 APP-ACCOUNT-UPDATES.md。

@@ -1,0 +1,21 @@
+import 'package:flutter/material.dart';
+
+const appName = 'Skivu';
+const brandArtwork = 'assets/branding/skivu-approved.png';
+
+class BrandMark extends StatelessWidget {
+  const BrandMark({super.key, this.size = 48});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(size * .25),
+    child: Image.asset(
+      brandArtwork,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      semanticLabel: appName,
+    ),
+  );
+}

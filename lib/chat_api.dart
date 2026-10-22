@@ -5,8 +5,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'model_connection.dart';
 
 class ChatFailure implements Exception {
-  const ChatFailure(this.message);
+  const ChatFailure(this.message, {this.code});
   final String message;
+  final String? code;
   @override
   String toString() => message;
 }
@@ -119,16 +120,39 @@ ChatFailure _httpError(int status) => ChatFailure(switch (status) {
   _ => '请求失败（$status），请检查接口配置。',
 });
 
+ChatFailure _accountHttpError(int status) => switch (status) {
+  400 => const ChatFailure('对话请求未被支持，请尝试新建会话或切换模型。'),
+  401 => const ChatFailure('账号或模型服务验证未通过，请同步账号或切换模型后重试。'),
+  403 => const ChatFailure('账号暂时无法使用此模型，请检查额度、订阅与模型权限。'),
+  _ => _httpError(status),
+};
+
 class ChatSession {
   ChatSession(this._client, this.config, this._key, this.history, this.system)
-    : _betaHeaders = null;
+    : _betaHeaders = null,
+      _fixedPath = null;
   ChatSession.beta(
     this._client,
     this.config,
     this.history,
     this.system,
     this._betaHeaders,
-  ) : _key = '';
+  ) : _key = '',
+      _fixedPath = config.protocol == ApiProtocol.responses
+          ? '/api/app-beta/responses'
+          : '/api/app-beta/chat/completions';
+  ChatSession.account(
+    this._client,
+    this.config,
+    this.history,
+    this.system,
+    String token,
+  ) : _key = '',
+      _betaHeaders = ((_) async => {'Authorization': 'AppAccount $token'}),
+      _fixedPath = config.protocol == ApiProtocol.responses
+          ? '/api/app-account/responses'
+          : '/api/app-account/chat/completions';
+  final String? _fixedPath;
   final Future<Map<String, String>> Function(String body)? _betaHeaders;
   final http.Client _client;
   final ModelConnection config;
@@ -223,6 +247,10 @@ class ChatSession {
     try {
       if (cancelled) return;
       final body = jsonEncode(_body());
+      if (_fixedPath != null &&
+          (history.length + (system.trim().isEmpty ? 0 : 1) > 128 ||
+              utf8.encode(body).length > 262144))
+        throw const ChatFailure('当前对话内容过长，请新建会话后继续。');
       final headers = _betaHeaders == null
           ? _headers(config, _key)
           : {
@@ -238,12 +266,7 @@ class ChatSession {
               'POST',
               _betaHeaders == null
                   ? config.endpoint()
-                  : Uri.https(
-                      'skymoni.com',
-                      config.protocol == ApiProtocol.responses
-                          ? '/api/app-beta/responses'
-                          : '/api/app-beta/chat/completions',
-                    ),
+                  : Uri.https('skymoni.com', _fixedPath!),
               abortTrigger: _abort.future,
             )
             ..followRedirects = false
@@ -252,8 +275,27 @@ class ChatSession {
       final response = await _client
           .send(request)
           .timeout(Duration(seconds: config.timeoutSeconds));
+      if (response.statusCode == 401 &&
+          _fixedPath?.startsWith('/api/app-account/') == true) {
+        final text = await _boundedText(
+          response.stream.timeout(Duration(seconds: config.timeoutSeconds)),
+        );
+        try {
+          final raw = jsonDecode(text);
+          if (raw is Map && raw['code'] == 'APP_SESSION_INVALID')
+            throw const ChatFailure(
+              '账号登录已过期，请重新登录。',
+              code: 'APP_SESSION_INVALID',
+            );
+        } on FormatException {
+          /* Use the sanitized generic error below. */
+        }
+        throw _accountHttpError(response.statusCode);
+      }
       if (response.statusCode < 200 || response.statusCode >= 300)
-        throw _httpError(response.statusCode);
+        throw _fixedPath?.startsWith('/api/app-account/') == true
+            ? _accountHttpError(response.statusCode)
+            : _httpError(response.statusCode);
       final stream = response.stream.timeout(
         Duration(seconds: config.timeoutSeconds),
       );
