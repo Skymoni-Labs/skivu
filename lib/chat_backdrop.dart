@@ -45,16 +45,17 @@ class ChatBackdropController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (_revision == revision && _raw != null) {
-      await prepare(radii);
-      return;
-    }
     final boundary = backgroundKey.currentContext?.findRenderObject();
     if (boundary is! RenderRepaintBoundary ||
         !boundary.hasSize ||
         boundary.size.isEmpty)
       return;
+    if (_revision == revision && _raw != null && logicalSize == boundary.size) {
+      await prepare(radii);
+      return;
+    }
     final generation = ++_generation;
+    final captureSize = boundary.size;
     ui.Image? next;
     try {
       next = await boundary.toImage(pixelRatio: 1.5);
@@ -64,7 +65,7 @@ class ChatBackdropController extends ChangeNotifier {
       }
       _clear();
       _raw = next;
-      logicalSize = boundary.size;
+      logicalSize = captureSize;
       _revision = revision;
       await prepare(_radii);
       if (_trace)

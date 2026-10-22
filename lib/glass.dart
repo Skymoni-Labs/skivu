@@ -101,7 +101,7 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
         _capture.captureOnce();
         _chatBackdrop.capture(
           revision:
-              '$_layoutSize/$_size/$_viewInsets/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
+              '${_layoutSize?.width},${_layoutSize?.height}/${_size?.width},${_size?.height}/${_viewInsets.left},${_viewInsets.top},${_viewInsets.right},${_viewInsets.bottom}/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
           enabled:
               !kIsWeb &&
               defaultTargetPlatform == TargetPlatform.android &&

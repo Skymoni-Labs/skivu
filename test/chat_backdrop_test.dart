@@ -11,6 +11,51 @@ import 'package:ski/drawer_motion.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets(
+    'unchanged cache token cannot reuse a differently sized capture',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final source = ChatBackdropController();
+      final height = ValueNotifier<double>(600);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Align(
+            alignment: Alignment.topLeft,
+            child: ValueListenableBuilder<double>(
+              valueListenable: height,
+              builder: (_, value, _) => SizedBox(
+                width: 320,
+                height: value,
+                child: RepaintBoundary(
+                  key: source.backgroundKey,
+                  child: const CustomPaint(painter: _Wallpaper()),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final value in [600.0, 340.0, 600.0]) {
+        height.value = value;
+        await tester.pump();
+        await tester.runAsync(
+          () => source.capture(
+            revision: 'constant-release-token',
+            enabled: true,
+            radii: {},
+          ),
+        );
+        expect(source.logicalSize, Size(320, value));
+        expect(source.wallpaperImage!.height, (value * 1.5).round());
+      }
+      await tester.pumpWidget(const SizedBox());
+      source.dispose();
+      height.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('scene recaptures body resize with unchanged MediaQuery', (
     tester,
   ) async {
