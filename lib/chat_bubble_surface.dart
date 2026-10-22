@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'glass_preferences.dart';
 import 'state.dart';
 import 'appearance.dart';
+import 'chat_backdrop.dart';
 
 TextStyle chatMessageStyle(
   BuildContext context,
@@ -33,8 +34,13 @@ class ChatBubbleSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = preferences ?? glassPreferences;
+    final backdrop = ChatBackdropScope.maybeOf(context);
     return AnimatedBuilder(
-      animation: Listenable.merge([model, appearance]),
+      animation: Listenable.merge([
+        model,
+        appearance,
+        if (backdrop != null) backdrop,
+      ]),
       child: child,
       builder: (context, content) {
         final blur = user ? model.userBlur : model.assistantBlur;
@@ -57,16 +63,22 @@ class ChatBubbleSurface extends StatelessWidget {
                 bottomRight: const Radius.circular(22),
               )
             : BorderRadius.circular(shape == 'pill' ? 30 : 18);
+        final cached = glass && !document ? backdrop?.imageFor(blur) : null;
+        Widget material(Widget fill) => cached != null
+            ? ChatBackdropPaint(image: cached, source: backdrop!, child: fill)
+            : BackdropFilter(
+                enabled: glass && blur > 0 && !document,
+                filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: fill,
+              );
         return CustomPaint(
           // Paint the rim after the filter and explicitly exclude its interior.
           // Otherwise a solid white shadow becomes part of the blur input.
           foregroundPainter: document ? null : _BubbleRim(radius),
           child: ClipRRect(
             borderRadius: radius,
-            child: BackdropFilter(
-              enabled: glass && blur > 0 && !document,
-              filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
+            child: material(
+              Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 13,

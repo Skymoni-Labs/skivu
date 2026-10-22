@@ -287,6 +287,10 @@ class _ChatPageState extends State<ChatPage> {
               },
               child: ListView(
                 controller: scroll,
+                // Frost samples the live scene. Caching each message as a
+                // separate scrolling layer can retain an unfiltered backdrop
+                // while its transform changes on Android's renderer.
+                addRepaintBoundaries: false,
                 padding: EdgeInsets.fromLTRB(
                   appearance.flag('wideChat') ? 8 : 14,
                   88 + MediaQuery.paddingOf(context).top,

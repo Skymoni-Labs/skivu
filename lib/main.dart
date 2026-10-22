@@ -472,7 +472,7 @@ class _SkiShellState extends State<SkiShell>
             children: [
               Positioned.fill(
                 child: widget.route == '/chat'
-                    ? RepaintBoundary(child: body)
+                    ? body
                     : Padding(
                         padding: EdgeInsets.only(
                           top: 76 + MediaQuery.paddingOf(context).top,

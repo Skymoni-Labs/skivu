@@ -8,6 +8,7 @@ import 'wallpaper.dart';
 import 'glass_preferences.dart';
 import 'appearance.dart';
 import 'video_backdrop.dart';
+import 'chat_backdrop.dart';
 
 /// Web lenses refract one cached capture of the static aurora, rather than
 /// capturing the whole application on every drawer animation frame.
@@ -27,8 +28,10 @@ class SkiGlassScene extends StatefulWidget {
 
 class _SkiGlassSceneState extends State<SkiGlassScene> {
   final _capture = LiquidGlassViewController();
+  final _chatBackdrop = ChatBackdropController();
   bool _dark = demo.dark;
   Size? _size;
+  EdgeInsets _viewInsets = EdgeInsets.zero;
   bool _captureQueued = false;
   late bool _refracting;
   String? _paintedWallpaper;
@@ -49,7 +52,16 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
     widget.motion.addListener(_updateOptics);
     _wallpaper.addListener(_updateWallpaper);
     appearance.addListener(_updateBackdropStyle);
+    glassPreferences.addListener(_updateChatBlur);
+    _refreshCapture();
   }
+
+  Set<double> get _chatRadii => {
+    glassPreferences.userBlur,
+    glassPreferences.assistantBlur,
+  };
+
+  void _updateChatBlur() => _chatBackdrop.prepare(_chatRadii);
 
   void _updateBackdropStyle() {
     final next = _backdropSignature;
@@ -74,6 +86,8 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
     widget.motion.removeListener(_updateOptics);
     _wallpaper.removeListener(_updateWallpaper);
     appearance.removeListener(_updateBackdropStyle);
+    glassPreferences.removeListener(_updateChatBlur);
+    _chatBackdrop.dispose();
     super.dispose();
   }
 
@@ -82,7 +96,19 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
     _captureQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _captureQueued = false;
-      if (mounted) _capture.captureOnce();
+      if (mounted) {
+        _capture.captureOnce();
+        _chatBackdrop.capture(
+          revision:
+              '$_size/$_viewInsets/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
+          enabled:
+              !kIsWeb &&
+              defaultTargetPlatform == TargetPlatform.android &&
+              (appearance.text('videoAsset').isEmpty ||
+                  !appearance.flag('backgroundEnabled')),
+          radii: _chatRadii,
+        );
+      }
     });
   }
 
@@ -90,8 +116,11 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final size = MediaQuery.sizeOf(context);
-    if (_size != null && _size != size) _refreshCapture();
+    final insets = MediaQuery.viewInsetsOf(context);
+    if (_size != null && (_size != size || _viewInsets != insets))
+      _refreshCapture();
     _size = size;
+    _viewInsets = insets;
   }
 
   @override
@@ -117,12 +146,18 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
   @override
   Widget build(BuildContext context) => LiquidGlassView(
     controller: _capture,
-    backgroundWidget: _background(),
+    backgroundWidget: RepaintBoundary(
+      key: _chatBackdrop.backgroundKey,
+      child: _background(),
+    ),
     realTimeCapture: false,
     pixelRatio: .75,
     // Each small lens stays in its own plane during the 3D drawer fold.
     batch: false,
-    child: _GlassOpticsScope(refracting: _refracting, child: widget.child),
+    child: ChatBackdropScope(
+      controller: _chatBackdrop,
+      child: _GlassOpticsScope(refracting: _refracting, child: widget.child),
+    ),
   );
 
   Widget _background() {

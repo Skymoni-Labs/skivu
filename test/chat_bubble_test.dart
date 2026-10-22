@@ -10,6 +10,94 @@ import 'package:ski/appearance.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets('long glass keeps frosting during an active drag', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final old = appearance.values;
+    addTearDown(() {
+      for (final entry in old.entries) {
+        appearance.set(entry.key, entry.value);
+      }
+    });
+    appearance.set('assistantOpacity', .38);
+    appearance.set('customMessageColors', false);
+    final model = GlassPreferences(persistence: MemoryGlassPreferences());
+    model.setBubbleBlur(user: false, value: 12);
+    addTearDown(model.dispose);
+    final capture = GlobalKey();
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RepaintBoundary(
+          key: capture,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const CustomPaint(painter: _FineBackdrop()),
+              ListView(
+                controller: scroll,
+                padding: const EdgeInsets.all(20),
+                children: [
+                  ChatBubbleSurface(
+                    user: false,
+                    preferences: model,
+                    child: const SizedBox(height: 1800),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> expectFrosted() async {
+      final boundary =
+          capture.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final values = (await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          return [
+            for (var x = 120; x < 192; x++) bytes.getUint8((260 * 320 + x) * 4),
+          ];
+        } finally {
+          image.dispose();
+        }
+      }))!;
+      // Without blur, the fine dark/light stripes span about 119 levels.
+      // A steady average tint alone cannot satisfy this material check.
+      expect(values.every((v) => v > 150 && v < 195), isTrue);
+      expect(
+        values.reduce((a, b) => a > b ? a : b) -
+            values.reduce((a, b) => a < b ? a : b),
+        lessThan(8),
+      );
+    }
+
+    await expectFrosted();
+    final drag = await tester.startGesture(const Offset(250, 450));
+    for (var i = 0; i < 5; i++) {
+      await drag.moveBy(const Offset(0, -45));
+      await tester.pump(const Duration(milliseconds: 16));
+      await expectFrosted();
+    }
+    await drag.up();
+    await tester.pumpAndSettle();
+    for (final offset in [700.0, 1150.0, 0.0]) {
+      scroll.jumpTo(offset);
+      await tester.pump();
+      await expectFrosted();
+    }
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'glass keeps the background tint consistently before and after scrolling',
     (tester) async {
@@ -265,4 +353,23 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+class _FineBackdrop extends CustomPainter {
+  const _FineBackdrop();
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var x = 0.0; x < size.width; x += 6) {
+      canvas.drawRect(
+        Rect.fromLTWH(x, 0, 6, size.height),
+        Paint()
+          ..color = (x ~/ 6).isEven
+              ? const Color(0xff202020)
+              : const Color(0xffe0e0e0),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FineBackdrop oldDelegate) => false;
 }
