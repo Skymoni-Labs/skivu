@@ -1,0 +1,41 @@
+name: ski
+description: Skivu mobile chat app with multiple model APIs and a liquid glass interface.
+repository: https://github.com/skyjjgw/skivu
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  image_picker: 1.2.4
+  file_selector: 1.1.0
+  liquid_glass_easy: 5.0.0
+  path_provider: 2.1.6
+  shared_preferences: 2.5.6
+  video_player: 2.11.1
+  http: 1.6.0
+  flutter_secure_storage: 11.2.0
+  crypto: 3.0.7
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  shaders:
+    - shaders/voice_drop.frag
+  assets:
+    - licenses/NotoSansSC-OFL.txt
+    - licenses/MaterialIcons-CC-BY-4.0.txt
+    - licenses/NotoSerifSC-OFL.txt
+    - licenses/RobotoMono-OFL.txt
+  fonts:
+    - family: SkiSans
+      fonts:
+        - asset: assets/fonts/NotoSansSC.ttf
+    - family: SkiSerif
+      fonts:
+        - asset: assets/fonts/NotoSerifSC.ttf
+    - family: SkiMono
+      fonts:
+        - asset: assets/fonts/RobotoMono.ttf

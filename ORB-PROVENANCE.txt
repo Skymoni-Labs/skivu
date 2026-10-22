@@ -1,0 +1,27 @@
+原创水滴光球迁移记录
+2026-10-21，Asia/Shanghai
+
+用户明确要求将旧星伴二次开发中自行新增的原创水滴光球模块迁入当前工程；随后限定本次先迁界面，对话优化方案后续处理。
+
+来源仓库：skyjjgw/starcompanion-operit2（用户的旧二次开发工程）
+固定来源提交：bb34767a378ed832979338894bb6e3025893bf7f
+https://github.com/skyjjgw/starcompanion-operit2/commit/bb34767a378ed832979338894bb6e3025893bf7f
+
+来源文件 → 当前文件：
+apps/flutter/app/lib/ui/features/chat/call/VoiceCallOrb.dart → lib/voice_call_orb.dart
+apps/flutter/app/shaders/voice_drop.frag → shaders/voice_drop.frag
+
+从该提交读取组件与 Shader；没有选用后续仅用于内存比较的 debug 绘制计数器。
+固定来源原始 Git blob 内容 SHA-256：
+VoiceCallOrb.dart：67b29499d5925c05328dee96dacdd7e6d5dd195831f9a107a637a096c7807f63
+voice_drop.frag：0c7b386da454c9559b5766d28187ad0f4767871d5469debf8a6e720ba97ce4f0
+当前 Shader 与来源内容在统一换行后完全一致；Dart 适配项如下。
+Shader 保持来源版本的绘制公式与材质，不导入旧工程其他代码或外部纹理。
+Flutter 组件适配：标准文件命名；减少动态效果时停止时钟；恢复时重置计时基准；Canvas 后备对无效能量值作归零处理；无障碍文案由调用者提供。仍保留 Shader 失败时的 Canvas 后备与卸载时资源释放。
+接入当前通话预览的 280×280 区域。能量来自本地演示状态，不是麦克风或真实模型；通话页文字计时改为每秒刷新，光球独立绘制。轻触仅结束当前演示回应。
+
+来源链：a6df04809c1ff5974bb34a6a10195f2247b8e214 首次新增 VoiceCallOrb；a311b2f1263a7803e78b3b5c445807ce17ec8c8b 新增 original-orb.tsx 原创网页款式；上述 bb34767 提交接入原创水滴 Shader。此前经 GitHub 与本地 Git 核对，不能将这组文件描述为 Operit2 官方原有光球。
+
+授权与判断边界：本次依照用户对其自行新增模块的明确迁移指令适配；没有把旧版整个 AGPL 衍生工程改标为 MIT 或闭源，也没有从旧工程搬运宿主、代理桥接、模型、录音或通话运行时。记录提交作者和新增历史只能说明来源链，不能单独证明所有权利归属。本记录不替代第三方潜在权利核查，不宣称通过一次技术比对取得法律许可。若出现实际第三方贡献或来源证据，应继续保留其通知并重新评估。
+
+以前 UI-LICENSE-REVIEW.txt 和源码比较报告描述的是迁移前基线。此次起这两个来源文件的相似属于已记录、经用户要求的原创模块迁移，不能再将“所有自有源码与旧工程审计时完全一致”当作现状描述。

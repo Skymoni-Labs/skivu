@@ -1,0 +1,20 @@
+[
+  {
+    "name": "NotoSerifSC",
+    "source": "https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/notoserifsc/NotoSerifSC%5Bwght%5D.ttf",
+    "revision": "8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5",
+    "size": 25125512,
+    "sha256": "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
+    "license": "SIL-OFL-1.1",
+    "license_file": "licenses/NotoSerifSC-OFL.txt"
+  },
+  {
+    "name": "RobotoMono",
+    "source": "https://raw.githubusercontent.com/google/fonts/aa24661a5ba24c8f8a550a16fb13198719fc2c23/ofl/robotomono/RobotoMono%5Bwght%5D.ttf",
+    "revision": "aa24661a5ba24c8f8a550a16fb13198719fc2c23",
+    "size": 183700,
+    "sha256": "66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b",
+    "license": "SIL-OFL-1.1",
+    "license_file": "licenses/RobotoMono-OFL.txt"
+  }
+]

@@ -1,0 +1,36 @@
+.dart_tool/
+build/
+.flutter-plugins*
+*.log
+.idea/
+*.iml
+__pycache__/
+*.pyc
+
+# Local development notes are kept outside the public source snapshot.
+/AGENTS.md
+/HANDOFF.txt
+/NEXT_SESSION.txt
+/BRAND-DECISIONS.txt
+/UI-LICENSE-REVIEW.txt
+/VERIFICATION.md
+/handoff/
+
+# Private credentials, signing material and generated artifacts.
+.env
+.env.*
+!.env.example
+**/local.properties
+**/key.properties
+*.dpapi
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.apk
+*.aab
+*.db
+*.sqlite*
+/credentials/
+/screenshots/
