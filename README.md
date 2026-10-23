@@ -1,103 +1,115 @@
+<p align="center">
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg" width="1280" alt="Skivu — Your world. Your way. 星空、玻璃轨道与云朵品牌标志"></a>
+</p>
+
 <div align="center">
-  <img src="assets/branding/skivu-approved.png" width="88" height="88" alt="Skivu 标志">
-  <h1>Skivu</h1>
-  <p><strong>每次对话，都有回应。</strong></p>
-  <p>面向 Android 的开源 AI 聊天应用，让模型、角色与界面更贴合你的使用习惯。</p>
-  <p>A customizable AI chat app for Android, built with Flutter.</p>
+  <p><strong>开源的多模型聊天应用，让对话、角色和界面更像你。</strong></p>
+  <p><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
+  <p>
+    <a href="https://skymoni.com/skivu/">探索官网</a> ·
+    <a href="https://github.com/skyjjgw/skivu/releases/latest">下载 Android</a> ·
+    <a href="https://skymoni.com/creators/skivu-beta">申请内测</a> ·
+    <a href="https://skymoni.com/creators">交流社区</a> ·
+    <a href="https://github.com/skyjjgw/skivu-plugins">插件共创</a>
+  </p>
   <p>
     <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat-square&amp;color=356c82" alt="最新版本"></a>
     <img src="https://img.shields.io/badge/Android-7.0%2B-3d7c66?style=flat-square" alt="Android 7.0 及以上">
-    <a href="https://github.com/skyjjgw/skivu/blob/main/pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-4b8bb6?style=flat-square" alt="Flutter 3.41.9"></a>
+    <a href="pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-4b8bb6?style=flat-square" alt="Flutter 3.41.9"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-596273?style=flat-square" alt="GPL-3.0-only"></a>
-  </p>
-  <p>
-    <a href="https://github.com/skyjjgw/skivu/releases/latest">下载安装</a> ·
-    <a href="#核心功能">核心功能</a> ·
-    <a href="#快速上手">快速上手</a> ·
-    <a href="#开发与构建">开发文档</a> ·
-    <a href="https://github.com/skyjjgw/skivu/issues">问题反馈</a>
   </p>
 </div>
 
----
+Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间。你可以连接自己的模型 API，也可以使用 Skymoni 账号同步可用模型和额度；为同一个角色开启不同话题，各段对话独立保存历史、上下文与草稿。
 
-Skivu 将多模型对话、角色卡、独立会话与液态玻璃界面整合在一款手机应用中。你可以使用 Skymoni 账号同步可用模型与额度，也可以配置自己的模型 API，并分别调整聊天文字、输入框和界面的外观。
+**Android 是当前主要发布平台**，同一套 Flutter 源码也提供 Web 手机界面预览。这里维护 App 源码；产品官网、内测中心、社区与插件共创各有独立入口。
 
-Android 是当前主要发布平台；同一套 Flutter 源码也提供 Web 手机界面预览。版本变化与安装包以 [Releases](https://github.com/skyjjgw/skivu/releases) 为准。
+## 从一次对话开始
 
-## 核心功能
+| 对话空间 | 角色与会话 | 外观随心 |
+| :---: | :---: | :---: |
+| <img src="docs/images/chat.png" width="220" alt="Skivu 的玻璃消息气泡与浮动输入框"> | <img src="docs/images/sidebar.png" width="220" alt="以角色头像组织多段独立对话的侧栏"> | <img src="docs/images/appearance.png" width="220" alt="Skivu 的主题、玻璃与分区文字配置"> |
 
-| 功能 | 说明 |
-| --- | --- |
-| 模型接入 | 支持多种模型接口协议；在输入框直接搜索、切换模型，管理输出长度、上下文与流式选项。 |
-| 角色会话 | 自定义角色头像、人物设定与提示词；同一角色可拥有多段对话，共用角色卡，各自保存聊天记录、上下文与草稿。 |
-| 玻璃界面 | 透明玻璃材质、浮动输入框与侧栏推拉交互；可调整模糊、透明度、顶栏样式及消息气泡。 |
-| 外观配置 | 界面、输入框、我的消息、角色回复、思考过程分别设置字体与颜色；支持自定义字体、图片／视频背景和外观方案。 |
-| 消息导航 | 平滑流式显示、可展开的思考区域、消息导航拨盘与回到底部；支持搜索、收藏、重命名、置顶及确认删除单轮对话。 |
-| 语音通话 | 水滴光球通话界面、字幕、静音与打断；支持 Android 系统语音及可配置的云端语音合成服务。 |
-| 账号更新 | App 内账号登录、模型与额度同步、账号切换；应用内检查更新，校验安装包后交由 Android 系统确认安装。 |
+截图来自 Android App，使用本地演示内容。官网中的交互概念与品牌宣传片属于独立的产品展示。
 
-角色列表保留头像、对话数量及展开状态，重启后恢复当前会话。角色回复可选择居中、铺满一侧或全屏阅读布局，气泡样式与文字排版分别配置。
+## 按你的方式使用
 
-附件上传、插件执行及右侧工作区尚未开放，相关入口显示“即将开放”。
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/images/skivu-features-mobile-zh.svg">
+  <img src="docs/images/skivu-features-zh.svg" width="1280" alt="六项能力：模型连接、角色卡、外观定制、消息阅读、语音与独立会话上下文">
+</picture>
 
-## 下载与安装
+<details>
+<summary><strong>展开查看功能与接口支持</strong></summary>
 
-前往 **[最新版本](https://github.com/skyjjgw/skivu/releases/latest)**，在 Assets 中下载 APK，按 Android 系统提示安装。已安装用户也可通过 **设置 → 检查更新** 获取新版本。
+- **模型连接**：OpenAI 兼容 Chat Completions、Responses、Claude Messages、Gemini Generate Content；在输入框直接搜索和切换模型，设置输出长度、流式与上下文。
+- **角色会话**：自定义头像、角色卡和提示词；同一角色可拥有多段独立对话，支持搜索、重命名、置顶与重启恢复。
+- **玻璃与版式**：调整模糊、透明度、顶栏与气泡样式；角色回复可选择居中、铺满一侧或全屏阅读布局。
+- **分区外观**：界面、输入框、我的消息、角色回复、思考过程分别配置字体和颜色；支持导入字体、图片／视频背景和外观方案。
+- **消息阅读**：平滑流式显示、可展开的思考区域、消息导航拨盘、收藏和回到底部；支持停止、重试与确认删除单轮对话。
+- **语音通话**：水滴光球、字幕、静音与打断；语音合成支持系统、OpenAI 兼容、ElevenLabs、Azure 和自定义 HTTP。识别依赖 Android 系统语音服务及语言包。
+- **账号与更新**：App 内登录、模型与额度同步、账号切换；校验 APK 摘要、大小、包名、版本及签名后，由 Android 系统确认安装。
 
-| 项目 | 要求 |
-| --- | --- |
-| 系统 | Android 7.0 / API 24 及以上 |
-| 架构 | `arm64-v8a`、`x86_64` |
-| 安装包 | Universal APK，包含上述两种架构 |
-| 应用标识 | `com.skyjjgw.independent.ski` |
+</details>
 
-当前内测安装包沿用既有开发签名，支持同签名覆盖升级。自行构建的 APK 若使用不同证书，不能直接覆盖已发布版本；面向独立分发时，请配置自己的发布签名。
+附件上传、插件执行及右侧工作区尚未开放，App 中相关入口显示 **“即将开放”**。模型和语音服务的可用功能及计费取决于所选服务，仓库不附带共享 API Key 或模型额度。
 
-## 快速上手
+## Skivu 生态与入口
 
-### 连接模型
+<table>
+  <tr>
+    <td width="50%"><strong><a href="https://skymoni.com/skivu/">01 / 产品官网</a></strong><p>了解产品、体验交互展示，观看 <a href="https://skymoni.com/skivu/#brand-film">品牌宣传片</a>。</p></td>
+    <td width="50%"><strong><a href="https://skymoni.com/creators/skivu-beta">02 / 内测中心</a></strong><p>提交内测申请，查看账号资格与管理员分配的专属额度。</p></td>
+  </tr>
+  <tr>
+    <td><strong><a href="https://skymoni.com/creators">03 / 交流社区</a></strong><p>交流使用体验、分享角色提示词，参与功能讨论与作品共创。</p></td>
+    <td><strong><a href="https://github.com/skyjjgw/skivu-plugins">04 / 插件共创</a></strong><p>开发规范、内容包模板、示例和社区收录目录，目前为规范预览阶段。</p></td>
+  </tr>
+  <tr>
+    <td><strong><a href="https://skymoni.com/">05 / Skymoni 服务</a></strong><p>提供可选的账号与模型服务接入；也可在 App 配置自己的模型 API。</p></td>
+    <td><strong><a href="https://github.com/skyjjgw/skymoni-source">06 / 网站与服务源码</a></strong><p>查看关联网站与服务的源码发布、版本记录及开源许可说明。</p></td>
+  </tr>
+</table>
 
-选择适合自己的接入方式：
+## 下载与参与内测
 
-- **Skymoni 账号**：进入 **设置 → 中转站账号** 登录，同步账号可用模型、钱包／订阅与内测状态。内测资格和额度由服务端审批与发放，可通过保留的网页入口申请。
-- **自定义 API**：进入 **设置 → 模型与服务**，添加服务地址、密钥与模型，选择对应协议并测试连接。
+在 **[GitHub 最新版本](https://github.com/skyjjgw/skivu/releases/latest)** 的 Assets 中下载 APK。已安装用户也可使用 **设置 → 检查更新**。每版发布说明记录版本、对应源码、文件大小和 SHA-256。
 
-当前支持的文字模型协议：
+支持 **Android 7.0 / API 24 及以上**；Universal APK 包含 `arm64-v8a` 和 `x86_64`。应用标识为 `com.skyjjgw.independent.ski`。
 
-| 协议 | 接口类型 |
-| --- | --- |
-| OpenAI 兼容 | Chat Completions |
-| OpenAI Responses | Responses API |
-| Claude | Messages API |
-| Gemini | Generate Content API |
+APK 公开下载，**内测额度需要单独申请并获批准**：
 
-模型列表、可用功能和计费取决于所选服务。Skivu 不附带共享 API Key 或模型额度；服务商预设用于简化配置，实际兼容范围见 [接口接入说明](API-INTEGRATION-SOURCES.md)。
+1. 使用 Skymoni 社区账号进入 [内测中心](https://skymoni.com/creators/skivu-beta)，提交申请。
+2. 审核通过后，由管理员手动分配独立的 App 内测额度。
+3. 在 Skivu 内登录同一账号，同步资格、模型与额度。
 
-### 创建角色与对话
+内测额度与站内钱包／订阅分别管理；内测不可用或耗尽时，不会自动改扣钱包。自定义模型 API 接入也可独立使用。
 
-在角色管理中设置名称、头像、描述、性格、场景、关系、示例对话与开场白。点击聊天头像可编辑对应角色卡或自己的身份卡，保存后的设定用于后续模型请求。
+当前内测安装包沿用既有开发签名，支持同签名覆盖升级。自行构建时若使用不同证书，不能直接覆盖已发布版本；独立分发请配置自己的发布签名。
 
-左侧面板按角色组织对话：点击角色展开已有会话，或在角色下新建对话；顶部“新建对话”会先选择角色。同一角色的设定共享，各段对话的历史与上下文独立。
+## 开始使用
 
-### 调整外观与语音
+1. **连接模型**：在 **设置 → 中转站账号** 登录，或在 **模型与服务** 添加自己的地址、密钥、协议与模型并测试连接。
+2. **创建角色**：填写头像、描述、性格、场景、关系、示例对话和开场白；点击聊天头像可编辑角色卡或自己的身份卡。
+3. **开启话题**：侧栏顶部“新建对话”先选择角色，角色下的新建操作自动绑定该角色。不同会话的记录、上下文与草稿独立。
+4. **调整体验**：在 **设置 → 外观与体验** 配置文字、背景、玻璃与消息版式；语音连接在 **语音与通话** 单独管理。
 
-在外观设置中分别调整字体、文字颜色、背景、玻璃与消息版式，预览后自动保存。聊天底部统计可按需开关；服务端未返回的数据以 `—` 显示。
+配置范围和协议说明见 [接口接入文档](API-INTEGRATION-SOURCES.md)。
 
-语音合成支持系统、OpenAI 兼容、ElevenLabs、Azure 和自定义 HTTP 服务。语音识别依赖 Android 系统服务及语言包，云端合成使用你配置的服务账号。
+## 插件共创
 
-## 数据与隐私
+[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) 已开放社区参与，当前提供 `0.1-draft` 纯文本提示词内容包规范、JSON Schema、模板、示例和本地校验工具。收录目录为预览用途，`runtimeReady: false`。
 
-- 聊天记录、角色、草稿与外观配置保存在本机，支持聊天数据备份与恢复。
-- API 密钥、账号会话和语音连接凭据通过 `flutter_secure_storage` 单独保存，不进入聊天备份；App 不保存账号登录密码。
-- 发起对话时，消息及相关角色设定会发送给所选模型服务。云端语音合成会发送待朗读文本，系统语音识别也可能使用网络服务。
-- 仓库不包含账号凭据、运行数据库或签名私钥。账号与更新流程见 [账号与更新说明](APP-ACCOUNT-UPDATES.md)。
+**已发布 App 尚未接入插件加载、安装、执行和更新。** 插件市场入口仍显示“即将开放”；现在可以通过仓库提交提案、内容包与收录 PR。
 
-## 开发与构建
+[开发规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/development.md) · [模板](https://github.com/skyjjgw/skivu-plugins/tree/main/templates/prompt-pack) · [目录规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/catalog.md) · [提交收录](https://github.com/skyjjgw/skivu-plugins/blob/main/CONTRIBUTING.md) · [开放路线](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/roadmap.md)
 
-开发基线为 **Flutter 3.41.9 / Dart 3.11.5**。Android 构建需要 Android SDK 与 JDK 17；Dart 版本约束见 [pubspec.yaml](pubspec.yaml)。
+## 开发与贡献
 
-### 获取源码并运行
+开发基线为 **Flutter 3.41.9 / Dart 3.11.5**，Android 构建需要 Android SDK 和 JDK 17。Dart 约束见 [pubspec.yaml](pubspec.yaml)。
+
+<details>
+<summary><strong>从源码运行、检查与打包</strong></summary>
 
 ```sh
 git clone https://github.com/skyjjgw/skivu.git
@@ -107,52 +119,37 @@ flutter devices
 flutter run -d <android-device-id>
 ```
 
-Web 手机界面预览：
-
 ```sh
+# Web 手机界面预览
 flutter run -d chrome
-```
 
-Web 直连模型接口需要服务端允许 CORS，浏览器与 Android App 的数据分别保存。Web 预览不代表 Android 原生语音、安装更新等能力在浏览器中可用。
-
-### 检查与打包
-
-```sh
+# 检查
 flutter analyze
 flutter test
+
+# Universal Android APK
 flutter build apk --release --target-platform android-arm64,android-x64
 ```
 
-APK 输出到 `build/app/outputs/flutter-apk/app-release.apk`。提交改动前请运行与改动相关的检查；涉及手机布局、键盘、玻璃材质或侧栏交互时，请同时在 Android 设备或模拟器上验证。
+APK 输出到 `build/app/outputs/flutter-apk/app-release.apk`。Android 与浏览器的数据分别保存；Web 直连接口依赖服务端 CORS，原生语音与安装更新不属于 Web 预览能力。
 
-### 项目结构
+</details>
 
-```text
-lib/        应用界面、模型接入、会话状态与外观配置
-android/    Android 原生语音、平台适配与安装更新
-assets/     品牌资源与内置字体
-shaders/    水滴光球 Shader
-test/       协议、状态、布局与交互测试
-licenses/   第三方许可证与版权通知
-web/        Web 预览入口
-```
+- **App 问题与建议**：提交 [Issue](https://github.com/skyjjgw/skivu/issues)，附版本、Android 版本、设备、复现步骤及必要截图。
+- **代码与文档**：提交范围清晰的 [Pull Request](https://github.com/skyjjgw/skivu/pulls)，说明目的与验证方式；手机界面改动需在 Android 设备或模拟器验证。
+- **插件与规范**：在 [Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) 按贡献指南参与。
+- **使用体验与角色提示词**：欢迎在 [社区](https://skymoni.com/creators) 分享。公开前请移除凭据、会话令牌与私人聊天内容。
 
-## 反馈与贡献
+## 数据与隐私
 
-欢迎通过 [Issues](https://github.com/skyjjgw/skivu/issues) 提交问题或功能建议，也欢迎提交范围清晰的 [Pull Request](https://github.com/skyjjgw/skivu/pulls)。
+聊天记录、角色、草稿和外观配置保存在本机，支持聊天数据备份与恢复。API 密钥、账号会话和语音连接凭据通过 `flutter_secure_storage` 单独保存，不进入聊天备份；App 不保存账号登录密码。
 
-报告问题时，请提供 App 版本、Android 版本、设备型号、复现步骤及必要截图；分享前请移除 API Key、账号会话和私人聊天内容。提交代码时请说明改动目的、验证方式，并保留相关第三方声明。
+发起对话时，相关消息与角色设定会发送给所选模型服务。云端语音合成会发送待朗读文本，系统识别也可能联网。
 
-## 文档与许可证
+## 文档与许可
 
-| 文档 | 内容 |
-| --- | --- |
-| [账号与更新](APP-ACCOUNT-UPDATES.md) | 账号登录、模型与额度同步、应用内更新流程 |
-| [接口接入](API-INTEGRATION-SOURCES.md) | 模型与语音协议、配置来源及兼容范围 |
-| [模块来源](MODULE-MIGRATION.md) | 消息导航与通话界面的来源、适配范围 |
-| [水滴光球](ORB-PROVENANCE.txt) | 光球绘制组件与 Shader 的来源记录 |
-| [第三方声明](THIRD_PARTY_NOTICES.md) | 依赖、字体与分发通知 |
+[账号与更新](APP-ACCOUNT-UPDATES.md) · [接口接入](API-INTEGRATION-SOURCES.md) · [模块来源](MODULE-MIGRATION.md) · [光球来源](ORB-PROVENANCE.txt) · [第三方声明](THIRD_PARTY_NOTICES.md)
 
-本项目原创代码采用 **GNU General Public License v3.0 only（GPL-3.0-only）**，详见 [LICENSE](LICENSE) 和 [COPYRIGHT](COPYRIGHT)。第三方组件与字体适用各自许可证，相关正文保留在 [licenses/](licenses/)。
+本项目原创代码采用 **GNU GPL v3.0 only（GPL-3.0-only）**，见 [LICENSE](LICENSE) 和 [COPYRIGHT](COPYRIGHT)。第三方组件、字体及独立插件保留各自许可证；随附声明见 [licenses/](licenses/)。
 
-液态玻璃效果基于 **Liquid Glass Easy**（MIT）；内置字体包括 **Noto Sans SC、Noto Serif SC、Roboto Mono**。感谢相关开源项目与贡献者。
+玻璃效果使用 **Liquid Glass Easy**（MIT），内置字体包括 **Noto Sans SC、Noto Serif SC、Roboto Mono**。感谢相关开源项目与贡献者。
