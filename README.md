@@ -1,10 +1,9 @@
 <p align="center">
-  <a href="https://skymoni.com/skivu/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/skivu-cover-zh-dark.svg?v=unified">
-      <source media="(prefers-color-scheme: light)" srcset="docs/images/skivu-cover-zh.svg?v=unified">
-      <img src="docs/images/skivu-cover-zh.svg?v=unified" width="1280" alt="Skivu — 你的世界，由你定义。明暗主题动态银河封面">
-    </picture>
+  <a href="https://skymoni.com/skivu/#gh-light-mode-only">
+    <img src="docs/images/skivu-cover-zh.svg?v=unified#gh-light-mode-only" width="1280" alt="Skivu — 你的世界，由你定义。明暗主题动态银河封面">
+  </a>
+  <a href="https://skymoni.com/skivu/#gh-dark-mode-only">
+    <img src="docs/images/skivu-cover-zh-dark.svg?v=unified#gh-dark-mode-only" width="1280" alt="Skivu — 你的世界，由你定义。明暗主题动态银河封面">
   </a>
 </p>
 

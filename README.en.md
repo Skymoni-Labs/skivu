@@ -1,10 +1,9 @@
 <p align="center">
-  <a href="https://skymoni.com/skivu/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/images/skivu-cover-dark.svg?v=unified">
-      <source media="(prefers-color-scheme: light)" srcset="docs/images/skivu-cover.svg?v=unified">
-      <img src="docs/images/skivu-cover.svg?v=unified" width="1280" alt="Skivu — Your world. Your way. An animated galaxy in light and dark themes">
-    </picture>
+  <a href="https://skymoni.com/skivu/#gh-light-mode-only">
+    <img src="docs/images/skivu-cover.svg?v=unified#gh-light-mode-only" width="1280" alt="Skivu — Your world. Your way. An animated galaxy in light and dark themes">
+  </a>
+  <a href="https://skymoni.com/skivu/#gh-dark-mode-only">
+    <img src="docs/images/skivu-cover-dark.svg?v=unified#gh-dark-mode-only" width="1280" alt="Skivu — Your world. Your way. An animated galaxy in light and dark themes">
   </a>
 </p>
 
