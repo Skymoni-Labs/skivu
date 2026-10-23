@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg" width="1280" alt="Skivu — Your world. Your way. 动态银河、旋转星尘与云朵品牌标志"></a>
+</p>
+
 <h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
 
 <div align="center">
@@ -18,10 +22,6 @@
   </p>
 </div>
 
-<p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg" width="1280" alt="Skivu — Your world. Your way. 星空、玻璃轨道与云朵品牌标志"></a>
-</p>
-
 Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间。你可以连接自己的模型 API，也可以使用 Skymoni 账号同步可用模型和额度；为同一个角色开启不同话题，各段对话独立保存历史、上下文与草稿。
 
 **Android 是当前主要发布平台**，同一套 Flutter 源码也提供 Web 手机界面预览。这里维护 App 源码；产品官网、内测中心、社区与插件共创各有独立入口。
@@ -37,16 +37,6 @@ Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间�
 - **账号与更新**：App 内登录、模型与额度同步、账号切换；校验 APK 摘要、大小、包名、版本及签名后，由 Android 系统确认安装。
 
 附件上传、插件执行及右侧工作区尚未开放，App 中相关入口显示 **“即将开放”**。模型和语音服务的可用功能及计费取决于所选服务，仓库不附带共享 API Key 或模型额度。
-
-## 功能展示
-
-<p align="center">
-  <img src="docs/images/chat.png" width="230" alt="Skivu 的玻璃消息气泡与浮动输入框">
-  <img src="docs/images/sidebar.png" width="230" alt="以角色头像组织多段独立对话的侧栏">
-  <img src="docs/images/appearance.png" width="230" alt="Skivu 的主题、玻璃与分区文字配置">
-</p>
-
-对话空间 · 角色与会话 · 外观设置。截图来自 Android App，使用本地演示内容；官网动画与品牌片属于独立的产品展示。
 
 ## 官网、社区与相关项目
 

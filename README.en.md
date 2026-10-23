@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg" width="1280" alt="Skivu — Your world. Your way. An animated galaxy, orbiting stardust and the approved cloud logo."></a>
+</p>
+
 <h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
 
 <div align="center">
@@ -18,10 +22,6 @@
   </p>
 </div>
 
-<p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg" width="1280" alt="Skivu — Your world. Your way. A midnight sky, glass orbits and the approved cloud logo."></a>
-</p>
-
 Skivu brings model connections, character-based conversations and personal appearance settings into one mobile app. Connect your own model API or sign in with a Skymoni account to synchronize available models and quotas. Each character can have several conversations with separate histories, context and drafts.
 
 **Android is the primary release platform.** The same Flutter source also provides a mobile-layout Web preview. This repository contains the app; the website, service and plugin community have their own entry points below.
@@ -37,16 +37,6 @@ Skivu brings model connections, character-based conversations and personal appea
 - **Accounts & updates**: In-app login, model and quota synchronization, account switching and update checks. Packages are verified before Android asks you to confirm installation.
 
 Attachments, plugin execution and the right-side workspace are not available yet. Their app entries are marked **Coming soon**.
-
-## Feature showcase
-
-<p align="center">
-  <img src="docs/images/chat.png" width="230" alt="Skivu chat with glass message bubbles">
-  <img src="docs/images/sidebar.png" width="230" alt="Character sidebar with separate conversations">
-  <img src="docs/images/appearance.png" width="230" alt="Appearance settings with themes and independent text options">
-</p>
-
-Conversations · Characters & sessions · Appearance. Actual Android screens with local demo content and Chinese UI; the website concepts and brand film are separate presentations.
 
 ## Website, community & related projects
 
