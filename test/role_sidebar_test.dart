@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/state.dart';
 import 'package:ski/main.dart' show SideNavigation;
 import 'package:ski/role_conversation_tree.dart';
+import 'package:ski/character_avatar.dart';
+import 'wallpaper_test.dart' show imageBytes;
 import 'real_chat_store_test.dart' show MemoryChats;
 
 Future<DemoStore> fixture() async {
@@ -77,6 +79,19 @@ void main() {
       await tester.pumpWidget(host(store, open: () => opened++));
       await tester.pumpAndSettle();
       expect(find.text('日常对话'), findsNothing);
+      final avatar = find.byKey(ValueKey('sidebar-role-avatar-${a.id}'));
+      expect(tester.widget<CharacterAvatar>(avatar).persona, same(a));
+      expect(find.byIcon(Icons.folder_open_outlined), findsNothing);
+      expect(find.byIcon(Icons.folder_outlined), findsNothing);
+      a.avatar = imageBytes;
+      store.changed();
+      await tester.pumpAndSettle();
+      final picture = find.descendant(of: avatar, matching: find.byType(Image));
+      expect(tester.widget<Image>(picture).image, isA<MemoryImage>());
+      expect(
+        (tester.widget<Image>(picture).image as MemoryImage).bytes,
+        imageBytes,
+      );
       expect(find.text('日常'), findsNothing);
       expect(find.byKey(ValueKey('role-count-${a.id}')), findsOneWidget);
       expect(

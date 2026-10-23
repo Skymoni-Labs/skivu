@@ -356,6 +356,12 @@ class _SkiShellState extends State<SkiShell>
 
   void panel(int direction) => motion.toggle(direction);
   void go(String route) => Navigator.of(context).pushReplacementNamed(route);
+  void returnHome(bool didPop, Object? result) {
+    if (didPop) return;
+    if (motion.offset.abs() > .1 || motion.dragging) motion.close();
+    if (widget.route != '/chat') go('/chat');
+  }
+
   String get title => switch (widget.route) {
     '/chat' => demo.role.name,
     '/characters' => '角色',
@@ -372,7 +378,13 @@ class _SkiShellState extends State<SkiShell>
           appName,
   };
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => PopScope<Object?>(
+    canPop: false,
+    onPopInvokedWithResult: returnHome,
+    child: _shell(context),
+  );
+
+  Widget _shell(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       motion.configure(
         math.min(330, box.maxWidth * .82),

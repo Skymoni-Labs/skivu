@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'state.dart';
 import 'glass.dart';
 import 'role_actions.dart';
+import 'character_avatar.dart';
+import 'appearance.dart';
 
 class RoleConversationTree extends StatefulWidget {
   const RoleConversationTree({
@@ -135,12 +137,11 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      expanded
-                          ? Icons.folder_open_outlined
-                          : Icons.folder_outlined,
-                      size: 20,
-                      color: ink,
+                    CharacterAvatar(
+                      key: ValueKey('sidebar-role-avatar-${role.id}'),
+                      persona: role,
+                      size: 28,
+                      square: appearance.flag('squareAvatars'),
                     ),
                     const SizedBox(width: 9),
                     Expanded(

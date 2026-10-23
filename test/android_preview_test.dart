@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:ski/main.dart';
 import 'package:ski/chat.dart';
 import 'package:ski/drawer_motion.dart';
@@ -7,6 +8,72 @@ import 'package:ski/workspace.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 void main() {
+  testWidgets('system back returns to chat and never exits from home', (
+    tester,
+  ) async {
+    final systemCalls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          systemCalls.add(call.method);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    await tester.pumpWidget(const SkiApp());
+    await tester.pumpAndSettle();
+    for (final route in ['/characters', '/settings', '/settings/appearance']) {
+      appNavigator.currentState!.pushReplacementNamed(route);
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatPage), findsNothing);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatPage), findsOneWidget);
+    }
+    final home = tester.element(find.byType(ChatPage));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(tester.element(find.byType(ChatPage)), same(home));
+    expect(systemCalls, isNot(contains('SystemNavigator.pop')));
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'system back closes either sidebar and leaves transient dialogs usable',
+    (tester) async {
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      for (final side in [1, -1]) {
+        final motion = tester.widget<SlideDeck>(find.byType(SlideDeck)).motion;
+        motion.toggle(side);
+        await tester.pumpAndSettle();
+        expect(motion.offset.abs(), greaterThan(1));
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(motion.offset.abs(), lessThan(.1));
+        expect(find.byType(ChatPage), findsOneWidget);
+      }
+      appNavigator.currentState!.pushReplacementNamed('/settings');
+      await tester.pumpAndSettle();
+      tester.widget<SlideDeck>(find.byType(SlideDeck)).motion.toggle(1);
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatPage), findsOneWidget);
+      showDialog<void>(
+        context: tester.element(find.byType(SkiShell)),
+        builder: (_) => const AlertDialog(title: Text('返回检查')),
+      );
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('返回检查'), findsNothing);
+      expect(find.byType(ChatPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('Android root route reached on system return shows chat', (
     tester,
   ) async {
