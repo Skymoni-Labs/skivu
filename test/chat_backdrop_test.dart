@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:ski/appearance.dart';
 import 'package:ski/chat_backdrop.dart';
 import 'package:ski/chat_bubble_surface.dart';
@@ -215,7 +216,7 @@ void main() {
     model.dispose();
     expect(tester.takeException(), isNull);
   });
-  testWidgets('composer glass samples wallpaper instead of text behind it', (
+  testWidgets('composer optics and rim sample only the static wallpaper', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 600);
@@ -259,6 +260,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+          .useImpellerBackdrop,
+      isNull,
+    );
     await tester.runAsync(
       () => source.capture(revision: 'composer', enabled: true, radii: {}),
     );
@@ -266,6 +273,14 @@ void main() {
     expect(
       find.byKey(const ValueKey('composer-wallpaper-plane')),
       findsOneWidget,
+    );
+    // Covering the lens body alone cannot keep live refraction from reading
+    // UI outside the rim. The input must also opt into wallpaper-only optics.
+    expect(
+      tester
+          .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+          .useImpellerBackdrop,
+      isFalse,
     );
     Future<List<int>> sample() async => (await tester.runAsync(() async {
       final image =
@@ -277,7 +292,9 @@ void main() {
           format: ui.ImageByteFormat.rawRgba,
         ))!;
         return [
-          for (var c = 0; c < 3; c++) bytes.getUint8((520 * 320 + 160) * 4 + c),
+          for (final y in [470, 480, 520, 575])
+            for (final x in [12, 25, 75, 160, 295, 307])
+              for (var c = 0; c < 3; c++) bytes.getUint8((y * 320 + x) * 4 + c),
         ];
       } finally {
         image.dispose();
@@ -287,6 +304,14 @@ void main() {
     underneath.value = Colors.blue;
     await tester.pumpAndSettle();
     expect(await sample(), before);
+    await source.capture(revision: 'video', enabled: false, radii: {});
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+          .useImpellerBackdrop,
+      isNull,
+    );
     await tester.pumpWidget(const SizedBox());
     source.dispose();
     underneath.dispose();

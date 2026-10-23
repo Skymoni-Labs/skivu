@@ -468,6 +468,7 @@ class GlassSurface extends StatelessWidget {
     this.liquidBlur = 2,
     this.liquidOpacity,
     this.outline = true,
+    this.wallpaperOnly = false,
   });
   final Widget child;
   final double radius, blur, opacity;
@@ -475,11 +476,18 @@ class GlassSurface extends StatelessWidget {
   final double liquidBlur;
   final double? liquidOpacity;
   final bool outline;
+
+  /// Read the scene's wallpaper capture instead of the composited UI. A live
+  /// lens can pull nearby avatars across the input's rim even when wallpaper
+  /// has already covered the transcript directly underneath it.
+  final bool wallpaperOnly;
   @override
   Widget build(BuildContext context) {
     final enabled = demo.prefs['毛玻璃效果'] ?? true;
     if (enabled && liquid) {
       return LiquidGlassLens(
+        key: ValueKey(wallpaperOnly),
+        useImpellerBackdrop: wallpaperOnly ? false : null,
         style: skiLensStyle(
           context,
           radius,
@@ -557,6 +565,9 @@ class ConfigurableGlassSurface extends StatelessWidget {
         opacity: model.number(area.replaceFirst('Blur', 'Opacity')),
         liquidBlur: model.number(area),
         liquidOpacity: model.number(area.replaceFirst('Blur', 'Opacity')),
+        wallpaperOnly:
+            area == 'inputBlur' &&
+            ChatBackdropScope.maybeOf(context)?.wallpaperImage != null,
         child: content!,
       ),
     );
