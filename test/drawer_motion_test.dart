@@ -217,6 +217,14 @@ void main() {
     expect(builds, initialBuilds);
     await tester.pumpAndSettle();
     final openSideTop = tester.getTopRight(find.byKey(const ValueKey('left')));
+    expect(
+      openSideTop.dy,
+      closeTo(tester.getTopLeft(find.byKey(const ValueKey('left'))).dy, .001),
+    );
+    expect(
+      tester.getTopLeft(page).dy,
+      closeTo(tester.getTopRight(page).dy, .001),
+    );
     final openSideBottom = tester.getBottomRight(
       find.byKey(const ValueKey('left')),
     );
@@ -258,6 +266,14 @@ void main() {
     expect(tester.getSize(find.byType(BuildProbe)), size);
     expect(builds, initialBuilds);
     motion.cancel();
+    await tester.pumpAndSettle();
+    motion.toggle(-1);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('right'))).dy,
+      closeTo(tester.getTopRight(find.byKey(const ValueKey('right'))).dy, .001),
+    );
+    motion.close();
     await tester.pumpAndSettle();
     motion.configure(330, 350, reduced: true);
     motion.toggle(1);

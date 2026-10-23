@@ -3,6 +3,7 @@ import 'state.dart';
 import 'glass.dart';
 import 'role_actions.dart';
 import 'character_avatar.dart';
+import 'sidebar_layout.dart';
 import 'appearance.dart';
 
 class RoleConversationTree extends StatefulWidget {
@@ -129,8 +130,12 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                 }
               },
               child: Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                constraints: const BoxConstraints(
+                  minHeight: SidebarLayout.rowHeight,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: SidebarLayout.inset,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: expanded ? .42 : .22),
                   borderRadius: BorderRadius.circular(15),
@@ -140,10 +145,10 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                     CharacterAvatar(
                       key: ValueKey('sidebar-role-avatar-${role.id}'),
                       persona: role,
-                      size: 28,
+                      size: SidebarLayout.leading,
                       square: appearance.flag('squareAvatars'),
                     ),
-                    const SizedBox(width: 9),
+                    const SizedBox(width: SidebarLayout.gap),
                     Expanded(
                       child: Text(
                         role.name,
@@ -156,17 +161,24 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${all.length}',
-                      key: ValueKey('role-count-${role.id}'),
-                      style: TextStyle(fontSize: 12, color: ink),
+                    SizedBox(
+                      width: 24,
+                      child: Text(
+                        '${all.length}',
+                        key: ValueKey('role-count-${role.id}'),
+                        style: TextStyle(fontSize: 12, color: ink),
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const SizedBox(width: 7),
-                    Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 18,
-                      color: ink,
+                    SizedBox(
+                      width: 24,
+                      child: Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: ink,
+                      ),
                     ),
                     PopupMenuButton<String>(
                       key: ValueKey('role-menu-${role.id}'),
@@ -189,18 +201,35 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
             const SizedBox(height: 4),
             for (final chat in chats) conversation(chat),
             Padding(
-              padding: const EdgeInsets.only(left: 12),
-              child: TextButton.icon(
+              padding: const EdgeInsets.only(left: SidebarLayout.nestedIndent),
+              child: TextButton(
                 key: ValueKey('role-new-chat-${role.id}'),
                 style: TextButton.styleFrom(
                   alignment: Alignment.centerLeft,
                   foregroundColor: ink,
-                  minimumSize: const Size(0, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, SidebarLayout.rowHeight),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: SidebarLayout.inset,
+                  ),
                 ),
                 onPressed: () => create(role.id),
-                icon: const Icon(Icons.add, size: 17),
-                label: const Text('新建对话', style: TextStyle(fontSize: 12)),
+                child: const Row(
+                  children: [
+                    SizedBox(
+                      width: SidebarLayout.leading,
+                      child: Icon(Icons.add, size: 18),
+                    ),
+                    SizedBox(width: SidebarLayout.gap),
+                    Expanded(
+                      child: Text(
+                        '新建对话',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -213,7 +242,10 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
     final store = widget.store;
     final selected = identical(store.conversations[store.conversation], chat);
     return Padding(
-      padding: const EdgeInsets.only(left: 12, bottom: 3),
+      padding: const EdgeInsets.only(
+        left: SidebarLayout.nestedIndent,
+        bottom: 4,
+      ),
       child: Material(
         key: ValueKey('sidebar-chat-${chat.id}'),
         color: Colors.transparent,
@@ -224,6 +256,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
             widget.openChat();
           },
           child: Ink(
+            padding: EdgeInsets.zero,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: selected
@@ -238,44 +271,55 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                   ? Border.all(color: Colors.white.withValues(alpha: .45))
                   : null,
             ),
-            child: Row(
-              children: [
-                const SizedBox(width: 10),
-                Icon(
-                  chat.pinned
-                      ? Icons.push_pin_outlined
-                      : Icons.chat_bubble_outline,
-                  size: 14,
-                  color: ink,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    child: Text(
-                      chat.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: ink),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: SidebarLayout.inset,
+              ),
+              child: SizedBox(
+                height: SidebarLayout.rowHeight,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: SidebarLayout.leading,
+                      child: Icon(
+                        chat.pinned
+                            ? Icons.push_pin_outlined
+                            : Icons.chat_bubble_outline,
+                        size: 14,
+                        color: ink,
+                      ),
                     ),
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  key: ValueKey('chat-menu-${chat.id}'),
-                  tooltip: '对话菜单：${chat.title}',
-                  icon: Icon(Icons.more_horiz, size: 19, color: ink),
-                  constraints: const BoxConstraints(minWidth: 130),
-                  onSelected: (action) => menu(chat, action),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'rename', child: Text('重命名')),
-                    PopupMenuItem(
-                      value: 'pin',
-                      child: Text(chat.pinned ? '取消置顶' : '置顶'),
+                    const SizedBox(width: SidebarLayout.gap),
+                    Expanded(
+                      child: Text(
+                        chat.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: ink),
+                      ),
                     ),
-                    const PopupMenuItem(value: 'delete', child: Text('删除')),
+                    PopupMenuButton<String>(
+                      key: ValueKey('chat-menu-${chat.id}'),
+                      tooltip: '对话菜单：${chat.title}',
+                      padding: EdgeInsets.zero,
+                      icon: Icon(Icons.more_horiz, size: 19, color: ink),
+                      constraints: const BoxConstraints(minWidth: 130),
+                      onSelected: (action) => menu(chat, action),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'rename',
+                          child: Text('重命名'),
+                        ),
+                        PopupMenuItem(
+                          value: 'pin',
+                          child: Text(chat.pinned ? '取消置顶' : '置顶'),
+                        ),
+                        const PopupMenuItem(value: 'delete', child: Text('删除')),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

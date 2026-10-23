@@ -9,6 +9,7 @@ import 'glass_preferences.dart';
 import 'appearance.dart';
 import 'video_backdrop.dart';
 import 'chat_backdrop.dart';
+import 'sidebar_layout.dart';
 
 /// Web lenses refract one cached capture of the static aurora, rather than
 /// capturing the whole application on every drawer animation frame.
@@ -333,8 +334,8 @@ class SkiGlassButton extends StatelessWidget {
       ? null
       : Row(
           children: [
-            SizedBox(width: 28, child: Icon(icon, size: 21)),
-            const SizedBox(width: 9),
+            SizedBox(width: SidebarLayout.leading, child: Icon(icon, size: 21)),
+            const SizedBox(width: SidebarLayout.gap),
             Expanded(
               child: Text(
                 label!,
@@ -373,7 +374,7 @@ class SkiGlassButton extends StatelessWidget {
             onPressed: onPressed,
             style: FilledButton.styleFrom(
               padding: startAligned
-                  ? const EdgeInsets.symmetric(horizontal: 12)
+                  ? const EdgeInsets.symmetric(horizontal: SidebarLayout.inset)
                   : EdgeInsets.zero,
             ),
             child:
@@ -395,7 +396,9 @@ class SkiGlassButton extends StatelessWidget {
           width: width,
           height: height,
           padding: EdgeInsets.symmetric(
-            horizontal: startAligned ? 12 : (label == null ? 0 : 18),
+            horizontal: startAligned
+                ? SidebarLayout.inset
+                : (label == null ? 0 : 18),
           ),
           style: skiLensStyle(context, height / 2, accent: accent),
           touch: (demo.prefs['减少动态效果'] ?? false)

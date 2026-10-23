@@ -198,7 +198,9 @@ class _SlideDeckState extends State<SlideDeck> {
             final extent = x >= 0 ? motion.leftExtent : motion.rightExtent;
             final sideAngle = motion.reducedMotion
                 ? 0.0
-                : .075 * math.sin(progress * math.pi / 2);
+                : .075 * math.sin(progress * math.pi);
+            // Keep the inward fold while moving; a fully open panel rests
+            // flat so its text baselines, cards and bottom actions stay level.
             // A shallow inward fold keeps both pages nearly full-height. The
             // translucent side panel overlaps the home page across the seam.
             final hingeDepth = extent * math.sin(sideAngle);

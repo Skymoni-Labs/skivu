@@ -261,6 +261,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('角色与陪伴'), findsNothing);
       expect(tester.getTopLeft(find.text('Skivu').first).dy, lessThan(32));
+      final columnX = tester.getTopLeft(find.text('Skivu').first).dx;
+      final newChatLabel = find.descendant(
+        of: find.byTooltip('新建对话'),
+        matching: find.text('新建对话'),
+      );
+      for (final item in [
+        newChatLabel,
+        find.text('搜索角色或对话'),
+        find.text('角色'),
+        find.text('插件市场'),
+      ]) {
+        expect(tester.getTopLeft(item).dx, closeTo(columnX, .01));
+      }
       await tester.tap(find.byTooltip('新建对话'));
       await tester.pumpAndSettle();
       expect(find.text('选择对话角色'), findsOneWidget);

@@ -25,6 +25,7 @@ import 'relay_account.dart';
 import 'app_updates.dart';
 import 'speech_settings.dart';
 import 'role_conversation_tree.dart';
+import 'sidebar_layout.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -572,12 +573,16 @@ class _SideNavigationState extends State<SideNavigation> {
       InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => widget.go(route),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: SidebarLayout.rowHeight),
+          padding: const EdgeInsets.symmetric(horizontal: SidebarLayout.inset),
           child: Row(
             children: [
-              SizedBox(width: 28, child: Icon(icon, size: 21, color: green)),
-              const SizedBox(width: 9),
+              SizedBox(
+                width: SidebarLayout.leading,
+                child: Icon(icon, size: 21, color: green),
+              ),
+              const SizedBox(width: SidebarLayout.gap),
               Expanded(
                 child: Text(
                   title,
@@ -621,55 +626,68 @@ class _SideNavigationState extends State<SideNavigation> {
                   key: const ValueKey('sidebar-scroll'),
                   padding: EdgeInsets.zero,
                   children: [
-                    Row(
-                      children: [
-                        const BrandMark(size: 36),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            appName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w600,
-                              color: ink,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: SidebarLayout.inset,
+                      ),
+                      child: Row(
+                        children: [
+                          const BrandMark(size: SidebarLayout.leading),
+                          const SizedBox(width: SidebarLayout.gap),
+                          Expanded(
+                            child: Text(
+                              appName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          tooltip: '关闭导航',
-                          onPressed: widget.close,
-                          icon: const Icon(Icons.chevron_left, size: 22),
-                        ),
-                      ],
+                          IconButton(
+                            tooltip: '关闭导航',
+                            onPressed: widget.close,
+                            icon: const Icon(Icons.chevron_left, size: 22),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 16),
                     SkiGlassButton(
                       tooltip: '新建对话',
                       width: double.infinity,
-                      height: 48,
+                      height: SidebarLayout.rowHeight,
                       accent: true,
                       startAligned: true,
                       onPressed: newConversation,
                       icon: Icons.add,
                       label: '新建对话',
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     TextField(
                       key: const ValueKey('sidebar-search'),
                       onChanged: (value) => setState(() => query = value),
-                      style: TextStyle(fontSize: 12, color: ink),
+                      style: TextStyle(fontSize: 14, color: ink),
                       decoration: InputDecoration(
                         hintText: '搜索角色或对话',
                         prefixIconConstraints: const BoxConstraints(
-                          minWidth: 49,
-                          minHeight: 48,
+                          minWidth:
+                              SidebarLayout.inset +
+                              SidebarLayout.leading +
+                              SidebarLayout.gap -
+                              4,
+                          minHeight: SidebarLayout.rowHeight,
                         ),
                         prefixIcon: const Padding(
-                          padding: EdgeInsets.only(left: 12, right: 9),
+                          padding: EdgeInsets.only(
+                            left: SidebarLayout.inset,
+                            // Material 3 inserts its own 4px prefix gap.
+                            right: SidebarLayout.gap - 4,
+                          ),
                           child: SizedBox(
-                            width: 28,
+                            width: SidebarLayout.leading,
                             child: Icon(Icons.search, size: 18),
                           ),
                         ),
@@ -681,7 +699,7 @@ class _SideNavigationState extends State<SideNavigation> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
                     RoleConversationTree(
                       store: demo,
                       query: query,
@@ -701,33 +719,40 @@ class _SideNavigationState extends State<SideNavigation> {
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: .6),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      minimumSize: const Size(0, SidebarLayout.rowHeight),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     onPressed: () => widget.go('/plugins'),
-                    icon: const Icon(Icons.inventory_2_outlined, size: 17),
+                    icon: const Icon(Icons.inventory_2_outlined, size: 18),
                     label: const Text('插件', style: TextStyle(fontSize: 12)),
                   ),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: .6),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      minimumSize: const Size(0, SidebarLayout.rowHeight),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                     onPressed: () => widget.go('/settings'),
-                    icon: const Icon(Icons.settings_outlined, size: 17),
+                    icon: const Icon(Icons.settings_outlined, size: 18),
                     label: const Text('设置', style: TextStyle(fontSize: 12)),
                   ),
                 ),
-                IconButton(
-                  tooltip: '切换主题',
-                  onPressed: () {
-                    demo.dark = !demo.dark;
-                    appearance.save();
-                    demo.changed();
-                  },
-                  icon: const Icon(Icons.dark_mode_outlined, size: 21),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: SidebarLayout.rowHeight,
+                  height: SidebarLayout.rowHeight,
+                  child: IconButton(
+                    tooltip: '切换主题',
+                    onPressed: () {
+                      demo.dark = !demo.dark;
+                      appearance.save();
+                      demo.changed();
+                    },
+                    icon: const Icon(Icons.dark_mode_outlined, size: 21),
+                  ),
                 ),
               ],
             ),
