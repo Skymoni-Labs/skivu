@@ -14,6 +14,7 @@ import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
 import 'assistant_reply_layout.dart';
+import 'message_info_row.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -888,33 +889,22 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-        Wrap(
-          spacing: 8,
-          children: [
-            if (m.user && appearance.flag('showUser'))
-              label('我', size: 10, color: muted),
-            if (!m.user && appearance.flag('showModel'))
-              label(m.modelName ?? '模型 —', size: 10, color: muted),
-            if (!m.user && appearance.flag('showProvider'))
-              label(m.provider ?? '供应商 —', size: 10, color: muted),
-            if (!m.user && appearance.flag('showTokens'))
-              label('Token ${m.tokens ?? '—'}', size: 10, color: muted),
-            if (!m.user && appearance.flag('showElapsed'))
-              label(
-                m.elapsedMs == null
-                    ? '耗时 —'
-                    : '${(m.elapsedMs! / 1000).toStringAsFixed(2)} s',
-                size: 10,
-                color: muted,
-              ),
-            if (appearance.flag('showTime'))
-              label(
-                '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
-                size: 10,
-                color: muted,
-              ),
-          ],
-        ),
+        if (!m.user)
+          MessageInfoRow(key: ValueKey('message-info-$i'), message: m)
+        else
+          Wrap(
+            spacing: 8,
+            children: [
+              if (appearance.flag('showUser'))
+                label('我', size: 10, color: muted),
+              if (appearance.flag('showTime'))
+                label(
+                  '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
+                  size: 10,
+                  color: muted,
+                ),
+            ],
+          ),
         if (!m.user)
           Row(
             mainAxisSize: MainAxisSize.min,

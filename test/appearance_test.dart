@@ -431,7 +431,7 @@ void main() {
       expect(controller.text, '保留输入框里的草稿');
       expect(tester.widget<TextField>(field).minLines, 1);
       expect(find.byIcon(Icons.person_rounded), findsNothing);
-      expect(find.text('Token —'), findsWidgets);
+      expect(find.text('— tok'), findsWidgets);
       expect(
         tester
             .widgetList<ConfigurableGlassSurface>(

@@ -9,10 +9,62 @@ import 'package:ski/state.dart';
 import 'package:ski/workspace.dart';
 import 'package:ski/glass.dart';
 import 'package:ski/thinking_disclosure.dart';
+import 'package:ski/message_info_row.dart';
 import 'preview_fixture.dart';
 
 void main() {
   setUp(seedPreviewConversation);
+  testWidgets('reply info follows the three reply widths without wrapping', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final original = appearance.values;
+    addTearDown(() {
+      for (final entry in original.entries) {
+        appearance.set(entry.key, entry.value);
+      }
+    });
+    for (final key in [
+      'showModel',
+      'showProvider',
+      'showTokens',
+      'showElapsed',
+      'showTime',
+    ]) {
+      appearance.set(key, true);
+    }
+    appearance.set('textScale', 1.4);
+    demo.messages
+      ..clear()
+      ..add(
+        Message(false, '这是一段检查信息排列的回复。')
+          ..modelName = 'deepseek-v4.1-flash-long-model-name'
+          ..provider = 'Skymoni'
+          ..tokens = 94
+          ..elapsedMs = 4780,
+      );
+    await tester.pumpWidget(const SkiApp());
+    await tester.pumpAndSettle();
+    for (final layout in ['centered', 'side', 'full']) {
+      appearance.set('assistantBubbleLayout', layout);
+      await tester.pumpAndSettle();
+      final info = tester.getRect(find.byType(MessageInfoRow));
+      final model = tester.getRect(
+        find.byKey(const ValueKey('message-info-name-0')),
+      );
+      final time = tester.getRect(
+        find.byKey(const ValueKey('message-info-metric-2')),
+      );
+      expect(info.left, greaterThanOrEqualTo(14));
+      expect(info.right, lessThanOrEqualTo(320 - 14));
+      expect(time.right, closeTo(info.right, .01));
+      expect(model.center.dy, closeTo(time.center.dy, .1));
+      expect(tester.takeException(), isNull, reason: layout);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'text colors update chrome, input, replies and thinking without losing draft',
     (tester) async {
