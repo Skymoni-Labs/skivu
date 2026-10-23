@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.FileProvider
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -37,7 +36,9 @@ class AppPlatform(private val activity: Activity) {
                         "prepareUpdate" -> {
                             val directory = updateDirectory()
                             require(directory.isDirectory || directory.mkdirs())
-                            answer(result, File(directory, "Skivu-update.apk").absolutePath)
+                            val version = call.argument<Number>("versionCode")?.toLong() ?: error("missing version")
+                            val hash = call.argument<String>("sha256") ?: error("missing digest")
+                            answer(result, updateFile(version, hash).absolutePath)
                         }
                         "openWebsite" -> {
                             val uri = Uri.parse(call.argument<String>("url") ?: error("missing url"))
@@ -84,18 +85,24 @@ class AppPlatform(private val activity: Activity) {
             "packageName" to activity.packageName,
             "sdk" to Build.VERSION.SDK_INT,
             "abis" to Build.SUPPORTED_ABIS.toList(),
-            "signerSha256" to signers(current).sorted().first()
+            "signerSha256" to signers(current).sorted().first(),
+            "installMessage" to AppUpdateInstaller.message(activity)
         )
     }
 
     private fun updateDirectory() = File(activity.cacheDir, "updates").canonicalFile
 
+    private fun updateFile(version: Long, hash: String): File {
+        require(version > 0 && Regex("[0-9a-f]{64}").matches(hash))
+        return File(updateDirectory(), "Skivu-$version-${hash.take(16)}.apk").canonicalFile
+    }
+
     @Suppress("DEPRECATION")
     private fun install(call: MethodCall, result: MethodChannel.Result) {
         val file = File(call.argument<String>("path") ?: error("missing path")).canonicalFile
-        require(file.parentFile == updateDirectory() && file.name == "Skivu-update.apk" && file.isFile)
         val expectedHash = call.argument<String>("sha256") ?: error("missing digest")
-        require(Regex("[0-9a-f]{64}").matches(expectedHash))
+        val expectedVersion = call.argument<Number>("versionCode")?.toLong() ?: error("missing version")
+        require(file == updateFile(expectedVersion, expectedHash) && file.isFile)
         val actualHash = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
             val buffer = ByteArray(65536)
@@ -109,7 +116,6 @@ class AppPlatform(private val activity: Activity) {
         val archive = activity.packageManager.getPackageArchiveInfo(file.path, signatureFlags())
             ?: error("invalid apk")
         val current = packageInfo()
-        val expectedVersion = call.argument<Number>("versionCode")?.toLong() ?: error("missing version")
         require(archive.packageName == activity.packageName && versionCode(archive) == expectedVersion)
         require(expectedVersion > versionCode(current) && signers(archive) == signers(current))
 
@@ -118,11 +124,8 @@ class AppPlatform(private val activity: Activity) {
                 Uri.parse("package:${activity.packageName}")), result, "permission_required")
             return
         }
-        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.updates", file)
-        val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        launch(intent, result, "opened")
+        AppUpdateInstaller.submit(activity, file, expectedVersion)
+        answer(result, "opened")
     }
 
     private fun launch(intent: Intent, result: MethodChannel.Result, status: String) {

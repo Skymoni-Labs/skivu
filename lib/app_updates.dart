@@ -158,13 +158,14 @@ class AppUpdates extends ChangeNotifier {
         message = '当前已是最新版本';
       } else {
         final next = AppRelease.parse(data, info, abi);
-        if (next.hash != release?.hash) {
+        if (next.hash != release?.hash ||
+            next.versionCode != release?.versionCode) {
           downloadedPath = null;
           downloadedBytes = 0;
         }
         release = next;
         error = null;
-        message = null;
+        message = info.installMessage;
       }
     } on FormatException catch (e) {
       if (!silent) error = e.message;
@@ -192,7 +193,10 @@ class AppUpdates extends ChangeNotifier {
     _abort = abort;
     changed();
     try {
-      final path = await platform.prepareUpdate();
+      final path = await platform.prepareUpdate(
+        versionCode: candidate.versionCode,
+        hash: candidate.hash,
+      );
       if (_cancelled) return;
       final request = http.AbortableRequest(
         'GET',
@@ -246,7 +250,12 @@ class AppUpdates extends ChangeNotifier {
   Future<void> install() async {
     final path = downloadedPath;
     final candidate = release;
-    if (path == null || candidate == null || installing || downloading) return;
+    if (path == null ||
+        candidate == null ||
+        installing ||
+        downloading ||
+        checking)
+      return;
     installing = true;
     error = null;
     changed();

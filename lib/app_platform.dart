@@ -9,9 +9,11 @@ class AppDeviceInfo {
     required this.sdk,
     required this.abis,
     required this.signerSha256,
+    this.installMessage,
   });
   final String version, packageName, signerSha256;
   final int versionCode, sdk;
+  final String? installMessage;
   final List<String> abis;
 
   factory AppDeviceInfo.fromMap(Map raw) => AppDeviceInfo(
@@ -21,6 +23,10 @@ class AppDeviceInfo {
     sdk: (raw['sdk'] as num).toInt(),
     abis: (raw['abis'] as List).cast<String>(),
     signerSha256: raw['signerSha256'] as String,
+    installMessage:
+        (raw['installMessage'] as String?)?.trim().isNotEmpty == true
+        ? (raw['installMessage'] as String).trim()
+        : null,
   );
 }
 
@@ -49,8 +55,14 @@ class AppPlatform {
       }) ??
       (throw StateError('登录加密不可用'));
 
-  Future<String> prepareUpdate() async =>
-      await _channel.invokeMethod<String>('prepareUpdate') ??
+  Future<String> prepareUpdate({
+    required int versionCode,
+    required String hash,
+  }) async =>
+      await _channel.invokeMethod<String>('prepareUpdate', {
+        'versionCode': versionCode,
+        'sha256': hash,
+      }) ??
       (throw StateError('无法准备更新目录'));
   Future<String> installUpdate(
     String path,

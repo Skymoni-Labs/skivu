@@ -10,11 +10,24 @@ class AppUpdatesPage extends StatefulWidget {
   State<AppUpdatesPage> createState() => _AppUpdatesPageState();
 }
 
-class _AppUpdatesPageState extends State<AppUpdatesPage> {
+class _AppUpdatesPageState extends State<AppUpdatesPage>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     appUpdates.check();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) appUpdates.check(silent: true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -109,7 +122,9 @@ class _AppUpdatesPageState extends State<AppUpdatesPage> {
                     ),
                   ] else if (update.downloadedPath != null)
                     FilledButton.icon(
-                      onPressed: update.installing ? null : update.install,
+                      onPressed: update.installing || update.checking
+                          ? null
+                          : update.install,
                       icon: const Icon(Icons.system_update),
                       label: const Text('安装更新'),
                     )

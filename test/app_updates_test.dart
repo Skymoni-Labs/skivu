@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:ski/app_platform.dart';
@@ -20,6 +21,8 @@ const device = AppDeviceInfo(
   signerSha256: signer,
 );
 final bytes = utf8.encode('fixture APK bytes; no executable content');
+String get fixturePath =>
+    '/fixture/Skivu-3-${sha256.convert(bytes).toString().substring(0, 16)}.apk';
 Map<String, dynamic> release() => {
   'available': true,
   'version': '0.1.1',
@@ -47,8 +50,15 @@ class UpdatePlatform extends AppPlatform {
   @override
   Future<AppDeviceInfo> info() async => device;
   @override
-  Future<String> prepareUpdate() async =>
-      delayPath ? location.future : '/fixture/Skivu-update.apk';
+  Future<String> prepareUpdate({
+    required int versionCode,
+    required String hash,
+  }) async {
+    expect(versionCode, 3);
+    expect(hash, sha256.convert(bytes).toString());
+    return delayPath ? location.future : fixturePath;
+  }
+
   @override
   Future<String> installUpdate(
     String path,
@@ -56,7 +66,7 @@ class UpdatePlatform extends AppPlatform {
     int versionCode,
   ) async {
     if (failInstall) throw StateError('fixture installer failure');
-    expect(path, '/fixture/Skivu-update.apk');
+    expect(path, fixturePath);
     expect(hash, sha256.convert(bytes).toString());
     expect(versionCode, 3);
     installs++;
@@ -85,6 +95,36 @@ Future<String> memoryWriter(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'native preparation receives the release identity for separate APK paths',
+    () async {
+      const channel = MethodChannel('skivu/app_platform');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final requested = <Map>[];
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'prepareUpdate');
+        final args = call.arguments as Map;
+        requested.add(args);
+        return '/cache/updates/Skivu-${args['versionCode']}-${(args['sha256'] as String).substring(0, 16)}.apk';
+      });
+      final platform = AppPlatform();
+      final first = await platform.prepareUpdate(
+        versionCode: 18,
+        hash: 'a' * 64,
+      );
+      final second = await platform.prepareUpdate(
+        versionCode: 19,
+        hash: 'b' * 64,
+      );
+      expect(first, isNot(second));
+      expect(requested, [
+        {'versionCode': 18, 'sha256': 'a' * 64},
+        {'versionCode': 19, 'sha256': 'b' * 64},
+      ]);
+    },
+  );
   test(
     'release metadata rejects host, signer, downgrade, SDK, ABI and package mismatch',
     () {
@@ -228,7 +268,7 @@ void main() {
       await updates.check();
       final download = updates.download();
       updates.cancelDownload();
-      platform.location.complete('/fixture/Skivu-update.apk');
+      platform.location.complete(fixturePath);
       await download;
       expect(downloads, 0);
       expect(updates.downloadedPath, isNull);
