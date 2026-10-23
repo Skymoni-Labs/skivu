@@ -385,17 +385,9 @@ class _ChatPageState extends State<ChatPage> {
               // while its transform changes on Android's renderer.
               addRepaintBoundaries: false,
               padding: EdgeInsets.fromLTRB(
-                appearance.text('assistantBubbleLayout') == 'full'
-                    ? 0
-                    : appearance.flag('wideChat')
-                    ? 8
-                    : 14,
+                appearance.flag('wideChat') ? 8 : 14,
                 appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
-                appearance.text('assistantBubbleLayout') == 'full'
-                    ? 0
-                    : appearance.flag('wideChat')
-                    ? 8
-                    : 14,
+                appearance.flag('wideChat') ? 8 : 14,
                 24 + _composerExtent,
               ),
               children: [
@@ -804,6 +796,8 @@ class _ChatPageState extends State<ChatPage> {
     final layout = appearance.text('assistantBubbleLayout');
     final full = !m.user && layout == 'full';
     final fill = !m.user && layout != 'centered';
+    final hasThinking =
+        appearance.flag('showThinking') && m.thinking?.isNotEmpty == true;
     keys.putIfAbsent(m, () => GlobalKey());
     final avatar = Tooltip(
       message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
@@ -838,6 +832,10 @@ class _ChatPageState extends State<ChatPage> {
     final bubble = ChatBubbleSurface(
       key: ValueKey('message-bubble-$i'),
       user: m.user,
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: full ? 8 : 16,
+        vertical: 13,
+      ),
       child: SelectableText(
         m.text.isEmpty
             ? (m.status == 'pending'
@@ -853,12 +851,10 @@ class _ChatPageState extends State<ChatPage> {
       key: keys[m],
       padding: EdgeInsets.only(
         bottom: demo.compact ? 14 : 24,
-        left: m.user && layout == 'full'
-            ? (appearance.flag('wideChat') ? 8 : 14)
-            : 0,
-        right: m.user && layout == 'full'
-            ? (appearance.flag('wideChat') ? 8 : 14)
-            : 0,
+        // Full reading mode retains 16 logical pixels of breathing room.
+        // The list keeps its usual inset so user messages never move.
+        left: full ? (appearance.flag('wideChat') ? 8 : 2) : 0,
+        right: full ? (appearance.flag('wideChat') ? 8 : 2) : 0,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,17 +877,21 @@ class _ChatPageState extends State<ChatPage> {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  if (full && appearance.flag('avatars'))
+                  if (full && appearance.flag('avatars') && !hasThinking)
                     Padding(
-                      padding: const EdgeInsets.only(left: 14, bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: avatar,
                       ),
                     ),
-                  if (appearance.flag('showThinking') &&
-                      m.thinking?.isNotEmpty == true)
-                    ThinkingDisclosure(text: m.thinking!),
+                  if (hasThinking)
+                    ThinkingDisclosure(
+                      text: m.thinking!,
+                      leading: full && appearance.flag('avatars')
+                          ? avatar
+                          : null,
+                    ),
                   bubble,
                   if (m.error != null)
                     Padding(

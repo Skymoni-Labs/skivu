@@ -442,7 +442,7 @@ class _SkiShellState extends State<SkiShell>
                         }
                       : null,
                   child: Text(
-                    typing ? '对方正在输入中' : title,
+                    typing ? '对方正在输入中...' : title,
                     key: ValueKey(
                       typing ? 'typing-indicator' : 'toolbar-title',
                     ),
@@ -610,68 +610,78 @@ class _SideNavigationState extends State<SideNavigation> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: ListView(
-                key: const ValueKey('sidebar-scroll'),
-                padding: EdgeInsets.zero,
-                children: [
-                  Row(
-                    children: [
-                      const BrandMark(size: 36),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          appName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w600,
-                            color: ink,
+              child: ScrollConfiguration(
+                // Android stretch puts the list in an isolated layer, hiding
+                // the backdrop from the new-chat lens and turning it black.
+                // Keep the inherited scrolling/drag behavior, without stretch.
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: ListView(
+                  key: const ValueKey('sidebar-scroll'),
+                  padding: EdgeInsets.zero,
+                  children: [
+                    Row(
+                      children: [
+                        const BrandMark(size: 36),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            appName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              color: ink,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: '关闭导航',
-                        onPressed: widget.close,
-                        icon: const Icon(Icons.chevron_left, size: 22),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  SkiGlassButton(
-                    tooltip: '新建对话',
-                    width: double.infinity,
-                    height: 48,
-                    accent: true,
-                    onPressed: newConversation,
-                    icon: Icons.add,
-                    label: '新建对话',
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const ValueKey('sidebar-search'),
-                    onChanged: (value) => setState(() => query = value),
-                    style: const TextStyle(fontSize: 12, color: ink),
-                    decoration: InputDecoration(
-                      hintText: '搜索角色或对话',
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      fillColor: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: .5),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        IconButton(
+                          tooltip: '关闭导航',
+                          onPressed: widget.close,
+                          icon: const Icon(Icons.chevron_left, size: 22),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  RoleConversationTree(
-                    store: demo,
-                    query: query,
-                    openChat: () => widget.go('/chat'),
-                  ),
-                  const SizedBox(height: 12),
-                  link('角色', Icons.badge_outlined, '/characters'),
-                  link('插件市场', Icons.widgets_outlined, '/market', soon: true),
-                  const SizedBox(height: 8),
-                ],
+                    const SizedBox(height: 15),
+                    SkiGlassButton(
+                      tooltip: '新建对话',
+                      width: double.infinity,
+                      height: 48,
+                      accent: true,
+                      onPressed: newConversation,
+                      icon: Icons.add,
+                      label: '新建对话',
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const ValueKey('sidebar-search'),
+                      onChanged: (value) => setState(() => query = value),
+                      style: const TextStyle(fontSize: 12, color: ink),
+                      decoration: InputDecoration(
+                        hintText: '搜索角色或对话',
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: .5),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    RoleConversationTree(
+                      store: demo,
+                      query: query,
+                      openChat: () => widget.go('/chat'),
+                    ),
+                    const SizedBox(height: 12),
+                    link('角色', Icons.badge_outlined, '/characters'),
+                    link('插件市场', Icons.widgets_outlined, '/market', soon: true),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
             ),
             Row(

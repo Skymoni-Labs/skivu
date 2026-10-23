@@ -38,6 +38,59 @@ Widget host(DemoStore store, {String query = '', VoidCallback? open}) =>
     );
 
 void main() {
+  testWidgets('sidebar edge drags keep glass outside Android stretch layers', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 540);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.android, useMaterial3: true),
+        home: Scaffold(
+          body: SizedBox(
+            width: 262,
+            child: SideNavigation(route: '/chat', go: (_) {}, close: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final list = find.byKey(const ValueKey('sidebar-scroll'));
+    // Stretch isolates the live-backdrop lens and makes it sample black on
+    // Impeller. Checking the layer-producing wrapper catches the regression
+    // even though widget tests cannot run Android's shader-filter renderer.
+    expect(
+      find.descendant(
+        of: list,
+        matching: find.byType(StretchingOverscrollIndicator),
+      ),
+      findsNothing,
+    );
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: list, matching: find.byType(Scrollable)).first,
+    );
+    final pull = await tester.startGesture(tester.getCenter(list));
+    await pull.moveBy(const Offset(0, 160));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(scrollable.position.pixels, 0);
+    await pull.up();
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -1800));
+    await tester.pumpAndSettle();
+    expect(scrollable.position.pixels, greaterThan(0));
+    expect(find.text('设置'), findsOneWidget);
+    await tester.drag(list, const Offset(0, 1800));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('新建对话'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择对话角色'), findsOneWidget);
+    Navigator.of(tester.element(find.text('选择对话角色'))).pop();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'role folder menu confirms deletion with its conversation count',
     (tester) async {

@@ -63,13 +63,16 @@ void main() {
     },
   );
   testWidgets(
-    'reply width modes preserve user layout and place full reply edge to edge',
+    'reply widths preserve user layout and give full reading text safe margins',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final old = appearance.text('assistantBubbleLayout');
       addTearDown(() => appearance.set('assistantBubbleLayout', old));
+      final oldStyle = appearance.text('bubbleStyle');
+      addTearDown(() => appearance.set('bubbleStyle', oldStyle));
+      appearance.set('bubbleStyle', 'bubble');
       appearance.set('avatars', true);
       demo.messages
         ..clear()
@@ -95,8 +98,31 @@ void main() {
       await tester.pumpAndSettle();
       final full = tester.getRect(reply);
       expect(full.width, greaterThan(side.width));
-      expect(full.left, 0);
-      expect(full.right, 390);
+      expect(full.left, 16);
+      expect(full.right, 374);
+      final text = find.descendant(
+        of: reply,
+        matching: find.byType(SelectableText),
+      );
+      // The framed style includes its 1.2px border in Container padding.
+      expect(tester.getTopLeft(text).dx, closeTo(24, 1.3));
+      BoxDecoration decoration() =>
+          tester
+                  .widget<Container>(
+                    find
+                        .descendant(of: reply, matching: find.byType(Container))
+                        .first,
+                  )
+                  .decoration!
+              as BoxDecoration;
+      expect(decoration().border, isNotNull);
+      appearance.set('bubbleStyle', 'document');
+      await tester.pumpAndSettle();
+      expect(tester.getRect(reply).left, full.left);
+      expect(tester.getRect(reply).right, full.right);
+      expect(tester.getTopLeft(text).dx, 24);
+      expect(decoration().border, isNull);
+      expect(decoration().color, Colors.transparent);
       expect(
         tester.getBottomLeft(find.byTooltip('编辑对话角色卡')).dy,
         lessThanOrEqualTo(full.top),
@@ -185,7 +211,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const ValueKey('typing-indicator')))
             .data,
-        '对方正在输入中',
+        '对方正在输入中...',
       );
       appearance.set('capsuleToolbar', false);
       await tester.pump();
@@ -212,7 +238,7 @@ void main() {
       demo.streaming = false;
       demo.changed();
       await tester.pumpAndSettle();
-      expect(find.text('对方正在输入中'), findsNothing);
+      expect(find.text('对方正在输入中...'), findsNothing);
       expect(
         tester.widget<Text>(find.byKey(const ValueKey('toolbar-title'))).data,
         demo.role.name,
@@ -240,9 +266,27 @@ void main() {
         tester.getBottomLeft(find.byType(ThinkingDisclosure)).dy,
         lessThanOrEqualTo(tester.getTopLeft(bubble).dy),
       );
+      final toggle = find.byKey(const ValueKey('thinking-toggle'));
+      final avatar = find.byTooltip('编辑对话角色卡');
+      expect(
+        tester.getCenter(toggle).dy,
+        closeTo(tester.getCenter(avatar).dy, .5),
+      );
       await tester.tap(find.text('思考过程'));
       await tester.pumpAndSettle();
       expect(find.text('这是可折叠的思考摘要。'), findsOneWidget);
+      final previousLayout = appearance.text('assistantBubbleLayout');
+      appearance.set('assistantBubbleLayout', 'full');
+      await tester.pumpAndSettle();
+      expect(
+        tester.getCenter(toggle).dy,
+        closeTo(tester.getCenter(avatar).dy, .5),
+      );
+      expect(
+        tester.getBottomLeft(find.byType(ThinkingDisclosure)).dy,
+        lessThanOrEqualTo(tester.getTopLeft(bubble).dy),
+      );
+      appearance.set('assistantBubbleLayout', previousLayout);
       appearance.set('showThinking', false);
       await tester.pumpAndSettle();
       expect(find.byType(ThinkingDisclosure), findsNothing);

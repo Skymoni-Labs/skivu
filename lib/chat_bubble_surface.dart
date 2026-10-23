@@ -26,10 +26,15 @@ class ChatBubbleSurface extends StatelessWidget {
     required this.user,
     required this.child,
     this.preferences,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 13,
+    ),
   });
   final bool user;
   final Widget child;
   final GlassPreferences? preferences;
+  final EdgeInsets contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -79,10 +84,7 @@ class ChatBubbleSurface extends StatelessWidget {
             borderRadius: radius,
             child: material(
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 13,
-                ),
+                padding: contentPadding,
                 decoration: BoxDecoration(
                   color: document
                       ? Colors.transparent
