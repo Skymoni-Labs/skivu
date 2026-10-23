@@ -13,7 +13,7 @@ import 'chat_controls.dart';
 import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
-import 'thinking_disclosure.dart';
+import 'assistant_reply_layout.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -794,7 +794,6 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget message(Message m, int i) {
     final layout = appearance.text('assistantBubbleLayout');
-    final full = !m.user && layout == 'full';
     final fill = !m.user && layout != 'centered';
     final hasThinking =
         appearance.flag('showThinking') && m.thinking?.isNotEmpty == true;
@@ -832,9 +831,8 @@ class _ChatPageState extends State<ChatPage> {
     final bubble = ChatBubbleSurface(
       key: ValueKey('message-bubble-$i'),
       user: m.user,
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: full ? 8 : 16,
-        vertical: 13,
+      contentPadding: AssistantReplyLayout.bubblePadding(
+        m.user ? 'centered' : layout,
       ),
       child: SelectableText(
         m.text.isEmpty
@@ -847,186 +845,143 @@ class _ChatPageState extends State<ChatPage> {
         style: chatMessageStyle(context, m.user),
       ),
     );
-    return Padding(
-      key: keys[m],
-      padding: EdgeInsets.only(
-        bottom: demo.compact ? 14 : 24,
-        // Full reading mode retains 16 logical pixels of breathing room.
-        // The list keeps its usual inset so user messages never move.
-        left: full ? (appearance.flag('wideChat') ? 8 : 2) : 0,
-        right: full ? (appearance.flag('wideChat') ? 8 : 2) : 0,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: m.user
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        children: [
-          if (!m.user && !full && appearance.flag('avatars')) ...[
-            avatar,
-            const SizedBox(width: 9),
-          ],
-          Flexible(
-            fit: fill ? FlexFit.tight : FlexFit.loose,
-            child: Padding(
-              padding: EdgeInsets.only(right: !m.user && !fill ? 40 : 0),
-              child: Column(
-                crossAxisAlignment: fill
-                    ? CrossAxisAlignment.stretch
-                    : m.user
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  if (full && appearance.flag('avatars') && !hasThinking)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: avatar,
-                      ),
-                    ),
-                  if (hasThinking)
-                    ThinkingDisclosure(
-                      text: m.thinking!,
-                      leading: full && appearance.flag('avatars')
-                          ? avatar
-                          : null,
-                    ),
-                  bubble,
-                  if (m.error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        children: [
-                          Text(
-                            m.error!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: m.status == 'failed'
-                                  ? Theme.of(context).colorScheme.error
-                                  : muted,
-                            ),
-                          ),
-                          if (!demo.streaming && i == demo.messages.length - 1)
-                            TextButton.icon(
-                              onPressed: demo.regenerate,
-                              icon: const Icon(Icons.refresh, size: 15),
-                              label: const Text(
-                                '重试',
-                                style: TextStyle(fontSize: 11),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      if (m.user && appearance.flag('showUser'))
-                        label('我', size: 10, color: muted),
-                      if (!m.user && appearance.flag('showModel'))
-                        label(m.modelName ?? '模型 —', size: 10, color: muted),
-                      if (!m.user && appearance.flag('showProvider'))
-                        label(m.provider ?? '供应商 —', size: 10, color: muted),
-                      if (!m.user && appearance.flag('showTokens'))
-                        label(
-                          'Token ${m.tokens ?? '—'}',
-                          size: 10,
-                          color: muted,
-                        ),
-                      if (!m.user && appearance.flag('showElapsed'))
-                        label(
-                          m.elapsedMs == null
-                              ? '耗时 —'
-                              : '${(m.elapsedMs! / 1000).toStringAsFixed(2)} s',
-                          size: 10,
-                          color: muted,
-                        ),
-                      if (appearance.flag('showTime'))
-                        label(
-                          '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
-                          size: 10,
-                          color: muted,
-                        ),
-                    ],
+    final content = Column(
+      crossAxisAlignment: fill
+          ? CrossAxisAlignment.stretch
+          : m.user
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        bubble,
+        if (m.error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              children: [
+                Text(
+                  m.error!,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: m.status == 'failed'
+                        ? Theme.of(context).colorScheme.error
+                        : muted,
                   ),
-                  if (!m.user)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(width: 4),
-                        if (appearance.flag('showRole'))
-                          label(demo.role.name, size: 10, color: muted),
-                        if (m.bookmarked) ...[
-                          const SizedBox(width: 6),
-                          Icon(Icons.bookmark, size: 12, color: green),
-                        ],
-                        PopupMenuButton<String>(
-                          tooltip: '消息菜单 ${i + 1}',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          iconSize: 17,
-                          icon: const Icon(Icons.more_horiz, color: muted),
-                          onSelected: (v) async {
-                            if (v == 'save') {
-                              m.bookmarked = !m.bookmarked;
-                              demo.changed();
-                              demo.saveChats();
-                            } else if (v == 'copy') {
-                              await Clipboard.setData(
-                                ClipboardData(text: m.text),
-                              );
-                              if (mounted) toast(context, '消息已复制');
-                            } else if (v == 'retry') {
-                              follow = true;
-                              demo.regenerate();
-                            } else if (v == 'delete-round') {
-                              await deleteRound(m);
-                            } else {
-                              input.text = m.text;
-                              focus.requestFocus();
-                              setState(() {});
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            const PopupMenuItem(
-                              value: 'copy',
-                              child: Text('复制消息'),
-                            ),
-                            PopupMenuItem(
-                              value: 'save',
-                              child: Text(m.bookmarked ? '取消收藏' : '收藏消息'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'quote',
-                              child: Text('引用到输入框'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete-round',
-                              child: Text('删除本轮对话'),
-                            ),
-                            if (i == demo.messages.length - 1 &&
-                                !demo.streaming)
-                              const PopupMenuItem(
-                                value: 'retry',
-                                child: Text('重新生成'),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                ],
-              ),
+                ),
+                if (!demo.streaming && i == demo.messages.length - 1)
+                  TextButton.icon(
+                    onPressed: demo.regenerate,
+                    icon: const Icon(Icons.refresh, size: 15),
+                    label: const Text('重试', style: TextStyle(fontSize: 11)),
+                  ),
+              ],
             ),
           ),
-          if (m.user && appearance.flag('avatars')) ...[
-            const SizedBox(width: 9),
-            avatar,
+        Wrap(
+          spacing: 8,
+          children: [
+            if (m.user && appearance.flag('showUser'))
+              label('我', size: 10, color: muted),
+            if (!m.user && appearance.flag('showModel'))
+              label(m.modelName ?? '模型 —', size: 10, color: muted),
+            if (!m.user && appearance.flag('showProvider'))
+              label(m.provider ?? '供应商 —', size: 10, color: muted),
+            if (!m.user && appearance.flag('showTokens'))
+              label('Token ${m.tokens ?? '—'}', size: 10, color: muted),
+            if (!m.user && appearance.flag('showElapsed'))
+              label(
+                m.elapsedMs == null
+                    ? '耗时 —'
+                    : '${(m.elapsedMs! / 1000).toStringAsFixed(2)} s',
+                size: 10,
+                color: muted,
+              ),
+            if (appearance.flag('showTime'))
+              label(
+                '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
+                size: 10,
+                color: muted,
+              ),
           ],
-        ],
-      ),
+        ),
+        if (!m.user)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 4),
+              if (appearance.flag('showRole'))
+                label(demo.role.name, size: 10, color: muted),
+              if (m.bookmarked) ...[
+                const SizedBox(width: 6),
+                Icon(Icons.bookmark, size: 12, color: green),
+              ],
+              PopupMenuButton<String>(
+                tooltip: '消息菜单 ${i + 1}',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                iconSize: 17,
+                icon: const Icon(Icons.more_horiz, color: muted),
+                onSelected: (v) async {
+                  if (v == 'save') {
+                    m.bookmarked = !m.bookmarked;
+                    demo.changed();
+                    demo.saveChats();
+                  } else if (v == 'copy') {
+                    await Clipboard.setData(ClipboardData(text: m.text));
+                    if (mounted) toast(context, '消息已复制');
+                  } else if (v == 'retry') {
+                    follow = true;
+                    demo.regenerate();
+                  } else if (v == 'delete-round') {
+                    await deleteRound(m);
+                  } else {
+                    input.text = m.text;
+                    focus.requestFocus();
+                    setState(() {});
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'copy', child: Text('复制消息')),
+                  PopupMenuItem(
+                    value: 'save',
+                    child: Text(m.bookmarked ? '取消收藏' : '收藏消息'),
+                  ),
+                  const PopupMenuItem(value: 'quote', child: Text('引用到输入框')),
+                  const PopupMenuItem(
+                    value: 'delete-round',
+                    child: Text('删除本轮对话'),
+                  ),
+                  if (i == demo.messages.length - 1 && !demo.streaming)
+                    const PopupMenuItem(value: 'retry', child: Text('重新生成')),
+                ],
+              ),
+            ],
+          ),
+      ],
+    );
+    return Padding(
+      key: keys[m],
+      padding: EdgeInsets.only(bottom: demo.compact ? 14 : 24),
+      child: !m.user
+          ? AssistantReplyLayout(
+              layout: layout,
+              wide: appearance.flag('wideChat'),
+              avatar: appearance.flag('avatars') ? avatar : null,
+              thinking: hasThinking ? m.thinking : null,
+              child: content,
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(child: content),
+                if (appearance.flag('avatars')) ...[
+                  const SizedBox(width: 9),
+                  avatar,
+                ],
+              ],
+            ),
     );
   }
 }

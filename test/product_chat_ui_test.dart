@@ -14,6 +14,53 @@ import 'preview_fixture.dart';
 void main() {
   setUp(seedPreviewConversation);
   testWidgets(
+    'full reply header stays clear of bubble with and without thinking',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final previous = appearance.values;
+      addTearDown(() {
+        for (final entry in previous.entries) {
+          appearance.set(entry.key, entry.value);
+        }
+      });
+      appearance.set('assistantBubbleLayout', 'full');
+      appearance.set('avatars', true);
+      appearance.set('textScale', 1.4);
+      demo.messages
+        ..clear()
+        ..add(Message(false, '回复内容。'));
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final avatar = find.byTooltip('编辑对话角色卡');
+      final bubble = find.byKey(const ValueKey('message-bubble-0'));
+      for (final style in ['bubble', 'document']) {
+        appearance.set('bubbleStyle', style);
+        for (final thinking in [null, '这是一段可以展开的思考摘要。']) {
+          demo.messages.single.thinking = thinking;
+          demo.changed();
+          await tester.pumpAndSettle();
+          expect(
+            tester.getTopLeft(bubble).dy - tester.getBottomLeft(avatar).dy,
+            greaterThanOrEqualTo(12),
+          );
+          if (thinking != null) {
+            await tester.tap(find.byKey(const ValueKey('thinking-toggle')));
+            await tester.pumpAndSettle();
+            expect(
+              tester.getBottomLeft(find.byType(ThinkingDisclosure)).dy + 12,
+              lessThanOrEqualTo(tester.getTopLeft(bubble).dy),
+            );
+          }
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'bottom button reaches the true end after lazy long reply layout and follows growth',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);

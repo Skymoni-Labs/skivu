@@ -7,6 +7,7 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'package:ski/appearance.dart';
 import 'package:ski/appearance_profiles.dart';
 import 'package:ski/appearance_settings.dart';
+import 'package:ski/chat_bubble_surface.dart';
 import 'package:ski/glass.dart';
 import 'package:ski/glass_preferences.dart';
 import 'package:ski/main.dart';
@@ -39,6 +40,60 @@ class MemoryProfiles implements ProfilePersistence {
 }
 
 void main() {
+  testWidgets('reply width controls update the actual appearance preview', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final model = AppearancePreferences(persistence: MemoryAppearance());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: AppearanceSettings(preferences: model),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('appearance-tab-2')));
+    await tester.pumpAndSettle();
+    final bubble = find.byKey(const ValueKey('preview-assistant-bubble'));
+    final preview = find.byKey(const ValueKey('appearance-chat-preview'));
+    final user = find.byWidgetPredicate(
+      (w) => w is ChatBubbleSurface && w.user,
+    );
+    final originalUser = tester.getRect(user);
+    final widths = <double>[];
+    for (final mode in ['centered', 'side', 'full']) {
+      final option = find.byKey(
+        ValueKey('appearance-assistantBubbleLayout-$mode'),
+      );
+      await tester.ensureVisible(option);
+      await tester.tap(option);
+      await tester.pumpAndSettle();
+      widths.add(tester.getSize(bubble).width);
+      expect(tester.getRect(user).left, originalUser.left);
+      expect(tester.getSize(user).width, originalUser.width);
+      expect(model.text('assistantBubbleLayout'), mode);
+    }
+    expect(widths[0], lessThan(widths[1]));
+    expect(widths[1], lessThan(widths[2]));
+    expect(tester.getTopLeft(bubble).dx - tester.getTopLeft(preview).dx, 16);
+    final avatar = find.byKey(const ValueKey('preview-role-avatar'));
+    expect(
+      tester.getTopLeft(bubble).dy - tester.getBottomLeft(avatar).dy,
+      greaterThanOrEqualTo(12),
+    );
+    await tester.pumpWidget(const SizedBox());
+    model.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
   setUp(seedPreviewConversation);
   TestWidgetsFlutterBinding.ensureInitialized();
   test(

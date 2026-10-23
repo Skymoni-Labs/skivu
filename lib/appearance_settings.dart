@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'appearance.dart';
 import 'appearance_profiles.dart';
 import 'chat_bubble_surface.dart';
+import 'assistant_reply_layout.dart';
+import 'character_avatar.dart';
 import 'glass.dart';
 import 'glass_settings.dart';
 import 'wallpaper_settings.dart';
@@ -309,25 +311,50 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         ),
       ),
       gap(12),
-      Align(
-        alignment: Alignment.centerRight,
-        child: ChatBubbleSurface(
-          user: true,
-          child: Text(
-            '今天想和你聊一会儿。',
-            style: chatMessageStyle(context, true, size: 13),
-          ),
+      Padding(
+        key: const ValueKey('appearance-chat-preview'),
+        padding: EdgeInsets.symmetric(
+          horizontal: model.flag('wideChat') ? 8 : 14,
         ),
-      ),
-      gap(10),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: ChatBubbleSurface(
-          user: false,
-          child: Text(
-            '我在，慢慢说就好。',
-            style: chatMessageStyle(context, false, size: 13),
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: ChatBubbleSurface(
+                user: true,
+                child: Text(
+                  '今天想和你聊一会儿。',
+                  style: chatMessageStyle(context, true, size: 13),
+                ),
+              ),
+            ),
+            gap(10),
+            AssistantReplyLayout(
+              layout: model.text('assistantBubbleLayout'),
+              wide: model.flag('wideChat'),
+              avatar: model.flag('avatars')
+                  ? CharacterAvatar(
+                      key: const ValueKey('preview-role-avatar'),
+                      persona: demo.role,
+                      size: 32,
+                      square: model.flag('squareAvatars'),
+                    )
+                  : null,
+              thinking: model.flag('showThinking') ? '先听你说，再一起整理今天的想法。' : null,
+              child: ChatBubbleSurface(
+                key: const ValueKey('preview-assistant-bubble'),
+                user: false,
+                contentPadding: AssistantReplyLayout.bubblePadding(
+                  model.text('assistantBubbleLayout'),
+                ),
+                child: Text(
+                  '我在，慢慢说就好。可以先聊聊今天发生的事情，我们再一起安排接下来的计划。',
+                  style: chatMessageStyle(context, false, size: 13),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       gap(12),
