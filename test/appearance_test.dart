@@ -52,12 +52,14 @@ void main() {
           'font': 'unknown',
           'userColor': 0x123456,
           'extra': 'ignored',
+          'assistantBubbleLayout': 'invalid',
         };
       final model = AppearancePreferences(persistence: disk);
       await model.restore();
       expect(model.dark, isTrue);
       expect(model.number('textScale'), 1.4);
       expect(model.text('font'), 'sans');
+      expect(model.text('assistantBubbleLayout'), 'centered');
       expect(model.color('userColor').toARGB32(), 0xff123456);
       model.set('inputBlur', double.nan);
       expect(model.number('inputBlur'), 24);
@@ -66,6 +68,7 @@ void main() {
       model.set('capsuleToolbar', false);
       model.set('showTokens', true);
       model.set('userFont', 'serif');
+      model.set('assistantBubbleLayout', 'full');
       await model.save();
       final restarted = AppearancePreferences(persistence: disk);
       await restarted.restore();
@@ -73,6 +76,7 @@ void main() {
       expect(restarted.flag('capsuleToolbar'), isFalse);
       expect(restarted.fontFamily('userFont'), 'SkiSerif');
       expect(restarted.flag('showTokens'), isTrue);
+      expect(restarted.text('assistantBubbleLayout'), 'full');
       await restarted.resetSection(['font', 'textScale']);
       expect(restarted.number('textScale'), 1);
       expect(restarted.number('inputBlur'), 24);

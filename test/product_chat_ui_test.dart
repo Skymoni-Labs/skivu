@@ -14,6 +14,84 @@ import 'preview_fixture.dart';
 void main() {
   setUp(seedPreviewConversation);
   testWidgets(
+    'reply width modes preserve user layout and place full reply edge to edge',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final old = appearance.text('assistantBubbleLayout');
+      addTearDown(() => appearance.set('assistantBubbleLayout', old));
+      appearance.set('avatars', true);
+      demo.messages
+        ..clear()
+        ..addAll([
+          Message(true, '我的提问'),
+          Message(false, List.filled(12, '宽度检查内容').join()),
+        ]);
+      appearance.set('assistantBubbleLayout', 'centered');
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final reply = find.byKey(const ValueKey('message-bubble-1'));
+      final user = find.byKey(const ValueKey('message-bubble-0'));
+      final originalUser = tester.getRect(user);
+      final centered = tester.getRect(reply);
+      appearance.set('assistantBubbleLayout', 'side');
+      await tester.pumpAndSettle();
+      final side = tester.getRect(reply);
+      expect(side.width, greaterThan(centered.width));
+      expect(side.left, centered.left);
+      expect(tester.getRect(user).left, originalUser.left);
+      expect(tester.getRect(user).width, originalUser.width);
+      appearance.set('assistantBubbleLayout', 'full');
+      await tester.pumpAndSettle();
+      final full = tester.getRect(reply);
+      expect(full.width, greaterThan(side.width));
+      expect(full.left, 0);
+      expect(full.right, 390);
+      expect(
+        tester.getBottomLeft(find.byTooltip('编辑对话角色卡')).dy,
+        lessThanOrEqualTo(full.top),
+      );
+      expect(tester.getRect(user).left, originalUser.left);
+      expect(tester.getRect(user).width, originalUser.width);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'bubble round deletion requires confirmation and preserves adjacent turns',
+    (tester) async {
+      demo.messages
+        ..clear()
+        ..addAll([
+          Message(true, '第一问'),
+          Message(false, '第一答'),
+          Message(true, '第二问'),
+          Message(false, '第二答'),
+        ]);
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('消息菜单 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除本轮对话'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('共 2 条消息'), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(demo.messages, hasLength(4));
+      await tester.tap(find.byTooltip('消息菜单 2'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除本轮对话'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('删除本轮'));
+      await tester.pumpAndSettle();
+      expect(demo.messages.map((m) => m.text), ['第二问', '第二答']);
+      expect(find.text('第一问'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
     'composer usage stays on one line and can be hidden on a small phone',
     (tester) async {
       tester.view.physicalSize = const Size(320, 760);

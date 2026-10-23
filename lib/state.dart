@@ -741,6 +741,32 @@ class DemoStore extends ChangeNotifier {
     saveChats();
   }
 
+  List<Message> roundMessages(String chatId, Message anchor) {
+    final chat = conversations.where((c) => c.id == chatId).firstOrNull;
+    if (chat == null) return const [];
+    var start = chat.messages.indexOf(anchor);
+    if (start < 0) return const [];
+    while (start > 0 && !chat.messages[start].user) {
+      start--;
+    }
+    var end = start + 1;
+    while (end < chat.messages.length && !chat.messages[end].user) {
+      end++;
+    }
+    return List.unmodifiable(chat.messages.sublist(start, end));
+  }
+
+  bool deleteRound(String chatId, Message anchor) {
+    final chat = conversations.where((c) => c.id == chatId).firstOrNull;
+    final round = roundMessages(chatId, anchor);
+    if (chat == null || round.isEmpty) return false;
+    if (round.contains(_pending)) stop();
+    chat.messages.removeWhere(round.contains);
+    changed();
+    saveChats();
+    return true;
+  }
+
   void stop() {
     _reveal?.flush();
     _reveal?.dispose();

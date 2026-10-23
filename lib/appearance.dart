@@ -30,6 +30,7 @@ const appearanceDefaults = <String, dynamic>{
   'wideChat': false,
   'rounded': true,
   'bubbleShape': 'rounded',
+  'assistantBubbleLayout': 'centered',
   'showUsage': true,
   'userColor': 0xffffffff,
   'assistantColor': 0xffffffff,
@@ -87,8 +88,11 @@ const _choices = <String, List<String>>{
   'assistantFont': ['inherit', 'sans', 'serif', 'mono', 'custom'],
   'bubbleStyle': ['bubble', 'document'],
   'bubbleShape': ['rounded', 'rectangle', 'tail', 'pill'],
+  'assistantBubbleLayout': ['centered', 'side', 'full'],
   'inputStyle': ['expanded', 'compact'],
 };
+
+const assistantBubbleLayouts = {'centered': '居中', 'side': '铺满一侧', 'full': '全屏'};
 
 Map<String, dynamic> cleanAppearance(Map<String, dynamic> raw) {
   final result = Map<String, dynamic>.from(appearanceDefaults);

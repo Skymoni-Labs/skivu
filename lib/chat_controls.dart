@@ -231,6 +231,25 @@ Future<void> showChatControls(BuildContext context) async {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             label('对话设置', size: 22, weight: FontWeight.w600),
+            const SizedBox(height: 12),
+            label('角色回复宽度', size: 13),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final entry in assistantBubbleLayouts.entries)
+                  ChoiceChip(
+                    key: ValueKey('chat-reply-layout-${entry.key}'),
+                    label: Text(entry.value),
+                    selected:
+                        appearance.text('assistantBubbleLayout') == entry.key,
+                    onSelected: (_) {
+                      appearance.set('assistantBubbleLayout', entry.key);
+                      appearance.save();
+                      change(() {});
+                    },
+                  ),
+              ],
+            ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.face_outlined),

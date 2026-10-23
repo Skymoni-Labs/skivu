@@ -462,6 +462,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     children: [
       title('消息版式'),
       choices('bubbleStyle', '版式', {'bubble': '对话气泡', 'document': '阅读式'}),
+      choices('assistantBubbleLayout', '角色回复宽度', assistantBubbleLayouts),
       toggle('compact', '紧凑消息间距'),
       toggle('wideChat', '加宽聊天内容'),
       choices('bubbleShape', '气泡形状', {
@@ -535,6 +536,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           'wideChat',
           'rounded',
           'bubbleShape',
+          'assistantBubbleLayout',
           'customMessageColors',
           'userColor',
           'assistantColor',

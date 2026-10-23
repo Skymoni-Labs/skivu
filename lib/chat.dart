@@ -361,9 +361,17 @@ class _ChatPageState extends State<ChatPage> {
               // while its transform changes on Android's renderer.
               addRepaintBoundaries: false,
               padding: EdgeInsets.fromLTRB(
-                appearance.flag('wideChat') ? 8 : 14,
+                appearance.text('assistantBubbleLayout') == 'full'
+                    ? 0
+                    : appearance.flag('wideChat')
+                    ? 8
+                    : 14,
                 appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
-                appearance.flag('wideChat') ? 8 : 14,
+                appearance.text('assistantBubbleLayout') == 'full'
+                    ? 0
+                    : appearance.flag('wideChat')
+                    ? 8
+                    : 14,
                 24 + _composerExtent,
               ),
               children: [
@@ -720,7 +728,58 @@ class _ChatPageState extends State<ChatPage> {
     ),
   );
 
+  Future<void> deleteRound(Message message) async {
+    final chatId = _conversation.id;
+    final round = demo.roundMessages(chatId, message);
+    if (round.isEmpty) return;
+    final question = round.first.user ? round.first.text : null;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('删除本轮对话？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '将删除${question == null ? '这段回复' : '本轮提问和回复'}，共 ${round.length} 条消息。其他轮次会保留，后续上下文不再包含这些内容。删除后无法恢复。',
+            ),
+            if (question != null) ...[
+              const SizedBox(height: 12),
+              Text(question, maxLines: 3, overflow: TextOverflow.ellipsis),
+            ],
+            if (round.any((m) => m.status == 'pending')) ...[
+              const SizedBox(height: 12),
+              const Text('正在生成的本轮回复会同时停止。'),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('删除本轮'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true && mounted && demo.deleteRound(chatId, message)) {
+      keys.removeWhere((m, _) => !demo.messages.contains(m));
+      _centeredIndex = demo.messages.isEmpty
+          ? 0
+          : _centeredIndex.clamp(0, demo.messages.length - 1);
+      hideNavigation();
+      toast(context, '本轮对话已删除');
+    }
+  }
+
   Widget message(Message m, int i) {
+    final layout = appearance.text('assistantBubbleLayout');
+    final full = !m.user && layout == 'full';
+    final fill = !m.user && layout != 'centered';
     keys.putIfAbsent(m, () => GlobalKey());
     final avatar = Tooltip(
       message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
@@ -753,6 +812,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
     final bubble = ChatBubbleSurface(
+      key: ValueKey('message-bubble-$i'),
       user: m.user,
       child: SelectableText(
         m.text.isEmpty
@@ -767,25 +827,44 @@ class _ChatPageState extends State<ChatPage> {
     );
     return Padding(
       key: keys[m],
-      padding: EdgeInsets.only(bottom: demo.compact ? 14 : 24),
+      padding: EdgeInsets.only(
+        bottom: demo.compact ? 14 : 24,
+        left: m.user && layout == 'full'
+            ? (appearance.flag('wideChat') ? 8 : 14)
+            : 0,
+        right: m.user && layout == 'full'
+            ? (appearance.flag('wideChat') ? 8 : 14)
+            : 0,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: m.user
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         children: [
-          if (!m.user && appearance.flag('avatars')) ...[
+          if (!m.user && !full && appearance.flag('avatars')) ...[
             avatar,
             const SizedBox(width: 9),
           ],
           Flexible(
+            fit: fill ? FlexFit.tight : FlexFit.loose,
             child: Padding(
-              padding: EdgeInsets.only(right: m.user ? 0 : 40),
+              padding: EdgeInsets.only(right: !m.user && !fill ? 40 : 0),
               child: Column(
-                crossAxisAlignment: m.user
+                crossAxisAlignment: fill
+                    ? CrossAxisAlignment.stretch
+                    : m.user
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
+                  if (full && appearance.flag('avatars'))
+                    Padding(
+                      padding: const EdgeInsets.only(left: 14, bottom: 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: avatar,
+                      ),
+                    ),
                   if (appearance.flag('showThinking') &&
                       m.thinking?.isNotEmpty == true)
                     ThinkingDisclosure(text: m.thinking!),
@@ -879,6 +958,8 @@ class _ChatPageState extends State<ChatPage> {
                             } else if (v == 'retry') {
                               follow = true;
                               demo.regenerate();
+                            } else if (v == 'delete-round') {
+                              await deleteRound(m);
                             } else {
                               input.text = m.text;
                               focus.requestFocus();
@@ -897,6 +978,10 @@ class _ChatPageState extends State<ChatPage> {
                             const PopupMenuItem(
                               value: 'quote',
                               child: Text('引用到输入框'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete-round',
+                              child: Text('删除本轮对话'),
                             ),
                             if (i == demo.messages.length - 1 &&
                                 !demo.streaming)
