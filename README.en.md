@@ -17,7 +17,7 @@
     <a href="https://github.com/skyjjgw/skivu-plugins">Plugins</a>
   </p>
   <p>
-    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=31475e&amp;color=56718d" alt="Latest release"></a>
+    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=31475e&amp;color=56718d&amp;cacheSeconds=3600" alt="Latest release"></a>
     <img src="https://img.shields.io/badge/Android-7.0%2B-56718d?style=flat&amp;labelColor=31475e" alt="Android 7.0+">
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-56718d?style=flat&amp;labelColor=31475e" alt="GPL-3.0-only"></a>
   </p>
