@@ -69,7 +69,13 @@ Future<PluginMarket> installedMarket() async {
         jsonEncode(
           request.url.toString() == pluginCatalogUrl
               ? catalogFixture()
-              : presetFixture(request.url.pathSegments[4]),
+              : presetFixture(
+                  (catalogFixture()['plugins'] as List).firstWhere(
+                    (p) =>
+                        (p['package'] as Map)['sha256'] + '.json' ==
+                        request.url.pathSegments.last,
+                  )['mode'],
+                ),
         ),
         200,
         headers: {'content-type': 'application/json; charset=utf-8'},
@@ -183,6 +189,52 @@ void main() {
       expect(await market.install(market.catalog.first), isFalse);
       expect(market.installedFor(ChatUiMode.qq), isNull);
       market.dispose();
+    },
+  );
+  test(
+    'domestic mirror serves catalog and package without GitHub; origin is a fallback',
+    () async {
+      final seen = <Uri>[];
+      final market = PluginMarket(
+        client: MockClient((request) async {
+          seen.add(request.url);
+          return http.Response(
+            jsonEncode(
+              request.url.toString() == pluginCatalogUrl
+                  ? catalogFixture()
+                  : presetFixture('qq'),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      await market.refresh();
+      expect(await market.install(market.catalog.first), isTrue);
+      expect(seen.every((url) => url.host == 'skymoni.com'), isTrue);
+      expect(
+        seen.last.path,
+        '/app-plugins/packages/${market.catalog.first.digest}.json',
+      );
+      market.dispose();
+      final fallback = PluginMarket(
+        client: MockClient((request) async {
+          if (request.url.host == 'skymoni.com')
+            return http.Response('unavailable', 503);
+          return http.Response(
+            jsonEncode(
+              request.url.toString() == pluginCatalogOriginUrl
+                  ? catalogFixture()
+                  : presetFixture('qq'),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+      await fallback.refresh();
+      expect(await fallback.install(fallback.catalog.first), isTrue);
+      fallback.dispose();
     },
   );
 }

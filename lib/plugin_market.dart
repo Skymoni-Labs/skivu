@@ -9,7 +9,8 @@ import 'ui_plugins.dart';
 /// Downloaded data-only presets select a renderer shipped with the host.
 /// Packages cannot supply scripts, URLs, prompts, or additional permissions.
 const pluginHostVersion = '0.2.19';
-const pluginCatalogUrl =
+const pluginCatalogUrl = 'https://skymoni.com/app-plugins/catalog/index.json';
+const pluginCatalogOriginUrl =
     'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/index.json';
 const pluginRenderer = 'skivu.social-ui.v1';
 
@@ -210,6 +211,14 @@ class PluginMarket extends ChangeNotifier {
     return utf8.decode(bytes);
   }
 
+  Future<String> _mirrored(Uri primary, Uri origin, int max) async {
+    try {
+      return await _download(primary, max);
+    } catch (_) {
+      return _download(origin, max);
+    }
+  }
+
   Future<void> _save(
     Map<String, String> installed,
     List<MarketPlugin> entries,
@@ -248,7 +257,11 @@ class PluginMarket extends ChangeNotifier {
     _changed();
     try {
       final entries = MarketPlugin.catalogList(
-        await _download(Uri.parse(pluginCatalogUrl), 262144),
+        await _mirrored(
+          Uri.parse(pluginCatalogUrl),
+          Uri.parse(pluginCatalogOriginUrl),
+          262144,
+        ),
       );
       await _save(_installed, entries);
       catalog = entries;
@@ -274,7 +287,14 @@ class PluginMarket extends ChangeNotifier {
       final old = installedFor(item.mode);
       if (old != null && comparePluginVersions(item.version, old.version) < 0)
         throw const FormatException('不能安装更旧的插件版本。');
-      final raw = await _download(item.packageUrl!, 16384),
+      final raw = await _mirrored(
+            Uri.https(
+              'skymoni.com',
+              '/app-plugins/packages/${item.digest}.json',
+            ),
+            item.packageUrl!,
+            16384,
+          ),
           bytes = utf8.encode(raw);
       if (bytes.length != item.bytes ||
           sha256.convert(bytes).toString() != item.digest)
