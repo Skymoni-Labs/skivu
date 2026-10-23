@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg" width="1280" alt="Skivu — Your world. Your way. An animated galaxy, orbiting stardust and the approved cloud logo."></a>
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg?v=galaxy-art" width="1280" alt="Skivu — Your world. Your way. Generated galaxy artwork, drifting starlight and the approved cloud logo."></a>
 </p>
 
 <h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
