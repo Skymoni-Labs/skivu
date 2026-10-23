@@ -152,3 +152,14 @@ The following technical documents are currently in Chinese:
 Original project code is licensed under **GNU General Public License v3.0 only (GPL-3.0-only)**; see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). Third-party components and fonts retain their own licenses, included in [licenses/](licenses/). Independent plugins retain the licenses declared by their authors.
 
 The glass interface uses **Liquid Glass Easy** (MIT). Bundled fonts include **Noto Sans SC, Noto Serif SC and Roboto Mono**. Thank you to the open-source projects and contributors behind them.
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/?repos=skyjjgw%2Fskivu&amp;type=date&amp;legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=skyjjgw/skivu&amp;type=date&amp;theme=dark&amp;legend=top-left">
+      <img src="https://api.star-history.com/chart?repos=skyjjgw/skivu&amp;type=date&amp;legend=top-left" width="800" alt="Skivu GitHub Star history">
+    </picture>
+  </a>
+</p>

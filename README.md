@@ -139,3 +139,14 @@ APK 输出到 `build/app/outputs/flutter-apk/app-release.apk`。Android 与浏�
 本项目原创代码采用 **GNU GPL v3.0 only（GPL-3.0-only）**，见 [LICENSE](LICENSE) 和 [COPYRIGHT](COPYRIGHT)。第三方组件、字体及独立插件保留各自许可证；随附声明见 [licenses/](licenses/)。
 
 玻璃效果使用 **Liquid Glass Easy**（MIT），内置字体包括 **Noto Sans SC、Noto Serif SC、Roboto Mono**。感谢相关开源项目与贡献者。
+
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/?repos=skyjjgw%2Fskivu&amp;type=date&amp;legend=top-left">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=skyjjgw/skivu&amp;type=date&amp;theme=dark&amp;legend=top-left">
+      <img src="https://api.star-history.com/chart?repos=skyjjgw/skivu&amp;type=date&amp;legend=top-left" width="800" alt="Skivu 的 GitHub Star 历史趋势">
+    </picture>
+  </a>
+</p>
