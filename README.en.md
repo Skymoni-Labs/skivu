@@ -8,6 +8,7 @@
 </p>
 
 <div align="center">
+  <p><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" alt="Skivu App icon"></p>
   <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
   <p>
     <a href="https://skymoni.com/skivu/">Website</a> ·
