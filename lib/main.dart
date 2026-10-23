@@ -576,8 +576,8 @@ class _SideNavigationState extends State<SideNavigation> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           child: Row(
             children: [
-              Icon(icon, size: 21, color: green),
-              const SizedBox(width: 14),
+              SizedBox(width: 28, child: Icon(icon, size: 21, color: green)),
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   title,
@@ -650,6 +650,7 @@ class _SideNavigationState extends State<SideNavigation> {
                       width: double.infinity,
                       height: 48,
                       accent: true,
+                      startAligned: true,
                       onPressed: newConversation,
                       icon: Icons.add,
                       label: '新建对话',
@@ -661,7 +662,17 @@ class _SideNavigationState extends State<SideNavigation> {
                       style: TextStyle(fontSize: 12, color: ink),
                       decoration: InputDecoration(
                         hintText: '搜索角色或对话',
-                        prefixIcon: const Icon(Icons.search, size: 18),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 49,
+                          minHeight: 48,
+                        ),
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(left: 12, right: 9),
+                          child: SizedBox(
+                            width: 28,
+                            child: Icon(Icons.search, size: 18),
+                          ),
+                        ),
                         fillColor: Theme.of(
                           context,
                         ).colorScheme.surface.withValues(alpha: .5),

@@ -168,7 +168,9 @@ class ChatBackdropScope extends InheritedNotifier<ChatBackdropController> {
 }
 
 /// Keep the floating input and its footer on wallpaper while the transcript
-/// continues behind them. Leave the top gap open to avoid a clipped dark seam.
+/// continues behind them. Fade into the wallpaper above the input, so an
+/// avatar crossing its top edge disappears smoothly rather than being sliced
+/// by the rectangular wallpaper plane.
 class ChatComposerBackdrop extends StatelessWidget {
   const ChatComposerBackdrop({
     super.key,
@@ -184,15 +186,18 @@ class ChatComposerBackdrop extends StatelessWidget {
     final source = ChatBackdropScope.maybeOf(context);
     final image = source?.wallpaperImage;
     if (source == null || image == null) return child;
+    const fade = 24.0;
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          top: topInset,
+          top: topInset - fade,
           child: ChatBackdropPaint(
             key: const ValueKey('composer-wallpaper-plane'),
             image: image,
             source: source,
             sceneAnchor: sceneAnchor,
+            topFade: fade,
             child: const SizedBox.expand(),
           ),
         ),
@@ -209,39 +214,48 @@ class ChatBackdropPaint extends SingleChildRenderObjectWidget {
     required this.source,
     required super.child,
     this.sceneAnchor,
+    this.topFade = 0,
   });
   final ui.Image image;
   final ChatBackdropController source;
   final GlobalKey? sceneAnchor;
+  final double topFade;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderChatBackdrop(image, source, sceneAnchor);
+      _RenderChatBackdrop(image, source, sceneAnchor, topFade);
   @override
   void updateRenderObject(
     BuildContext context,
     covariant _RenderChatBackdrop renderObject,
   ) {
-    renderObject.update(image, source, sceneAnchor);
+    renderObject.update(image, source, sceneAnchor, topFade);
   }
 }
 
 class _RenderChatBackdrop extends RenderProxyBox {
-  _RenderChatBackdrop(ui.Image image, this.source, this.sceneAnchor)
-    : image = image.clone(),
+  _RenderChatBackdrop(
+    ui.Image image,
+    this.source,
+    this.sceneAnchor,
+    this.topFade,
+  ) : image = image.clone(),
       logicalSize = source.logicalSize;
   ui.Image image;
   ChatBackdropController source;
   GlobalKey? sceneAnchor;
+  double topFade;
   Size logicalSize;
   void update(
     ui.Image nextImage,
     ChatBackdropController nextSource,
     GlobalKey? nextAnchor,
+    double nextFade,
   ) {
     image.dispose();
     image = nextImage.clone();
     source = nextSource;
     sceneAnchor = nextAnchor;
+    topFade = nextFade;
     logicalSize = source.logicalSize;
     markNeedsPaint();
   }
@@ -260,7 +274,10 @@ class _RenderChatBackdrop extends RenderProxyBox {
         final canvas = context.canvas;
         canvas.save();
         canvas.translate(offset.dx, offset.dy);
-        canvas.clipRect(Offset.zero & size);
+        final bounds = Offset.zero & size;
+        canvas.clipRect(bounds);
+        if (topFade > 0) canvas.saveLayer(bounds, Paint());
+        canvas.save();
         canvas.transform(inverse.storage);
         canvas.drawImageRect(
           image,
@@ -268,6 +285,20 @@ class _RenderChatBackdrop extends RenderProxyBox {
           Offset.zero & logicalSize,
           Paint()..filterQuality = FilterQuality.low,
         );
+        canvas.restore();
+        if (topFade > 0) {
+          canvas.drawRect(
+            bounds,
+            Paint()
+              ..blendMode = BlendMode.dstIn
+              ..shader = ui.Gradient.linear(
+                Offset.zero,
+                Offset(0, topFade),
+                const [Color(0x00ffffff), Color(0xffffffff)],
+              ),
+          );
+          canvas.restore();
+        }
         canvas.restore();
       }
     }

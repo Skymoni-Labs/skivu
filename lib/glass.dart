@@ -317,6 +317,7 @@ class SkiGlassButton extends StatelessWidget {
     this.height = 44,
     this.accent = false,
     this.plain = false,
+    this.startAligned = false,
   });
   final String tooltip;
   final String? label;
@@ -326,6 +327,27 @@ class SkiGlassButton extends StatelessWidget {
   final double height;
   final bool accent;
   final bool plain;
+  final bool startAligned;
+
+  Widget? get _alignedContent => !startAligned || label == null
+      ? null
+      : Row(
+          children: [
+            SizedBox(width: 28, child: Icon(icon, size: 21)),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                label!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
   @override
   Widget build(BuildContext context) {
     final foreground = ink;
@@ -349,10 +371,16 @@ class SkiGlassButton extends StatelessWidget {
           height: height,
           child: FilledButton(
             onPressed: onPressed,
-            style: FilledButton.styleFrom(padding: EdgeInsets.zero),
-            child: label == null
-                ? Icon(icon, semanticLabel: tooltip, size: 21)
-                : Text(label!),
+            style: FilledButton.styleFrom(
+              padding: startAligned
+                  ? const EdgeInsets.symmetric(horizontal: 12)
+                  : EdgeInsets.zero,
+            ),
+            child:
+                _alignedContent ??
+                (label == null
+                    ? Icon(icon, semanticLabel: tooltip, size: 21)
+                    : Text(label!)),
           ),
         ),
       );
@@ -366,7 +394,9 @@ class SkiGlassButton extends StatelessWidget {
         child: LiquidGlassButton(
           width: width,
           height: height,
-          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 18),
+          padding: EdgeInsets.symmetric(
+            horizontal: startAligned ? 12 : (label == null ? 0 : 18),
+          ),
           style: skiLensStyle(context, height / 2, accent: accent),
           touch: (demo.prefs['减少动态效果'] ?? false)
               ? null
@@ -377,6 +407,7 @@ class SkiGlassButton extends StatelessWidget {
           iconSize: 21,
           fontSize: 15,
           onPressed: onPressed,
+          child: _alignedContent,
         ),
       ),
     );

@@ -12,6 +12,76 @@ import 'package:ski/drawer_motion.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets('composer cover fades before the rim without a hard avatar cut', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final source = ChatBackdropController();
+    final capture = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RepaintBoundary(
+          key: capture,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              RepaintBoundary(
+                key: source.backgroundKey,
+                child: const ColoredBox(color: Color(0xff204080)),
+              ),
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 420,
+                height: 100,
+                child: ColoredBox(color: Color(0xffff0000)),
+              ),
+              ChatBackdropScope(
+                controller: source,
+                child: const Align(
+                  alignment: Alignment.bottomCenter,
+                  child: ChatComposerBackdrop(
+                    topInset: 6,
+                    child: SizedBox(width: 320, height: 140),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => source.capture(revision: 'avatar-rim', enabled: true, radii: {}),
+    );
+    await tester.pumpAndSettle();
+    final reds = (await tester.runAsync(() async {
+      final boundary =
+          capture.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 1);
+      try {
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        return [
+          for (final y in [438, 450, 460, 470])
+            bytes.getUint8((y * 320 + 30) * 4),
+        ];
+      } finally {
+        image.dispose();
+      }
+    }))!;
+    expect(reds.first, 255);
+    expect(reds[1], inExclusiveRange(reds[2], reds.first));
+    expect(reds[2], inExclusiveRange(reds.last, reds[1]));
+    expect(reds.last, 32);
+    await tester.pumpWidget(const SizedBox());
+    source.dispose();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'unchanged cache token cannot reuse a differently sized capture',
     (tester) async {
