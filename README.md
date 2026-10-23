@@ -1,6 +1,4 @@
-<p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg" width="1280" alt="Skivu — Your world. Your way. 星空、玻璃轨道与云朵品牌标志"></a>
-</p>
+<h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
 
 <div align="center">
   <p><strong>开源的多模型聊天应用，让对话、角色和界面更像你。</strong></p>
@@ -20,27 +18,15 @@
   </p>
 </div>
 
+<p align="center">
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg" width="1280" alt="Skivu — Your world. Your way. 星空、玻璃轨道与云朵品牌标志"></a>
+</p>
+
 Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间。你可以连接自己的模型 API，也可以使用 Skymoni 账号同步可用模型和额度；为同一个角色开启不同话题，各段对话独立保存历史、上下文与草稿。
 
 **Android 是当前主要发布平台**，同一套 Flutter 源码也提供 Web 手机界面预览。这里维护 App 源码；产品官网、内测中心、社区与插件共创各有独立入口。
 
-## 从一次对话开始
-
-| 对话空间 | 角色与会话 | 外观随心 |
-| :---: | :---: | :---: |
-| <img src="docs/images/chat.png" width="220" alt="Skivu 的玻璃消息气泡与浮动输入框"> | <img src="docs/images/sidebar.png" width="220" alt="以角色头像组织多段独立对话的侧栏"> | <img src="docs/images/appearance.png" width="220" alt="Skivu 的主题、玻璃与分区文字配置"> |
-
-截图来自 Android App，使用本地演示内容。官网中的交互概念与品牌宣传片属于独立的产品展示。
-
-## 按你的方式使用
-
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/images/skivu-features-mobile-zh.svg">
-  <img src="docs/images/skivu-features-zh.svg" width="1280" alt="六项能力：模型连接、角色卡、外观定制、消息阅读、语音与独立会话上下文">
-</picture>
-
-<details>
-<summary><strong>展开查看功能与接口支持</strong></summary>
+## 主要功能
 
 - **模型连接**：OpenAI 兼容 Chat Completions、Responses、Claude Messages、Gemini Generate Content；在输入框直接搜索和切换模型，设置输出长度、流式与上下文。
 - **角色会话**：自定义头像、角色卡和提示词；同一角色可拥有多段独立对话，支持搜索、重命名、置顶与重启恢复。
@@ -50,26 +36,26 @@ Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间�
 - **语音通话**：水滴光球、字幕、静音与打断；语音合成支持系统、OpenAI 兼容、ElevenLabs、Azure 和自定义 HTTP。识别依赖 Android 系统语音服务及语言包。
 - **账号与更新**：App 内登录、模型与额度同步、账号切换；校验 APK 摘要、大小、包名、版本及签名后，由 Android 系统确认安装。
 
-</details>
-
 附件上传、插件执行及右侧工作区尚未开放，App 中相关入口显示 **“即将开放”**。模型和语音服务的可用功能及计费取决于所选服务，仓库不附带共享 API Key 或模型额度。
 
-## Skivu 生态与入口
+## 功能展示
 
-<table>
-  <tr>
-    <td width="50%"><strong><a href="https://skymoni.com/skivu/">01 / 产品官网</a></strong><p>了解产品、体验交互展示，观看 <a href="https://skymoni.com/skivu/#brand-film">品牌宣传片</a>。</p></td>
-    <td width="50%"><strong><a href="https://skymoni.com/creators/skivu-beta">02 / 内测中心</a></strong><p>提交内测申请，查看账号资格与管理员分配的专属额度。</p></td>
-  </tr>
-  <tr>
-    <td><strong><a href="https://skymoni.com/creators">03 / 交流社区</a></strong><p>交流使用体验、分享角色提示词，参与功能讨论与作品共创。</p></td>
-    <td><strong><a href="https://github.com/skyjjgw/skivu-plugins">04 / 插件共创</a></strong><p>开发规范、内容包模板、示例和社区收录目录，目前为规范预览阶段。</p></td>
-  </tr>
-  <tr>
-    <td><strong><a href="https://skymoni.com/">05 / Skymoni 服务</a></strong><p>提供可选的账号与模型服务接入；也可在 App 配置自己的模型 API。</p></td>
-    <td><strong><a href="https://github.com/skyjjgw/skymoni-source">06 / 网站与服务源码</a></strong><p>查看关联网站与服务的源码发布、版本记录及开源许可说明。</p></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/images/chat.png" width="230" alt="Skivu 的玻璃消息气泡与浮动输入框">
+  <img src="docs/images/sidebar.png" width="230" alt="以角色头像组织多段独立对话的侧栏">
+  <img src="docs/images/appearance.png" width="230" alt="Skivu 的主题、玻璃与分区文字配置">
+</p>
+
+对话空间 · 角色与会话 · 外观设置。截图来自 Android App，使用本地演示内容；官网动画与品牌片属于独立的产品展示。
+
+## 官网、社区与相关项目
+
+- **[Skivu 官网](https://skymoni.com/skivu/)**：产品介绍、交互展示与 [品牌宣传片](https://skymoni.com/skivu/#brand-film)。
+- **[内测中心](https://skymoni.com/creators/skivu-beta)**：申请内测、查看账号资格和管理员分配的专属额度。
+- **[交流社区](https://skymoni.com/creators)**：使用反馈、角色提示词、功能讨论与作品分享。
+- **[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins)**：插件开发规范、模板、示例与社区目录，目前为规范预览阶段。
+- **[Skymoni 服务](https://skymoni.com/)**：可选的账号与模型服务接入；App 也支持自定义模型 API。
+- **[网站与服务源码](https://github.com/skyjjgw/skymoni-source)**：关联网站和服务的源码发布、版本及许可记录。
 
 ## 下载与参与内测
 

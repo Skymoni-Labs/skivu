@@ -1,6 +1,4 @@
-<p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg" width="1280" alt="Skivu — Your world. Your way. A midnight sky, glass orbits and the approved cloud logo."></a>
-</p>
+<h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
 
 <div align="center">
   <p><strong>Open-source AI chat. Your models, your characters, your style.</strong></p>
@@ -20,58 +18,44 @@
   </p>
 </div>
 
+<p align="center">
+  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg" width="1280" alt="Skivu — Your world. Your way. A midnight sky, glass orbits and the approved cloud logo."></a>
+</p>
+
 Skivu brings model connections, character-based conversations and personal appearance settings into one mobile app. Connect your own model API or sign in with a Skymoni account to synchronize available models and quotas. Each character can have several conversations with separate histories, context and drafts.
 
 **Android is the primary release platform.** The same Flutter source also provides a mobile-layout Web preview. This repository contains the app; the website, service and plugin community have their own entry points below.
 
-## A look inside
+## Highlights
 
-| Conversations | Characters & sessions | Appearance |
-| :---: | :---: | :---: |
-| <img src="docs/images/chat.png" width="220" alt="Skivu chat with glass message bubbles"> | <img src="docs/images/sidebar.png" width="220" alt="Character sidebar with separate conversations"> | <img src="docs/images/appearance.png" width="220" alt="Appearance settings with themes and independent text options"> |
-
-Actual Android app screens using local demo content, shown with the Chinese UI. The website's interactive concepts and brand film are separate product presentations.
-
-## Make it yours
-
-<picture>
-  <source media="(max-width: 600px)" srcset="docs/images/skivu-features-mobile.svg">
-  <img src="docs/images/skivu-features.svg" width="1280" alt="Six capabilities: models, characters, appearance, reading, voice and separate conversation context">
-</picture>
-
-<details>
-<summary><strong>Explore features and supported model protocols</strong></summary>
-
-| Area | What you can do |
-| --- | --- |
-| Model connections | Use OpenAI-compatible Chat Completions, Responses, Claude Messages or Gemini Generate Content. Search and switch models from the composer. |
-| Characters & sessions | Customize avatars, character settings and prompts. Share a character card across independent conversations; search, rename and pin sessions. |
-| Glass & layout | Adjust blur, transparency, the top bar and bubble styles. Choose centered, side-width or full-width reply layouts. |
-| Personal appearance | Set fonts and colors independently for the interface, composer, user messages, character replies and thinking text. Import fonts and use image or video backgrounds. |
-| Reading & navigation | Smooth streamed text, expandable thinking sections, message navigation dial, bookmarks and a jump-to-bottom action. Stop, retry or confirm deletion of a conversation round. |
-| Voice | A water-drop orb call interface with captions, mute and interruption; Android system speech and configurable cloud text-to-speech connections. |
-| Accounts & updates | In-app login, model and quota synchronization, account switching and update checks. Packages are verified before Android asks you to confirm installation. |
-
-</details>
+- **Model connections**: Use OpenAI-compatible Chat Completions, Responses, Claude Messages or Gemini Generate Content. Search and switch models from the composer.
+- **Characters & sessions**: Customize avatars, character settings and prompts. Share a character card across independent conversations; search, rename and pin sessions.
+- **Glass & layout**: Adjust blur, transparency, the top bar and bubble styles. Choose centered, side-width or full-width reply layouts.
+- **Personal appearance**: Set fonts and colors independently for the interface, composer, user messages, character replies and thinking text. Import fonts and use image or video backgrounds.
+- **Reading & navigation**: Smooth streamed text, expandable thinking sections, message navigation dial, bookmarks and a jump-to-bottom action. Stop, retry or confirm deletion of a conversation round.
+- **Voice**: A water-drop orb call interface with captions, mute and interruption; Android system speech and configurable cloud text-to-speech connections.
+- **Accounts & updates**: In-app login, model and quota synchronization, account switching and update checks. Packages are verified before Android asks you to confirm installation.
 
 Attachments, plugin execution and the right-side workspace are not available yet. Their app entries are marked **Coming soon**.
 
-## The Skivu ecosystem
+## Feature showcase
 
-<table>
-  <tr>
-    <td width="50%"><strong><a href="https://skymoni.com/skivu/">01 / Product website</a></strong><p>Meet the app, explore interactive showcases and watch the <a href="https://skymoni.com/skivu/#brand-film">brand film</a>.</p></td>
-    <td width="50%"><strong><a href="https://skymoni.com/creators/skivu-beta">02 / Beta center</a></strong><p>Apply for account-based beta access and view your status and allocated quota.</p></td>
-  </tr>
-  <tr>
-    <td><strong><a href="https://skymoni.com/creators">03 / Community</a></strong><p>Share experiences and character prompts, discuss features and create together.</p></td>
-    <td><strong><a href="https://github.com/skyjjgw/skivu-plugins">04 / Plugin community</a></strong><p>Draft specifications, content-pack templates, examples and a preview catalog.</p></td>
-  </tr>
-  <tr>
-    <td><strong><a href="https://skymoni.com/">05 / Skymoni service</a></strong><p>Optional account and model-service access. Your own model API is also supported.</p></td>
-    <td><strong><a href="https://github.com/skyjjgw/skymoni-source">06 / Website &amp; service source</a></strong><p>Source releases, version records and license notices for the related service.</p></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/images/chat.png" width="230" alt="Skivu chat with glass message bubbles">
+  <img src="docs/images/sidebar.png" width="230" alt="Character sidebar with separate conversations">
+  <img src="docs/images/appearance.png" width="230" alt="Appearance settings with themes and independent text options">
+</p>
+
+Conversations · Characters & sessions · Appearance. Actual Android screens with local demo content and Chinese UI; the website concepts and brand film are separate presentations.
+
+## Website, community & related projects
+
+- **[Skivu website](https://skymoni.com/skivu/)**: Product introduction, interactive showcases and the [brand film](https://skymoni.com/skivu/#brand-film).
+- **[Beta center](https://skymoni.com/creators/skivu-beta)**: Applications, account eligibility and administrator-allocated beta quota.
+- **[Community](https://skymoni.com/creators)**: Experiences, character prompts, feature discussions and shared projects.
+- **[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins)**: Draft specifications, templates, examples and the community catalog.
+- **[Skymoni service](https://skymoni.com/)**: Optional account and model-service access; your own model API is also supported.
+- **[Website & service source](https://github.com/skyjjgw/skymoni-source)**: Source releases, version records and license notices for the related service.
 
 ## Download & beta access
 
