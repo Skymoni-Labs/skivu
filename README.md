@@ -19,10 +19,10 @@
     <a href="https://github.com/skyjjgw/skivu-plugins">插件共创</a>
   </p>
   <p>
-    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=384657&amp;color=356c82&amp;cacheSeconds=3600" alt="Latest release"></a>
-    <img src="https://img.shields.io/badge/Android-7.0%2B-3d7c66?style=flat&amp;labelColor=384657" alt="Android 7.0+">
-    <a href="pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-409cc5?style=flat&amp;labelColor=384657" alt="Flutter 3.41.9"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-805c9d?style=flat&amp;labelColor=384657" alt="GPL-3.0-only"></a>
+    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=384657&amp;color=327fb5&amp;cacheSeconds=3600" alt="Latest release"></a>
+    <img src="https://img.shields.io/badge/Android-7.0%2B-2c9b70?style=flat&amp;labelColor=384657" alt="Android 7.0+">
+    <a href="pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-20a4d0?style=flat&amp;labelColor=384657" alt="Flutter 3.41.9"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-9964c5?style=flat&amp;labelColor=384657" alt="GPL-3.0-only"></a>
   </p>
 </div>
 
