@@ -39,14 +39,23 @@ const appearanceDefaults = <String, dynamic>{
   'interfaceText': 0xff17212b,
   'inputText': 0xff17212b,
   'thinkingText': 0xff17212b,
-  'customTextColors': false,
+  'customTextColors': false, // Legacy profile migration only.
+  'interfaceTextEnabled': false,
+  'inputTextEnabled': false,
+  'userTextEnabled': false,
+  'assistantTextEnabled': false,
+  'thinkingTextEnabled': false,
   'customMessageColors': false,
   'userOpacity': .38,
   'assistantOpacity': .38,
-  'userFont': 'inherit',
-  'assistantFont': 'inherit',
+  'userFont': 'sans',
+  'assistantFont': 'sans',
+  'thinkingFont': 'sans',
+  'inputFont': 'sans',
   'userFontAsset': '',
   'assistantFontAsset': '',
+  'thinkingFontAsset': '',
+  'inputFontAsset': '',
   'userImage': '',
   'assistantImage': '',
   'avatars': true,
@@ -90,6 +99,8 @@ const _choices = <String, List<String>>{
   'font': ['sans', 'serif', 'mono', 'custom'],
   'userFont': ['inherit', 'sans', 'serif', 'mono', 'custom'],
   'assistantFont': ['inherit', 'sans', 'serif', 'mono', 'custom'],
+  'thinkingFont': ['sans', 'serif', 'mono', 'custom'],
+  'inputFont': ['sans', 'serif', 'mono', 'custom'],
   'bubbleStyle': ['bubble', 'document'],
   'bubbleShape': ['rounded', 'rectangle', 'tail', 'pill'],
   'assistantBubbleLayout': ['centered', 'side', 'full'],
@@ -97,6 +108,16 @@ const _choices = <String, List<String>>{
 };
 
 const assistantBubbleLayouts = {'centered': '居中', 'side': '铺满一侧', 'full': '全屏'};
+
+const textAppearanceModules = {
+  'assistantText': (title: '模型回复', font: 'assistantFont'),
+  'userText': (title: '我的消息', font: 'userFont'),
+  'thinkingText': (title: '思考过程', font: 'thinkingFont'),
+  'inputText': (title: '输入框', font: 'inputFont'),
+  'interfaceText': (title: '界面文字', font: 'font'),
+};
+
+String fontAssetKey(String key) => key == 'font' ? 'fontAsset' : '${key}Asset';
 
 Map<String, dynamic> cleanAppearance(Map<String, dynamic> raw) {
   final result = Map<String, dynamic>.from(appearanceDefaults);
@@ -120,6 +141,19 @@ Map<String, dynamic> cleanAppearance(Map<String, dynamic> raw) {
           (value.isEmpty ||
               RegExp(r'^(font|image|video)-[0-9]+$').hasMatch(value)))
         result[key] = value;
+    }
+  }
+  for (final entry in textAppearanceModules.entries) {
+    final enabled = '${entry.key}Enabled';
+    if (raw[enabled] is! bool && raw['customTextColors'] == true) {
+      result[enabled] = true;
+    }
+    final font = entry.value.font;
+    // Snapshot old inheritance once. Later interface changes cannot silently
+    // replace a message, thinking or input font, including imported fonts.
+    if (font != 'font' && (raw[font] == null || raw[font] == 'inherit')) {
+      result[font] = result['font'];
+      result[fontAssetKey(font)] = result['fontAsset'];
     }
   }
   return result;
@@ -197,8 +231,9 @@ class AppearancePreferences extends ChangeNotifier {
   double number(String key) => (_values[key] as num).toDouble();
   String text(String key) => _values[key] as String;
   Color color(String key) => Color(_values[key] as int);
+  bool textColorEnabled(String key) => flag('${key}Enabled');
   Color textColor(String key) =>
-      flag('customTextColors') ? color(key) : const Color(0xff17212b);
+      textColorEnabled(key) ? color(key) : const Color(0xff17212b);
   String? error;
   bool busy = false;
   Future<void>? _writes;
@@ -210,8 +245,7 @@ class AppearancePreferences extends ChangeNotifier {
               Brightness.dark);
   String fontFamily([String key = 'font']) {
     final font = text(key);
-    if (font == 'inherit') return fontFamily();
-    final id = text(key == 'font' ? 'fontAsset' : '${key}Asset');
+    final id = text(fontAssetKey(key));
     return switch (font) {
       'serif' => 'SkiSerif',
       'mono' => 'SkiMono',
@@ -234,7 +268,11 @@ class AppearancePreferences extends ChangeNotifier {
                 (value.isEmpty ||
                     RegExp(r'^(font|image|video)-[0-9]+$').hasMatch(value)))))
       return;
-    final next = cleanAppearance({..._values, key: value});
+    final next = cleanAppearance({
+      ..._values,
+      key: value,
+      if (textAppearanceModules.containsKey(key)) '${key}Enabled': true,
+    });
     if (mapEquals(next, _values)) return;
     _values = next;
     error = null;
@@ -242,7 +280,9 @@ class AppearancePreferences extends ChangeNotifier {
   }
 
   Future<void> hydrateAssets() async {
-    for (final key in ['fontAsset', 'userFontAsset', 'assistantFontAsset']) {
+    for (final key in textAppearanceModules.values.map(
+      (m) => fontAssetKey(m.font),
+    )) {
       try {
         await appearanceAssets.loadFont(text(key));
       } catch (_) {
@@ -343,7 +383,7 @@ class AppearancePreferences extends ChangeNotifier {
         throw const FormatException();
       final id = await appearanceAssets.write('font', bytes);
       await appearanceAssets.loadFont(id);
-      set(key == 'font' ? 'fontAsset' : '${key}Asset', id);
+      set(fontAssetKey(key), id);
       set(key, 'custom');
       await save();
     } catch (_) {

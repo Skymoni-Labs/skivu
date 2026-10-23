@@ -38,7 +38,7 @@ class MessageInfoRow extends StatelessWidget {
         ),
     ];
     if (names.isEmpty && metrics.isEmpty) return const SizedBox.shrink();
-    final color = model.flag('customTextColors')
+    final color = model.textColorEnabled('interfaceText')
         ? model.textColor('interfaceText')
         : const Color(0xff39434f);
     return Padding(

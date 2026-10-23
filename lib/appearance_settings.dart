@@ -222,8 +222,6 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       model.set(key, picked);
       if (key == 'userColor' || key == 'assistantColor') {
         model.set('customMessageColors', true);
-      } else if (textColorKeys.contains(key)) {
-        model.set('customTextColors', true);
       }
       await model.save();
     }
@@ -247,54 +245,70 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     ),
     onTap: () => colorDialog(key, text),
   );
-  static const textColorKeys = [
-    'interfaceText',
-    'inputText',
-    'userText',
-    'assistantText',
-    'thinkingText',
+  List<String> moduleKeys(String key) => [
+    key,
+    '${key}Enabled',
+    textAppearanceModules[key]!.font,
+    fontAssetKey(textAppearanceModules[key]!.font),
   ];
-  Widget textColors({bool includeInterface = true}) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      title('字体颜色'),
-      toggle(
-        'customTextColors',
-        '自定义字体颜色',
-        note: '分别设置文字颜色；关闭后恢复默认深色，不改变气泡底色。',
+
+  Widget textModule(String key) {
+    final module = textAppearanceModules[key]!;
+    final name = module.title;
+    final selectedFont = switch (model.text(module.font)) {
+      'serif' => '衬线',
+      'mono' => '等宽',
+      'custom' => '自定义',
+      _ => '无衬线',
+    };
+    return ExpansionTile(
+      key: ValueKey('appearance-module-$key'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 12),
+      initiallyExpanded: key == 'assistantText',
+      shape: const Border(),
+      collapsedShape: const Border(),
+      title: Text(
+        name,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
-      for (final entry in {
-        if (includeInterface) 'interfaceText': '界面文字颜色',
-        if (includeInterface) 'inputText': '输入框文字颜色',
-        'userText': '我的消息文字颜色',
-        'assistantText': '角色回复文字颜色',
-        'thinkingText': '思考过程文字颜色',
-      }.entries)
-        colorRow(entry.key, entry.value),
-      TextButton(
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xff17212b),
-          backgroundColor: const Color(0xffeef2f7),
-        ),
-        onPressed: () => model.resetSection(
-          includeInterface
-              ? ['customTextColors', ...textColorKeys]
-              : ['userText', 'assistantText', 'thinkingText'],
-        ),
-        child: Text(includeInterface ? '恢复默认字体颜色' : '恢复消息文字颜色'),
+      subtitle: Text(
+        '$selectedFont · ${model.textColorEnabled(key) ? '自定义颜色' : '默认深色'}',
+        style: const TextStyle(fontSize: 11),
       ),
-    ],
-  );
+      leading: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: model.textColor(key),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(color: const Color(0xffaeb9c4)),
+        ),
+      ),
+      children: [
+        font(module.font, '$name字体'),
+        toggle('${key}Enabled', '自定义$name颜色', note: '仅影响$name，关闭后使用默认深色。'),
+        colorRow(key, '$name文字颜色'),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: ValueKey('appearance-reset-$key'),
+            onPressed: () => model.resetSection(moduleKeys(key)),
+            child: Text('恢复$name默认值'),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget font(String key, String heading) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       choices(key, heading, {
-        if (key != 'font') 'inherit': '跟随界面',
         'sans': '无衬线',
         'serif': '衬线',
         'mono': '等宽',
-        if (model.text(key == 'font' ? 'fontAsset' : '${key}Asset').isNotEmpty)
-          'custom': '自定义',
+        if (model.text(fontAssetKey(key)).isNotEmpty) 'custom': '自定义',
       }),
       OutlinedButton.icon(
         onPressed: model.busy ? null : () => model.pickFont(key),
@@ -402,7 +416,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
               Expanded(
                 child: Text(
                   'Skivu · 你好，世界 Aa 123',
-                  style: TextStyle(color: model.textColor('interfaceText')),
+                  style: TextStyle(
+                    color: model.textColor('interfaceText'),
+                    fontFamily: model.fontFamily(),
+                    fontFamilyFallback: const ['SkiSans'],
+                  ),
                 ),
               ),
               Icon(Icons.space_dashboard_outlined, color: green),
@@ -439,6 +457,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
               layout: model.text('assistantBubbleLayout'),
               wide: model.flag('wideChat'),
               thinkingColor: model.textColor('thinkingText'),
+              thinkingFontFamily: model.fontFamily('thinkingFont'),
               avatar: model.flag('avatars')
                   ? CharacterAvatar(
                       key: const ValueKey('preview-role-avatar'),
@@ -482,6 +501,8 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                   style: TextStyle(
                     fontSize: 13,
                     color: model.textColor('inputText'),
+                    fontFamily: model.fontFamily('inputFont'),
+                    fontFamilyFallback: const ['SkiSans'],
                   ),
                 ),
               ),
@@ -522,9 +543,9 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       ),
       gap(),
       choices('mode', '明暗模式', {'light': '浅色', 'dark': '深色', 'system': '跟随系统'}),
-      font('font', '界面字体'),
-      textColors(),
-      description('内置中文无衬线、中文衬线和西文等宽字体；自定义字体仅存本机。'),
+      title('分区文字设置'),
+      description('各区域的字体、颜色独立保存，修改一处不会改变其他区域。导入的字体仅存本机。'),
+      for (final key in textAppearanceModules.keys) textModule(key),
       gap(),
       slider('uiScale', '界面缩放', .8, 1.2, percent: true),
       slider('textScale', '字体大小', .8, 1.4, percent: true),
@@ -533,12 +554,9 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         onPressed: () => model.resetSection([
           'accent',
           'mode',
-          'font',
-          'fontAsset',
           'uiScale',
           'textScale',
-          'customTextColors',
-          ...textColorKeys,
+          for (final key in textAppearanceModules.keys) ...moduleKeys(key),
         ]),
         child: const Text('恢复主题与文字默认值'),
       ),
@@ -634,10 +652,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         colorRow(e.key, e.value),
       slider('userOpacity', '我的气泡不透明度', 0, 1, percent: true),
       slider('assistantOpacity', '回复气泡不透明度', 0, 1, percent: true),
-      title('气泡字体'),
-      font('userFont', '我的消息字体'),
-      font('assistantFont', '回复消息字体'),
-      textColors(includeInterface: false),
+      title('消息文字'),
+      description('字体和颜色仅应用于各自区域，不影响界面、输入框或另一方消息。'),
+      textModule('assistantText'),
+      textModule('userText'),
+      textModule('thinkingText'),
       title('气泡贴图'),
       for (final user in [true, false]) ...[
         label(user ? '我的消息贴图' : '回复消息贴图', size: 13),
@@ -683,15 +702,11 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           'customMessageColors',
           'userColor',
           'assistantColor',
-          'userText',
-          'assistantText',
-          'thinkingText',
+          ...moduleKeys('userText'),
+          ...moduleKeys('assistantText'),
+          ...moduleKeys('thinkingText'),
           'userOpacity',
           'assistantOpacity',
-          'userFont',
-          'assistantFont',
-          'userFontAsset',
-          'assistantFontAsset',
           'userImage',
           'assistantImage',
         ]),

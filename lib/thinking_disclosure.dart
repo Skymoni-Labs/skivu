@@ -8,10 +8,12 @@ class ThinkingDisclosure extends StatefulWidget {
     required this.text,
     this.leading,
     this.color,
+    this.fontFamily,
   });
   final String text;
   final Widget? leading;
   final Color? color;
+  final String? fontFamily;
   @override
   State<ThinkingDisclosure> createState() => _ThinkingDisclosureState();
 }
@@ -45,7 +47,16 @@ class _ThinkingDisclosureState extends State<ThinkingDisclosure> {
                 expanded ? Icons.expand_more : Icons.chevron_right,
                 size: 17,
               ),
-              label: const Text('思考过程', style: TextStyle(fontSize: 12)),
+              label: Text(
+                '思考过程',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontFamily:
+                      widget.fontFamily ??
+                      appearance.fontFamily('thinkingFont'),
+                  fontFamilyFallback: const ['SkiSans'],
+                ),
+              ),
             ),
           ),
         ],
@@ -59,6 +70,9 @@ class _ThinkingDisclosureState extends State<ThinkingDisclosure> {
               fontSize: 12,
               height: 1.6,
               color: widget.color ?? appearance.textColor('thinkingText'),
+              fontFamily:
+                  widget.fontFamily ?? appearance.fontFamily('thinkingFont'),
+              fontFamilyFallback: const ['SkiSans'],
             ),
           ),
         ),

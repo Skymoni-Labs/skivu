@@ -84,7 +84,6 @@ void main() {
       await tester.pumpAndSettle();
       final field = find.byKey(const ValueKey('chat-composer-field'));
       await tester.enterText(field, '保留草稿');
-      appearance.set('customTextColors', true);
       for (final entry in {
         'interfaceText': 0xff7e22ce,
         'inputText': 0xff166534,
@@ -110,12 +109,19 @@ void main() {
       final c = tester.element(find.byType(ChatBubbleSurface).first);
       expect(chatMessageStyle(c, true).color, const Color(0xff1d4ed8));
       expect(chatMessageStyle(c, false).color, const Color(0xff9a3412));
+      appearance.set('assistantFont', 'mono');
+      appearance.set('inputFont', 'serif');
+      appearance.set('thinkingFont', 'mono');
+      await tester.pumpAndSettle();
+      expect(chatMessageStyle(c, false).fontFamily, 'SkiMono');
+      expect(chatMessageStyle(c, true).fontFamily, 'SkiSans');
+      expect(tester.widget<TextField>(field).style!.fontFamily, 'SkiSerif');
       final thinking = find.byKey(const ValueKey('thinking-toggle'));
       expect(
         tester.widget<TextButton>(thinking).style!.foregroundColor!.resolve({}),
         const Color(0xff64748b),
       );
-      appearance.set('customTextColors', false);
+      appearance.set('interfaceTextEnabled', false);
       await tester.pumpAndSettle();
       expect(
         tester
@@ -126,7 +132,21 @@ void main() {
       );
       expect(
         tester.widget<TextField>(field).style!.color,
-        const Color(0xff17212b),
+        const Color(0xff166534),
+      );
+      expect(chatMessageStyle(c, false).color, const Color(0xff9a3412));
+      await tester.tap(thinking);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SelectableText>(
+              find.byWidgetPredicate(
+                (w) => w is SelectableText && w.data == '思考摘要',
+              ),
+            )
+            .style!
+            .fontFamily,
+        'SkiMono',
       );
       expect(tester.widget<TextField>(field).controller!.text, '保留草稿');
       expect(tester.takeException(), isNull);

@@ -573,6 +573,8 @@ class _ChatPageState extends State<ChatPage> {
                           fontSize: 14,
                           height: 1.65,
                           color: appearance.textColor('inputText'),
+                          fontFamily: appearance.fontFamily('inputFont'),
+                          fontFamilyFallback: const ['SkiSans'],
                         ),
                         decoration: InputDecoration(
                           hintText: '发消息…',
@@ -672,7 +674,11 @@ class _ChatPageState extends State<ChatPage> {
           width: 360,
           child: TextField(
             controller: draft,
-            style: TextStyle(color: appearance.textColor('inputText')),
+            style: TextStyle(
+              color: appearance.textColor('inputText'),
+              fontFamily: appearance.fontFamily('inputFont'),
+              fontFamilyFallback: const ['SkiSans'],
+            ),
             cursorColor: appearance.textColor('inputText'),
             minLines: 7,
             maxLines: 12,

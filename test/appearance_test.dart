@@ -41,7 +41,7 @@ class MemoryProfiles implements ProfilePersistence {
 
 void main() {
   test(
-    'text palette is opt-in for old data and survives save and reset',
+    'enabling a module color never activates dormant colors in other modules',
     () async {
       final disk = MemoryAppearance()
         ..saved = {
@@ -52,28 +52,94 @@ void main() {
       final model = AppearancePreferences(persistence: disk);
       await model.restore();
       expect(model.textColor('userText'), const Color(0xff17212b));
-      model.set('customTextColors', true);
-      for (final key in ['interfaceText', 'inputText', 'thinkingText']) {
-        model.set(key, 0xff1d4ed8);
-      }
+      model.set('assistantText', 0xff1d4ed8);
       await model.save();
       final restarted = AppearancePreferences(persistence: disk);
       await restarted.restore();
-      expect(restarted.textColor('userText'), const Color(0xff7e22ce));
-      expect(restarted.textColor('inputText'), const Color(0xff1d4ed8));
-      expect(restarted.textColor('thinkingText'), const Color(0xff1d4ed8));
-      await restarted.resetSection([
-        'customTextColors',
+      expect(restarted.textColor('assistantText'), const Color(0xff1d4ed8));
+      for (final key in [
         'interfaceText',
         'inputText',
-        'userText',
-        'assistantText',
         'thinkingText',
-      ]);
+        'userText',
+      ]) {
+        expect(restarted.textColor(key), const Color(0xff17212b));
+        expect(restarted.textColorEnabled(key), isFalse);
+      }
+      await restarted.resetSection(['assistantTextEnabled', 'assistantText']);
       expect(restarted.textColor('userText'), const Color(0xff17212b));
       expect(restarted.flag('customMessageColors'), isTrue);
       model.dispose();
       restarted.dispose();
+    },
+  );
+
+  test(
+    'legacy palette and inherited custom fonts migrate without future links',
+    () {
+      final migrated = cleanAppearance({
+        'customTextColors': true,
+        'assistantText': 0xff9a3412,
+        'inputText': 0xff166534,
+        'font': 'custom',
+        'fontAsset': 'font-123',
+        'assistantFont': 'inherit',
+        'userFont': 'serif',
+      });
+      for (final key in textAppearanceModules.keys) {
+        expect(migrated['${key}Enabled'], isTrue);
+      }
+      expect(migrated['assistantFont'], 'custom');
+      expect(migrated['assistantFontAsset'], 'font-123');
+      expect(migrated['inputFontAsset'], 'font-123');
+      expect(migrated['thinkingFontAsset'], 'font-123');
+      expect(migrated['userFont'], 'serif');
+      final changed = cleanAppearance({...migrated, 'fontAsset': 'font-456'});
+      expect(changed['assistantFontAsset'], 'font-123');
+      expect(changed['inputFontAsset'], 'font-123');
+      expect(changed['assistantText'], 0xff9a3412);
+      expect(changed['inputText'], 0xff166534);
+    },
+  );
+
+  test(
+    'each module font and color survives restart and a single-module reset',
+    () async {
+      final disk = MemoryAppearance();
+      final model = AppearancePreferences(persistence: disk);
+      model.set('font', 'serif');
+      expect(model.fontFamily('assistantFont'), 'SkiSans');
+      expect(model.fontFamily('inputFont'), 'SkiSans');
+      model.set('assistantFont', 'mono');
+      model.set('assistantText', 0xff9a3412);
+      model.set('userText', 0xff1d4ed8);
+      model.set('thinkingFont', 'serif');
+      model.set('thinkingText', 0xff64748b);
+      model.set('inputText', 0xff166534);
+      model.set('interfaceText', 0xff7e22ce);
+      await model.save();
+      final restored = AppearancePreferences(persistence: disk);
+      await restored.restore();
+      expect(restored.fontFamily('assistantFont'), 'SkiMono');
+      expect(restored.fontFamily('thinkingFont'), 'SkiSerif');
+      expect(restored.fontFamily('inputFont'), 'SkiSans');
+      expect(restored.textColor('assistantText'), const Color(0xff9a3412));
+      restored.set('assistantTextEnabled', false);
+      expect(restored.textColor('assistantText'), const Color(0xff17212b));
+      expect(restored.textColor('userText'), const Color(0xff1d4ed8));
+      await restored.resetSection([
+        'assistantFont',
+        'assistantFontAsset',
+        'assistantText',
+        'assistantTextEnabled',
+      ]);
+      expect(restored.fontFamily('assistantFont'), 'SkiSans');
+      expect(restored.fontFamily(), 'SkiSerif');
+      expect(restored.textColor('inputText'), const Color(0xff166534));
+      expect(restored.textColor('thinkingText'), const Color(0xff64748b));
+      expect(restored.textColor('interfaceText'), const Color(0xff7e22ce));
+      model.dispose();
+      restored.dispose();
     },
   );
 
@@ -95,6 +161,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final module = find.byKey(const ValueKey('appearance-module-userText'));
+      await tester.ensureVisible(module);
+      await tester.tap(
+        find.descendant(of: module, matching: find.text('我的消息')),
+      );
+      await tester.pumpAndSettle();
       final setting = find.byKey(const ValueKey('appearance-color-userText'));
       await tester.ensureVisible(setting);
       await tester.tap(setting);
@@ -111,7 +183,9 @@ void main() {
       await tester.tap(find.text('应用'));
       await tester.pumpAndSettle();
       expect(model.textColor('userText'), const Color(0xff1d4ed8));
-      expect(model.flag('customTextColors'), isTrue);
+      expect(model.textColorEnabled('userText'), isTrue);
+      expect(model.textColorEnabled('assistantText'), isFalse);
+      expect(model.textColorEnabled('interfaceText'), isFalse);
       expect(model.flag('customMessageColors'), isFalse);
       expect(
         tester.widget<Text>(find.text('今天想和你聊一会儿。')).style!.color,

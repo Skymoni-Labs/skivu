@@ -17,7 +17,7 @@ Color get ink => appearance.textColor('interfaceText');
 Color get green => appearance.color('accent');
 Color get mist => Color.lerp(green, Colors.white, .86)!;
 Color get paper => Color.lerp(green, Colors.white, .965)!;
-Color get muted => appearance.flag('customTextColors')
+Color get muted => appearance.textColorEnabled('interfaceText')
     ? appearance.textColor('interfaceText')
     : const Color(0xff39434f);
 int _localSequence = 0;

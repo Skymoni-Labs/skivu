@@ -12,6 +12,7 @@ class AssistantReplyLayout extends StatelessWidget {
     this.thinking,
     this.wide = false,
     this.thinkingColor,
+    this.thinkingFontFamily,
   });
   final String layout;
   final Widget child;
@@ -19,6 +20,7 @@ class AssistantReplyLayout extends StatelessWidget {
   final String? thinking;
   final bool wide;
   final Color? thinkingColor;
+  final String? thinkingFontFamily;
 
   static EdgeInsets bubblePadding(String layout) =>
       EdgeInsets.symmetric(horizontal: layout == 'full' ? 8 : 16, vertical: 13);
@@ -48,6 +50,7 @@ class AssistantReplyLayout extends StatelessWidget {
                       text: thinking!,
                       leading: full ? avatar : null,
                       color: thinkingColor,
+                      fontFamily: thinkingFontFamily,
                     )
                   else if (full && avatar != null)
                     Align(alignment: Alignment.centerLeft, child: avatar),
