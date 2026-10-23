@@ -40,10 +40,7 @@ class WorkspacePanel extends StatelessWidget {
                     Icon(item.$1, color: ink),
                     const SizedBox(width: 14),
                     Expanded(child: label(item.$2)),
-                    const Text(
-                      '即将开放',
-                      style: TextStyle(color: ink, fontSize: 12),
-                    ),
+                    Text('即将开放', style: TextStyle(color: ink, fontSize: 12)),
                   ],
                 ),
               ),

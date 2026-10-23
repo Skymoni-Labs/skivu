@@ -14,6 +14,75 @@ import 'preview_fixture.dart';
 void main() {
   setUp(seedPreviewConversation);
   testWidgets(
+    'text colors update chrome, input, replies and thinking without losing draft',
+    (tester) async {
+      final previous = appearance.values;
+      addTearDown(() {
+        for (final e in previous.entries) {
+          appearance.set(e.key, e.value);
+        }
+      });
+      demo.messages
+        ..clear()
+        ..addAll([
+          Message(true, '我的消息'),
+          Message(false, '角色回复')..thinking = '思考摘要',
+        ]);
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('chat-composer-field'));
+      await tester.enterText(field, '保留草稿');
+      appearance.set('customTextColors', true);
+      for (final entry in {
+        'interfaceText': 0xff7e22ce,
+        'inputText': 0xff166534,
+        'userText': 0xff1d4ed8,
+        'assistantText': 0xff9a3412,
+        'thinkingText': 0xff64748b,
+      }.entries) {
+        appearance.set(entry.key, entry.value);
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('toolbar-title')))
+            .style!
+            .color,
+        const Color(0xff7e22ce),
+      );
+      expect(
+        tester.widget<TextField>(field).style!.color,
+        const Color(0xff166534),
+      );
+      expect(tester.widget<TextField>(field).controller!.text, '保留草稿');
+      final c = tester.element(find.byType(ChatBubbleSurface).first);
+      expect(chatMessageStyle(c, true).color, const Color(0xff1d4ed8));
+      expect(chatMessageStyle(c, false).color, const Color(0xff9a3412));
+      final thinking = find.byKey(const ValueKey('thinking-toggle'));
+      expect(
+        tester.widget<TextButton>(thinking).style!.foregroundColor!.resolve({}),
+        const Color(0xff64748b),
+      );
+      appearance.set('customTextColors', false);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('toolbar-title')))
+            .style!
+            .color,
+        const Color(0xff17212b),
+      );
+      expect(
+        tester.widget<TextField>(field).style!.color,
+        const Color(0xff17212b),
+      );
+      expect(tester.widget<TextField>(field).controller!.text, '保留草稿');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'full reply header stays clear of bubble with and without thinking',
     (tester) async {
       tester.view.physicalSize = const Size(320, 780);

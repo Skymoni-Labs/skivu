@@ -39,7 +39,7 @@ class _AccountBetaPageState extends State<AccountBetaPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.science_outlined, size: 36, color: ink),
+            Icon(Icons.science_outlined, size: 36, color: ink),
             const SizedBox(height: 14),
             label(title, size: 23, weight: FontWeight.w600),
             const SizedBox(height: 10),

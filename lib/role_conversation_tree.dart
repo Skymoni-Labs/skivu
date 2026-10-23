@@ -84,7 +84,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (folders.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 22),
               child: Text(
                 '没有找到角色或对话',
@@ -149,7 +149,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                         role.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: ink,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -160,7 +160,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                     Text(
                       '${all.length}',
                       key: ValueKey('role-count-${role.id}'),
-                      style: const TextStyle(fontSize: 12, color: ink),
+                      style: TextStyle(fontSize: 12, color: ink),
                     ),
                     const SizedBox(width: 7),
                     Icon(
@@ -173,7 +173,7 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                       tooltip: '角色菜单：${role.name}',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 140),
-                      icon: const Icon(Icons.more_horiz, size: 18, color: ink),
+                      icon: Icon(Icons.more_horiz, size: 18, color: ink),
                       onSelected: (_) =>
                           confirmDeletePersona(context, store, role),
                       itemBuilder: (_) => const [
@@ -256,14 +256,14 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                       chat.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: ink),
+                      style: TextStyle(fontSize: 13, color: ink),
                     ),
                   ),
                 ),
                 PopupMenuButton<String>(
                   key: ValueKey('chat-menu-${chat.id}'),
                   tooltip: '对话菜单：${chat.title}',
-                  icon: const Icon(Icons.more_horiz, size: 19, color: ink),
+                  icon: Icon(Icons.more_horiz, size: 19, color: ink),
                   constraints: const BoxConstraints(minWidth: 130),
                   onSelected: (action) => menu(chat, action),
                   itemBuilder: (_) => [
@@ -323,7 +323,7 @@ class _RolePickerState extends State<_RolePicker> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   '选择对话角色',
                   style: TextStyle(
                     fontSize: 19,
@@ -353,19 +353,16 @@ class _RolePickerState extends State<_RolePicker> {
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 4,
                             ),
-                            leading: const Icon(
-                              Icons.folder_outlined,
-                              color: ink,
-                            ),
+                            leading: Icon(Icons.folder_outlined, color: ink),
                             title: Text(
                               role.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: ink, fontSize: 14),
+                              style: TextStyle(color: ink, fontSize: 14),
                             ),
                             subtitle: Text(
                               '${widget.store.conversationsFor(role.id).length} 段对话',
-                              style: const TextStyle(color: ink, fontSize: 11),
+                              style: TextStyle(color: ink, fontSize: 11),
                             ),
                             onTap: () => Navigator.pop(context, role.id),
                           ),

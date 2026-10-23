@@ -36,6 +36,10 @@ const appearanceDefaults = <String, dynamic>{
   'assistantColor': 0xffffffff,
   'userText': 0xff17212b,
   'assistantText': 0xff17212b,
+  'interfaceText': 0xff17212b,
+  'inputText': 0xff17212b,
+  'thinkingText': 0xff17212b,
+  'customTextColors': false,
   'customMessageColors': false,
   'userOpacity': .38,
   'assistantOpacity': .38,
@@ -193,6 +197,8 @@ class AppearancePreferences extends ChangeNotifier {
   double number(String key) => (_values[key] as num).toDouble();
   String text(String key) => _values[key] as String;
   Color color(String key) => Color(_values[key] as int);
+  Color textColor(String key) =>
+      flag('customTextColors') ? color(key) : const Color(0xff17212b);
   String? error;
   bool busy = false;
   Future<void>? _writes;

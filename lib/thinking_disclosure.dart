@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
-import 'state.dart' show ink;
+import 'appearance.dart';
 
 /// Reasoning belongs above the reply, with no card or tinted tile behind it.
 class ThinkingDisclosure extends StatefulWidget {
-  const ThinkingDisclosure({super.key, required this.text, this.leading});
+  const ThinkingDisclosure({
+    super.key,
+    required this.text,
+    this.leading,
+    this.color,
+  });
   final String text;
   final Widget? leading;
+  final Color? color;
   @override
   State<ThinkingDisclosure> createState() => _ThinkingDisclosureState();
 }
@@ -26,7 +32,8 @@ class _ThinkingDisclosureState extends State<ThinkingDisclosure> {
             child: TextButton.icon(
               key: const ValueKey('thinking-toggle'),
               style: TextButton.styleFrom(
-                foregroundColor: ink,
+                foregroundColor:
+                    widget.color ?? appearance.textColor('thinkingText'),
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -48,7 +55,11 @@ class _ThinkingDisclosureState extends State<ThinkingDisclosure> {
           padding: const EdgeInsets.fromLTRB(6, 4, 4, 14),
           child: SelectableText(
             widget.text,
-            style: const TextStyle(fontSize: 12, height: 1.6, color: ink),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.6,
+              color: widget.color ?? appearance.textColor('thinkingText'),
+            ),
           ),
         ),
     ],

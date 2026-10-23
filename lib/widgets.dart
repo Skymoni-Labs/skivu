@@ -156,7 +156,7 @@ class SettingRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          trailing ?? const Icon(Icons.chevron_right, color: muted, size: 18),
+          trailing ?? Icon(Icons.chevron_right, color: muted, size: 18),
         ],
       ),
     ),

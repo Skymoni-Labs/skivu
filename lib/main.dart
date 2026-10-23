@@ -281,7 +281,7 @@ class MobilePreviewStage extends StatelessWidget {
                 boxShadow: framed
                     ? [
                         BoxShadow(
-                          color: ink.withValues(alpha: .1),
+                          color: const Color(0xff17212b).withValues(alpha: .1),
                           blurRadius: 36,
                           offset: const Offset(0, 12),
                         ),
@@ -448,7 +448,7 @@ class _SkiShellState extends State<SkiShell>
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: ink,
@@ -583,7 +583,7 @@ class _SideNavigationState extends State<SideNavigation> {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: ink, fontSize: 14),
+                  style: TextStyle(color: ink, fontSize: 14),
                 ),
               ),
               if (soon) const TinyTag('即将开放'),
@@ -630,7 +630,7 @@ class _SideNavigationState extends State<SideNavigation> {
                             appName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w600,
                               color: ink,
@@ -658,7 +658,7 @@ class _SideNavigationState extends State<SideNavigation> {
                     TextField(
                       key: const ValueKey('sidebar-search'),
                       onChanged: (value) => setState(() => query = value),
-                      style: const TextStyle(fontSize: 12, color: ink),
+                      style: TextStyle(fontSize: 12, color: ink),
                       decoration: InputDecoration(
                         hintText: '搜索角色或对话',
                         prefixIcon: const Icon(Icons.search, size: 18),

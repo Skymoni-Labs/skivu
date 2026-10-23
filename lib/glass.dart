@@ -328,7 +328,7 @@ class SkiGlassButton extends StatelessWidget {
   final bool plain;
   @override
   Widget build(BuildContext context) {
-    const foreground = ink;
+    final foreground = ink;
     if (plain && label == null) {
       return SizedBox(
         width: width,

@@ -134,20 +134,69 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       builder: (c) => StatefulBuilder(
         builder: (c, update) => AlertDialog(
           title: Text(text),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: 7,
-            decoration: InputDecoration(
-              labelText: '颜色 HEX',
-              hintText: '#347DA3',
-              errorText: error,
-            ),
+          titleTextStyle: const TextStyle(
+            color: Color(0xff17212b),
+            fontSize: 20,
+          ),
+          scrollable: true,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final swatch in const {
+                    '深黑': 0xff17212b,
+                    '靛蓝': 0xff1d4ed8,
+                    '墨绿': 0xff166534,
+                    '紫色': 0xff7e22ce,
+                    '红棕': 0xff9a3412,
+                    '灰色': 0xff64748b,
+                    '白色': 0xffffffff,
+                  }.entries)
+                    ActionChip(
+                      label: Text(
+                        swatch.key,
+                        style: const TextStyle(color: Color(0xff17212b)),
+                      ),
+                      avatar: CircleAvatar(
+                        radius: 8,
+                        backgroundColor: Color(swatch.value),
+                      ),
+                      onPressed: () => update(() {
+                        controller.text =
+                            '#${swatch.value.toRadixString(16).substring(2).toUpperCase()}';
+                        error = null;
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                key: const ValueKey('color-hex-input'),
+                controller: controller,
+                style: const TextStyle(color: Color(0xff17212b)),
+                maxLength: 7,
+                decoration: InputDecoration(
+                  labelText: '颜色 HEX',
+                  hintText: '#347DA3',
+                  labelStyle: const TextStyle(color: Color(0xff17212b)),
+                  hintStyle: const TextStyle(color: Color(0xff39434f)),
+                  counterStyle: const TextStyle(color: Color(0xff39434f)),
+                  errorText: error,
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c),
-              child: const Text('取消'),
+              child: const Text(
+                '取消',
+                style: TextStyle(color: Color(0xff17212b)),
+              ),
             ),
             FilledButton(
               onPressed: () {
@@ -158,7 +207,10 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                 }
                 Navigator.pop(c, int.parse(raw, radix: 16) | 0xff000000);
               },
-              child: const Text('应用'),
+              child: const Text(
+                '应用',
+                style: TextStyle(color: Color(0xff17212b)),
+              ),
             ),
           ],
         ),
@@ -168,12 +220,17 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
     controller.dispose();
     if (picked != null) {
       model.set(key, picked);
-      if (key != 'accent') model.set('customMessageColors', true);
+      if (key == 'userColor' || key == 'assistantColor') {
+        model.set('customMessageColors', true);
+      } else if (textColorKeys.contains(key)) {
+        model.set('customTextColors', true);
+      }
       await model.save();
     }
   }
 
   Widget colorRow(String key, String text) => ListTile(
+    key: ValueKey('appearance-color-$key'),
     contentPadding: EdgeInsets.zero,
     title: Text(text, style: const TextStyle(fontSize: 13)),
     subtitle: Text(
@@ -189,6 +246,44 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       ),
     ),
     onTap: () => colorDialog(key, text),
+  );
+  static const textColorKeys = [
+    'interfaceText',
+    'inputText',
+    'userText',
+    'assistantText',
+    'thinkingText',
+  ];
+  Widget textColors({bool includeInterface = true}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      title('字体颜色'),
+      toggle(
+        'customTextColors',
+        '自定义字体颜色',
+        note: '分别设置文字颜色；关闭后恢复默认深色，不改变气泡底色。',
+      ),
+      for (final entry in {
+        if (includeInterface) 'interfaceText': '界面文字颜色',
+        if (includeInterface) 'inputText': '输入框文字颜色',
+        'userText': '我的消息文字颜色',
+        'assistantText': '角色回复文字颜色',
+        'thinkingText': '思考过程文字颜色',
+      }.entries)
+        colorRow(entry.key, entry.value),
+      TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: const Color(0xff17212b),
+          backgroundColor: const Color(0xffeef2f7),
+        ),
+        onPressed: () => model.resetSection(
+          includeInterface
+              ? ['customTextColors', ...textColorKeys]
+              : ['userText', 'assistantText', 'thinkingText'],
+        ),
+        child: Text(includeInterface ? '恢复默认字体颜色' : '恢复消息文字颜色'),
+      ),
+    ],
   );
   Widget font(String key, String heading) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +399,12 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             children: [
               Icon(Icons.menu, color: green),
               const SizedBox(width: 10),
-              const Expanded(child: Text('Skivu · 你好，世界 Aa 123')),
+              Expanded(
+                child: Text(
+                  'Skivu · 你好，世界 Aa 123',
+                  style: TextStyle(color: model.textColor('interfaceText')),
+                ),
+              ),
               Icon(Icons.space_dashboard_outlined, color: green),
             ],
           ),
@@ -325,7 +425,12 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                 user: true,
                 child: Text(
                   '今天想和你聊一会儿。',
-                  style: chatMessageStyle(context, true, size: 13),
+                  style: chatMessageStyle(
+                    context,
+                    true,
+                    size: 13,
+                    preferences: model,
+                  ),
                 ),
               ),
             ),
@@ -333,6 +438,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
             AssistantReplyLayout(
               layout: model.text('assistantBubbleLayout'),
               wide: model.flag('wideChat'),
+              thinkingColor: model.textColor('thinkingText'),
               avatar: model.flag('avatars')
                   ? CharacterAvatar(
                       key: const ValueKey('preview-role-avatar'),
@@ -350,7 +456,12 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
                 ),
                 child: Text(
                   '我在，慢慢说就好。可以先聊聊今天发生的事情，我们再一起安排接下来的计划。',
-                  style: chatMessageStyle(context, false, size: 13),
+                  style: chatMessageStyle(
+                    context,
+                    false,
+                    size: 13,
+                    preferences: model,
+                  ),
                 ),
               ),
             ),
@@ -365,8 +476,14 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Expanded(
-                child: Text('在这里写下你的想法…', style: TextStyle(fontSize: 13)),
+              Expanded(
+                child: Text(
+                  '在这里写下你的想法…',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: model.textColor('inputText'),
+                  ),
+                ),
               ),
               Icon(Icons.arrow_upward, color: green),
             ],
@@ -406,6 +523,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       gap(),
       choices('mode', '明暗模式', {'light': '浅色', 'dark': '深色', 'system': '跟随系统'}),
       font('font', '界面字体'),
+      textColors(),
       description('内置中文无衬线、中文衬线和西文等宽字体；自定义字体仅存本机。'),
       gap(),
       slider('uiScale', '界面缩放', .8, 1.2, percent: true),
@@ -419,6 +537,8 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           'fontAsset',
           'uiScale',
           'textScale',
+          'customTextColors',
+          ...textColorKeys,
         ]),
         child: const Text('恢复主题与文字默认值'),
       ),
@@ -472,12 +592,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       [0xffd7eee3, 0xffedf4ee, 0xff285640, 0xff284033],
       [0xffd5dde6, 0xffe2e7ed, 0xff17212b, 0xff17212b],
     ][i - 1];
-    for (final e in [
-      'userColor',
-      'assistantColor',
-      'userText',
-      'assistantText',
-    ].asMap().entries) {
+    for (final e in ['userColor', 'assistantColor'].asMap().entries) {
       model.set(e.value, values[e.key]);
     }
     model.set('customMessageColors', true);
@@ -522,6 +637,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       title('气泡字体'),
       font('userFont', '我的消息字体'),
       font('assistantFont', '回复消息字体'),
+      textColors(includeInterface: false),
       title('气泡贴图'),
       for (final user in [true, false]) ...[
         label(user ? '我的消息贴图' : '回复消息贴图', size: 13),
@@ -569,6 +685,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
           'assistantColor',
           'userText',
           'assistantText',
+          'thinkingText',
           'userOpacity',
           'assistantOpacity',
           'userFont',

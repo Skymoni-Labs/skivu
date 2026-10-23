@@ -40,6 +40,100 @@ class MemoryProfiles implements ProfilePersistence {
 }
 
 void main() {
+  test(
+    'text palette is opt-in for old data and survives save and reset',
+    () async {
+      final disk = MemoryAppearance()
+        ..saved = {
+          'userText': 0xff7e22ce,
+          'assistantText': 0xff9a3412,
+          'customMessageColors': true,
+        };
+      final model = AppearancePreferences(persistence: disk);
+      await model.restore();
+      expect(model.textColor('userText'), const Color(0xff17212b));
+      model.set('customTextColors', true);
+      for (final key in ['interfaceText', 'inputText', 'thinkingText']) {
+        model.set(key, 0xff1d4ed8);
+      }
+      await model.save();
+      final restarted = AppearancePreferences(persistence: disk);
+      await restarted.restore();
+      expect(restarted.textColor('userText'), const Color(0xff7e22ce));
+      expect(restarted.textColor('inputText'), const Color(0xff1d4ed8));
+      expect(restarted.textColor('thinkingText'), const Color(0xff1d4ed8));
+      await restarted.resetSection([
+        'customTextColors',
+        'interfaceText',
+        'inputText',
+        'userText',
+        'assistantText',
+        'thinkingText',
+      ]);
+      expect(restarted.textColor('userText'), const Color(0xff17212b));
+      expect(restarted.flag('customMessageColors'), isTrue);
+      model.dispose();
+      restarted.dispose();
+    },
+  );
+
+  testWidgets(
+    'text color picker validates, saves independently and previews color',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final disk = MemoryAppearance();
+      final model = AppearancePreferences(persistence: disk);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AppearanceSettings(preferences: model),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final setting = find.byKey(const ValueKey('appearance-color-userText'));
+      await tester.ensureVisible(setting);
+      await tester.tap(setting);
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('color-hex-input'));
+      await tester.enterText(field, '#xyz');
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+      expect(find.text('请输入 6 位 RGB，例如 #347DA3'), findsOneWidget);
+      final blue = find.widgetWithText(ActionChip, '靛蓝');
+      await tester.ensureVisible(blue);
+      await tester.tap(blue);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('应用'));
+      await tester.pumpAndSettle();
+      expect(model.textColor('userText'), const Color(0xff1d4ed8));
+      expect(model.flag('customTextColors'), isTrue);
+      expect(model.flag('customMessageColors'), isFalse);
+      expect(
+        tester.widget<Text>(find.text('今天想和你聊一会儿。')).style!.color,
+        const Color(0xff1d4ed8),
+      );
+      expect(disk.saved!['userText'], 0xff1d4ed8);
+      await tester.ensureVisible(setting);
+      await tester.tap(setting);
+      await tester.pumpAndSettle();
+      final white = find.widgetWithText(ActionChip, '白色');
+      await tester.ensureVisible(white);
+      await tester.tap(white);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(model.textColor('userText'), const Color(0xff1d4ed8));
+      await tester.pumpWidget(const SizedBox());
+      model.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('reply width controls update the actual appearance preview', (
     tester,
   ) async {

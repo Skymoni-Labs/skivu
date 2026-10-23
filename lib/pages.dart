@@ -178,7 +178,7 @@ class _CharactersPageState extends State<CharactersPage> {
               ),
               PopupMenuButton<String>(
                 tooltip: '角色操作：${p.name}',
-                icon: const Icon(Icons.more_vert, size: 19, color: muted),
+                icon: Icon(Icons.more_vert, size: 19, color: muted),
                 onSelected: (action) async {
                   if (action == 'edit') {
                     demo.persona = i;
@@ -551,7 +551,7 @@ class _SettingsDetailState extends State<SettingsDetail> {
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 18),
           child: Text(
             section?.$3 ?? '选择你的偏好。',
-            style: const TextStyle(fontSize: 12, height: 1.5, color: ink),
+            style: TextStyle(fontSize: 12, height: 1.5, color: ink),
           ),
         ),
         switch (widget.section) {

@@ -299,7 +299,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               trailing: demo.messages[i].bookmarked
                                   ? Icon(Icons.bookmark, size: 17, color: green)
-                                  : const Icon(
+                                  : Icon(
                                       Icons.north_west,
                                       size: 16,
                                       color: muted,
@@ -567,12 +567,24 @@ class _ChatPageState extends State<ChatPage> {
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => send(),
                         onChanged: (_) => hideNavigation(),
-                        style: const TextStyle(fontSize: 14, height: 1.65),
-                        decoration: const InputDecoration(
+                        cursorColor: appearance.textColor('inputText'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.65,
+                          color: appearance.textColor('inputText'),
+                        ),
+                        decoration: InputDecoration(
                           hintText: '发消息…',
+                          hintStyle: TextStyle(
+                            color: appearance
+                                .textColor('inputText')
+                                .withValues(alpha: .65),
+                          ),
                           filled: false,
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                          ),
                         ),
                       ),
                     ),
@@ -580,11 +592,7 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: '展开输入',
                       onPressed: expandDraft,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.open_in_full,
-                        size: 16,
-                        color: muted,
-                      ),
+                      icon: Icon(Icons.open_in_full, size: 16, color: muted),
                     ),
                   ],
                 ),
@@ -608,7 +616,7 @@ class _ChatPageState extends State<ChatPage> {
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.keyboard_arrow_down,
                                 size: 16,
                                 color: muted,
@@ -622,13 +630,13 @@ class _ChatPageState extends State<ChatPage> {
                       tooltip: '对话设置',
                       onPressed: () => picker(true),
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.tune, size: 20, color: muted),
+                      icon: Icon(Icons.tune, size: 20, color: muted),
                     ),
                     IconButton(
                       tooltip: '添加内容',
                       onPressed: attachments,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.add, size: 23, color: muted),
+                      icon: Icon(Icons.add, size: 23, color: muted),
                     ),
                     const SizedBox(width: 4),
                     sendControl(),
@@ -663,6 +671,8 @@ class _ChatPageState extends State<ChatPage> {
           width: 360,
           child: TextField(
             controller: draft,
+            style: TextStyle(color: appearance.textColor('inputText')),
+            cursorColor: appearance.textColor('inputText'),
             minLines: 7,
             maxLines: 12,
             decoration: const InputDecoration(hintText: '在这里慢慢写…'),
@@ -921,7 +931,7 @@ class _ChatPageState extends State<ChatPage> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 iconSize: 17,
-                icon: const Icon(Icons.more_horiz, color: muted),
+                icon: Icon(Icons.more_horiz, color: muted),
                 onSelected: (v) async {
                   if (v == 'save') {
                     m.bookmarked = !m.bookmarked;

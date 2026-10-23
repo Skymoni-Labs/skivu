@@ -13,11 +13,13 @@ import 'relay_account.dart';
 import 'stream_reveal.dart';
 
 const appToolbarHeight = 64.0;
-const ink = Color(0xff17212b);
+Color get ink => appearance.textColor('interfaceText');
 Color get green => appearance.color('accent');
 Color get mist => Color.lerp(green, Colors.white, .86)!;
 Color get paper => Color.lerp(green, Colors.white, .965)!;
-const muted = Color(0xff39434f);
+Color get muted => appearance.flag('customTextColors')
+    ? appearance.textColor('interfaceText')
+    : const Color(0xff39434f);
 int _localSequence = 0;
 String _localId(String kind) =>
     '$kind-${DateTime.now().microsecondsSinceEpoch}-${_localSequence++}';

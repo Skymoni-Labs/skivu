@@ -13,7 +13,7 @@ class ChatStatusBar extends StatelessWidget {
     final rounds = conversation.messages
         .where((message) => message.user)
         .length;
-    const color = ink;
+    final color = ink;
     return DefaultTextStyle.merge(
       style: TextStyle(fontSize: 10, height: 1.4, color: color),
       child: Padding(

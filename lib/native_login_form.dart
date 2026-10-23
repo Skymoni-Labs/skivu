@@ -127,7 +127,7 @@ class _NativeLoginFormState extends State<NativeLoginForm> {
           onPressed: relayAccount.busy ? null : widget.browserLogin,
           child: Text(relayAccount.needsBrowser ? '在网页完成额外安全验证' : '其他方式：网页登录'),
         ),
-        const Text(
+        Text(
           '密码仅用于本次登录，不保存到 App；登录会话存入系统安全存储。',
           style: TextStyle(fontSize: 11, color: ink),
         ),

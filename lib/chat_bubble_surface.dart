@@ -9,13 +9,15 @@ TextStyle chatMessageStyle(
   BuildContext context,
   bool user, {
   double size = 14,
+  AppearancePreferences? preferences,
 }) {
+  final model = preferences ?? appearance;
   return TextStyle(
     fontSize: size,
     height: 1.75,
-    fontFamily: appearance.fontFamily(user ? 'userFont' : 'assistantFont'),
+    fontFamily: model.fontFamily(user ? 'userFont' : 'assistantFont'),
     fontFamilyFallback: const ['SkiSans'],
-    color: ink,
+    color: model.textColor(user ? 'userText' : 'assistantText'),
   );
 }
 

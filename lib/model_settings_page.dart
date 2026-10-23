@@ -83,7 +83,7 @@ class ModelSettingsPage extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${profile.protocol.label} · ${Uri.tryParse(profile.address)?.host ?? ''}',
-                    style: const TextStyle(fontSize: 11, color: muted),
+                    style: TextStyle(fontSize: 11, color: muted),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
