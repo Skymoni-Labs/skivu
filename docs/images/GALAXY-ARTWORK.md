@@ -11,7 +11,7 @@ The current README header uses matching light and dark galaxy artwork generated 
 
 - Chinese: [light](skivu-cover-zh.svg), [dark](skivu-cover-zh-dark.svg).
 - English: [light](skivu-cover.svg), [dark](skivu-cover-dark.svg).
-- The backgrounds are delivered as optimized JPEGs with their generated framing and dimensions preserved. Each SVG embeds its background and the approved, unchanged Skivu cloud logo.
+- The backgrounds are delivered as optimized JPEGs with their generated framing and dimensions preserved. Each SVG embeds its background and the approved Skivu logo source unchanged. A luminance mask preserves the cloud's original contours while presenting it in matching blue-grey or silver tones without the black launcher tile. The app's launcher assets remain unchanged.
 - Transparent edge fades blend the banner into the surrounding page. GitHub's theme-specific image links select the light or dark artwork, including when the account uses a single theme that differs from the system preference.
 - Typography is stable. Motion consists of a slow galaxy drift, breathing stars and an occasional meteor; `prefers-reduced-motion` retains the static scene.
 - Earlier artwork remains available in Git history.
