@@ -55,3 +55,18 @@ SDK 产物许可在 `licenses/Flutter-engine-NOTICES.txt`；Flutter/Dart、图�
 没有纳入 Operit1/2 官方宿主的业务代码、生成代码、补丁或素材。2026-10-21 用户要求迁入其旧星伴原创水滴光球，来源与适配记录另附；不再将该模块描述为全新从零编写。根据用户选择，纳入 Liquid Glass Easy 材质与触摸组件；没有导入其示例 App、照片或其他候选项目。新增后端、原生能力、模型、音色、插件或依赖时应重新核对实际版本和产物。
 
 2026-10-22 又按用户明确要求迁入其自行新增的消息定位拨盘和通话界面，固定文件、提交和适配范围见 MODULE-MIGRATION.md 与 module-migration-sources.json。没有整份导入上游已有的 ChatScrollNavigator 或旧宿主；当前原生语音适配使用 Android 平台 API，没有新增音频库或音色/模型权重。原有第三方许可继续保留。
+
+
+## 2026-10-23 内置 HTML 界面插件
+
+2026-10-24 插件市场：新增独立编写的数据型界面包目录、安装/卸载及摘要校验，未增加第三方依赖或任意外部脚本运行时。QQ/微信渲染器仍随 App 发布并保留以下来源和许可；插件包仅选择已适配模式，资金仍为本机角色虚拟余额。
+
+微信/QQ模式复用用户确认的自有HTML预览（固定提交2c29740），原创部分仍为GPL-3.0-only。assets/social_ui/PROVENANCE.json记录模板文件摘要；social.css、native.css与WeUI样式子集逐字保留，宿主适配样式另存host.css等文件。没有导入腾讯客户端私有代码、品牌图片、账号或聊天协议。
+
+2026-10-24：先按用户手机UI参考新增独立编写的qq_chat.js/css；用户随后明确恢复QQ联系人、动态/空间和频道等生态入口。新增chat_interactions.js/css、原角色群聊和虚拟交易生命周期均为本工程自主编写，没有提取QQ/微信客户端代码、素材、账号数据或私有协议，没有新增第三方依赖。仅共用Skivu已有角色、消息与设置；转账/红包/礼物为本机角色虚拟资金，不接腾讯支付。手机参考只经用户允许的UI截图/点击/滑动/返回观察，私人截图不随源码或产品分发。本机媒体预览不构成真实多人视频通话能力。
+
+Tencent/weui固定7a6f8ad7700d0d6f1361dbe5e2942b4b129e7a7e的MIT浅色变量和主按钮子集保留在assets/social_ui/vendor，完整许可证在同目录LICENSE.weui.txt。vue-weixin、uniapp-x-moments与vue-qq仅作结构研究参考，未整包复制或执行。
+
+新增webview_flutter 4.14.1（锁定Android实现4.12.0、WKWebView实现3.25.1、platform_interface 2.15.1）与web 1.1.1；Flutter团队BSD-3-Clause许可由Flutter生成的NOTICES收录。只加载随App打包的可信HTML资源；外部插件包和脚本下载安装未开放。
+
+2026-10-23 微信添加菜单与虚拟钱包：二维码在本机生成、识别，不上传相册图片。随包加入 jsQR 1.4.0（Apache-2.0，https://github.com/cozmo/jsQR）和 qrcode-generator 1.4.4（MIT，https://github.com/kazuhikoarase/qrcode-generator）。固定 npm 包 SHA-512 完整性已核对；文件 SHA-256、版本及许可来源见 assets/social_ui/vendor/qr-sources.json，完整许可证见同目录 LICENSE.jsQR.txt 和 LICENSE.qrcode-generator.txt，应用许可页已登记。两者不提供微信私有协议或真实支付能力。

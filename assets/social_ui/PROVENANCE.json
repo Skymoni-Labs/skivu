@@ -1,0 +1,11 @@
+{
+  "sourceCommit": "2c29740",
+  "source": "Skivu approved social HTML preview",
+  "files": {
+    "index.html": "d5fb3be8e6365ee7c0f3bc0819c3c9061fbf0b7172d585278d235df4ea558c80",
+    "social.js": "811dcb6e0f0b6ab758c9974e9be0f95ab6bb57561ff0cb72b37de18a8c9b0913",
+    "social.css": "cb8957bd2f86031462056fe49e0670c2e5f033568930a73f3e693e0a4d3523f9",
+    "native.css": "09a007a29042757470ce429b0369367b1f4ca55d16d22f4bcb75f169694be7ae",
+    "vendor/weui-light.css": "6e981af3ab785a39e03f9d4d2912a83946139ab460ed06a405ab399d5e0187b2"
+  }
+}

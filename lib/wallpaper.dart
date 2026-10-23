@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'image_validation.dart'
+    if (dart.library.js_interop) 'image_validation_web.dart'
+    as validation;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'media_picker_session.dart';
 import 'wallpaper_files.dart'
@@ -113,6 +116,10 @@ class WallpaperController extends ChangeNotifier {
   static Future<void> validateImage(Uint8List bytes) async {
     if (bytes.isEmpty || bytes.length > 3 * 1024 * 1024) {
       throw const FormatException('Image must be at most 3 MB after resizing.');
+    }
+    if (kIsWeb) {
+      await validation.validateWebImage(bytes);
+      return;
     }
     final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
     ui.ImageDescriptor? descriptor;

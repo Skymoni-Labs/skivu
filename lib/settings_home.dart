@@ -111,6 +111,8 @@ class SettingsHome extends StatelessWidget {
           ('内测计划', '申请状态与专属额度', Icons.science_outlined, '/settings/beta'),
         ]),
         group('使用偏好', [
+          ('界面模式', 'Skivu、微信与 QQ 模式', Icons.chat_bubble_outline, '/plugins'),
+          ('社交与群聊', '朋友圈、空间与群聊默认规则', Icons.forum_outlined, '/settings/social'),
           (
             '外观与体验',
             '主题、壁纸、文字与玻璃材质',

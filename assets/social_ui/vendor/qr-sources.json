@@ -1,0 +1,26 @@
+[
+  {
+    "name": "jsqr",
+    "version": "1.4.0",
+    "license": "Apache-2.0",
+    "repository": "https://github.com/cozmo/jsQR",
+    "licenseCommit": null,
+    "registryIntegrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==",
+    "files": {
+      "jsQR.js": "bc40c8a15196236b2314db0856f72ca0b49980cd5413b8c852a7349f5fee0859",
+      "LICENSE.jsQR.txt": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+    }
+  },
+  {
+    "name": "qrcode-generator",
+    "version": "1.4.4",
+    "license": "MIT",
+    "repository": "https://github.com/kazuhikoarase/qrcode-generator",
+    "licenseCommit": "517b9e6c3882f3ad28e4f776bbf1e1495869dc4c",
+    "registryIntegrity": "sha512-HM7yY8O2ilqhmULxGMpcHSF1EhJJ9yBj8gvDEuZ6M+KGJ0YY2hKpnXvRD+hZPLrDVck3ExIGhmPtSdcjC+guuw==",
+    "files": {
+      "qrcode.js": "18ae399f81182bc9de916e9c77b195df20cc58d6f2d55a62b085a299f1bf1780",
+      "LICENSE.qrcode-generator.txt": "3a850fa5f08101db6f40676c2786e10bd2cd5fff7b12ffdf1e0c434d4e49d90c"
+    }
+  }
+]

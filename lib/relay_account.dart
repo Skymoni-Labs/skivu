@@ -640,8 +640,15 @@ class RelayAccount extends ChangeNotifier {
     }
   }
 
-  ChatSession startChat(List<Map<String, String>> history, String prompt) {
-    final config = connection;
+  ChatSession startChat(
+    List<Map<String, String>> history,
+    String prompt, {
+    bool? streaming,
+    ModelConnection? requestConfig,
+  }) {
+    final config =
+        requestConfig ??
+        (streaming == null ? connection : connection?.withStreaming(streaming));
     if (config == null) throw const ChatFailure('请先登录中转站并同步模型。');
     return ChatSession.account(
       _clients(),

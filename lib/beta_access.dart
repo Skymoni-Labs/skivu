@@ -281,8 +281,15 @@ class BetaAccess extends ChangeNotifier {
     notifyListeners();
   }
 
-  ChatSession startChat(List<Map<String, String>> history, String prompt) {
-    final config = connection;
+  ChatSession startChat(
+    List<Map<String, String>> history,
+    String prompt, {
+    bool? streaming,
+    ModelConnection? requestConfig,
+  }) {
+    final config =
+        requestConfig ??
+        (streaming == null ? connection : connection?.withStreaming(streaming));
     if (config == null) throw const ChatFailure('内测尚未配对或暂无可用模型，请先检查内测状态。');
     final path = _chatPath;
     return ChatSession.beta(

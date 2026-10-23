@@ -26,6 +26,14 @@ import 'app_updates.dart';
 import 'speech_settings.dart';
 import 'role_conversation_tree.dart';
 import 'sidebar_layout.dart';
+import 'ui_plugins.dart';
+import 'ui_plugins_page.dart';
+import 'plugin_market.dart';
+import 'social_settings.dart';
+import 'social_activity.dart';
+import 'virtual_wallet.dart';
+import 'html_ui_page.dart';
+import 'social_ui_metrics.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -79,6 +87,20 @@ Future<void> main() async {
       'Roboto Mono',
     ], await rootBundle.loadString('licenses/RobotoMono-OFL.txt'));
   });
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'Tencent WeUI · built-in UI styles',
+    ], await rootBundle.loadString('assets/social_ui/vendor/LICENSE.weui.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'jsQR 1.4.0 · Apache-2.0',
+    ], await rootBundle.loadString('assets/social_ui/vendor/LICENSE.jsQR.txt'));
+    yield LicenseEntryWithLineBreaks(
+      ['qrcode-generator 1.4.4 · MIT'],
+      await rootBundle.loadString(
+        'assets/social_ui/vendor/LICENSE.qrcode-generator.txt',
+      ),
+    );
+  });
   await Future.wait([
     wallpaper.restore(),
     glassPreferences.restore(),
@@ -90,6 +112,14 @@ Future<void> main() async {
   await betaAccess.restore();
   await relayAccount.restore();
   await demo.restore();
+  await uiPlugins.restore();
+  await pluginMarket.restore();
+  if (uiPlugins.mode != ChatUiMode.classic &&
+      pluginMarket.installedFor(uiPlugins.mode) == null)
+    await uiPlugins.apply(ChatUiMode.classic);
+  await socialSettings.restore();
+  await socialActivity.restore();
+  await virtualWallet.restore();
   await recoverInterruptedMedia();
   runApp(const SkiApp());
   unawaited(checkStartupUpdate());
@@ -106,11 +136,19 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    socialActivity.setForeground(
+      WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed ||
+          (kIsWeb &&
+              WidgetsBinding.instance.lifecycleState ==
+                  AppLifecycleState.inactive),
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    socialActivity.setForeground(false);
     super.dispose();
   }
 
@@ -121,6 +159,10 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    socialActivity.setForeground(
+      state == AppLifecycleState.resumed ||
+          (kIsWeb && state == AppLifecycleState.inactive),
+    );
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused)
       demo.saveChats();
@@ -128,7 +170,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: demo,
+    animation: Listenable.merge([demo, uiPlugins]),
     builder: (context, _) => MaterialApp(
       title: appName,
       navigatorKey: appNavigator,
@@ -262,66 +304,103 @@ class MobilePreviewStage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, bounds) {
         final framed = bounds.maxWidth >= 600;
-        final width = math.min(430.0, bounds.maxWidth);
-        final height = framed
+        final nativeFrame = framed && uiPlugins.mode != ChatUiMode.classic;
+        final width = nativeFrame
+            ? SocialUiMetrics.previewWidth
+            : math.min(430.0, bounds.maxWidth);
+        final height = nativeFrame
+            ? SocialUiMetrics.previewHeight
+            : framed
             ? math.min(932.0, bounds.maxHeight - 28)
             : bounds.maxHeight;
-        final screenHeight = height - (framed ? 36 : 0);
+        final screenHeight =
+            height - (framed ? 34 : 0) - (nativeFrame ? 20 : 0);
         return Material(
           color: const Color(0xffe8edf4),
           child: Center(
-            child: Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: BorderRadius.circular(framed ? 30 : 0),
-                border: framed
-                    ? Border.all(color: const Color(0xffbbc9da), width: 1)
-                    : null,
-                boxShadow: framed
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xff17212b).withValues(alpha: .1),
-                          blurRadius: 36,
-                          offset: const Offset(0, 12),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(framed ? 29 : 0),
-                child: Column(
-                  children: [
-                    if (framed)
-                      SizedBox(
-                        height: 36,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Row(
-                            children: [
-                              label('9:41', size: 11, weight: FontWeight.w600),
-                              const Spacer(),
-                              const Icon(Icons.signal_cellular_alt, size: 14),
-                              const SizedBox(width: 5),
-                              const Icon(Icons.wifi, size: 14),
-                              const SizedBox(width: 5),
-                              const Icon(Icons.battery_full, size: 16),
-                            ],
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: nativeFrame ? 14 : 0),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(framed ? 30 : 0),
+                    border: framed
+                        ? Border.all(color: const Color(0xffbbc9da), width: 1)
+                        : null,
+                    boxShadow: framed
+                        ? [
+                            BoxShadow(
+                              color: const Color(
+                                0xff17212b,
+                              ).withValues(alpha: .1),
+                              blurRadius: 36,
+                              offset: const Offset(0, 12),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(framed ? 29 : 0),
+                    child: Column(
+                      children: [
+                        if (framed)
+                          SizedBox(
+                            height: 34,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
+                              child: Row(
+                                children: [
+                                  label(
+                                    '9:41',
+                                    size: 11,
+                                    weight: FontWeight.w600,
+                                  ),
+                                  const Spacer(),
+                                  const Icon(
+                                    Icons.signal_cellular_alt,
+                                    size: 14,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Icon(Icons.wifi, size: 14),
+                                  const SizedBox(width: 5),
+                                  const Icon(Icons.battery_full, size: 16),
+                                ],
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: MediaQuery(
+                            data: MediaQuery.of(context).copyWith(
+                              size: Size(width, screenHeight),
+                              padding: EdgeInsets.zero,
+                              textScaler: TextScaler.linear(demo.textScale),
+                            ),
+                            child: child,
                           ),
                         ),
-                      ),
-                    Expanded(
-                      child: MediaQuery(
-                        data: MediaQuery.of(context).copyWith(
-                          size: Size(width, screenHeight),
-                          padding: EdgeInsets.zero,
-                          textScaler: TextScaler.linear(demo.textScale),
-                        ),
-                        child: child,
-                      ),
+                        if (nativeFrame)
+                          SizedBox(
+                            height: 20,
+                            child: Center(
+                              child: Container(
+                                width: 108,
+                                height: 3,
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -360,6 +439,10 @@ class _SkiShellState extends State<SkiShell>
   void returnHome(bool didPop, Object? result) {
     if (didPop) return;
     if (motion.offset.abs() > .1 || motion.dragging) motion.close();
+    if (widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic) {
+      uiPlugins.showHome();
+      return;
+    }
     if (widget.route != '/chat') go('/chat');
   }
 
@@ -393,13 +476,25 @@ class _SkiShellState extends State<SkiShell>
         reduced: demo.prefs['减少动态效果'] ?? false,
       );
       // Stable subtrees: drag ticks update transforms in SlideDeck, not chat layout.
+      final htmlUi =
+          widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic;
       final body = widget.route == '/chat'
-          ? ChatPage(
-              backdropAnchor: _foregroundKey,
-              openWorkspace: () => panel(-1),
-              openCall: () => go('/call'),
-              openModels: () => go('/settings/models'),
-            )
+          ? htmlUi
+                ? HtmlUiPage(
+                    go: go,
+                    openNavigation: () {
+                      if (motion.offset < .1) panel(1);
+                    },
+                    openWorkspace: () {
+                      if (motion.offset > -.1) panel(-1);
+                    },
+                  )
+                : ChatPage(
+                    backdropAnchor: _foregroundKey,
+                    openWorkspace: () => panel(-1),
+                    openCall: () => go('/call'),
+                    openModels: () => go('/settings/models'),
+                  )
           : ContentPage(route: widget.route, go: go);
       final navigation = RepaintBoundary(
         child: SkiGlassPanel(
@@ -496,39 +591,40 @@ class _SkiShellState extends State<SkiShell>
                         child: RepaintBoundary(child: body),
                       ),
               ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: capsule
-                    ? Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          10,
-                          MediaQuery.paddingOf(context).top + 2,
-                          10,
-                          5,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(40),
-                          child: ConfigurableGlassSurface(
-                            area: 'toolbarBlur',
-                            radius: 40,
+              if (!htmlUi)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: capsule
+                      ? Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            10,
+                            MediaQuery.paddingOf(context).top + 2,
+                            10,
+                            5,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(40),
+                            child: ConfigurableGlassSurface(
+                              area: 'toolbarBlur',
+                              radius: 40,
+                              child: toolbar,
+                            ),
+                          ),
+                        )
+                      : ConfigurableGlassSurface(
+                          key: const ValueKey('glass-rectangle-toolbar'),
+                          area: 'toolbarBlur',
+                          radius: 0,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              top: MediaQuery.paddingOf(context).top,
+                            ),
                             child: toolbar,
                           ),
                         ),
-                      )
-                    : ConfigurableGlassSurface(
-                        key: const ValueKey('glass-rectangle-toolbar'),
-                        area: 'toolbarBlur',
-                        radius: 0,
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            top: MediaQuery.paddingOf(context).top,
-                          ),
-                          child: toolbar,
-                        ),
-                      ),
-              ),
+                ),
             ],
           ),
         ),
@@ -538,6 +634,7 @@ class _SkiShellState extends State<SkiShell>
         backgroundColor: Colors.transparent,
         body: SkiGlassScene(
           motion: motion,
+          cacheChatBackdrop: uiPlugins.mode != ChatUiMode.classic,
           // Sheets fill the display; only their foregrounds keep safe insets.
           child: BackdropGroup(
             child: SlideDeck(
@@ -600,6 +697,7 @@ class _SideNavigationState extends State<SideNavigation> {
     final id = await chooseChatRole(context, demo);
     if (id != null && mounted) {
       demo.newChat(personaId: id);
+      uiPlugins.showConversation();
       widget.go('/chat');
     }
   }
@@ -703,11 +801,20 @@ class _SideNavigationState extends State<SideNavigation> {
                     RoleConversationTree(
                       store: demo,
                       query: query,
-                      openChat: () => widget.go('/chat'),
+                      openChat: () {
+                        uiPlugins.showConversation();
+                        widget.go('/chat');
+                      },
                     ),
                     const SizedBox(height: 12),
                     link('角色', Icons.badge_outlined, '/characters'),
-                    link('插件市场', Icons.widgets_outlined, '/market', soon: true),
+                    link('插件市场', Icons.widgets_outlined, '/market'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: SidebarLayout.inset,
+                      ),
+                      child: UiPluginOptions(compact: true, go: widget.go),
+                    ),
                     const SizedBox(height: 8),
                   ],
                 ),

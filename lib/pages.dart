@@ -13,6 +13,8 @@ import 'account_beta_page.dart';
 import 'relay_account_page.dart';
 import 'app_updates_page.dart';
 import 'speech_settings_page.dart';
+import 'ui_plugins_page.dart';
+import 'social_settings_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
@@ -20,6 +22,7 @@ const settingsSections = <(String, String, String, IconData)>[
   ('beta', '内测计划', '申请状态与专属内测额度', Icons.science_outlined),
   ('models', '模型与服务', '管理连接，选择适合你的模型', Icons.hub_outlined),
   ('speech', '语音与通话', '合成服务、音色与语速', Icons.graphic_eq),
+  ('social', '社交与群聊', '角色动态、自动评论与群聊默认规则', Icons.forum_outlined),
   ('appearance', '外观', '壁纸、主题与文字大小', Icons.palette_outlined),
   ('permissions', '隐私与权限', '了解数据如何使用', Icons.shield_outlined),
   ('data', '聊天记录', '本地保存、备份与清理', Icons.history),
@@ -40,8 +43,10 @@ class ContentPage extends StatelessWidget {
       child = CharactersPage(go: go);
     } else if (route == '/characters/edit') {
       child = CharacterEditor(go: go);
-    } else if (route == '/plugins' || route == '/market') {
-      child = PluginsPage(market: route == '/market', go: go);
+    } else if (route == '/plugins') {
+      child = UiPluginsPage(go: go);
+    } else if (route == '/market') {
+      child = UiPluginsPage(go: go);
     } else if (route == '/settings') {
       child = settingsHome(context);
     } else if (route.startsWith('/settings/')) {
@@ -560,6 +565,7 @@ class _SettingsDetailState extends State<SettingsDetail> {
           'beta' => AccountBetaPage(go: widget.go),
           'models' => models(),
           'speech' => speech(),
+          'social' => const SocialSettingsPage(),
           'appearance' => appearance(),
           'permissions' => const PrivacySettings(),
           'data' => data(),

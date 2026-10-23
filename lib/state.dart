@@ -11,6 +11,7 @@ import 'model_settings.dart';
 import 'beta_access.dart';
 import 'relay_account.dart';
 import 'stream_reveal.dart';
+import 'chat_interaction.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -35,6 +36,7 @@ class Message {
   int? tokens, elapsedMs;
   String status = 'complete';
   String? error;
+  String? authorId;
   Map<String, dynamic> toJson() => {
     'user': user,
     'text': text,
@@ -47,6 +49,7 @@ class Message {
     'elapsedMs': elapsedMs,
     'status': status,
     'error': error,
+    'authorId': authorId,
   };
   factory Message.fromJson(Map<String, dynamic> raw) =>
       Message(
@@ -56,6 +59,7 @@ class Message {
           created: DateTime.tryParse(raw['created'] as String? ?? ''),
         )
         ..thinking = raw['thinking'] as String?
+        ..authorId = raw['authorId'] is String ? raw['authorId'] : null
         ..modelName = raw['modelName'] as String?
         ..provider = raw['provider'] as String?
         ..tokens = raw['tokens'] as int?
@@ -148,27 +152,54 @@ class Conversation {
     String? id,
     this.personaId,
     this.pinned = false,
+    this.muted = false,
+    this.replyReminder = false,
+    this.chatBackground,
     this.titleEdited = false,
     this.placeholder = false,
   }) : id = id ?? _localId('chat');
   final String id;
   String? personaId;
-  bool pinned, titleEdited, placeholder;
+  bool pinned, titleEdited, placeholder, muted, replyReminder;
+  String? chatBackground;
+  static bool validBackground(String value) =>
+      value.length <= 180000 &&
+      RegExp(
+        r'^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$',
+      ).hasMatch(value);
   String title;
   List<Message> messages;
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
+  List<Map<String, dynamic>> interactions = [];
+  Set<String> hiddenInteractions = {};
+  DateTime? interactionsClearedAt;
+  List<String> groupMembers = [];
+  String groupRule = 'manual';
+  String groupKind = 'group';
+  int groupMaxReplies = 1, groupHistoryLimit = 20;
   Map<String, dynamic> toJson() => {
     'id': id,
     'personaId': personaId,
     'pinned': pinned,
+    'muted': muted,
+    'replyReminder': replyReminder,
+    'chatBackground': chatBackground,
     'titleEdited': titleEdited,
     'placeholder': placeholder,
     'title': title,
     'messages': messages.map((m) => m.toJson()).toList(),
     'usedTokens': usedTokens,
     'draft': draft,
+    'interactions': interactions,
+    'hiddenInteractions': hiddenInteractions.toList(),
+    'interactionsClearedAt': interactionsClearedAt?.toIso8601String(),
+    'groupMembers': groupMembers,
+    'groupKind': groupKind,
+    'groupRule': groupRule,
+    'groupMaxReplies': groupMaxReplies,
+    'groupHistoryLimit': groupHistoryLimit,
   };
   factory Conversation.fromJson(Map<String, dynamic> raw) =>
       Conversation(
@@ -179,6 +210,13 @@ class Conversation {
           id: raw['id'] as String?,
           personaId: raw['personaId'] as String?,
           pinned: raw['pinned'] == true,
+          muted: raw['muted'] == true,
+          replyReminder: raw['replyReminder'] == true,
+          chatBackground:
+              raw['chatBackground'] is String &&
+                  validBackground(raw['chatBackground'] as String)
+              ? raw['chatBackground'] as String
+              : null,
           titleEdited: raw['titleEdited'] == true,
           placeholder:
               raw['placeholder'] == true &&
@@ -186,7 +224,66 @@ class Conversation {
               (raw['draft'] as String? ?? '').trim().isEmpty,
         )
         ..usedTokens = raw['usedTokens'] as int? ?? 0
-        ..draft = raw['draft'] as String? ?? '';
+        ..draft = raw['draft'] as String? ?? ''
+        ..interactions =
+            (raw['interactions'] is List ? raw['interactions'] as List : [])
+                .whereType<Map>()
+                .take(100)
+                .map(cleanChatInteraction)
+                .whereType<Map<String, dynamic>>()
+                .toList()
+        ..hiddenInteractions =
+            (raw['hiddenInteractions'] is List
+                    ? raw['hiddenInteractions'] as List
+                    : [])
+                .whereType<String>()
+                .where((id) => id.length <= 100)
+                .take(1000)
+                .toSet()
+        ..interactionsClearedAt = DateTime.tryParse(
+          raw['interactionsClearedAt'] is String
+              ? raw['interactionsClearedAt']
+              : '',
+        )
+        ..groupMembers =
+            (raw['groupMembers'] is List ? raw['groupMembers'] as List : [])
+                .whereType<String>()
+                .where((id) => id.isNotEmpty && id.length <= 100)
+                .toSet()
+                .take(8)
+                .toList()
+        ..groupRule =
+            [
+              'manual',
+              'mentions',
+              'roundRobin',
+              'automatic',
+            ].contains(raw['groupRule'])
+            ? raw['groupRule']
+            : 'manual'
+        ..groupKind = raw['groupKind'] == 'channel' ? 'channel' : 'group'
+        ..groupMaxReplies = raw['groupMaxReplies'] is int
+            ? (raw['groupMaxReplies'] as int).clamp(1, 6)
+            : 1
+        ..groupHistoryLimit = raw['groupHistoryLimit'] is int
+            ? (raw['groupHistoryLimit'] as int).clamp(5, 100)
+            : 20;
+}
+
+class ClearedChatMessages {
+  ClearedChatMessages(this.chat)
+    : messages = List.of(chat.messages),
+      interactions = List.of(chat.interactions),
+      clearedAt = chat.interactionsClearedAt,
+      usedTokens = chat.usedTokens,
+      usage = chat.usage;
+  final Conversation chat;
+  final List<Message> messages;
+  final List<Map<String, dynamic>> interactions;
+  final DateTime? clearedAt;
+  final int usedTokens;
+  final ConversationUsage usage;
+  bool restored = false;
 }
 
 /// Provider-reported statistics. Null means unavailable, never an estimate from
@@ -406,6 +503,13 @@ class DemoStore extends ChangeNotifier {
     final target = personas.where((p) => p.id == id).firstOrNull;
     if (target == null || personas.length <= 1) return false;
     final active = conversations[conversation], editorId = editingRole.id;
+    for (final chat in conversations.where(
+      (c) => c.groupMembers.contains(id),
+    )) {
+      chat.groupMembers.remove(id);
+      if (chat.personaId == id && chat.groupMembers.isNotEmpty)
+        chat.personaId = chat.groupMembers.first;
+    }
     final activeRemoved = active.personaId == id;
     if (activeRemoved) stop();
     personas.remove(target);
@@ -455,6 +559,8 @@ class DemoStore extends ChangeNotifier {
       chat.personaId ??= roles[fallback].id;
       if (!ids.contains(chat.personaId))
         throw const FormatException('对话所属角色不存在');
+      if (chat.groupMembers.any((id) => !ids.contains(id)))
+        throw const FormatException('群成员不存在');
     }
     if (chats.isEmpty)
       chats.add(
@@ -721,6 +827,36 @@ class DemoStore extends ChangeNotifier {
     saveChats();
   }
 
+  ClearedChatMessages? clearChatMessages(String id) {
+    final target = conversations.where((c) => c.id == id).firstOrNull;
+    if (target == null) return null;
+    if (identical(target, conversations[conversation])) stop();
+    final backup = ClearedChatMessages(target);
+    target.messages.clear();
+    target.interactions.clear();
+    target.interactionsClearedAt = DateTime.now();
+    target.usedTokens = 0;
+    target.usage = const ConversationUsage();
+    target.placeholder = false;
+    changed();
+    saveChats();
+    return backup;
+  }
+
+  bool restoreClearedMessages(ClearedChatMessages backup) {
+    if (backup.restored || !conversations.contains(backup.chat)) return false;
+    final target = backup.chat;
+    if (target.messages.isEmpty) target.usage = backup.usage;
+    target.messages.insertAll(0, backup.messages);
+    target.interactions.insertAll(0, backup.interactions);
+    target.interactionsClearedAt = backup.clearedAt;
+    target.usedTokens += backup.usedTokens;
+    backup.restored = true;
+    changed();
+    saveChats();
+    return true;
+  }
+
   void deleteChat(String id) {
     final chat = conversations.where((c) => c.id == id).firstOrNull;
     if (chat == null) return;
@@ -786,7 +922,7 @@ class DemoStore extends ChangeNotifier {
     saveChats();
   }
 
-  bool send(String input) {
+  bool send(String input, {bool? streamingOverride}) {
     if (input.trim().isEmpty || streaming) return false;
     final config = activeConnection;
     if (config == null) {
@@ -808,8 +944,125 @@ class DemoStore extends ChangeNotifier {
           ? input.trim().substring(0, 14)
           : input.trim();
     attached = false;
-    _begin(config);
+    final connection = streamingOverride == null
+        ? config
+        : config.withStreaming(streamingOverride);
+    if (conversations[conversation].groupMembers.isNotEmpty) {
+      final target = conversations[conversation];
+      final members = target.groupMembers
+          .map((id) => personas.where((p) => p.id == id).firstOrNull)
+          .whereType<Persona>()
+          .toList();
+      final mentioned = members
+          .where((p) => input.contains('@${p.name}'))
+          .toList();
+      final turn = (target.messages.where((m) => m.user).length - 1);
+      final chosen = target.groupRule == 'mentions'
+          ? mentioned
+          : mentioned.isNotEmpty
+          ? mentioned
+          : target.groupRule == 'roundRobin' || target.groupRule == 'automatic'
+          ? [
+              for (
+                var i = 0;
+                i < target.groupMaxReplies && i < members.length;
+                i++
+              )
+                members[(turn + i) % members.length],
+            ]
+          : members.take(1).toList();
+      final selected = chosen.take(target.groupMaxReplies).toList();
+      if (selected.isEmpty) {
+        saveChats();
+        changed();
+        return true;
+      }
+      lastError = null;
+      streaming = true;
+      final generation = ++_generation;
+      changed();
+      unawaited(
+        _beginGroup(
+          target,
+          connection.withStreaming(false),
+          selected,
+          generation,
+        ),
+      );
+    } else {
+      _begin(connection);
+    }
     return true;
+  }
+
+  Future<void> _beginGroup(
+    Conversation target,
+    ModelConnection config,
+    List<Persona> members,
+    int generation,
+  ) async {
+    final betaRequest = useBeta, accountRequest = useAccount && !useBeta;
+    try {
+      for (final member in members) {
+        if (generation != _generation ||
+            _disposed ||
+            !conversations.contains(target))
+          return;
+        if (!personas.any((p) => p.id == member.id)) continue;
+        final history = target.messages
+            .where((m) => m.user || (m.text.isNotEmpty && m.status != 'failed'))
+            .toList();
+        final values = history
+            .skip(
+              (history.length - target.groupHistoryLimit).clamp(
+                0,
+                history.length,
+              ),
+            )
+            .map(
+              (m) => {
+                'role': m.user ? 'user' : 'assistant',
+                'content': m.user
+                    ? m.text
+                    : '${personas.where((p) => p.id == m.authorId).firstOrNull?.name ?? '群成员'}：${m.text}',
+              },
+            )
+            .toList();
+        final answer = Message(false, '')
+          ..authorId = member.id
+          ..status = 'pending'
+          ..modelName = config.model
+          ..provider = config.provider;
+        target.messages.add(answer);
+        _pending = answer;
+        streaming = true;
+        final prompt =
+            '${member.compiledPrompt}\n\n这是角色群聊“${target.title}”。你只以${member.name}身份回应，不代替用户或其他成员发言。'
+                .replaceAll('{{char}}', member.name)
+                .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
+        changed();
+        await _generate(
+          target,
+          answer,
+          config,
+          values,
+          prompt,
+          generation,
+          betaRequest,
+          accountRequest,
+          keepStreaming: true,
+        );
+        if (answer.status == 'failed') break;
+      }
+    } finally {
+      if (generation == _generation) {
+        streaming = false;
+        _pending = null;
+        _session = null;
+        saveChats();
+        changed();
+      }
+    }
   }
 
   void regenerate() {
@@ -818,8 +1071,63 @@ class DemoStore extends ChangeNotifier {
         messages.isEmpty ||
         messages.last.user)
       return;
-    messages.removeLast();
-    _begin(activeConnection!);
+    final target = conversations[conversation];
+    if (target.groupMembers.isNotEmpty) {
+      final author = personas
+          .where(
+            (p) =>
+                p.id == messages.last.authorId &&
+                target.groupMembers.contains(p.id),
+          )
+          .firstOrNull;
+      if (author == null) return;
+      messages.removeLast();
+      lastError = null;
+      streaming = true;
+      final generation = ++_generation;
+      changed();
+      unawaited(
+        _beginGroup(target, activeConnection!.withStreaming(false), [
+          author,
+        ], generation),
+      );
+    } else {
+      messages.removeLast();
+      _begin(activeConnection!);
+    }
+  }
+
+  /// A social job owns its own session and never appends to a chat or changes
+  /// the selected role, conversation, draft, or connection configuration.
+  Future<ChatSession> startSocialReply(
+    String personaId,
+    String instruction,
+  ) async {
+    final persona = personas.where((p) => p.id == personaId).firstOrNull;
+    final active = activeConnection;
+    if (persona == null) throw const ChatFailure('参与互动的角色已不存在。');
+    if (active == null) throw const ChatFailure('请先在模型与服务中配置可用模型。');
+    final config = ModelConnection.fromJson({
+      ...active.toJson(),
+      'streaming': false,
+      'maxOutput': active.maxOutput.clamp(16, 512),
+    });
+    final prompt = persona.compiledPrompt
+        .replaceAll('{{char}}', persona.name)
+        .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
+    final history = [
+      {'role': 'user', 'content': instruction},
+    ];
+    if (useBeta) return beta.startChat(history, prompt, requestConfig: config);
+    if (useAccount)
+      return account.startChat(history, prompt, requestConfig: config);
+    final key = await models.keyFor(config.id);
+    if (key.isEmpty &&
+        config.auth != 'none' &&
+        !['Ollama', 'LM Studio'].contains(config.provider)) {
+      throw const ChatFailure('此连接未填写 API Key，请在模型设置中补充。');
+    }
+    return _api.start(config, key, history, prompt);
   }
 
   void _begin(ModelConnection config) {
@@ -876,8 +1184,9 @@ class DemoStore extends ChangeNotifier {
     String prompt,
     int generation,
     bool betaRequest,
-    bool accountRequest,
-  ) async {
+    bool accountRequest, {
+    bool keepStreaming = false,
+  }) async {
     final watch = Stopwatch()..start();
     var usage = const ApiUsage();
     final reveal = StreamReveal((text, thinking) {
@@ -901,9 +1210,9 @@ class DemoStore extends ChangeNotifier {
           !['Ollama', 'LM Studio'].contains(config.provider))
         throw const ChatFailure('此连接未填写 API Key，请在模型设置中补充。');
       final session = betaRequest
-          ? beta.startChat(history, prompt)
+          ? beta.startChat(history, prompt, streaming: config.streaming)
           : accountRequest
-          ? account.startChat(history, prompt)
+          ? account.startChat(history, prompt, streaming: config.streaming)
           : _api.start(config, key, history, prompt);
       _session = session;
       await for (final event in session.events) {
@@ -970,7 +1279,7 @@ class DemoStore extends ChangeNotifier {
         answer.elapsedMs = watch.elapsedMilliseconds;
         if (usage.input != null && usage.output != null)
           target.usedTokens += usage.input! + usage.output!;
-        streaming = false;
+        streaming = keepStreaming;
         _pending = null;
         _session = null;
         saveChats();

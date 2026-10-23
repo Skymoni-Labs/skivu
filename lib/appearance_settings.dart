@@ -11,14 +11,19 @@ import 'state.dart';
 import 'widgets.dart';
 
 class AppearanceSettings extends StatefulWidget {
-  const AppearanceSettings({super.key, this.preferences});
+  const AppearanceSettings({
+    super.key,
+    this.preferences,
+    this.initialSection = 0,
+  });
   final AppearancePreferences? preferences;
+  final int initialSection;
   @override
   State<AppearanceSettings> createState() => _AppearanceSettingsState();
 }
 
 class _AppearanceSettingsState extends State<AppearanceSettings> {
-  int section = 0;
+  late int section = widget.initialSection.clamp(0, 4);
   AppearancePreferences get model => widget.preferences ?? appearance;
   void change(String key, dynamic value) {
     model.set(key, value);

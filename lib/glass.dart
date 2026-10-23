@@ -19,10 +19,12 @@ class SkiGlassScene extends StatefulWidget {
     required this.child,
     required this.motion,
     this.wallpaperController,
+    this.cacheChatBackdrop = false,
   });
   final Widget child;
   final DrawerMotion motion;
   final WallpaperController? wallpaperController;
+  final bool cacheChatBackdrop;
   @override
   State<SkiGlassScene> createState() => _SkiGlassSceneState();
 }
@@ -104,8 +106,8 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
           revision:
               '${_layoutSize?.width},${_layoutSize?.height}/${_size?.width},${_size?.height}/${_viewInsets.left},${_viewInsets.top},${_viewInsets.right},${_viewInsets.bottom}/$_dark/$_backdropStyle/$_paintedWallpaper/${_wallpaper.data?.id}/${_wallpaper.data?.blur}/${_wallpaper.data?.dim}',
           enabled:
-              !kIsWeb &&
-              defaultTargetPlatform == TargetPlatform.android &&
+              ((!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ||
+                  widget.cacheChatBackdrop) &&
               (appearance.text('videoAsset').isEmpty ||
                   !appearance.flag('backgroundEnabled')),
           radii: _chatRadii,
@@ -128,6 +130,8 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
   @override
   void didUpdateWidget(covariant SkiGlassScene oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.cacheChatBackdrop != widget.cacheChatBackdrop)
+      _refreshCapture();
     final previousWallpaper = oldWidget.wallpaperController ?? wallpaper;
     if (previousWallpaper != _wallpaper) {
       previousWallpaper.removeListener(_updateWallpaper);

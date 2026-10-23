@@ -1,0 +1,162 @@
+/* Original page layout. Official WeUI light tokens are isolated in vendor/. */
+.evidence-note{font-size:10px;line-height:1.8;color:#7b8991;margin-top:12px}
+.social-quick-nav a{display:grid;place-items:center;color:#527b8d;font-size:10px;text-decoration:none}
+.social-shell.native-style[data-mode]{--message-size:16px;background:#ededed;color:#191919;font-family:Roboto,"Noto Sans SC","Microsoft YaHei",sans-serif}
+.social-shell.native-style[data-mode]>.topbar{top:0;left:0;right:0;padding-top:34px;border:0;border-radius:0;background:#ededed;backdrop-filter:none;box-shadow:none}
+.social-shell.native-style[data-mode] .topbar-inner{height:52px;padding:0 12px;gap:0;position:relative}
+.social-shell.native-style[data-mode] #topbar [data-action=left],.social-shell.native-style[data-mode] #topbar [data-action=right],.social-shell.native-style[data-mode] #topbar [data-action=call]{display:none}
+.social-shell.native-style[data-mode] .role-title{font-size:17px;font-weight:500;color:#191919;text-align:center;padding:8px 42px;position:absolute;left:0;right:0;pointer-events:none}
+.social-shell.native-style[data-mode] .social-back{width:32px;height:44px;z-index:1}
+.social-shell.native-style[data-mode] .social-back svg{width:24px;height:24px;stroke-width:1.8}
+.social-shell.native-style[data-mode] .social-header-action{width:36px;height:44px;margin-left:auto;z-index:1}
+.social-shell.native-style[data-mode] .social-header-action svg{width:25px;height:25px;stroke-width:1.7}
+.social-shell.native-style[data-mode] .social-page{padding-top:86px;background:#ededed;color:#191919}
+.social-shell.native-style[data-mode] .social-search{margin:0;padding:7px 16px 12px;background:#ededed;border-radius:0;position:relative;gap:0}
+.social-shell.native-style[data-mode] .social-search input{background:white;font-size:16px;border-radius:5px;height:34px;line-height:34px;text-align:center;padding:0 35px}
+.social-shell.native-style[data-mode] .social-search input:focus{text-align:left}
+.social-shell.native-style[data-mode] .social-search input::placeholder{color:#a8a8a8}
+.social-shell.native-style[data-mode] .social-search>svg{position:absolute;left:calc(50% - 36px);top:16px;color:#b2b2b2;width:17px;height:17px;pointer-events:none}
+.social-shell.native-style[data-mode] .social-search:focus-within>svg{left:27px}
+.social-shell.native-style[data-mode] .social-chat-row{gap:12px;min-height:70px;padding:10px 16px}
+.social-shell.native-style[data-mode] .social-chat-row.pinned{background:#ededed}
+.social-shell.native-style[data-mode] .social-chat-row:after{left:72px;background:#ececec;transform:scaleY(.5)}
+.social-shell.native-style[data-mode] .social-chat-title{font-size:17px;color:#191919;gap:6px;display:block;overflow:hidden;text-overflow:ellipsis}
+.social-shell.native-style[data-mode] .social-chat-title small{display:none}
+.social-shell.native-style[data-mode] .social-chat-snippet{font-size:14px;color:#a1a1a1}
+.social-shell.native-style[data-mode] .social-chat-info{gap:5px}
+.social-shell.native-style[data-mode] .social-chat-tail time{font-size:11px;color:#aaa}
+.social-shell.native-style[data-mode] .social-unread{font-size:10px;background:#fa5151;min-width:17px;height:17px}
+.social-shell.native-style[data-mode] .social-face{width:44px;height:44px;border-radius:5px}
+.social-shell.native-style[data-mode] .social-tabs{height:57px;background:#f7f7f7;padding:4px 7px 0;border-top:1px solid #dedede}
+.social-shell.native-style[data-mode] .social-tab{color:#181818;font-size:11px;gap:3px;flex:1;min-width:0}
+.social-shell.native-style[data-mode] .social-tab svg{width:26px;height:26px;stroke-width:1.55}
+.social-shell.native-style[data-mode=wx] .social-tab.active{color:var(--weui-BRAND)}
+.social-shell.native-style[data-mode=wx] .social-tab.active svg{fill:var(--weui-BRAND);stroke:var(--weui-BRAND)}
+.social-shell.native-style[data-mode] .social-tab .tab-dot{right:calc(50% - 18px);top:0}
+.social-shell.native-style[data-mode] .home-indicator{height:20px;background:#f7f7f7}
+.social-shell.native-style[data-mode] .home-indicator:after{width:105px;height:3px;background:#171717}
+.social-shell.native-style[data-mode] .social-contact-row{min-height:59px;padding:9px 16px;gap:12px;border:0;position:relative}
+.social-shell.native-style[data-mode] .social-contact-row:after{content:"";height:1px;position:absolute;bottom:0;left:68px;right:0;background:#e8e8e8;transform:scaleY(.5)}
+.social-shell.native-style[data-mode] .social-contact-row .social-face,.social-shell.native-style[data-mode] .social-shortcut{width:38px;height:38px}
+.social-shell.native-style[data-mode] .social-contact-row strong{font-weight:400;font-size:16px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.social-shell.native-style[data-mode=wx] .social-contact-row .social-chevron,.social-shell.native-style[data-mode=wx] .social-contact-row .side-note{display:none}
+.social-shell.native-style[data-mode] .social-section-label{font-size:12px;padding:7px 16px;color:#888;background:#ededed}
+.social-shell.native-style[data-mode] .social-alpha{font-size:10px;line-height:22px;top:390px;right:7px;color:#555}
+.social-shell.native-style[data-mode] .social-contact-count{font-size:14px;padding:23px;color:#999}
+.social-shell.native-style[data-mode] .social-group{margin-bottom:8px}
+.social-shell.native-style[data-mode] .social-menu-row{min-height:55px;padding:15px 17px;gap:18px}
+.social-shell.native-style[data-mode] .social-menu-row .menu-text{font-size:16px;color:#191919}
+.social-shell.native-style[data-mode] .social-menu-row>svg:first-child{width:22px;height:22px}
+.social-shell.native-style[data-mode] .social-menu-row>small{font-size:12px}
+.social-shell.native-style[data-mode] .social-menu-row>svg:last-child{color:#b2b2b2}
+.social-shell.native-style[data-mode] .social-menu-row:not(:last-child):after{left:57px;background:#eee;transform:scaleY(.5)}
+.social-shell.native-style[data-mode] .social-profile-head{padding:34px 24px 30px;gap:18px;margin-bottom:8px;background:#fff;border-radius:0}
+.social-shell.native-style[data-mode] .social-profile-head .social-face{width:64px;height:64px;border-radius:7px}
+.social-shell.native-style[data-mode] .social-profile-info h2{font-size:23px;font-weight:600;margin-bottom:9px}
+.social-shell.native-style[data-mode] .social-profile-info p{font-size:13px;color:#888;overflow-wrap:anywhere}
+.social-shell.native-style[data-mode] .social-profile-info .profile-status{font-size:12px;color:#666;padding:3px 8px;border-color:#ddd}
+.social-shell.native-style[data-mode=wx][data-page=me]>.topbar{background:#fff}
+.social-shell.native-style[data-mode=wx][data-page=me] .role-title{visibility:hidden}
+.social-shell.native-style[data-mode] .social-contact-card h2{font-size:23px}
+.social-shell.native-style[data-mode] .social-contact-card p{font-size:13px;line-height:1.9}
+.social-shell.native-style[data-mode] .social-contact-card .social-face{width:64px;height:64px}
+.social-shell.native-style[data-mode] .social-primary{font-size:16px;background:#07c160;line-height:1.4;padding:11px 20px;border-radius:4px}
+.social-shell.native-style[data-mode] .social-request-info{font-size:16px}
+.social-shell.native-style[data-mode] .social-request-info p{font-size:13px}
+/* Chat: original-platform chrome; Skivu model/diagnostic tools stay in the optional comparison view. */
+.social-shell.native-style[data-mode] .messages{padding:104px 12px 12px;scroll-behavior:auto}
+.social-shell.native-style[data-mode] .message{gap:10px;margin-bottom:21px}
+.social-shell.native-style[data-mode] .avatar{width:38px;height:38px;border:0;background:transparent;border-radius:5px}
+.social-shell.native-style[data-mode] .avatar .social-face{width:100%;height:100%}
+.social-shell.native-style[data-mode] .message-content,.social-shell.native-style[data-mode] .user .message-content{max-width:calc(100% - 96px)}
+.social-shell.native-style[data-mode] .bubble{font-size:var(--message-size);line-height:1.5;padding:10px 12px;min-height:40px;color:#151515;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;border-radius:4px;background:#fff}
+.social-shell.native-style[data-mode] .user .bubble{background:#95ec69;border-radius:4px;color:#151515}
+.social-shell.native-style[data-mode] .bubble:before{border:0;background:inherit}
+.social-shell.native-style[data-mode] .sender-name,.social-shell.native-style[data-mode] .thinking,.social-shell.native-style[data-mode] .thinking-text,.social-shell.native-style[data-mode] .meta,.social-shell.native-style[data-mode] .message-tools,.social-shell.native-style[data-mode] .message-nav,.social-shell.native-style[data-mode] .usage,.social-shell.native-style[data-mode] .model-button{display:none!important}
+.social-shell.native-style[data-mode] .date-separator{font-size:12px;color:#a1a1a1;margin:0 0 23px}
+.social-shell.native-style[data-mode] .composer-area{padding:5px 8px 3px;background:#f7f7f7;border-top:1px solid #e5e5e5}
+.social-shell.native-style[data-mode] .composer{padding:0;border:0;border-radius:0;box-shadow:none;background:none;backdrop-filter:none}
+.social-shell.native-style[data-mode] .input-row{gap:7px;align-items:center}
+.social-shell.native-style[data-mode] textarea{background:#fff;font-size:16px;line-height:22px;height:39px;min-height:39px;border:0;border-radius:4px;padding:8px;max-height:100px}
+.social-shell.native-style[data-mode] .input-expand{display:none}
+.social-shell.native-style[data-mode=wx] .composer-controls{display:none}
+.social-shell.native-style[data-mode=wx] .wx-voice,.social-shell.native-style[data-mode=wx] .wx-smile,.social-shell.native-style[data-mode=wx] .wx-plus{width:28px;height:40px}
+.social-shell.native-style[data-mode=wx] .wx-voice svg,.social-shell.native-style[data-mode=wx] .wx-smile svg,.social-shell.native-style[data-mode=wx] .wx-plus svg{width:27px;height:27px}
+.social-shell.native-style[data-mode] .send-button{font-size:14px;width:53px;height:34px;border-radius:4px;border:0;box-shadow:none;background:#07c160;color:white}
+/* QQ current official chat references: gray canvas, round portraits, solid blue outgoing bubble. */
+.social-shell.native-style[data-mode=qq]{background:#f1f1f1}
+.social-shell.native-style[data-mode=qq] .topbar,.social-shell.native-style[data-mode=qq] .social-page{background:#f1f1f1}
+.social-shell.native-style[data-mode=qq] .role-title{position:static;pointer-events:auto;text-align:left;padding:4px 8px;font-weight:500}
+.social-shell.native-style[data-mode=qq].social-chat .role-title{font-size:17px}
+.social-shell.native-style[data-mode=qq] .native-online{font-size:11px;color:#747474;font-weight:400;display:block;margin-top:2px}
+.social-shell.native-style[data-mode=qq] .social-face,.social-shell.native-style[data-mode=qq] .avatar{border-radius:50%}
+.social-shell.native-style[data-mode=qq] .social-primary{background:#0099ff;border-radius:6px}
+.social-shell.native-style[data-mode=qq] .social-header-action .social-face{width:32px;height:32px}
+.social-shell.native-style[data-mode=qq] #socialQQProfile{margin-left:0}
+.social-shell.native-style[data-mode=qq] .social-chat-row{min-height:76px}
+.social-shell.native-style[data-mode=qq] .social-chat-row.pinned{background:#f7f7f7}
+.social-shell.native-style[data-mode=qq] .social-tabs{background:#fff}
+.social-shell.native-style[data-mode=qq] .social-tab.active{color:#0099ff}
+.social-shell.native-style[data-mode=qq] .social-tab.active svg{fill:#0099ff;stroke:#0099ff}
+.social-shell.native-style[data-mode=qq] .bubble{background:#fff;border-radius:14px;line-height:1.5}
+.social-shell.native-style[data-mode=qq] .bubble:before{display:none}
+.social-shell.native-style[data-mode=qq] .user .bubble{background:#0099ff;color:#fff;border-radius:14px}
+.social-shell.native-style[data-mode=qq] .composer-area{padding:6px 12px 0;background:#f5f6f7}
+.social-shell.native-style[data-mode=qq] .composer-controls{height:42px;gap:0;margin-top:2px;justify-content:space-between}
+.social-shell.native-style[data-mode=qq] .composer-controls>.icon-button{display:none}
+.social-shell.native-style[data-mode=qq] .qq-tools{display:flex;align-items:center;width:100%;justify-content:space-between;gap:0;color:#3b3d3e}
+.social-shell.native-style[data-mode=qq] .qq-tools button{height:40px;min-width:36px;display:grid;place-items:center}
+.social-shell.native-style[data-mode=qq] .qq-tools svg{width:26px;height:26px;stroke-width:1.7}
+.social-shell.native-style[data-mode=qq] .send-button{display:none;background:#0099ff;width:53px;height:34px;flex-shrink:0;margin-left:8px}
+.social-shell.native-style[data-mode=qq].has-draft .send-button,.social-shell.native-style[data-mode=qq].is-streaming .send-button{display:block}
+.social-shell.native-style[data-mode=qq].has-draft .qq-tools button:last-child,.social-shell.native-style[data-mode=qq].is-streaming .qq-tools button:last-child{display:none}
+.social-shell.native-style[data-mode=qq] .home-indicator{background:#f5f6f7}
+.social-shell.native-style[data-mode=qq] .social-segments{font-size:15px;gap:24px;padding:13px 18px 6px}
+.social-shell.native-style[data-mode=qq] .social-segments button{font-size:15px}
+.social-shell.native-style[data-mode=qq] .social-group-label{font-size:14px;padding:17px 15px;color:#555;background:#fff}
+/* Moments is a secondary full page. Interaction structure follows the audited MIT references. */
+.social-shell.native-style[data-mode][data-page=moments] .social-page{padding-top:0;background:#fff}
+.social-shell.native-style[data-mode=wx][data-page=moments]>.topbar{background:transparent;color:white;transition:background .18s,color .18s}
+.social-shell.native-style[data-mode=wx][data-page=moments] .role-title{opacity:0;color:inherit;transition:opacity .18s}
+.social-shell.native-style[data-mode=wx][data-page=moments]:not(.moments-scrolled) .social-back svg,.social-shell.native-style[data-mode=wx][data-page=moments]:not(.moments-scrolled) .social-header-action svg{filter:drop-shadow(0 1px 2px #253e4d80)}
+.social-shell.native-style[data-mode=wx][data-page=moments].moments-scrolled>.topbar{background:#ededed;color:#191919}
+.social-shell.native-style[data-mode=wx][data-page=moments].moments-scrolled .role-title{opacity:1}
+.social-shell.native-style[data-mode=wx][data-page=moments] .home-indicator{background:#fff}
+.social-shell.native-style[data-mode] .social-cover{height:320px;margin-bottom:56px}
+.social-shell.native-style[data-mode] .social-cover .cover-label{display:none}
+.social-shell.native-style[data-mode] .social-cover-name{font-size:18px;right:109px;bottom:20px}
+.social-shell.native-style[data-mode] .social-cover-avatar{width:76px;height:76px;bottom:-27px;right:17px;border:0;border-radius:7px}
+.social-shell.native-style[data-mode] .social-cover-avatar .social-face{width:100%;height:100%}
+.social-shell.native-style[data-mode] .social-signature{bottom:-53px;font-size:12px;color:#888}
+.social-shell.native-style[data-mode] .social-feed{padding-top:0}
+.social-shell.native-style[data-mode] .social-post{padding:20px 16px 18px;gap:11px}
+.social-shell.native-style[data-mode] .social-post>.social-face{width:40px;height:40px}
+.social-shell.native-style[data-mode] .social-post-author{font-size:16px;font-weight:500;line-height:20px;color:#576b95;margin:0 0 5px}
+.social-shell.native-style[data-mode] .social-post-text{font-size:16px;line-height:1.5;color:#191919;margin-bottom:9px}
+.social-shell.native-style[data-mode] .social-post-images{gap:4px;max-width:280px}
+.social-shell.native-style[data-mode] .social-post-images.one{max-width:180px}
+.social-shell.native-style[data-mode] .social-post-bottom{font-size:12px;color:#aaa;margin-top:9px;min-height:24px;position:relative;justify-content:flex-start;gap:10px}
+.native-post-location{font-size:12px;color:#576b95;margin-top:8px}
+.native-delete-post{font-size:12px;color:#576b95;padding:0}
+.native-post-more{margin-left:auto;width:30px;height:21px;background:#f0f1f3;border-radius:4px;display:grid;place-items:center;color:#576b95}
+.native-post-more svg{width:20px;height:18px;stroke-width:3}
+.native-post-popup[hidden]{display:none!important}
+.native-post-popup{position:absolute;right:39px;top:-7px;display:flex!important;gap:0!important;background:#4c5154;color:#fff;border-radius:5px;height:35px;z-index:2;overflow:hidden}
+.native-post-popup button{font-size:13px!important;min-width:75px;height:35px;justify-content:center;gap:5px!important;color:#fff!important}
+.native-post-popup button+button{border-left:1px solid #626568}
+.native-post-popup button svg{width:15px!important;height:15px!important;fill:none!important}
+.social-shell.native-style[data-mode] .social-post-replies{font-size:14px;border-radius:2px;background:#f3f3f5;line-height:1.5;margin-top:5px}
+.social-shell.native-style[data-mode] .social-like-names{padding:7px 7px;font-size:14px;display:block;border-bottom:1px solid #e5e5e5}
+.social-shell.native-style[data-mode] .social-like-names svg{display:inline-block;margin-right:5px}
+.social-shell.native-style[data-mode] .social-comment{padding:3px 7px;line-height:1.55}
+.social-shell.native-style[data-mode=qq] .social-cover{height:300px;margin-bottom:25px}
+.social-shell.native-style[data-mode=qq] .social-cover-avatar{left:20px;right:auto;bottom:-22px;border-radius:50%}
+.social-shell.native-style[data-mode=qq] .social-cover-name,.social-shell.native-style[data-mode=qq] .social-signature{left:110px;right:auto}
+.social-shell.native-style[data-mode=qq] .social-signature{bottom:-24px}
+.social-shell.native-style[data-mode=qq] .social-zone-stats{margin:0;border-radius:0;padding:15px 20px;font-size:13px}
+.social-shell.native-style[data-mode=qq] .social-post{margin:8px 0;border-radius:0;background:#fff}
+.social-shell.native-style[data-mode=qq] .social-post-actions button{font-size:12px}
+.social-shell.native-style[data-mode=qq] .social-post-actions{margin-left:auto}
+.social-shell.native-style[data-mode] .social-compose-author{font-size:16px}
+.social-shell.native-style[data-mode] .social-compose textarea{font-size:16px}
+@media(prefers-reduced-motion:reduce){.social-shell.native-style *{scroll-behavior:auto!important;transition:none!important}}

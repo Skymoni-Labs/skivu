@@ -143,6 +143,25 @@ class ModelConnection {
   final int? contextLimit;
   final double? temperature;
 
+  /// A request-local policy; does not change the saved model connection.
+  ModelConnection withStreaming(bool value) => ModelConnection(
+    id: id,
+    name: name,
+    provider: provider,
+    protocol: protocol,
+    address: address,
+    model: model,
+    auth: auth,
+    streaming: value,
+    includeUsage: includeUsage,
+    maxOutput: maxOutput,
+    timeoutSeconds: timeoutSeconds,
+    contextLimit: contextLimit,
+    temperature: temperature,
+    tokenParameter: tokenParameter,
+    credentialId: credentialId,
+  );
+
   Uri endpoint({bool models = false}) {
     final uri = Uri.tryParse(address.trim());
     if (uri == null ||
