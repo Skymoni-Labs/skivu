@@ -658,7 +658,7 @@ class _SideNavigationState extends State<SideNavigation> {
                     SkiGlassButton(
                       tooltip: '新建对话',
                       width: double.infinity,
-                      height: SidebarLayout.rowHeight,
+                      height: SidebarLayout.rowHeight + 6,
                       accent: true,
                       startAligned: true,
                       onPressed: newConversation,
