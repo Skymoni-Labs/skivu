@@ -195,7 +195,7 @@ class _ChatMessageDialState extends State<ChatMessageDial> {
                       key: const ValueKey('chat-message-latest-surface'),
                       colors: colors,
                       child: IconButton(
-                        tooltip: '回到最新消息',
+                        tooltip: '回到底部',
                         onPressed: widget.onLatest,
                         padding: EdgeInsets.zero,
                         style: IconButton.styleFrom(

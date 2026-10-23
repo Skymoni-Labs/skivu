@@ -42,6 +42,7 @@ class _ChatPageState extends State<ChatPage> {
   Timer? navTimer;
   bool showNav = false, follow = true;
   bool _followQueued = false;
+  int _bottomSeek = 0;
   int oldCount = 0, _centeredIndex = 0;
   late Conversation _conversation;
   @override
@@ -82,6 +83,7 @@ class _ChatPageState extends State<ChatPage> {
     if (!mounted) return;
     final current = demo.conversations[demo.conversation];
     if (!identical(current, _conversation)) {
+      _bottomSeek++;
       _conversation = current;
       input.text = current.draft;
       keys.clear();
@@ -163,15 +165,37 @@ class _ChatPageState extends State<ChatPage> {
   void latest() {
     hideNavigation();
     setState(() => follow = true);
+    _seekBottom(++_bottomSeek);
+  }
+
+  void _seekBottom(
+    int token, {
+    int attempts = 0,
+    int stable = 0,
+    double? previousEnd,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && scroll.hasClients) {
-        scroll.animateTo(
-          scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
+      if (!mounted || token != _bottomSeek || !follow || !scroll.hasClients)
+        return;
+      final end = scroll.position.maxScrollExtent;
+      final reached = (scroll.offset - end).abs() < .5;
+      final settled =
+          reached && previousEnd != null && (end - previousEnd).abs() < .5
+          ? stable + 1
+          : 0;
+      if (!reached) scroll.jumpTo(end);
+      // Lazy children revise maxScrollExtent when a long reply is laid out.
+      // Stop only after the actual end stays reached across layout frames.
+      if (settled < 2 && attempts < 100) {
+        _seekBottom(
+          token,
+          attempts: attempts + 1,
+          stable: settled,
+          previousEnd: end,
         );
       }
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void send() {

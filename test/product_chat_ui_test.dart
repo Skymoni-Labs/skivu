@@ -14,6 +14,55 @@ import 'preview_fixture.dart';
 void main() {
   setUp(seedPreviewConversation);
   testWidgets(
+    'bottom button reaches the true end after lazy long reply layout and follows growth',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(() => demo.streaming = false);
+      demo.messages
+        ..clear()
+        ..addAll([
+          ...List.generate(
+            60,
+            (i) => Message(i.isEven, '历史消息 $i：${'内容。' * (i.isEven ? 2 : 7)}'),
+          ),
+          Message(false, List.filled(300, '很长的回复段落，用于检查是否直接到达最底下。').join('\n')),
+        ]);
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final list = find.byType(ListView).first;
+      final controller = tester.widget<ListView>(list).controller!;
+      await tester.drag(list, const Offset(0, -220));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('回到底部'));
+      await tester.pumpAndSettle();
+      expect(controller.position.extentAfter, lessThan(.5));
+      final tail = find.byKey(
+        ValueKey('message-bubble-${demo.messages.length - 1}'),
+      );
+      expect(tail, findsOneWidget);
+      expect(
+        tester.getBottomRight(tail).dy,
+        lessThan(
+          tester
+              .getTopLeft(find.byKey(const ValueKey('chat-composer-field')))
+              .dy,
+        ),
+      );
+      demo.streaming = true;
+      demo.messages.last.text +=
+          '\n${List.filled(40, '继续流式增长的内容。').join('\n')}';
+      demo.changed();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(controller.position.extentAfter, lessThan(.5));
+      demo.streaming = false;
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'reply width modes preserve user layout and place full reply edge to edge',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
