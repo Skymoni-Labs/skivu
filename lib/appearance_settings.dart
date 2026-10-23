@@ -266,6 +266,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 12),
       initiallyExpanded: key == 'assistantText',
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
       shape: const Border(),
       collapsedShape: const Border(),
       title: Text(
