@@ -1,24 +1,26 @@
 <p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover.svg?v=galaxy-art" width="1280" alt="Skivu — Your world. Your way. Generated galaxy artwork, drifting starlight and the approved cloud logo."></a>
+  <a href="https://skymoni.com/skivu/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/skivu-cover-dark.svg?v=unified">
+      <source media="(prefers-color-scheme: light)" srcset="docs/images/skivu-cover.svg?v=unified">
+      <img src="docs/images/skivu-cover.svg?v=unified" width="1280" alt="Skivu — Your world. Your way. An animated galaxy in light and dark themes">
+    </picture>
+  </a>
 </p>
 
-<h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
-
 <div align="center">
-  <p><strong>Open-source AI chat. Your models, your characters, your style.</strong></p>
   <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
   <p>
-    <a href="https://skymoni.com/skivu/">Explore the website</a> ·
-    <a href="https://github.com/skyjjgw/skivu/releases/latest">Download Android</a> ·
-    <a href="https://skymoni.com/creators/skivu-beta">Beta program</a> ·
+    <a href="https://skymoni.com/skivu/">Website</a> ·
+    <a href="https://github.com/skyjjgw/skivu/releases/latest">Download</a> ·
+    <a href="https://skymoni.com/creators/skivu-beta">Beta</a> ·
     <a href="https://skymoni.com/creators">Community</a> ·
-    <a href="https://github.com/skyjjgw/skivu-plugins">Plugin community</a>
+    <a href="https://github.com/skyjjgw/skivu-plugins">Plugins</a>
   </p>
   <p>
-    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat-square&amp;color=356c82" alt="Latest release"></a>
-    <img src="https://img.shields.io/badge/Android-7.0%2B-3d7c66?style=flat-square" alt="Android 7.0 or later">
-    <a href="pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-4b8bb6?style=flat-square" alt="Flutter 3.41.9"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-596273?style=flat-square" alt="GPL-3.0-only"></a>
+    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=31475e&amp;color=56718d" alt="Latest release"></a>
+    <img src="https://img.shields.io/badge/Android-7.0%2B-56718d?style=flat&amp;labelColor=31475e" alt="Android 7.0+">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-56718d?style=flat&amp;labelColor=31475e" alt="GPL-3.0-only"></a>
   </p>
 </div>
 

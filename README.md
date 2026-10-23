@@ -1,24 +1,26 @@
 <p align="center">
-  <a href="https://skymoni.com/skivu/"><img src="docs/images/skivu-cover-zh.svg?v=galaxy-art" width="1280" alt="Skivu — Your world. Your way. 生成银河背景、漂移星光与云朵品牌标志"></a>
+  <a href="https://skymoni.com/skivu/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/images/skivu-cover-zh-dark.svg?v=unified">
+      <source media="(prefers-color-scheme: light)" srcset="docs/images/skivu-cover-zh.svg?v=unified">
+      <img src="docs/images/skivu-cover-zh.svg?v=unified" width="1280" alt="Skivu — 你的世界，由你定义。明暗主题动态银河封面">
+    </picture>
+  </a>
 </p>
 
-<h1 align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="52" height="52" align="absmiddle" alt="Skivu"> Skivu</h1>
-
 <div align="center">
-  <p><strong>开源的多模型聊天应用，让对话、角色和界面更像你。</strong></p>
   <p><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
   <p>
-    <a href="https://skymoni.com/skivu/">探索官网</a> ·
+    <a href="https://skymoni.com/skivu/">官网</a> ·
     <a href="https://github.com/skyjjgw/skivu/releases/latest">下载 Android</a> ·
     <a href="https://skymoni.com/creators/skivu-beta">申请内测</a> ·
-    <a href="https://skymoni.com/creators">交流社区</a> ·
+    <a href="https://skymoni.com/creators">社区</a> ·
     <a href="https://github.com/skyjjgw/skivu-plugins">插件共创</a>
   </p>
   <p>
-    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat-square&amp;color=356c82" alt="最新版本"></a>
-    <img src="https://img.shields.io/badge/Android-7.0%2B-3d7c66?style=flat-square" alt="Android 7.0 及以上">
-    <a href="pubspec.yaml"><img src="https://img.shields.io/badge/Flutter-3.41.9-4b8bb6?style=flat-square" alt="Flutter 3.41.9"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-596273?style=flat-square" alt="GPL-3.0-only"></a>
+    <a href="https://github.com/skyjjgw/skivu/releases/latest"><img src="https://img.shields.io/github/v/release/skyjjgw/skivu?style=flat&amp;labelColor=31475e&amp;color=56718d" alt="Latest release"></a>
+    <img src="https://img.shields.io/badge/Android-7.0%2B-56718d?style=flat&amp;labelColor=31475e" alt="Android 7.0+">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0--only-56718d?style=flat&amp;labelColor=31475e" alt="GPL-3.0-only"></a>
   </p>
 </div>
 

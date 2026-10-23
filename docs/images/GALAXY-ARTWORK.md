@@ -1,16 +1,31 @@
 # Skivu galaxy artwork
 
-The README cover uses galaxy artwork generated for Skivu with the built-in **imagegen** tool on **2026-10-24**. It is an artistic visualization, rather than a telescope image of a named galaxy.
+The current README header uses matching light and dark galaxy artwork generated for Skivu with the built-in **imagegen** tool on **2026-10-24**. The dark artwork is an edit of the light composition. These are artistic visualizations.
 
-- Background: [skivu-galaxy-background.jpg](skivu-galaxy-background.jpg), 2172 × 724 pixels, 558,572 bytes.
-- Background SHA-256: `4a0f2f8c224f8fa31090a35ea8bd64b11b4bb79d06a95414744eb4b46672c885`.
-- Covers: [Chinese](skivu-cover-zh.svg) and [English](skivu-cover.svg).
-- The generated image was encoded as an optimized JPEG for delivery, with its composition and dimensions preserved. Each SVG embeds the image so it works independently in GitHub's image renderer.
-- The existing approved Skivu cloud logo is embedded unchanged. Typography and animation are authored separately in SVG.
-- Motion consists of a slow background push, breathing starlight and occasional meteors. The `prefers-reduced-motion` preference retains the static scene.
+| Theme | Background | Dimensions | Bytes | SHA-256 |
+| --- | --- | --- | --- | --- |
+| Light | [skivu-galaxy-light.jpg](skivu-galaxy-light.jpg) | 2172 × 724 | 230,832 | `77eb50408e4dc15f33b5a936bc587163856f41843aec1f85cb4cea3edafe54fc` |
+| Dark | [skivu-galaxy-dark.jpg](skivu-galaxy-dark.jpg) | 2172 × 724 | 276,854 | `72dce3bf982e5c3c778127b9c4cb336d3e098402748e64bb5948bf65b44dc78e` |
 
-## Generation prompt
+## Header assets
+
+- Chinese: [light](skivu-cover-zh.svg), [dark](skivu-cover-zh-dark.svg).
+- English: [light](skivu-cover.svg), [dark](skivu-cover-dark.svg).
+- The backgrounds are delivered as optimized JPEGs with their generated framing and dimensions preserved. Each SVG embeds its background and the approved, unchanged Skivu cloud logo.
+- Transparent edge fades blend the banner into the surrounding page. The README uses a `picture` element for light and dark artwork.
+- Typography is stable. Motion consists of a slow galaxy drift, breathing stars and an occasional meteor; `prefers-reduced-motion` retains the static scene.
+- Earlier artwork remains available in Git history.
+
+## Light artwork prompt
 
 ```text
-Use case: ads-marketing. Asset type: final background artwork for the Skivu open-source AI app's GitHub README hero. Generate a new, exceptionally refined photorealistic cosmic panorama, wide 3:1 aspect ratio, ideally 2304 by 768 or equivalent. This is BACKGROUND ART ONLY: no lettering, logos, symbols, borders, UI, or mockup. An awe-inspiring realistic spiral galaxy viewed at a gentle oblique angle occupies the right 55 percent, its luminous ivory and pale ice-blue nucleus at approximately x=77%, y=48%, layered spiral arms, intricate dark interstellar dust lanes, softly scattering blue-violet stellar clouds, countless tiny natural stars with convincing depth. Outer galaxy clouds reach toward the bottom left, making a beautifully composed continuous scene rather than an isolated icon. Left 43 percent stays very dark midnight navy with subtle diffuse nebular texture and a sparse fine star field, calm negative space for a white headline which will be added separately in code. Palette: deep black navy, silver blue, restrained muted lavender, a trace of warm pearl at the galactic core. A sophisticated cinematic deep-space observatory photograph with rich dynamic range, delicate volumetric starlight and fine organic photographic texture, understated and believable. Brightness controlled so there is no blown-out white disc. Edge-to-edge image, no rounded corners. Avoid geometric circles, orbital rings, dotted spiral paths, particle wireframes, grids, artificial lens flares, neon cyan, oversaturation, cartoon styling, vector illustrations, glossy planet icons, giant planets, starbursts, astronauts, spacecraft, and excessive decorations.
+Use case: ads-marketing. Asset: final background-only hero artwork for Skivu, an elegant personal AI app with translucent glass UI. Generate a wide panoramic 3:1 image, ideally 2304x768 or equivalent. A refined HIGH-KEY LIGHT THEME galaxy background that belongs naturally on a white GitHub page. An identifiable but gently diffused spiral galaxy is positioned entirely in the right half, its small pearlescent center around x=76%, y=46%, soft organic spiral arms made of misty pale silver-blue and restrained lavender interstellar clouds. The galaxy has delicate photographic celestial depth, with softly layered translucent nebular veils, graceful natural dust structures and a few tiny stellar points, yet feels airy and spacious, not visually noisy. LEFT HALF stays essentially clean pure white negative space for dark brand typography added later; a barely visible whisper of ice-blue light may reach the far left bottom. All outside edges, especially the full bottom and left borders, dissolve naturally to pure white #ffffff. The galaxy's palette is soft blue-grey, icy blue, pearl and very pale lilac, with enough local tonal definition to remain recognizable at banner size. Fine-art celestial photography meets quiet sophisticated glass-app branding. The image should feel tactile, atmospheric, editorial and calm. Background art ONLY. No text, letters, logos, UI, cards, frames, hard borders, vector orbit rings, dotted paths, graphical particle spirals, planets, black outer space, bright neon, lens flares, starburst spikes, dense speckled noise or exaggerated brilliant core.
+```
+
+## Dark artwork edit prompt
+
+The light artwork is the edit target.
+
+```text
+Use case: lighting-weather. Edit target: the attached light-theme galaxy background generated for Skivu. Create its matching DARK-THEME counterpart. Keep the same panoramic 3:1 framing, exact galaxy spiral structure, galaxy center and placement, relative size, calm left-half negative space, and soft photographic cloud textures. Change only the lighting and palette for a GitHub dark page: the surrounding empty sky and all outside edges fade to deep neutral ink #0d1117, the left half stays clean dark negative space for pale text added later. Illuminate the spiral's fine cloud and dust layers gently with muted steel blue, silver and a little restrained lavender; preserve the pearlescent core but lower its intensity, keeping natural shadow detail and generous dark space. Elegant and atmospheric with quiet glass-app sensibility, not a dense wallpaper. Keep photographic depth while making star density subtle. No text, lettering, logos, graphic rings, particle paths, frames, UI, planets, giant flares or saturated neon. Preserve the original aspect ratio and composition.
 ```
