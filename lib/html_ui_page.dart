@@ -87,6 +87,7 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
 
   @override
   void dispose() {
+    demo.setChatReader(this, null);
     demo.removeListener(_queue);
     socialActivity.removeListener(_queue);
     virtualWallet.removeListener(_queue);
@@ -202,6 +203,15 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
     if (!mounted) return;
     if (!binding.valid(value)) return;
     final action = value['command'];
+    if (action == 'chatVisibility') {
+      if (binding.current(value) && value['visible'] is bool) {
+        demo.setChatReader(
+          this,
+          value['visible'] == true ? binding.selected.id : null,
+        );
+      }
+      return;
+    }
     if (action == 'ready') _lastAppearanceAssets = null;
     if (action == 'classicUi') {
       final saved = await uiPlugins.apply(ChatUiMode.classic);

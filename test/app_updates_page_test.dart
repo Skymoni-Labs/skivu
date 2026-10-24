@@ -96,13 +96,13 @@ void main() {
       await _open(tester, updates, onBack: () => backs++);
       expect(updates.checks, 1);
       expect(find.text('已是最新版本'), findsOneWidget);
-      expect(find.text('视频通话开发中'), findsOneWidget);
+      expect(find.text('未读消息一眼可见'), findsOneWidget);
       await tester.tap(find.text('此版本更新说明'));
       await tester.pump();
-      expect(find.text('视频通话开发中'), findsNothing);
+      expect(find.text('未读消息一眼可见'), findsNothing);
       await tester.tap(find.text('此版本更新说明'));
       await tester.pump();
-      expect(find.text('视频通话开发中'), findsOneWidget);
+      expect(find.text('未读消息一眼可见'), findsOneWidget);
       await tester.tap(find.byTooltip('返回设置'));
       expect(backs, 1);
       expect(tester.takeException(), isNull);

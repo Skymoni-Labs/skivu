@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'voice_call_session.dart';
 import 'voice_call_orb.dart';
 import 'appearance.dart';
+import 'state.dart';
 
 /// A full-screen route above the existing chat, keeping its composer and history.
 class VoiceCallScreen extends StatefulWidget {
@@ -43,7 +44,10 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
       if (mounted) setState(() {});
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(session.start());
+      if (mounted) {
+        demo.setChatReader(this, demo.conversations[demo.conversation].id);
+        unawaited(session.start());
+      }
     });
   }
 
@@ -68,6 +72,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   @override
   void dispose() {
+    demo.setChatReader(this, null);
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     session.removeListener(_changed);

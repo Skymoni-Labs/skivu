@@ -22,7 +22,7 @@
         const role=snapshot.roles.find(r=>r.id===c.personaId);
         const local=window.ChatInteractions?.inboxPreview(c,snapshot)||c;
         const group=c.groupMembers?.length;
-        return `<button class="social-chat-row ${c.pinned?'pinned':''}" data-host="select" data-id="${esc(c.id)}" aria-label="打开对话 ${esc(c.title)}">${group?'<span class="social-group-face">'+c.groupMembers.slice(0,4).map(id=>SocialPreview.portrait(id)).join('')+'</span>':SocialPreview.portrait(role.id)}<span class="social-chat-info"><span class="social-chat-title">${esc(group?c.title:role.name)} <span style="font-size:11px;color:#999">${esc(group?'群聊':c.title)}</span></span><span class="social-chat-snippet">${esc(c.hasDraft?'[草稿] '+c.preview:local.preview||'还没有消息')}</span></span><span class="social-chat-tail"><time>${esc(local.time||'')}</time>${c.muted?'<span class="wx-inbox-muted" aria-label="消息免打扰">'+icon('bell-off')+'</span>':c.id===snapshot.selectedId?'<span style="color:#07c160;font-size:9px">●</span>':''}</span></button>`;
+        return `<button class="social-chat-row ${c.pinned?'pinned':''}" data-host="select" data-id="${esc(c.id)}" aria-label="打开对话 ${esc(c.title)}${c.unread?`，${c.unread} 条未读消息`:``}"><span class="social-chat-avatar">${group?'<span class="social-group-face">'+c.groupMembers.slice(0,4).map(id=>SocialPreview.portrait(id)).join('')+'</span>':SocialPreview.portrait(role.id)}${SocialUnread.badge(c.unread,c.muted)}</span><span class="social-chat-info"><span class="social-chat-title">${esc(group?c.title:role.name)} <span style="font-size:11px;color:#999">${esc(group?'群聊':c.title)}</span></span><span class="social-chat-snippet">${esc(c.hasDraft?'[草稿] '+c.preview:local.preview||'还没有消息')}</span></span><span class="social-chat-tail"><time>${esc(local.time||'')}</time>${c.muted?'<span class="wx-inbox-muted" aria-label="消息免打扰">'+icon('bell-off')+'</span>':c.id===snapshot.selectedId?'<span style="color:#07c160;font-size:9px">●</span>':''}</span></button>`;
       }).join('')||'<div class="social-search-empty">还没有对话，点击右上角选择角色新建。</div>';
     },
     receive(update){
@@ -31,6 +31,7 @@
       if(!previous){try{const saved=JSON.parse(localStorage.getItem('skivu.host.social.v1')||'null');if(Array.isArray(saved?.posts)&&saved.posts.length)emit('importPosts',{posts:saved.posts})}catch{}}
       if(update.ack==='importPosts'){try{const saved=JSON.parse(localStorage.getItem('skivu.host.social.v1')||'{}');delete saved.posts;localStorage.setItem('skivu.host.social.v1',JSON.stringify(saved))}catch{}}
       snapshot={...snapshot,...update};if(!update.delta)delete snapshot.delta;if(!update.ack)delete snapshot.ack;
+      window.SocialUnread.update(snapshot);
       if(update.delta&&previous){snapshot.messages=[...previous.messages];snapshot.messages[update.delta.index]=update.delta.message}
       const changed=previous&&snapshot.selectedId!==previous.selectedId;
       window.SocialFeatures?.update(snapshot,update);

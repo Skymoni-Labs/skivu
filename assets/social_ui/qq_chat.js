@@ -51,7 +51,7 @@
     root.classList.toggle('qq-default-bubbles',appearance?.defaultBubbleSurface===true&&appearance.userBlur===6&&appearance.assistantBlur===6);
     root.classList.toggle('qq-empty-chat',!snapshot.messages?.length);
     if(page==='inbox'){
-      $('#roleTitle').innerHTML=`${esc(snapshot.userLabel||'我')}<small class="qq-inbox-subtitle">消息</small>`;
+      $('#roleTitle').innerHTML=`${esc(snapshot.userLabel||'我')}<small class="qq-inbox-subtitle">${esc(window.SocialUnread?.title('消息')||'消息')}</small>`;
       $('#roleTitle').setAttribute('aria-label','打开 Skivu 导航');
       $('#socialQQProfile').setAttribute('aria-label','打开 Skivu 导航');
       $('#socialTopAction').setAttribute('aria-label','添加对话');

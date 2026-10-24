@@ -32,6 +32,7 @@ class Message {
   final bool user;
   String text;
   bool bookmarked;
+  bool unread = false;
   final DateTime created;
   String? thinking, modelName, provider;
   int? tokens, elapsedMs;
@@ -57,6 +58,7 @@ class Message {
     'user': user,
     'text': text,
     'bookmarked': bookmarked,
+    'unread': unread,
     'created': created.toIso8601String(),
     'thinking': thinking,
     'modelName': modelName,
@@ -80,6 +82,10 @@ class Message {
           created: DateTime.tryParse(raw['created'] as String? ?? ''),
         )
         ..thinking = raw['thinking'] as String?
+        ..unread =
+            raw['unread'] == true &&
+            raw['user'] == false &&
+            raw['status'] == 'complete'
         ..authorId = raw['authorId'] is String ? raw['authorId'] : null
         ..kind =
             ['text', 'voice', 'photo', 'image', 'sticker'].contains(raw['kind'])
@@ -206,6 +212,9 @@ class Conversation {
       ).hasMatch(value);
   String title;
   List<Message> messages;
+  int get unreadCount => messages
+      .where((m) => !m.user && m.status == 'complete' && m.unread)
+      .length;
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
@@ -365,6 +374,38 @@ class DemoStore extends ChangeNotifier {
   final RelayAccount account;
   bool useBeta = false;
   bool useAccount = false;
+  final Map<Object, String> _chatReaders = {};
+  bool _chatForeground = true;
+
+  /// A selected conversation is read only while a chat surface is visible.
+  void setChatReader(Object owner, String? chatId) {
+    if (chatId == null) {
+      _chatReaders.remove(owner);
+      return;
+    }
+    _chatReaders[owner] = chatId;
+    if (_chatForeground) markChatRead(chatId);
+  }
+
+  void setChatForeground(bool value) {
+    _chatForeground = value;
+    if (value) {
+      for (final id in _chatReaders.values.toSet()) {
+        markChatRead(id);
+      }
+    }
+  }
+
+  void markChatRead(String id) {
+    final chat = conversations.where((c) => c.id == id).firstOrNull;
+    if (chat == null || chat.unreadCount == 0) return;
+    for (final message in chat.messages) {
+      message.unread = false;
+    }
+    saveChats();
+    changed();
+  }
+
   Map<String, String> userCard = {};
   Uint8List? userAvatar;
   final worlds = <WorldSetting>[];
@@ -1517,6 +1558,8 @@ class DemoStore extends ChangeNotifier {
       if (answer.text.trim().isEmpty)
         throw const ChatFailure('服务没有返回文字回复，请检查模型、输出上限或重试。');
       answer.status = 'complete';
+      answer.unread =
+          !(_chatForeground && _chatReaders.containsValue(target.id));
     } catch (e) {
       if (generation != _generation) return;
       reveal.flush();

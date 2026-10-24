@@ -156,6 +156,10 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    demo.setChatForeground(
+      WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    );
     socialActivity.setForeground(
       WidgetsBinding.instance.lifecycleState == null ||
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed ||
@@ -169,6 +173,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     socialActivity.setForeground(false);
+    demo.setChatForeground(false);
     super.dispose();
   }
 
@@ -179,6 +184,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    demo.setChatForeground(state == AppLifecycleState.resumed);
     if (state == AppLifecycleState.resumed) _checkUpdateWhenResumed();
     socialActivity.setForeground(
       state == AppLifecycleState.resumed ||

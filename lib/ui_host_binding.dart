@@ -37,6 +37,7 @@ class UiHostBinding {
         'send',
         'stop',
         'selectChat',
+        'chatVisibility',
         'newChat',
         'renameRole',
         'editRole',
@@ -407,6 +408,7 @@ class UiHostBinding {
             'title': c.title,
             'pinned': c.pinned,
             'muted': c.muted,
+            'unread': c.unreadCount,
             'groupMembers': c.groupMembers,
             'groupKind': c.groupKind,
             'lastCreated':

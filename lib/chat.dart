@@ -59,6 +59,7 @@ class _ChatPageState extends State<ChatPage> {
       if (focus.hasFocus) hideNavigation();
     });
     demo.addListener(update);
+    _queueChatReader();
     _queueComposerMeasure();
   }
 
@@ -89,6 +90,7 @@ class _ChatPageState extends State<ChatPage> {
     if (!identical(current, _conversation)) {
       _bottomSeek++;
       _conversation = current;
+      _queueChatReader();
       input.text = current.draft;
       keys.clear();
       follow = true;
@@ -119,12 +121,19 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    demo.setChatReader(this, null);
     demo.removeListener(update);
     input.dispose();
     focus.dispose();
     scroll.dispose();
     navTimer?.cancel();
     super.dispose();
+  }
+
+  void _queueChatReader() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) demo.setChatReader(this, _conversation.id);
+    });
   }
 
   void hideNavigation() {

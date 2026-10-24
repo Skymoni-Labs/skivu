@@ -328,17 +328,17 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
                   ? const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('视频通话开发中', style: _heading),
+                        Text('未读消息一眼可见', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '微信、QQ 与原版中的视频通话入口暂时停用，统一显示开发中。',
+                          '微信、QQ 的对话头像和底部导航显示未读角标，顶部标题同步显示消息数量。',
                           style: _body,
                         ),
                         SizedBox(height: 20),
-                        Text('保留日常聊天与拍照', style: _heading),
+                        Text('读过之后同步清除', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '视频入口不会打开摄像头预览；相册、拍照与角色语音通话保持可用。',
+                          '进入对应对话后清除未读；后台完成的回复保留提醒，重启后恢复。历史聊天不会在升级后变成未读。',
                           style: _body,
                         ),
                       ],

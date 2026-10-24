@@ -152,6 +152,7 @@
     if(page==='call'){clearInterval(callTimer);callStarted=Date.now();callTimer=setInterval(()=>{const label=$('#socialCallStatus');if(!label){clearInterval(callTimer);return}const sec=Math.floor((Date.now()-callStarted)/1000);label.textContent=sec<3?'等待对方接听…':'界面演示 · '+String(Math.floor((sec-3)/60)).padStart(2,'0')+':'+String((sec-3)%60).padStart(2,'0')},1000)}
   }
   function title() {
+    if(window.SKIVU_HOSTED&&page==='inbox')return window.SocialUnread?.title(state.mode==='qq'?'消息':'微信')||(state.mode==='qq'?'消息':'微信');
     if(page==='channels')return '频道';
     if(window.SKIVU_HOSTED&&state.mode==='qq'&&page==='chat-info')return '聊天设置';
     const names={'chat-info':'聊天信息','chat-search':'查找聊天记录',services:'服务',wallet:'钱包','wallet-records':'零钱明细',cashier:'收付款',scan:'扫一扫',inbox:state.mode==='qq'?'消息':'微信',contacts:state.mode==='qq'?'联系人':'通讯录',discover:state.mode==='qq'?'动态':'发现',moments:state.mode==='qq'?'好友动态':'朋友圈',me:state.mode==='qq'?'个人主页':'我',contact:current().name,requests:'新的朋友',groups:'群聊',calls:'通话记录',favorites:'收藏',albums:'相册',settings:'设置',compose:state.mode==='qq'?'写说说':'发表动态',search:'搜索',call:'语音通话',miniapps:'小程序',subscriptions:'订阅',files:'文件'};
@@ -159,7 +160,7 @@
   }
   function tabMarkup() {
     const items=state.mode==='qq'?[['inbox','消息','chat'],['channels','频道','hash'],['contacts','联系人','user'],['discover','动态','qq-zone']]:[['inbox','微信','chat'],['contacts','通讯录','address-book'],['discover','发现','compass'],['me','我','user']];
-    return items.map(([id,name,ico])=>`<button class="social-tab ${page===id||(page==='moments'&&id==='discover')?'active':''}" ${act('tab',name,`data-page="${id}"`)} ${page===id?'aria-current="page"':''}>${hi(ico)}<span>${name}</span>${id==='inbox'&&data.contacts.some(c=>c.unread)?'<i class="tab-dot"></i>':''}</button>`).join('');
+    return items.map(([id,name,ico])=>`<button class="social-tab ${page===id||(page==='moments'&&id==='discover')?'active':''}" ${act('tab',name,`data-page="${id}"`)} ${page===id?'aria-current="page"':''}><span class="social-tab-icon">${hi(ico)}${window.SKIVU_HOSTED&&['inbox','channels'].includes(id)?window.SocialUnread?.badge(window.SocialUnread.total(id))||'':''}</span><span>${name}</span>${!window.SKIVU_HOSTED&&id==='inbox'&&data.contacts.some(c=>c.unread)?'<i class="tab-dot"></i>':''}</button>`).join('');
   }
   function sync() {
     const enabled=state.mode!=='skivu',chat=page==='chat'||!enabled;
@@ -170,6 +171,7 @@
     if(native){$('#chatPlane').style.setProperty('--message-size',(Number(state.nativeFont)||16)+'px');$('#fontSize').value=Number(state.nativeFont)||16;$('#fontOutput').value=Number(state.nativeFont)||16}else $('#chatPlane').style.removeProperty('--message-size');
     $('#phone').classList.toggle('native-preview',native);
     $('#chatPlane').dataset.page=page;
+    window.SocialUnread?.visibility(page);
     $('#socialPage').hidden=chat;$('#socialTabs').hidden=chat||(native&&!rootPage);
     $('#socialBack').hidden=!enabled||rootPage;
     $('#socialSearch').hidden=!enabled||chat||!['inbox','contacts'].includes(page)||(native&&!(state.mode==='wx'&&page==='inbox'));

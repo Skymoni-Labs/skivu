@@ -67,3 +67,10 @@ body.native-chat-background,body.native-chat-background .phone,body.native-chat-
 .social-shell.native-style.shared-chat-appearance.shared-square-avatars .avatar{border-radius:0!important}
 .social-shell.native-style.shared-chat-appearance.shared-compact .message{margin-bottom:12px!important}
 .social-shell.native-style.shared-chat-appearance.shared-wide .messages{padding-left:8px!important;padding-right:8px!important}
+
+/* Avatar and navigation badges share the host unread count. */
+.social-chat-avatar{position:relative;display:inline-flex;flex-shrink:0;align-self:center;overflow:visible}
+.social-tab-icon{position:relative;display:grid;place-items:center}
+.social-shell .social-unread-badge{position:absolute;z-index:2;right:-7px;top:-5px;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:12px;background:#fa5151;color:#fff!important;font-size:12px;font-weight:400;line-height:18px;white-space:nowrap;text-align:center;pointer-events:none}
+.social-shell .social-tab-icon .social-unread-badge{right:-12px;top:-5px}
+.social-shell .social-unread-badge.is-dot{right:-3px;top:-3px;min-width:8px;width:8px;height:8px;padding:0}
