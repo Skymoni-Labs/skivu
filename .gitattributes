@@ -1,2 +1,3 @@
 # Preserve original archived third-party bytes recorded in PROVENANCE.json.
 legacy/social_ui/vendor/weui-light.css -text
+assets/plugin_sdk/skivu-sdk.js text eol=lf

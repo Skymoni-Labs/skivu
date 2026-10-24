@@ -14,6 +14,7 @@ import 'stream_reveal.dart';
 import 'chat_interaction.dart';
 import 'companion_library.dart';
 import 'extension_market.dart';
+import 'open_plugin.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -431,6 +432,7 @@ class DemoStore extends ChangeNotifier {
     role.compiledPrompt,
     if (worldFor(role) case final world?) world.prompt(role.sceneId),
     extensionLibrary.skillPrompt,
+    openPlugins.promptFor(role.id),
   ].where((v) => v.isNotEmpty).join('\n\n');
   void saveLibrary() {
     libraryRevision++;
@@ -1485,6 +1487,41 @@ class DemoStore extends ChangeNotifier {
         !['Ollama', 'LM Studio'].contains(config.provider)) {
       throw const ChatFailure('此连接未填写 API Key，请在模型设置中补充。');
     }
+    return _api.start(config, key, history, prompt);
+  }
+
+  /// The plugin receives text/usage only. Credentials and transport settings
+  /// stay within the same account/beta/model path used by ordinary requests.
+  Future<ChatSession> startPluginReply(
+    String personaId,
+    String instruction,
+    List<Map<String, String>> context,
+    int maxOutput,
+  ) async {
+    final persona = personas.where((p) => p.id == personaId).firstOrNull;
+    final active = activeConnection;
+    if (persona == null) throw const ChatFailure('角色已不存在。');
+    if (active == null) throw const ChatFailure('请先选择可用模型。');
+    final config = ModelConnection.fromJson({
+      ...active.toJson(),
+      'streaming': false,
+      'maxOutput': maxOutput.clamp(16, 4096),
+    });
+    final history = [
+      ...context,
+      {'role': 'user', 'content': instruction},
+    ];
+    final prompt = promptFor(persona)
+        .replaceAll('{{char}}', persona.name)
+        .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
+    if (useBeta) return beta.startChat(history, prompt, requestConfig: config);
+    if (useAccount)
+      return account.startChat(history, prompt, requestConfig: config);
+    final key = await models.keyFor(config.id);
+    if (key.isEmpty &&
+        config.auth != 'none' &&
+        !['Ollama', 'LM Studio'].contains(config.provider))
+      throw const ChatFailure('请先配置可用的模型连接。');
     return _api.start(config, key, history, prompt);
   }
 

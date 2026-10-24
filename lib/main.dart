@@ -31,6 +31,8 @@ import 'ui_plugins.dart';
 import 'ui_plugins_page.dart';
 import 'plugin_market.dart';
 import 'extension_market.dart';
+import 'open_plugin.dart';
+import 'open_plugin_page.dart';
 import 'social_settings.dart';
 import 'social_activity.dart';
 import 'virtual_wallet.dart';
@@ -106,6 +108,7 @@ Future<void> main() async {
   await uiPlugins.restore();
   await pluginMarket.restore();
   await extensionLibrary.restore();
+  await openPlugins.restore();
   if (uiPlugins.mode != ChatUiMode.classic &&
       pluginMarket.installedFor(uiPlugins.mode) == null)
     await uiPlugins.apply(ChatUiMode.classic);
@@ -455,10 +458,16 @@ class _SkiShellState extends State<SkiShell>
   void initState() {
     super.initState();
     motion = DrawerMotion(vsync: this);
+    openPlugins.addListener(_pluginChanged);
+  }
+
+  void _pluginChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    openPlugins.removeListener(_pluginChanged);
     motion.dispose();
     super.dispose();
   }
@@ -489,6 +498,7 @@ class _SkiShellState extends State<SkiShell>
     '/plugins' => '插件',
     '/market' => '插件市场',
     '/extensions' => '技能与工具',
+    '/open-plugins' => '开放插件',
     '/settings' => '设置',
     _ =>
       settingsSections
@@ -520,9 +530,18 @@ class _SkiShellState extends State<SkiShell>
       );
       // Stable subtrees: drag ticks update transforms in SlideDeck, not chat layout.
       final socialUi =
-          widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic;
+          widget.route == '/chat' &&
+          uiPlugins.mode != ChatUiMode.classic &&
+          openPlugins.chatSurface == null;
       final body = widget.route == '/chat'
-          ? socialUi
+          ? openPlugins.chatSurface != null
+                ? OpenPluginPage(
+                    key: ValueKey(openPlugins.chatSurface!.package.digest),
+                    record: openPlugins.chatSurface!,
+                    registry: openPlugins,
+                    embedded: true,
+                  )
+                : socialUi
                 ? LaunchReveal(
                     part: LaunchPart.content,
                     child: NativeSocialPage(
@@ -600,6 +619,7 @@ class _SkiShellState extends State<SkiShell>
                   ),
                 ),
               ),
+              if (widget.route == '/chat') const OpenPluginChatButton(),
               SkiGlassButton(
                 tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
                 plain: true,

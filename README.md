@@ -42,7 +42,7 @@ Skivu 将模型连接、角色陪伴与外观定制放进同一个手机空间�
 - **语音通话**：水滴光球、字幕、静音与打断；语音合成支持系统、OpenAI 兼容、ElevenLabs、Azure 和自定义 HTTP。识别依赖 Android 系统语音服务及语言包。
 - **账号与更新**：App 内登录、模型与额度同步、账号切换；校验 APK 摘要、大小、包名、版本及签名后，由 Android 系统确认安装。
 
-插件市场可安装微信／QQ 界面数据包，0.2.36 新增任务技能与手动 MCP 工具连接。任意第三方脚本执行及右侧工作区尚未开放。模型和语音服务的可用功能及计费取决于所选服务，仓库不附带共享 API Key 或模型额度。
+插件市场可安装微信／QQ 界面数据包、任务技能与手动 MCP 工具连接。0.2.38 新增[开放插件 SDK](docs/OPEN-PLUGINS.md)：开发者可自带 HTML/CSS/JavaScript、资源、独立页面与聊天界面，通过获准的宿主 API 交互，支持第三方目录和本地导入。模型和语音服务的可用功能及计费取决于所选服务，仓库不附带共享 API Key 或模型额度。
 
 ## 官网、社区与相关项目
 
@@ -86,7 +86,7 @@ APK 公开下载，**内测额度需要单独申请并获批准**：
 
 0.2.36 的[技能与 MCP 工具](docs/EXTENSION-MARKET.md)使用独立扩展目录：技能安装后需主动启用，才会附带指导和内嵌参考资料；MCP 由用户配置 HTTPS 服务、选择工具并手动执行。包校验固定提交、摘要及字节数，保留原作者、许可、修改声明与源码。未适配的上游执行环境不作为已接入能力上架。
 
-旧 `0.1-draft` 投稿草案继续保留。当前 App 不执行任意第三方脚本；新增渲染能力需要宿主源码修改与 App 发版。请按仓库当前目录、示例及校验规则提交内容。
+0.2.38 的[开放插件](docs/OPEN-PLUGINS.md)使用独立协议 `3.0` 目录，允许自带 Web 界面与业务代码，无需为第三方 ID 新增固定 renderer。存档、文件、插件自有密钥、外部网络与角色/聊天交互按权限开放；模型调用由宿主代理，服务器私有能力与凭据不开放。实际插件仍由市场下载，不内置 APK。旧 `0.1-draft` 投稿草案继续保留。
 
 [开发规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/development.md) · [模板](https://github.com/skyjjgw/skivu-plugins/tree/main/templates/prompt-pack) · [目录规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/catalog.md) · [提交收录](https://github.com/skyjjgw/skivu-plugins/blob/main/CONTRIBUTING.md) · [开放路线](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/roadmap.md)
 

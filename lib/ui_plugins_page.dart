@@ -278,14 +278,25 @@ class _UiPluginsPageState extends State<UiPluginsPage> {
             style: TextStyle(fontSize: 13, height: 1.7),
           ),
           const SizedBox(height: 18),
-          Card(child: ListTile(
-            leading: const Icon(Icons.hub_outlined),
-            title: const Text('技能与 MCP 工具'),
-            subtitle: const Text('安装任务技能，或连接自己的 MCP 服务'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => widget.go('/extensions'),
-          )),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: const Text('技能与 MCP 工具'),
+              subtitle: const Text('安装任务技能，或连接自己的 MCP 服务'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => widget.go('/extensions'),
+            ),
+          ),
           const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.extension_outlined),
+              title: const Text('开放插件与开发者'),
+              subtitle: const Text('独立应用、聊天动作、本地导入与第三方目录'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => widget.go('/open-plugins'),
+            ),
+          ),
           if (market.loading) const LinearProgressIndicator(),
           if (market.error != null)
             Padding(

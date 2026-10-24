@@ -25,6 +25,7 @@ import 'ui_plugins.dart';
 import 'ui_host_binding.dart';
 import 'virtual_wallet.dart';
 import 'widgets.dart';
+import 'open_plugin_page.dart';
 
 /// Native presenter for the existing conversation store. The parent owns the
 /// wallpaper, Scaffold and keyboard resizing; this surface adds no IME inset.
@@ -1745,6 +1746,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            const OpenPluginChatButton(),
                             TextButton(
                               onPressed: () => _runTool('history'),
                               child: const Text(

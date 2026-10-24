@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
     private val appPlatform by lazy { AppPlatform(this) }
     private val chatAttachment by lazy { ChatAttachmentPlatform(this) }
     private val voice by lazy { VoiceCallPlatform(this) }
+    private val pluginFiles by lazy { OpenPluginFilesPlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -31,6 +32,8 @@ class MainActivity : FlutterActivity() {
         chatAttachment.register(flutterEngine.dartExecutor.binaryMessenger)
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
         chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
+        pluginFiles.register(flutterEngine.dartExecutor.binaryMessenger)
+        flutterEngine.platformViewsController.registry.registerViewFactory("skivu/open-plugin", OpenPluginViewFactory(flutterEngine.dartExecutor.binaryMessenger))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
             .setMethodCallHandler { call, result ->
                 keyWorker.execute {
@@ -48,6 +51,7 @@ class MainActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         chatBackup.activityResult(requestCode, resultCode, data)
         chatAttachment.onResult(requestCode, resultCode, data)
+        pluginFiles.onResult(requestCode, resultCode, data)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -55,7 +59,7 @@ class MainActivity : FlutterActivity() {
         voice.permissionResult(requestCode, grantResults)
     }
     override fun onStop() { voice.pause(); super.onStop() }
-    override fun onDestroy() { chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
+    override fun onDestroy() { pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")
