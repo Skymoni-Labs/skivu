@@ -7,6 +7,9 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ski/extension_market.dart';
 import 'package:ski/extensions_page.dart';
+import 'package:ski/chat_api.dart';
+import 'package:ski/state.dart';
+import 'real_chat_store_test.dart' show MemoryChats, TestModels, waitForReply;
 
 Map<String, dynamic> metadata({String version = '1.0.0'}) => {
   'schemaVersion': 1,
@@ -47,6 +50,66 @@ ExtensionInfo entry(String raw) => ExtensionInfo.catalog({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'enabled guidance reaches model requests and stops after disabling',
+    () async {
+      final raw = bundle();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        ExtensionLibrary.storageKey,
+        jsonEncode({
+          'packages': {'test.editor': raw},
+          'enabled': ['test.editor'],
+        }),
+      );
+      await extensionLibrary.restore();
+      final requests = <Map<String, dynamic>>[];
+      final store = DemoStore(
+        storage: MemoryChats(),
+        settings: TestModels(),
+        api: ChatApi(
+          clientFactory: () => MockClient((request) async {
+            requests.add(jsonDecode(request.body));
+            return http.Response(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {'content': 'edited'},
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }),
+        ),
+      );
+      addTearDown(store.dispose);
+      addTearDown(() async {
+        await extensionLibrary.uninstall('test.editor');
+      });
+      await store.restore();
+      expect(store.send('Please edit this paragraph'), isTrue);
+      await waitForReply(store);
+      final firstSystem =
+          (requests.single['messages'] as List).firstWhere(
+                (message) => message['role'] == 'system',
+              )['content']
+              as String;
+      expect(firstSystem, contains('保留事实'));
+      expect(firstSystem, contains('guide.md'));
+      await extensionLibrary.enableSkill('test.editor', false);
+      expect(store.send('Next paragraph'), isTrue);
+      await waitForReply(store);
+      final nextSystem =
+          (requests.last['messages'] as List).firstWhere(
+                (message) => message['role'] == 'system',
+              )['content']
+              as String;
+      expect(nextSystem, isNot(contains('保留事实')));
+    },
+  );
 
   test(
     'install does not activate; enabling survives restart; uninstall clears prompt',
