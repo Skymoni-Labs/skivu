@@ -327,6 +327,53 @@ class SocialExtraButton extends StatelessWidget {
   );
 }
 
+/// The original 80px pale image-add tile with a one-pixel dashed outline.
+class SocialExtraAddPhotoTile extends StatelessWidget {
+  const SocialExtraAddPhotoTile({super.key, required this.onTap});
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: CustomPaint(
+      painter: _AddPhotoBorder(),
+      child: const SizedBox.square(
+        dimension: 80,
+        child: Center(
+          child: NativeSocialIcon('plus', size: 32, color: Color(0xffaab7bb)),
+        ),
+      ),
+    ),
+  );
+}
+
+class _AddPhotoBorder extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final radius = RRect.fromRectAndRadius(
+      rect.deflate(.5),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(radius, Paint()..color = const Color(0xfff7fafb));
+    final path = Path()..addRRect(radius);
+    final paint = Paint()
+      ..color = const Color(0xffd3dfe5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    for (final metric in path.computeMetrics()) {
+      for (double start = 0; start < metric.length; start += 5) {
+        canvas.drawPath(
+          metric.extractPath(start, math.min(start + 3, metric.length)),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AddPhotoBorder oldDelegate) => false;
+}
+
 /// Original local prototype illustration paths, redrawn with native canvas.
 class SocialExtraArt extends StatelessWidget {
   const SocialExtraArt(this.name, {super.key});

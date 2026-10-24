@@ -26,6 +26,7 @@ import 'native_social_media_preview.dart';
 import 'native_social_finance.dart';
 import 'native_social_local_options.dart';
 import 'native_social_portrait.dart';
+import 'appearance.dart' as style;
 export 'social_post_draft.dart' show normalizeSocialPhoto;
 
 /// Native secondary social pages. All mutations use the existing local stores.
@@ -76,6 +77,9 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
   String get _self => demo.userCard['称呼']?.trim().isNotEmpty == true
       ? demo.userCard['称呼']!
       : '我';
+  String get _signature => demo.userCard.containsKey('个性签名')
+      ? demo.userCard['个性签名']!
+      : '生活很慢，喜欢的事要慢慢来。';
   String get _title => switch (widget.page) {
     'moments' => widget.mode == ChatUiMode.qq ? '好友动态' : '朋友圈',
     'compose' => widget.mode == ChatUiMode.qq ? '写说说' : '发表动态',
@@ -552,12 +556,27 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
                 label: '我的主页',
                 child: GestureDetector(
                   onTap: () => widget.navigate('me'),
-                  child: NativeSocialPortrait(
-                    mode: widget.mode,
-                    user: true,
-                    size: 76,
-                    large: true,
-                    borderRadius: qq ? 38 : 7,
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(
+                        style.appearance.flag('squareAvatars')
+                            ? 0
+                            : qq
+                            ? 38
+                            : 7,
+                      ),
+                    ),
+                    child: NativeSocialPortrait(
+                      mode: widget.mode,
+                      user: true,
+                      size: 70,
+                      large: true,
+                      borderRadius: qq ? 35 : 4,
+                    ),
                   ),
                 ),
               ),
@@ -567,7 +586,7 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
               left: qq ? 110 : 16,
               right: 17,
               child: Text(
-                demo.userCard['个性签名'] ?? '',
+                _signature,
                 maxLines: 1,
                 textAlign: qq ? TextAlign.left : TextAlign.right,
                 overflow: TextOverflow.ellipsis,
@@ -968,7 +987,7 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
           children: [
             Row(
               children: [
-                NativeSocialPortrait(mode: widget.mode, user: true, size: 34),
+                NativeSocialPortrait(mode: widget.mode, user: true, size: 44),
                 const SizedBox(width: 10),
                 Text(_self, style: const TextStyle(fontSize: 16)),
               ],
@@ -1039,22 +1058,10 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
                     Semantics(
                       label: '添加动态图片',
                       button: true,
-                      child: GestureDetector(
+                      child: SocialExtraAddPhotoTile(
                         onTap: _picking || _draftLoading || _publishing
                             ? null
                             : _addPhotoMenu,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          color: const Color(0xfff1f3f4),
-                          child: const Center(
-                            child: NativeSocialIcon(
-                              'plus',
-                              size: 32,
-                              color: Color(0xffaab7bb),
-                            ),
-                          ),
-                        ),
                       ),
                     ),
                 ],
@@ -1089,7 +1096,7 @@ class _NativeSocialExtrasState extends State<NativeSocialExtras> {
               const LinearProgressIndicator(),
             const SizedBox(height: 24),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: Alignment.center,
               child: SizedBox(
                 width: widget.mode == ChatUiMode.qq ? double.infinity : 180,
                 child: SocialExtraButton(

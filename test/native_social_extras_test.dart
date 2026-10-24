@@ -15,6 +15,7 @@ import 'package:ski/ui_plugins.dart';
 import 'package:ski/virtual_wallet.dart';
 import 'package:ski/native_social_extra_components.dart';
 import 'package:ski/native_social_icons.dart';
+import 'package:ski/native_social_portrait.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -646,6 +647,40 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('模拟角色转账'), findsOneWidget);
       expect(find.text('模拟角色红包'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'published screenshot details keep centered composer, 44px portrait, dashed image tile and missing-only signature fallback',
+    (tester) async {
+      final before = Map<String, String>.of(demo.userCard);
+      addTearDown(() => demo.userCard = before);
+      demo.userCard.remove('个性签名');
+      await open(tester, 'moments');
+      expect(find.text('生活很慢，喜欢的事要慢慢来。'), findsOneWidget);
+      demo.userCard['个性签名'] = '';
+      demo.changed();
+      await tester.pump();
+      expect(find.text('生活很慢，喜欢的事要慢慢来。'), findsNothing);
+      await open(tester, 'compose');
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<NativeSocialPortrait>(
+              find.byType(NativeSocialPortrait).first,
+            )
+            .size,
+        44,
+      );
+      expect(find.byType(SocialExtraAddPhotoTile), findsOneWidget);
+      final publish = find.widgetWithText(SocialExtraButton, '发表');
+      expect(
+        tester.getCenter(publish).dx,
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      );
+      expect(tester.getSize(publish).width, 180);
     },
   );
 }
