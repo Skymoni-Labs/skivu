@@ -2,7 +2,7 @@
 body{visibility:hidden}body.host-ready{visibility:visible}
 html{background:transparent!important;--host-safe-top:0px}
 /* Flutter owns IME avoidance. Keep the document fixed to its assigned bounds. */
-html,body{overflow:hidden!important}
+html,body{overflow:hidden!important;touch-action:pan-x pan-y}
 body{position:fixed;inset:0;margin:0;height:var(--host-height,100dvh)}
 .work-header,.inspector,.notes,.canvas-caption,.preview-footer,.mobile-modes,.phone>.status,.phone>.drawer,.phone>.wallpaper,.home-indicator{display:none!important}
 .workspace,.preview-column{display:block!important;margin:0!important;padding:0!important;max-width:none!important;position:static!important}

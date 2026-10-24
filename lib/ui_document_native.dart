@@ -40,6 +40,9 @@ class _NativeDocumentState extends State<_NativeDocument> {
     super.initState();
     controller = WebViewController()
       ..setBackgroundColor(Colors.transparent)
+      // A presenter is app chrome, not a zoomable browser document. Pinching
+      // changes visualViewport without changing the Flutter-owned IME bounds.
+      ..enableZoom(false)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..addJavaScriptChannel(
         'SkivuNative',
