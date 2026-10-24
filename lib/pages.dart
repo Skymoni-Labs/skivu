@@ -11,7 +11,6 @@ import 'settings_home.dart';
 import 'model_settings_page.dart';
 import 'account_beta_page.dart';
 import 'relay_account_page.dart';
-import 'app_updates_page.dart';
 import 'speech_settings_page.dart';
 import 'ui_plugins_page.dart';
 import 'social_settings_page.dart';
@@ -646,7 +645,6 @@ class _SettingsDetailState extends State<SettingsDetail> {
         ),
         switch (widget.section) {
           'account' => RelayAccountPage(go: widget.go),
-          'updates' => const AppUpdatesPage(),
           'beta' => AccountBetaPage(go: widget.go),
           'models' => models(),
           'speech' => speech(),

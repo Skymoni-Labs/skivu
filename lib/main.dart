@@ -23,6 +23,7 @@ import 'beta_access.dart';
 import 'brand.dart';
 import 'relay_account.dart';
 import 'app_updates.dart';
+import 'app_updates_page.dart';
 import 'speech_settings.dart';
 import 'role_conversation_tree.dart';
 import 'sidebar_layout.dart';
@@ -501,7 +502,14 @@ class _SkiShellState extends State<SkiShell>
     child: _shell(context),
   );
 
-  Widget _shell(BuildContext context) => LayoutBuilder(
+  Widget _shell(BuildContext context) {
+    if (widget.route == '/settings/updates') {
+      return AppUpdatesPage(onBack: () => go('/settings'));
+    }
+    return _workspaceShell(context);
+  }
+
+  Widget _workspaceShell(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       motion.configure(
         math.min(330, box.maxWidth * .82),
