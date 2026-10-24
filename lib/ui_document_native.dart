@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'ui_document_port.dart';
+import 'ui_document_viewport.dart';
 
 Widget buildUiDocument({
   required UiCommand onCommand,
@@ -18,6 +19,22 @@ class _NativeDocument extends StatefulWidget {
 
 class _NativeDocumentState extends State<_NativeDocument> {
   late final WebViewController controller;
+  Size? _viewport;
+  bool _loaded = false;
+
+  Future<void> _resizeDocument() async {
+    final size = _viewport;
+    if (!mounted || !_loaded || size == null) return;
+    try {
+      await controller.runJavaScript('''
+        document.documentElement.style.setProperty('--host-height', '${size.height}px');
+        window.scrollTo(0, 0);
+      ''');
+    } catch (_) {
+      // A page being disposed or reloaded receives the latest size on load.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,17 +62,27 @@ class _NativeDocumentState extends State<_NativeDocument> {
                 ? NavigationDecision.navigate
                 : NavigationDecision.prevent;
           },
-          onPageFinished: (_) => widget.onReady((value) async {
-            if (!mounted) return;
-            await controller.runJavaScript(
-              'window.SkivuHost?.receive(JSON.parse(${jsonEncode(jsonEncode(value))}));',
-            );
-          }),
+          onPageFinished: (_) {
+            _loaded = true;
+            _resizeDocument();
+            widget.onReady((value) async {
+              if (!mounted) return;
+              await controller.runJavaScript(
+                'window.SkivuHost?.receive(JSON.parse(${jsonEncode(jsonEncode(value))}));',
+              );
+            });
+          },
         ),
       )
       ..loadFlutterAsset('assets/social_ui/index.html');
   }
 
   @override
-  Widget build(BuildContext context) => WebViewWidget(controller: controller);
+  Widget build(BuildContext context) => UiDocumentViewport(
+    onResize: (size) {
+      _viewport = size;
+      _resizeDocument();
+    },
+    child: WebViewWidget(controller: controller),
+  );
 }

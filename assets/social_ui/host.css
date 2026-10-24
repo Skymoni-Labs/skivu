@@ -1,9 +1,12 @@
 /* Only substitute OS chrome and host drawers; approved page CSS stays intact. */
 body{visibility:hidden}body.host-ready{visibility:visible}
 html{background:transparent!important;--host-safe-top:0px}
+/* Flutter owns IME avoidance. Keep the document fixed to its assigned bounds. */
+html,body{overflow:hidden!important}
+body{position:fixed;inset:0;margin:0;height:var(--host-height,100dvh)}
 .work-header,.inspector,.notes,.canvas-caption,.preview-footer,.mobile-modes,.phone>.status,.phone>.drawer,.phone>.wallpaper,.home-indicator{display:none!important}
 .workspace,.preview-column{display:block!important;margin:0!important;padding:0!important;max-width:none!important;position:static!important}
-.phone{zoom:1!important;width:100%!important;height:100dvh!important;border-radius:0!important;box-shadow:none!important}
+.phone{zoom:1!important;width:100%!important;height:var(--host-height,100dvh)!important;border-radius:0!important;box-shadow:none!important}
 .social-shell.native-style[data-mode]>.topbar{padding-top:var(--host-safe-top)!important}
 .social-shell.native-style[data-mode] .social-page{padding-top:calc(52px + var(--host-safe-top))}
 .social-shell.native-style[data-mode] .messages{padding-top:calc(72px + var(--host-safe-top))}

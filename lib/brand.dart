@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 const appName = 'Skivu';
 // Keep this fallback aligned with pubspec; Android update info uses PackageManager.
-const appVersion = '0.2.23';
+const appVersion = '0.2.24';
 const brandArtwork = 'assets/branding/skivu-approved.png';
 
 class BrandMark extends StatelessWidget {
