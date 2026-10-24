@@ -30,6 +30,7 @@ import 'sidebar_layout.dart';
 import 'ui_plugins.dart';
 import 'ui_plugins_page.dart';
 import 'plugin_market.dart';
+import 'extension_market.dart';
 import 'social_settings.dart';
 import 'social_activity.dart';
 import 'virtual_wallet.dart';
@@ -104,6 +105,7 @@ Future<void> main() async {
   await demo.restore();
   await uiPlugins.restore();
   await pluginMarket.restore();
+  await extensionLibrary.restore();
   if (uiPlugins.mode != ChatUiMode.classic &&
       pluginMarket.installedFor(uiPlugins.mode) == null)
     await uiPlugins.apply(ChatUiMode.classic);
@@ -486,6 +488,7 @@ class _SkiShellState extends State<SkiShell>
     '/call' => '语音通话',
     '/plugins' => '插件',
     '/market' => '插件市场',
+    '/extensions' => '技能与工具',
     '/settings' => '设置',
     _ =>
       settingsSections

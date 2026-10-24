@@ -13,6 +13,7 @@ import 'account_beta_page.dart';
 import 'relay_account_page.dart';
 import 'speech_settings_page.dart';
 import 'ui_plugins_page.dart';
+import 'extensions_page.dart';
 import 'social_settings_page.dart';
 import 'world_library_page.dart';
 import 'sticker_library_page.dart';
@@ -52,6 +53,8 @@ class ContentPage extends StatelessWidget {
       child = UiPluginsPage(go: go);
     } else if (route == '/market') {
       child = UiPluginsPage(go: go);
+    } else if (route == '/extensions') {
+      child = const ExtensionsPage();
     } else if (route == '/settings') {
       child = settingsHome(context);
     } else if (route.startsWith('/settings/')) {

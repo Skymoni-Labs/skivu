@@ -13,6 +13,7 @@ import 'relay_account.dart';
 import 'stream_reveal.dart';
 import 'chat_interaction.dart';
 import 'companion_library.dart';
+import 'extension_market.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -429,6 +430,7 @@ class DemoStore extends ChangeNotifier {
   String promptFor(Persona role) => [
     role.compiledPrompt,
     if (worldFor(role) case final world?) world.prompt(role.sceneId),
+    extensionLibrary.skillPrompt,
   ].where((v) => v.isNotEmpty).join('\n\n');
   void saveLibrary() {
     libraryRevision++;
