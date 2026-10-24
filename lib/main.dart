@@ -34,6 +34,7 @@ import 'social_activity.dart';
 import 'virtual_wallet.dart';
 import 'html_ui_page.dart';
 import 'social_ui_metrics.dart';
+import 'launch.dart';
 
 final appNavigator = GlobalKey<NavigatorState>();
 
@@ -101,6 +102,7 @@ Future<void> main() async {
       ),
     );
   });
+  final artworkFuture = LaunchArtwork.load();
   await Future.wait([
     wallpaper.restore(),
     glassPreferences.restore(),
@@ -121,17 +123,34 @@ Future<void> main() async {
   await socialActivity.restore();
   await virtualWallet.restore();
   await recoverInterruptedMedia();
-  runApp(const SkiApp());
-  unawaited(checkStartupUpdate());
+  final artwork = await artworkFuture;
+  runApp(SkiApp(launchArtwork: artwork));
+  if (artwork == null) unawaited(checkStartupUpdate());
 }
 
 class SkiApp extends StatefulWidget {
-  const SkiApp({super.key});
+  const SkiApp({super.key, this.launchArtwork});
+  final LaunchArtwork? launchArtwork;
   @override
   State<SkiApp> createState() => _SkiAppState();
 }
 
 class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
+  bool _startupUpdatePending = false;
+
+  void _launchComplete() {
+    _startupUpdatePending = true;
+    _checkUpdateWhenResumed();
+  }
+
+  void _checkUpdateWhenResumed() {
+    if (!_startupUpdatePending ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed)
+      return;
+    _startupUpdatePending = false;
+    unawaited(checkStartupUpdate());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -159,6 +178,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkUpdateWhenResumed();
     socialActivity.setForeground(
       state == AppLifecycleState.resumed ||
           (kIsWeb && state == AppLifecycleState.inactive),
@@ -264,7 +284,18 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         child: MobilePreviewStage(
           child: ScaledViewport(
             scale: appearance.number('uiScale'),
-            child: child!,
+            child: widget.launchArtwork == null
+                ? child!
+                : LaunchHost(
+                    artwork: widget.launchArtwork!,
+                    accent: green,
+                    dark: demo.dark,
+                    reduceMotion:
+                        appearance.flag('reduceMotion') ||
+                        (demo.prefs['减少动态效果'] ?? false),
+                    onComplete: _launchComplete,
+                    child: child!,
+                  ),
           ),
         ),
       ),
@@ -480,14 +511,17 @@ class _SkiShellState extends State<SkiShell>
           widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic;
       final body = widget.route == '/chat'
           ? htmlUi
-                ? HtmlUiPage(
-                    go: go,
-                    openNavigation: () {
-                      if (motion.offset < .1) panel(1);
-                    },
-                    openWorkspace: () {
-                      if (motion.offset > -.1) panel(-1);
-                    },
+                ? LaunchReveal(
+                    part: LaunchPart.content,
+                    child: HtmlUiPage(
+                      go: go,
+                      openNavigation: () {
+                        if (motion.offset < .1) panel(1);
+                      },
+                      openWorkspace: () {
+                        if (motion.offset > -.1) panel(-1);
+                      },
+                    ),
                   )
                 : ChatPage(
                     backdropAnchor: _foregroundKey,
@@ -604,24 +638,31 @@ class _SkiShellState extends State<SkiShell>
                             10,
                             5,
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(40),
-                            child: ConfigurableGlassSurface(
-                              area: 'toolbarBlur',
-                              radius: 40,
-                              child: toolbar,
+                          child: LaunchReveal(
+                            part: LaunchPart.toolbar,
+                            radius: 40,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(40),
+                              child: ConfigurableGlassSurface(
+                                area: 'toolbarBlur',
+                                radius: 40,
+                                child: toolbar,
+                              ),
                             ),
                           ),
                         )
-                      : ConfigurableGlassSurface(
-                          key: const ValueKey('glass-rectangle-toolbar'),
-                          area: 'toolbarBlur',
-                          radius: 0,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              top: MediaQuery.paddingOf(context).top,
+                      : LaunchReveal(
+                          part: LaunchPart.toolbar,
+                          child: ConfigurableGlassSurface(
+                            key: const ValueKey('glass-rectangle-toolbar'),
+                            area: 'toolbarBlur',
+                            radius: 0,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                top: MediaQuery.paddingOf(context).top,
+                              ),
+                              child: toolbar,
                             ),
-                            child: toolbar,
                           ),
                         ),
                 ),

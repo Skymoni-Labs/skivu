@@ -15,6 +15,7 @@ import 'chat_message_dial.dart';
 import 'character_avatar.dart';
 import 'assistant_reply_layout.dart';
 import 'message_info_row.dart';
+import 'launch.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -354,74 +355,79 @@ class _ChatPageState extends State<ChatPage> {
       children: [
         // Messages continue underneath the floating composer. Their scroll
         // padding reserves its measured height without cutting a dark seam.
-        NotificationListener<ScrollMetricsNotification>(
-          onNotification: (n) {
-            if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
-            final previous = _viewportExtent;
-            _viewportExtent = n.metrics.viewportDimension;
-            if (previous != null &&
-                (previous - _viewportExtent!).abs() > .5 &&
-                follow) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted && follow && scroll.hasClients)
-                  scroll.jumpTo(scroll.position.maxScrollExtent);
-              });
-            }
-            return false;
-          },
-          child: NotificationListener<ScrollNotification>(
+        LaunchReveal(
+          part: LaunchPart.content,
+          child: NotificationListener<ScrollMetricsNotification>(
             onNotification: (n) {
-              if ((n is ScrollUpdateNotification && n.dragDetails != null) ||
-                  (n is UserScrollNotification &&
-                      n.direction != ScrollDirection.idle)) {
-                revealNavigation();
-                follow = false;
+              if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
+              final previous = _viewportExtent;
+              _viewportExtent = n.metrics.viewportDimension;
+              if (previous != null &&
+                  (previous - _viewportExtent!).abs() > .5 &&
+                  follow) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && follow && scroll.hasClients)
+                    scroll.jumpTo(scroll.position.maxScrollExtent);
+                });
               }
               return false;
             },
-            child: ListView(
-              controller: scroll,
-              // Frost samples the live scene. Caching each message as a
-              // separate scrolling layer can retain an unfiltered backdrop
-              // while its transform changes on Android's renderer.
-              addRepaintBoundaries: false,
-              padding: EdgeInsets.fromLTRB(
-                appearance.flag('wideChat') ? 8 : 14,
-                appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
-                appearance.flag('wideChat') ? 8 : 14,
-                24 + _composerExtent,
-              ),
-              children: [
-                if (demo.messages.isEmpty)
-                  emptyState()
-                else ...[
-                  Center(
-                    child: label(
-                      '与 ${demo.role.name} 的对话',
-                      size: 10,
-                      color: muted,
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  for (int i = 0; i < demo.messages.length; i++)
-                    message(demo.messages[i], i),
-                  if (demo.streaming && appearance.flag('showStatus'))
-                    Padding(
-                      padding: const EdgeInsets.only(left: 44),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 9,
-                            height: 9,
-                            child: CircularProgressIndicator(strokeWidth: 1.5),
-                          ),
-                          const SizedBox(width: 8),
-                          label('正在回复…', size: 10, color: muted),
-                        ],
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if ((n is ScrollUpdateNotification && n.dragDetails != null) ||
+                    (n is UserScrollNotification &&
+                        n.direction != ScrollDirection.idle)) {
+                  revealNavigation();
+                  follow = false;
+                }
+                return false;
+              },
+              child: ListView(
+                controller: scroll,
+                // Frost samples the live scene. Caching each message as a
+                // separate scrolling layer can retain an unfiltered backdrop
+                // while its transform changes on Android's renderer.
+                addRepaintBoundaries: false,
+                padding: EdgeInsets.fromLTRB(
+                  appearance.flag('wideChat') ? 8 : 14,
+                  appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
+                  appearance.flag('wideChat') ? 8 : 14,
+                  24 + _composerExtent,
+                ),
+                children: [
+                  if (demo.messages.isEmpty)
+                    emptyState()
+                  else ...[
+                    Center(
+                      child: label(
+                        '与 ${demo.role.name} 的对话',
+                        size: 10,
+                        color: muted,
                       ),
                     ),
+                    const SizedBox(height: 25),
+                    for (int i = 0; i < demo.messages.length; i++)
+                      message(demo.messages[i], i),
+                    if (demo.streaming && appearance.flag('showStatus'))
+                      Padding(
+                        padding: const EdgeInsets.only(left: 44),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 9,
+                              height: 9,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            label('正在回复…', size: 10, color: muted),
+                          ],
+                        ),
+                      ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -530,122 +536,133 @@ class _ChatPageState extends State<ChatPage> {
     ),
     child: Column(
       children: [
-        ConfigurableGlassSurface(
-          area: 'inputBlur',
+        LaunchReveal(
+          part: LaunchPart.composer,
           radius: appearance.flag('floatingInput') ? 24 : 0,
-          child: Container(
-            color: Colors.transparent,
-            padding: const EdgeInsets.fromLTRB(17, 11, 10, 10),
-            child: Column(
-              children: [
-                if (demo.attached)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: InputChip(
-                      label: const Text(
-                        '灵感笔记.md · 演示',
-                        style: TextStyle(fontSize: 10),
+          child: ConfigurableGlassSurface(
+            area: 'inputBlur',
+            radius: appearance.flag('floatingInput') ? 24 : 0,
+            child: Container(
+              color: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(17, 11, 10, 10),
+              child: Column(
+                children: [
+                  if (demo.attached)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: InputChip(
+                        label: const Text(
+                          '灵感笔记.md · 演示',
+                          style: TextStyle(fontSize: 10),
+                        ),
+                        avatar: const Icon(
+                          Icons.description_outlined,
+                          size: 15,
+                        ),
+                        onDeleted: () {
+                          demo.attached = false;
+                          demo.changed();
+                        },
                       ),
-                      avatar: const Icon(Icons.description_outlined, size: 15),
-                      onDeleted: () {
-                        demo.attached = false;
-                        demo.changed();
-                      },
                     ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: input,
+                          focusNode: focus,
+                          key: const ValueKey('chat-composer-field'),
+                          minLines: appearance.text('inputStyle') == 'compact'
+                              ? 1
+                              : 2,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => send(),
+                          onChanged: (_) => hideNavigation(),
+                          cursorColor: appearance.textColor('inputText'),
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.65,
+                            color: appearance.textColor('inputText'),
+                            fontFamily: appearance.fontFamily('inputFont'),
+                            fontFamilyFallback: const ['SkiSans'],
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '发消息…',
+                            hintStyle: TextStyle(
+                              color: appearance
+                                  .textColor('inputText')
+                                  .withValues(alpha: .65),
+                            ),
+                            filled: false,
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 4,
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '展开输入',
+                        onPressed: expandDraft,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(Icons.open_in_full, size: 16, color: muted),
+                      ),
+                    ],
                   ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: input,
-                        focusNode: focus,
-                        key: const ValueKey('chat-composer-field'),
-                        minLines: appearance.text('inputStyle') == 'compact'
-                            ? 1
-                            : 2,
-                        maxLines: 4,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => send(),
-                        onChanged: (_) => hideNavigation(),
-                        cursorColor: appearance.textColor('inputText'),
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.65,
-                          color: appearance.textColor('inputText'),
-                          fontFamily: appearance.fontFamily('inputFont'),
-                          fontFamilyFallback: const ['SkiSans'],
-                        ),
-                        decoration: InputDecoration(
-                          hintText: '发消息…',
-                          hintStyle: TextStyle(
-                            color: appearance
-                                .textColor('inputText')
-                                .withValues(alpha: .65),
-                          ),
-                          filled: false,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 4,
-                          ),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: '展开输入',
-                      onPressed: expandDraft,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.open_in_full, size: 16, color: muted),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(9),
-                        onTap: () => picker(false),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          child: Row(
-                            children: [
-                              Icon(Icons.auto_awesome, size: 16, color: green),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  demo.model,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(9),
+                          onTap: () => picker(false),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.auto_awesome,
+                                  size: 16,
+                                  color: green,
                                 ),
-                              ),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                size: 16,
-                                color: muted,
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    demo.model,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 16,
+                                  color: muted,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: '对话设置',
-                      onPressed: () => picker(true),
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.tune, size: 20, color: muted),
-                    ),
-                    IconButton(
-                      tooltip: '添加内容',
-                      onPressed: attachments,
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(Icons.add, size: 23, color: muted),
-                    ),
-                    const SizedBox(width: 4),
-                    sendControl(),
-                  ],
-                ),
-              ],
+                      IconButton(
+                        tooltip: '对话设置',
+                        onPressed: () => picker(true),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(Icons.tune, size: 20, color: muted),
+                      ),
+                      IconButton(
+                        tooltip: '添加内容',
+                        onPressed: attachments,
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(Icons.add, size: 23, color: muted),
+                      ),
+                      const SizedBox(width: 4),
+                      sendControl(),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

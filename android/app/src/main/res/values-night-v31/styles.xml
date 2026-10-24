@@ -3,7 +3,7 @@
     <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">@color/skivu_icon_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/skivu_launch_blank</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/skivu_icon_background</item>
     </style>
 </resources>
