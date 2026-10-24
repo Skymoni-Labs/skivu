@@ -76,13 +76,15 @@ APK 公开下载，**内测额度需要单独申请并获批准**：
 3. **开启话题**：侧栏顶部“新建对话”先选择角色，角色下的新建操作自动绑定该角色。不同会话的记录、上下文与草稿独立。
 4. **调整体验**：在 **设置 → 外观与体验** 配置文字、背景、玻璃与消息版式；语音连接在 **语音与通话** 单独管理。
 
-配置范围和协议说明见 [接口接入文档](API-INTEGRATION-SOURCES.md)。
+配置范围和协议说明见 [接口接入文档](API-INTEGRATION-SOURCES.md)。公网自定义模型地址使用 HTTPS；HTTP 仅用于可信本机或明确的私网 IP。
+
+0.2.32 的上下文预算、本地存储与恢复、弱网启动和群聊语音说明见 [App 可靠性改进](docs/app-reliability.md)。
 
 ## 插件共创
 
-[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) 已开放社区参与，当前提供 `0.1-draft` 纯文本提示词内容包规范、JSON Schema、模板、示例和本地校验工具。收录目录为预览用途，`runtimeReady: false`。
+[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) 已开放社区参与。当前 App 可从目录安装、启用、更新和卸载官方微信／QQ 界面预设包；它们共用本机角色与聊天资料，渲染器随 App 发布。
 
-**已发布 App 尚未接入插件加载、安装、执行和更新。** 插件市场入口仍显示“即将开放”；现在可以通过仓库提交提案、内容包与收录 PR。
+社区提示词内容包仍是 `0.1-draft` 规范草案，草案不等于可安装包。当前 App 不执行任意第三方脚本；新增渲染能力需要宿主源码修改与 App 发版。请按仓库当前目录、示例及校验规则提交内容。
 
 [开发规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/development.md) · [模板](https://github.com/skyjjgw/skivu-plugins/tree/main/templates/prompt-pack) · [目录规范](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/catalog.md) · [提交收录](https://github.com/skyjjgw/skivu-plugins/blob/main/CONTRIBUTING.md) · [开放路线](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/roadmap.md)
 
@@ -124,7 +126,7 @@ APK 输出到 `build/app/outputs/flutter-apk/app-release.apk`。Android 与浏�
 
 ## 数据与隐私
 
-聊天记录、角色、草稿和外观配置保存在本机，支持聊天数据备份与恢复。API 密钥、账号会话和语音连接凭据通过 `flutter_secure_storage` 单独保存，不进入聊天备份；App 不保存账号登录密码。
+聊天记录、角色、草稿和外观配置保存在本机，支持系统文件备份与恢复。Android 聊天记录从旧偏好迁移至应用私有目录中的双代校验文件；恢复前会显示内容数量并确认替换。清空记录会清理自动恢复副本，已导出的文件与剪贴板需自行管理。API 密钥、账号会话和语音连接凭据通过 `flutter_secure_storage` 单独保存，不进入聊天备份；App 不保存账号登录密码。
 
 发起对话时，相关消息与角色设定会发送给所选模型服务。云端语音合成会发送待朗读文本，系统识别也可能联网。
 

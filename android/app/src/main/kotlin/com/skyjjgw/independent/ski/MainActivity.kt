@@ -19,6 +19,7 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
+    private val chatBackup by lazy { ChatBackupPlatform(this) }
     private val voice by lazy { VoiceCallPlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
@@ -26,6 +27,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         AppPlatform(this).register(flutterEngine.dartExecutor.binaryMessenger)
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
+        chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
             .setMethodCallHandler { call, result ->
                 keyWorker.execute {
@@ -39,12 +41,17 @@ class MainActivity : FlutterActivity() {
             }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        chatBackup.activityResult(requestCode, resultCode, data)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         voice.permissionResult(requestCode, grantResults)
     }
     override fun onStop() { voice.pause(); super.onStop() }
-    override fun onDestroy() { voice.close(); super.onDestroy() }
+    override fun onDestroy() { chatBackup.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")

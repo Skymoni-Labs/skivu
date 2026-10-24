@@ -530,7 +530,8 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                         'API 地址',
                         hint: 'https://example.com/v1',
                         keyboard: TextInputType.url,
-                        note: '支持基础地址或完整接口地址；系统会保留你的路径前缀。HTTP 适用于可信的本地服务。',
+                        note:
+                            '支持基础或完整接口地址。公网使用 HTTPS；本机或局域网 HTTP 会明文传输，请仅连接可信设备。',
                         validator: (_) {
                           try {
                             config().endpoint();

@@ -14,15 +14,26 @@ class RelayAccount extends ChangeNotifier {
     AppPlatform? platform,
     FlutterSecureStorage? secure,
     http.Client Function()? clientFactory,
+    this.syncTimeout = const Duration(seconds: 20),
   }) : platform = platform ?? AppPlatform(),
        _secure = secure ?? const FlutterSecureStorage(),
        _clients = clientFactory ?? http.Client.new;
   final AppPlatform platform;
+  final Duration syncTimeout;
   final FlutterSecureStorage _secure;
   final http.Client Function() _clients;
   static const _storageKey = 'skivu.relay.account.v1';
   String? _token, _deviceCode, _verifier;
   int _generation = 0;
+  final Set<http.Client> _activeClients = {};
+
+  void _cancelRequests() {
+    for (final client in _activeClients.toList()) {
+      client.close();
+    }
+    _activeClients.clear();
+  }
+
   bool busy = false;
   bool loggingOut = false;
   String? error, userCode, verificationUrl, activeModel;
@@ -83,9 +94,16 @@ class RelayAccount extends ChangeNotifier {
           streaming: streaming,
         );
 
-  Future<void> _persist() => _secure.write(
-    key: _storageKey,
-    value: jsonEncode({
+  Future<void> _storageWrites = Future.value();
+
+  Future<void> _store(Future<void> Function() operation) {
+    final next = _storageWrites.then((_) => operation());
+    _storageWrites = next.catchError((Object _) {});
+    return next;
+  }
+
+  Future<void> _persist() {
+    final snapshot = jsonEncode({
       'token': _token,
       'expires': expiresAt?.millisecondsSinceEpoch,
       'model': activeModel,
@@ -101,13 +119,16 @@ class RelayAccount extends ChangeNotifier {
           'expires': authorizationExpires?.millisecondsSinceEpoch,
           'interval': pollInterval,
         },
-    }),
-  );
+    });
+    return _store(() => _secure.write(key: _storageKey, value: snapshot));
+  }
 
   Future<void> restore() async {
     if (!supported) return;
+    final generation = _generation;
     try {
       final stored = await _secure.read(key: _storageKey);
+      if (generation != _generation) return;
       if (stored == null) return;
       final raw = jsonDecode(stored) as Map;
       funding = raw['funding'] == 'beta' ? 'beta' : 'relay';
@@ -133,7 +154,6 @@ class RelayAccount extends ChangeNotifier {
         );
         pollInterval = (pending['interval'] as int? ?? 5).clamp(5, 60);
       }
-      if (signedIn) await refresh();
     } catch (_) {
       error = '账号连接暂不可用，请重新登录。';
     }
@@ -156,84 +176,100 @@ class RelayAccount extends ChangeNotifier {
     Map<String, dynamic>? body,
     String? token,
     Map<String, String>? query,
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     final client = _clients();
+    _activeClients.add(client);
     try {
-      final request =
-          http.Request(
-              method,
-              Uri.https('skymoni.com', '/api/app-account/$path', query),
-            )
-            ..followRedirects = false
-            ..headers['Content-Type'] = 'application/json';
-      if (token != null) request.headers['Authorization'] = 'AppAccount $token';
-      if (body != null) request.bodyBytes = utf8.encode(jsonEncode(body));
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 20));
-      final bytes = <int>[];
-      await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 20),
-      )) {
-        if (bytes.length + chunk.length > 1048576)
-          throw const ChatFailure('账号服务返回异常。');
-        bytes.addAll(chunk);
-      }
-      final raw = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-      if (response.statusCode == 401 && raw['code'] == 'APP_SESSION_INVALID')
-        throw const ChatFailure('账号登录已过期，请重新登录。', code: 'APP_SESSION_INVALID');
-      if (response.statusCode < 200 ||
-          response.statusCode >= 300 ||
-          raw['success'] != true) {
-        final code = raw['code'] as String?;
-        throw ChatFailure(switch (code) {
-          'INVALID_CREDENTIALS' || 'LOGIN_FAILED' => '账号或密码不正确。',
-          'CAPTCHA_REQUIRED' => '此账号需要网页安全验证。',
-          'MFA_INVALID' || 'VERIFICATION_FAILED' => '验证码不正确或已过期。',
-          'RATE_LIMITED' => '尝试过于频繁，请稍后再试。',
-          'BETA_NOT_APPROVED' => '内测尚未批准或已暂停。',
-          'BETA_QUOTA_EXHAUSTED' => '内测额度已用完，请等待管理员发放。',
-          'BETA_CHANNEL_DISABLED' => '内测服务暂未开放，请稍后重试。',
-          'AUTHORIZATION_PENDING' => '等待网页授权。',
-          'ACCESS_DENIED' => '此次授权已取消。',
-          'EXPIRED_TOKEN' => '授权已过期，请重新登录。',
-          'SLOW_DOWN' => '正在等待授权，请稍候。',
-          'AUTH_SESSION_LIMIT' ||
-          'AUTH_ISSUANCE_LIMIT' => '登录会话已达上限。请在中转站管理现有会话后重试。',
-          _ =>
-            response.statusCode == 503 || response.statusCode == 404
-                ? '账号服务暂未开放，请稍后再试。'
-                : (raw['message']?.toString().toLowerCase().contains(
-                            'password',
-                          ) ==
-                          true ||
-                      raw['message']?.toString().contains('密码') == true)
-                ? '账号或密码不正确，请检查后重试。'
-                : (raw['message']?.toString().contains('验证') == true
-                      ? '账号安全验证未完成，请重试或使用网页登录。'
-                      : '账号操作未完成，请稍后重试。'),
-        }, code: code);
-      }
-      return Map<String, dynamic>.from(raw['data'] as Map? ?? {});
+      return await (() async {
+        final request =
+            http.Request(
+                method,
+                Uri.https('skymoni.com', '/api/app-account/$path', query),
+              )
+              ..followRedirects = false
+              ..headers['Content-Type'] = 'application/json';
+        if (token != null)
+          request.headers['Authorization'] = 'AppAccount $token';
+        if (body != null) request.bodyBytes = utf8.encode(jsonEncode(body));
+        final response = await client
+            .send(request)
+            .timeout(const Duration(seconds: 20));
+        final bytes = <int>[];
+        await for (final chunk in response.stream.timeout(
+          const Duration(seconds: 20),
+        )) {
+          if (bytes.length + chunk.length > 1048576)
+            throw const ChatFailure('账号服务返回异常。');
+          bytes.addAll(chunk);
+        }
+        if (response.statusCode == 401 && token != null)
+          throw const ChatFailure(
+            '账号登录已过期，请重新登录。',
+            code: 'APP_SESSION_INVALID',
+          );
+        final raw = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
+        if (response.statusCode == 401 && raw['code'] == 'APP_SESSION_INVALID')
+          throw const ChatFailure(
+            '账号登录已过期，请重新登录。',
+            code: 'APP_SESSION_INVALID',
+          );
+        if (response.statusCode < 200 ||
+            response.statusCode >= 300 ||
+            raw['success'] != true) {
+          final code = raw['code'] as String?;
+          throw ChatFailure(switch (code) {
+            'INVALID_CREDENTIALS' || 'LOGIN_FAILED' => '账号或密码不正确。',
+            'CAPTCHA_REQUIRED' => '此账号需要网页安全验证。',
+            'MFA_INVALID' || 'VERIFICATION_FAILED' => '验证码不正确或已过期。',
+            'RATE_LIMITED' => '尝试过于频繁，请稍后再试。',
+            'BETA_NOT_APPROVED' => '内测尚未批准或已暂停。',
+            'BETA_QUOTA_EXHAUSTED' => '内测额度已用完，请等待管理员发放。',
+            'BETA_CHANNEL_DISABLED' => '内测服务暂未开放，请稍后重试。',
+            'AUTHORIZATION_PENDING' => '等待网页授权。',
+            'ACCESS_DENIED' => '此次授权已取消。',
+            'EXPIRED_TOKEN' => '授权已过期，请重新登录。',
+            'SLOW_DOWN' => '正在等待授权，请稍候。',
+            'AUTH_SESSION_LIMIT' ||
+            'AUTH_ISSUANCE_LIMIT' => '登录会话已达上限。请在中转站管理现有会话后重试。',
+            _ =>
+              response.statusCode == 503 || response.statusCode == 404
+                  ? '账号服务暂未开放，请稍后再试。'
+                  : (raw['message']?.toString().toLowerCase().contains(
+                              'password',
+                            ) ==
+                            true ||
+                        raw['message']?.toString().contains('密码') == true)
+                  ? '账号或密码不正确，请检查后重试。'
+                  : (raw['message']?.toString().contains('验证') == true
+                        ? '账号安全验证未完成，请重试或使用网页登录。'
+                        : '账号操作未完成，请稍后重试。'),
+          }, code: code);
+        }
+        return Map<String, dynamic>.from(raw['data'] as Map? ?? {});
+      })().timeout(timeout);
     } on ChatFailure {
       rethrow;
     } catch (_) {
       throw const ChatFailure('无法连接账号服务，请检查网络后重试。');
     } finally {
+      _activeClients.remove(client);
       client.close();
     }
   }
 
-  Future<void> selectFunding(String value) async {
+  Future<void> selectFunding(String value, {bool refreshRemote = true}) async {
     if (busy || !['relay', 'beta'].contains(value)) return;
     if (funding != value) {
+      ++_generation;
+      _cancelRequests();
       models = [];
       protocols = {};
       activeModel = null;
     }
     funding = value;
     await _persist();
-    await refresh();
+    if (refreshRemote) await refresh();
     notifyListeners();
   }
 
@@ -245,7 +281,7 @@ class RelayAccount extends ChangeNotifier {
   }
 
   Future<void> signIn(String username, String password) async {
-    if (busy || !supported || signedIn) return;
+    if (busy || loggingOut || !supported || signedIn) return;
     busy = true;
     error = null;
     needsBrowser = false;
@@ -367,6 +403,11 @@ class RelayAccount extends ChangeNotifier {
         data['expires_at'] is! num)
       throw const ChatFailure('登录响应无效，请重试。');
     _token = token;
+    // A newly issued session must synchronize its own permissions.
+    user = null;
+    models = [];
+    protocols = {};
+    betaStatus = null;
     expiresAt = DateTime.fromMillisecondsSinceEpoch(
       (data['expires_at'] as num).toInt() * 1000,
     );
@@ -384,7 +425,7 @@ class RelayAccount extends ChangeNotifier {
   }
 
   Future<void> beginAuthorization() async {
-    if (busy || !supported || signedIn) return;
+    if (busy || loggingOut || !supported || signedIn) return;
     busy = true;
     error = null;
     final generation = ++_generation;
@@ -464,6 +505,10 @@ class RelayAccount extends ChangeNotifier {
       if (token.isEmpty || raw['token_type'] != 'AppAccount')
         throw const ChatFailure('账号授权信息无效。');
       _token = token;
+      user = null;
+      models = [];
+      protocols = {};
+      betaStatus = null;
       expiresAt = DateTime.fromMillisecondsSinceEpoch(
         (raw['expires_at'] as num).toInt() * 1000,
       );
@@ -524,10 +569,23 @@ class RelayAccount extends ChangeNotifier {
     busy = true;
     error = null;
     final generation = _generation;
+    final token = _token;
+    final selectedFunding = funding;
+    final clock = Stopwatch()..start();
+    bool current() => generation == _generation && token == _token && signedIn;
     notifyListeners();
     try {
-      final me = await _request('GET', 'me', token: _token);
-      if (generation != _generation) return;
+      final me = await _request(
+        'GET',
+        'me',
+        token: token,
+        timeout: syncTimeout,
+      );
+      if (!current()) return;
+      // Apply current account revocations before waiting for the catalog.
+      // A failed/denied catalog must never leave previously granted models usable.
+      models = [];
+      protocols = {};
       betaStatus = me['beta'] is Map
           ? Map<String, dynamic>.from(me['beta'])
           : null;
@@ -541,13 +599,16 @@ class RelayAccount extends ChangeNotifier {
       quotaPerUnit = me['quota_per_unit'] as num?;
       currency = me['currency'] as String? ?? 'USD';
       billingPreference = me['billing_preference'] as String? ?? '';
+      notifyListeners();
+      if (!current()) return;
       final catalog = await _request(
         'GET',
         'models',
-        token: _token,
-        query: funding == 'beta' ? {'funding': 'beta'} : null,
+        token: token,
+        query: selectedFunding == 'beta' ? {'funding': 'beta'} : null,
+        timeout: syncTimeout - clock.elapsed,
       );
-      if (generation != _generation) return;
+      if (!current()) return;
       protocols = {
         for (final e in (catalog['model_protocols'] as Map? ?? {}).entries)
           if (e.key is String && e.value is String)
@@ -586,9 +647,20 @@ class RelayAccount extends ChangeNotifier {
 
   Future<void> invalidate() async {
     ++_generation;
+    _cancelRequests();
+    busy = true;
+    // Even if disk cleanup fails, revoked permissions cannot remain usable.
+    user = null;
+    models = [];
+    protocols = {};
+    betaStatus = null;
     // If secure storage fails, keep the account visible so logout can be
     // retried; never present a successful logout with a restorable token.
-    await _secure.delete(key: _storageKey);
+    try {
+      await _store(() => _secure.delete(key: _storageKey));
+    } finally {
+      busy = false;
+    }
     _token = null;
     expiresAt = null;
     user = null;

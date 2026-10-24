@@ -47,6 +47,7 @@ class _ChatPageState extends State<ChatPage> {
   bool showNav = false, follow = true;
   bool _followQueued = false;
   int _bottomSeek = 0;
+  int _messageSeek = 0;
   int oldCount = 0, _centeredIndex = 0;
   late Conversation _conversation;
   @override
@@ -89,6 +90,7 @@ class _ChatPageState extends State<ChatPage> {
     final current = demo.conversations[demo.conversation];
     if (!identical(current, _conversation)) {
       _bottomSeek++;
+      _messageSeek++;
       _conversation = current;
       _queueChatReader();
       input.text = current.draft;
@@ -161,21 +163,63 @@ class _ChatPageState extends State<ChatPage> {
 
   void locate(int index) {
     if (demo.messages.isEmpty) return;
-    final key = keys[demo.messages[index.clamp(0, demo.messages.length - 1)]];
-    if (key?.currentContext != null)
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOut,
-        alignment: .13,
-      );
+    final target = demo.messages[index.clamp(0, demo.messages.length - 1)];
+    _bottomSeek++;
     setState(() {
       showNav = false;
       follow = false;
     });
+    _seekMessage(target, ++_messageSeek);
+  }
+
+  // A lazy list has no RenderBox for an offscreen message. Seek using the
+  // currently laid-out indexes, then align the exact message once it exists.
+  void _seekMessage(Message target, int token, {int attempt = 0}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || token != _messageSeek || !scroll.hasClients) return;
+      final targetIndex = demo.messages.indexOf(target);
+      if (targetIndex < 0) return;
+      final context = keys[target]?.currentContext;
+      if (context != null) {
+        unawaited(
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            alignment: .13,
+          ),
+        );
+        return;
+      }
+      final visible = <(int, double)>[];
+      for (final entry in keys.entries) {
+        final box = entry.value.currentContext?.findRenderObject();
+        if (box is RenderBox && box.hasSize && box.attached) {
+          final index = demo.messages.indexOf(entry.key);
+          if (index >= 0) visible.add((index, box.size.height));
+        }
+      }
+      visible.sort((a, b) => a.$1.compareTo(b.$1));
+      final mean = visible.isEmpty
+          ? 160.0
+          : visible.fold<double>(0, (sum, entry) => sum + entry.$2) /
+                visible.length;
+      final anchor = visible.isEmpty ? 0 : visible[visible.length ~/ 2].$1;
+      final distance = (targetIndex - anchor) * mean;
+      final position = scroll.position;
+      final next = (scroll.offset + distance)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if ((next - scroll.offset).abs() > .5) scroll.jumpTo(next);
+      if (attempt < 60) {
+        _seekMessage(target, token, attempt: attempt + 1);
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void latest() {
+    _messageSeek++;
     hideNavigation();
     setState(() => follow = true);
     _seekBottom(++_bottomSeek);
@@ -420,7 +464,7 @@ class _ChatPageState extends State<ChatPage> {
                 }
                 return false;
               },
-              child: ListView(
+              child: ListView.builder(
                 controller: scroll,
                 // Frost samples the live scene. Caching each message as a
                 // separate scrolling layer can retain an unfiltered backdrop
@@ -432,39 +476,43 @@ class _ChatPageState extends State<ChatPage> {
                   appearance.flag('wideChat') ? 8 : 14,
                   24 + _composerExtent,
                 ),
-                children: [
-                  if (demo.messages.isEmpty)
-                    emptyState()
-                  else ...[
-                    Center(
-                      child: label(
-                        '与 ${demo.role.name} 的对话',
-                        size: 10,
-                        color: muted,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    for (int i = 0; i < demo.messages.length; i++)
-                      message(demo.messages[i], i),
-                    if (demo.streaming && appearance.flag('showStatus'))
-                      Padding(
-                        padding: const EdgeInsets.only(left: 44),
-                        child: Row(
-                          children: [
-                            const SizedBox(
-                              width: 9,
-                              height: 9,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 1.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            label('正在回复…', size: 10, color: muted),
-                          ],
+                itemCount: demo.messages.isEmpty
+                    ? 1
+                    : demo.messages.length +
+                          1 +
+                          (demo.streaming && appearance.flag('showStatus')
+                              ? 1
+                              : 0),
+                itemBuilder: (context, index) {
+                  if (demo.messages.isEmpty) return emptyState();
+                  if (index == 0)
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 25),
+                      child: Center(
+                        child: label(
+                          '与 ${demo.role.name} 的对话',
+                          size: 10,
+                          color: muted,
                         ),
                       ),
-                  ],
-                ],
+                    );
+                  if (index <= demo.messages.length)
+                    return message(demo.messages[index - 1], index - 1);
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 44),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 9,
+                          height: 9,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        ),
+                        const SizedBox(width: 8),
+                        label('正在回复…', size: 10, color: muted),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -803,6 +851,16 @@ class _ChatPageState extends State<ChatPage> {
             icon: const Icon(Icons.login, size: 18),
             label: Text(demo.useBeta ? '检查内测状态' : '登录中转站'),
           ),
+          if (!demo.useBeta) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(
+                context,
+              ).pushReplacementNamed('/settings/models'),
+              icon: const Icon(Icons.hub_outlined, size: 18),
+              label: const Text('连接自己的 API'),
+            ),
+          ],
         ],
         const SizedBox(height: 30),
         Wrap(
@@ -873,6 +931,10 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget message(Message m, int i) {
+    final speaker = m.authorId == null
+        ? demo.role
+        : demo.personas.where((p) => p.id == m.authorId).firstOrNull ??
+              demo.role;
     final layout = appearance.text('assistantBubbleLayout');
     final fill = !m.user && layout != 'centered';
     final hasThinking =
@@ -885,7 +947,7 @@ class _ChatPageState extends State<ChatPage> {
           if (m.user) {
             editUserCard(context);
           } else {
-            demo.editCurrentRole();
+            demo.persona = demo.personas.indexOf(speaker);
             Navigator.of(context).pushReplacementNamed('/characters/edit');
           }
         },
@@ -902,7 +964,7 @@ class _ChatPageState extends State<ChatPage> {
           child: m.user
               ? UserAvatar(square: appearance.flag('squareAvatars'))
               : CharacterAvatar(
-                  persona: demo.role,
+                  persona: speaker,
                   square: appearance.flag('squareAvatars'),
                 ),
         ),
@@ -935,6 +997,14 @@ class _ChatPageState extends State<ChatPage> {
           : CrossAxisAlignment.start,
       children: [
         bubble,
+        if (m.contextNotice != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              m.contextNotice!,
+              style: TextStyle(fontSize: 11, color: muted),
+            ),
+          ),
         if (m.status == 'queued')
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -1001,7 +1071,7 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               const SizedBox(width: 4),
               if (appearance.flag('showRole'))
-                label(demo.role.name, size: 10, color: muted),
+                label(speaker.name, size: 10, color: muted),
               if (m.bookmarked) ...[
                 const SizedBox(width: 6),
                 Icon(Icons.bookmark, size: 12, color: green),

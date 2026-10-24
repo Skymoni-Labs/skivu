@@ -9,7 +9,7 @@ extension GroupReplyLabel on GroupReplyRule {
     GroupReplyRule.manual => '手动指定角色',
     GroupReplyRule.mentions => '仅回应 @ 的角色',
     GroupReplyRule.roundRobin => '按成员顺序轮流回复',
-    GroupReplyRule.automatic => '自动选择回复角色',
+    GroupReplyRule.automatic => '优先回应 @ 提及，否则轮流',
   };
 }
 

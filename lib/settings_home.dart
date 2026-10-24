@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'model_settings.dart';
@@ -191,10 +194,31 @@ class ChatDataSettings extends StatelessWidget {
               '包含会话与消息，不包含 API Key',
               icon: Icons.file_download_outlined,
               onTap: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: demo.exportChats()),
-                );
-                if (context.mounted) toast(context, '聊天备份已复制，可粘贴到文件中保存');
+                try {
+                  final text = await demo.exportChatsAsync();
+                  final bytes = Uint8List.fromList(utf8.encode(text));
+                  if (!kIsWeb &&
+                      defaultTargetPlatform == TargetPlatform.android) {
+                    final saved = await const MethodChannel(
+                      'skivu/chat_backup',
+                    ).invokeMethod<bool>('export', {'bytes': bytes});
+                    if (saved != true) return;
+                  } else {
+                    final location = await getSaveLocation(
+                      suggestedName:
+                          'skivu-chats-${DateTime.now().millisecondsSinceEpoch}.json',
+                    );
+                    if (location == null) return;
+                    await XFile.fromData(
+                      bytes,
+                      mimeType: 'application/json',
+                      name: 'skivu-chats.json',
+                    ).saveTo(location.path);
+                  }
+                  if (context.mounted) toast(context, '聊天备份已保存');
+                } catch (_) {
+                  if (context.mounted) toast(context, '备份未保存，请检查所选位置');
+                }
               },
             ),
             const Divider(height: 1),
@@ -202,22 +226,64 @@ class ChatDataSettings extends StatelessWidget {
               '恢复聊天备份',
               '从此前导出的备份恢复',
               icon: Icons.restore_outlined,
+              onTap: () async {
+                try {
+                  final file = await openFile(
+                    acceptedTypeGroups: [
+                      const XTypeGroup(label: '聊天备份', extensions: ['json']),
+                    ],
+                  );
+                  if (file == null) return;
+                  final text = await file.readAsString();
+                  if (!context.mounted) return;
+                  await showDialog(
+                    context: context,
+                    builder: (_) => ChatBackupImportDialog(initialText: text),
+                  );
+                } catch (_) {
+                  if (context.mounted) toast(context, '无法读取备份文件');
+                }
+              },
+            ),
+            const Divider(height: 1),
+            SettingRow(
+              '剪贴板备份（高级兼容）',
+              '复制 JSON 供旧版或手动保存使用',
+              icon: Icons.copy_outlined,
+              onTap: () async {
+                try {
+                  await Clipboard.setData(
+                    ClipboardData(text: await demo.exportChatsAsync()),
+                  );
+                  if (context.mounted) toast(context, '备份已复制');
+                } catch (_) {
+                  if (context.mounted) toast(context, '复制失败');
+                }
+              },
+            ),
+            const Divider(height: 1),
+            SettingRow(
+              '粘贴恢复（高级兼容）',
+              '从旧版复制的 JSON 恢复',
+              icon: Icons.content_paste_outlined,
               onTap: () => showDialog(
                 context: context,
-                builder: (_) => const _ImportChatsDialog(),
+                builder: (_) => const ChatBackupImportDialog(),
               ),
             ),
             const Divider(height: 1),
             SettingRow(
               '清空聊天记录',
-              '删除此设备上的全部会话',
+              '清除本地会话及自动恢复副本',
               icon: Icons.delete_outline,
               onTap: () async {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(
                     title: const Text('清空全部聊天记录？'),
-                    content: const Text('此操作无法撤销，建议先导出备份。模型连接和外观设置会保留。'),
+                    content: const Text(
+                      '此操作会清除本地会话、旧版聊天恢复源与自动恢复副本，无法撤销。你已导出的文件和剪贴板备份需自行删除。模型连接和外观设置会保留。',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(c, false),
@@ -235,7 +301,7 @@ class ChatDataSettings extends StatelessWidget {
                     await demo.clearChats();
                     if (context.mounted) toast(context, '聊天记录已清空');
                   } catch (_) {
-                    if (context.mounted) toast(context, '清空失败，原记录已保留');
+                    if (context.mounted) toast(context, '清理未完成，请检查存储空间后重试');
                   }
                 }
               },
@@ -253,14 +319,62 @@ class ChatDataSettings extends StatelessWidget {
   );
 }
 
-class _ImportChatsDialog extends StatefulWidget {
-  const _ImportChatsDialog();
-  @override
-  State<_ImportChatsDialog> createState() => _ImportChatsDialogState();
+Map<String, int> summarizeChatBackup(String text) {
+  final raw = jsonDecode(text);
+  if (raw is! Map ||
+      raw['schema'] != 'skivu-chats-v1' ||
+      raw['conversations'] is! List)
+    throw const FormatException('Unsupported backup');
+  final chats = raw['conversations'] as List;
+  var messages = 0;
+  for (final chat in chats) {
+    if (chat is! Map || chat['messages'] is! List)
+      throw const FormatException('Invalid conversations');
+    messages += (chat['messages'] as List).length;
+  }
+  return {
+    'chats': chats.length,
+    'messages': messages,
+    'roles': raw['personas'] is List ? (raw['personas'] as List).length : 0,
+    'worlds': raw['worlds'] is List ? (raw['worlds'] as List).length : 0,
+  };
 }
 
-class _ImportChatsDialogState extends State<_ImportChatsDialog> {
+class ChatBackupImportDialog extends StatefulWidget {
+  const ChatBackupImportDialog({super.key, this.initialText});
+  final String? initialText;
+  @override
+  State<ChatBackupImportDialog> createState() => _ImportChatsDialogState();
+}
+
+class _ImportChatsDialogState extends State<ChatBackupImportDialog> {
   final input = TextEditingController();
+  Map<String, int>? summary;
+  bool reading = false;
+  @override
+  void initState() {
+    super.initState();
+    input.text = widget.initialText ?? '';
+    if (widget.initialText != null) {
+      reading = true;
+      compute(summarizeChatBackup, widget.initialText!)
+          .then((value) {
+            if (mounted)
+              setState(() {
+                summary = value;
+                reading = false;
+              });
+          })
+          .catchError((Object _) {
+            if (mounted)
+              setState(() {
+                reading = false;
+                error = '文件不符合 Skivu 聊天备份格式，请重新选择。';
+              });
+          });
+    }
+  }
+
   String? error;
   bool busy = false;
   @override
@@ -271,6 +385,7 @@ class _ImportChatsDialogState extends State<_ImportChatsDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
+    scrollable: true,
     title: const Text('恢复聊天备份'),
     content: SizedBox(
       width: 400,
@@ -279,17 +394,35 @@ class _ImportChatsDialogState extends State<_ImportChatsDialog> {
         children: [
           const Text('恢复将替换当前聊天记录，请确认已备份。', style: TextStyle(fontSize: 12)),
           const SizedBox(height: 16),
-          TextField(
-            controller: input,
-            minLines: 4,
-            maxLines: 8,
-            enabled: !busy,
-            decoration: InputDecoration(
-              hintText: '粘贴聊天备份内容',
-              errorText: error,
-              errorMaxLines: 3,
+          if (widget.initialText != null) ...[
+            if (reading)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            if (summary case final value?)
+              Text(
+                '${value['chats']} 段对话 · ${value['messages']} 条消息\n'
+                '${value['roles']} 个角色 · ${value['worlds']} 个世界观',
+                style: const TextStyle(height: 1.8),
+              ),
+            if (error != null)
+              Text(
+                error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+          ] else
+            TextField(
+              controller: input,
+              minLines: 4,
+              maxLines: 8,
+              enabled: !busy,
+              decoration: InputDecoration(
+                hintText: '粘贴聊天备份内容',
+                errorText: error,
+                errorMaxLines: 3,
+              ),
             ),
-          ),
         ],
       ),
     ),
@@ -299,7 +432,8 @@ class _ImportChatsDialogState extends State<_ImportChatsDialog> {
         child: const Text('取消'),
       ),
       FilledButton(
-        onPressed: busy
+        onPressed:
+            busy || reading || (widget.initialText != null && summary == null)
             ? null
             : () async {
                 setState(() {

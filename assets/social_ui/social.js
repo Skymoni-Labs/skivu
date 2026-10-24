@@ -340,7 +340,7 @@
   window.SocialPreview={go:target=>go(target),switchTab:target=>{trail=[];go(target,{replace:true})},sync,flushThread,portrait,currentRole:current,page:()=>page,showRole:id=>go('contact',{id}),back:()=>back(),locate:locateMessage,postDraft:()=>({text:$('#socialPostText')?.value.trim()||'',images:[...draftImages]}),
     hostApply(snapshot,{changed=false,view}={}){
       const wasGenerating=!!stream;
-      const sameMessages=messages.length===snapshot.messages.length&&messages.every((m,i)=>{const n=snapshot.messages[i];return m.id===n.id&&m.text===n.text&&m.thought===n.thought&&m.authorId===n.authorId});
+      const sameMessages=messages.length===snapshot.messages.length&&messages.every((m,i)=>{const n=snapshot.messages[i];return m.id===n.id&&m.text===n.text&&m.thought===n.thought&&m.authorId===n.authorId&&m.contextNotice===n.contextNotice});
       const oldFollow=$('#messages').scrollHeight-$('#messages').scrollTop-$('#messages').clientHeight<100;
       if(!data.hostReady){data.posts=[];data.requests=[];data.favorites=[];try{const saved=JSON.parse(localStorage.getItem('skivu.host.social.v1')||'null');if(saved&&saved.profile&&typeof saved.profile==='object'){data.profile={...data.profile,...saved.profile}}}catch{}data.hostReady=true}
       if(snapshot.posts)data.posts=snapshot.posts;

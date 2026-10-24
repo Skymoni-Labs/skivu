@@ -84,9 +84,9 @@ Text-to-speech supports Android system TTS, OpenAI-compatible services, ElevenLa
 
 ## Plugin community
 
-[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) is open for community development. It currently provides a `0.1-draft` specification for plain-text prompt packs, JSON schemas, a template, an example and local validation tools. The community catalog is a **preview catalog** with `runtimeReady: false`.
+[Skivu Plugins](https://github.com/skyjjgw/skivu-plugins) is open for community development. The released app can install, enable, update and remove the official WeChat/QQ UI preset packages. They share local characters and conversations; renderers ship with the app.
 
-**The released app does not yet load, install, execute or update plugins.** Its plugin-market entry remains “Coming soon”. You can contribute proposals and content packages through the repository's review process.
+Community prompt packs remain a `0.1-draft` specification and are not installable runtime packages. Arbitrary third-party scripts are not executed. New renderer capabilities require host source changes and an app release. Follow the repository's current catalogs, examples and validators when contributing.
 
 [Development guide](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/development.md) · [Template](https://github.com/skyjjgw/skivu-plugins/tree/main/templates/prompt-pack) · [Catalog specification](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/catalog.md) · [Submit a package](https://github.com/skyjjgw/skivu-plugins/blob/main/CONTRIBUTING.md) · [Roadmap](https://github.com/skyjjgw/skivu-plugins/blob/main/docs/roadmap.md)
 
@@ -159,3 +159,5 @@ The glass interface uses **Liquid Glass Easy** (MIT). Bundled fonts include **No
     </picture>
   </a>
 </p>
+
+Android chat archives now use validated atomic files with a previous recovery generation. System file backup/import provides a readable summary before replacement; credentials stay excluded. Clearing chats also clears managed recovery copies; exported files and clipboard contents remain user-managed. Public custom model endpoints require HTTPS; trusted loopback/private IP HTTP remains available. See [0.2.32 reliability notes](docs/app-reliability.md).

@@ -29,6 +29,15 @@ void main() {
       expect(find.byType(ChatPage), findsNothing);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
+      if (route.startsWith('/settings/')) {
+        expect(
+          tester.widget<SkiShell>(find.byType(SkiShell)).route,
+          '/settings',
+        );
+        expect(find.byType(ChatPage), findsNothing);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
       expect(find.byType(ChatPage), findsOneWidget);
     }
     final home = tester.element(find.byType(ChatPage));

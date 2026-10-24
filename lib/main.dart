@@ -126,6 +126,7 @@ Future<void> main() async {
   await recoverInterruptedMedia();
   final artwork = await artworkFuture;
   runApp(SkiApp(launchArtwork: artwork));
+  unawaited(relayAccount.refresh());
   if (artwork == null) unawaited(checkStartupUpdate());
 }
 
@@ -481,7 +482,11 @@ class _SkiShellState extends State<SkiShell>
       uiPlugins.showHome();
       return;
     }
-    if (widget.route != '/chat') go('/chat');
+    if (widget.route.startsWith('/settings/')) {
+      go('/settings');
+    } else if (widget.route != '/chat') {
+      go('/chat');
+    }
   }
 
   String get title => switch (widget.route) {

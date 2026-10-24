@@ -83,7 +83,7 @@ void main() {
       await store.restore();
       store.role.avatar = avatar;
       final prompt = store.role.compiledPrompt;
-      await store.saveChats();
+      await tester.runAsync(() => store.saveChats());
       final restored = DemoStore(settings: TestModels(), storage: disk);
       await restored.restore();
       expect(restored.role.avatar, avatar);
@@ -93,7 +93,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(Image), findsOneWidget);
-      await restored.importChats(store.exportChats());
+      await tester.runAsync(() => restored.importChats(store.exportChats()));
       expect(restored.role.avatar, avatar);
       await tester.pumpWidget(
         MaterialApp(

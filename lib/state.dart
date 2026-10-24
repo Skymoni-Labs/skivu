@@ -38,6 +38,8 @@ class Message {
   int? tokens, elapsedMs;
   String status = 'complete';
   String? error;
+  String? contextNotice;
+  bool? requestStreaming;
   String? authorId;
   String kind = 'text';
   String? stickerId, turnId, imageData;
@@ -67,6 +69,8 @@ class Message {
     'elapsedMs': elapsedMs,
     'status': status,
     'error': error,
+    'contextNotice': contextNotice,
+    'requestStreaming': requestStreaming,
     'authorId': authorId,
     'kind': kind,
     'stickerId': stickerId,
@@ -81,6 +85,12 @@ class Message {
           bookmarked: raw['bookmarked'] as bool? ?? false,
           created: DateTime.tryParse(raw['created'] as String? ?? ''),
         )
+        ..requestStreaming = raw['requestStreaming'] is bool
+            ? raw['requestStreaming']
+            : null
+        ..contextNotice = raw['contextNotice'] is String
+            ? raw['contextNotice']
+            : null
         ..thinking = raw['thinking'] as String?
         ..unread =
             raw['unread'] == true &&
@@ -526,6 +536,9 @@ class DemoStore extends ChangeNotifier {
   Message? _pending;
   Timer? _saveTimer;
   Future<void> _writes = Future.value();
+  bool _savePending = false;
+  bool _saveRunning = false;
+  bool _archiveTransaction = false;
   int _generation = 0;
   bool _archiveBlocked = false;
   bool _ready = false, _disposed = false;
@@ -790,7 +803,9 @@ class DemoStore extends ChangeNotifier {
 
   Future<void> restore() async {
     try {
-      final text = await _storage.read();
+      final text = await _storage.readValidated((text) {
+        _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
+      });
       if (text == null) return;
       final raw = _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
       if (raw['schema'] != 'skivu-chats-v1') throw const FormatException();
@@ -828,7 +843,8 @@ class DemoStore extends ChangeNotifier {
       _restoreLibraries(raw);
       useBeta = false;
       useAccount = raw['useAccount'] == true || raw['useBeta'] == true;
-      if (raw['useBeta'] == true) await account.selectFunding('beta');
+      if (raw['useBeta'] == true)
+        await account.selectFunding('beta', refreshRemote: false);
       if (raw['groups'] is List) {
         groups
           ..clear()
@@ -844,7 +860,9 @@ class DemoStore extends ChangeNotifier {
     changed();
   }
 
-  String exportChats() => jsonEncode({
+  String exportChats() => jsonEncode(_chatSnapshot());
+  Future<String> exportChatsAsync() => compute(jsonEncode, _chatSnapshot());
+  Map<String, dynamic> _chatSnapshot() => {
     'schema': 'skivu-chats-v1',
     'selected': conversation,
     'selectedId': conversations[conversation].id,
@@ -860,26 +878,39 @@ class DemoStore extends ChangeNotifier {
     'stickers': stickers.map((s) => s.toJson()).toList(),
     'useBeta': useBeta,
     'useAccount': useAccount,
-  });
+  };
 
   Future<void> saveChats() {
     _saveTimer?.cancel();
     _saveTimer = null;
     if (_archiveBlocked || !_ready || _disposed) return Future.value();
-    final snapshot = exportChats();
-    _writes = _writes
-        .then((_) => _storage.write(snapshot))
-        .then((_) {
+    _savePending = true;
+    if (_archiveTransaction) return _writes;
+    if (_saveRunning) return _writes;
+    _saveRunning = true;
+    _writes = _drainChatWrites();
+    return _writes;
+  }
+
+  Future<void> _drainChatWrites() async {
+    try {
+      while (_savePending) {
+        _savePending = false;
+        try {
+          final snapshot = await exportChatsAsync();
+          await _storage.write(snapshot);
           if (storageError != null) {
             storageError = null;
             changed();
           }
-        })
-        .catchError((Object _) {
+        } catch (_) {
           storageError = '聊天记录未能保存，请检查设备存储空间。';
           changed();
-        });
-    return _writes;
+        }
+      }
+    } finally {
+      _saveRunning = false;
+    }
   }
 
   void _saveSoon() {
@@ -900,79 +931,102 @@ class DemoStore extends ChangeNotifier {
   }
 
   Future<void> clearChats() async {
-    final roleId = role.id;
-    final fresh = Conversation(
-      '新的对话',
-      [],
-      personaId: roleId,
-      placeholder: true,
-    );
-    stop();
-    await _writes;
-    await _storage.write(
-      jsonEncode({
-        ...jsonDecode(exportChats()) as Map<String, dynamic>,
-        'selected': 0,
-        'selectedId': fresh.id,
-        'conversations': [fresh.toJson()],
-        'persona': personas.indexWhere((p) => p.id == roleId),
-      }),
-    );
-    _archiveBlocked = false;
-    storageError = null;
-    conversations
-      ..clear()
-      ..add(fresh);
-    conversation = 0;
-    persona = personas.indexWhere((p) => p.id == roleId);
-    changed();
+    if (_archiveTransaction) throw StateError('聊天记录操作正在进行');
+    _archiveTransaction = true;
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    try {
+      final roleId = role.id;
+      final fresh = Conversation(
+        '新的对话',
+        [],
+        personaId: roleId,
+        placeholder: true,
+      );
+      stop();
+      await _writes;
+      await _storage.clearArchive(
+        jsonEncode({
+          ...jsonDecode(exportChats()) as Map<String, dynamic>,
+          'selected': 0,
+          'selectedId': fresh.id,
+          'conversations': [fresh.toJson()],
+          'persona': personas.indexWhere((p) => p.id == roleId),
+        }),
+      );
+      _archiveBlocked = false;
+      storageError = null;
+      conversations
+        ..clear()
+        ..add(fresh);
+      conversation = 0;
+      persona = personas.indexWhere((p) => p.id == roleId);
+      changed();
+    } catch (_) {
+      _archiveBlocked = true;
+      storageError = '清理未完成，请重试清空；已暂停自动保存。';
+      rethrow;
+    } finally {
+      _archiveTransaction = false;
+      if (_savePending) await saveChats();
+    }
   }
 
   Future<void> importChats(String text) async {
-    final raw = _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
-    if (raw['schema'] != 'skivu-chats-v1') throw const FormatException();
-    final loaded = (raw['conversations'] as List)
-        .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
-        .toList();
-    final roles = (raw['personas'] as List?)
-        ?.map((p) => Persona.fromJson(Map<String, dynamic>.from(p)))
-        .toList();
-    stop();
-    await _writes;
-    await _storage.write(jsonEncode(raw));
-    conversations
-      ..clear()
-      ..addAll(loaded.isEmpty ? [Conversation('新的对话', [])] : loaded);
-    conversation = (raw['selected'] as int? ?? 0).clamp(
-      0,
-      conversations.length - 1,
-    );
-    if (roles?.isNotEmpty == true) {
-      personas
+    if (_archiveTransaction) throw StateError('聊天记录操作正在进行');
+    _archiveTransaction = true;
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    try {
+      final raw = _normalizeArchive(jsonDecode(text) as Map<String, dynamic>);
+      if (raw['schema'] != 'skivu-chats-v1') throw const FormatException();
+      final loaded = (raw['conversations'] as List)
+          .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
+          .toList();
+      final roles = (raw['personas'] as List?)
+          ?.map((p) => Persona.fromJson(Map<String, dynamic>.from(p)))
+          .toList();
+      stop();
+      await _writes;
+      if (!_archiveBlocked) await _storage.write(await exportChatsAsync());
+      await _storage.replaceArchive(await compute(jsonEncode, raw));
+      conversations
         ..clear()
-        ..addAll(roles!);
-    }
-    persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
-    roleFolders
-      ..clear()
-      ..addAll(Map<String, bool>.from(raw['roleFolders'] as Map));
-    if (raw['userCard'] is Map)
-      userCard = {
-        for (final e in (raw['userCard'] as Map).entries)
-          if (e.key is String && e.value is String)
-            e.key as String: e.value as String,
-      };
-    userAvatar = Persona._readAvatar(raw['userAvatar']);
-    _restoreLibraries(raw);
-    if (raw['groups'] is List) {
-      groups
+        ..addAll(loaded.isEmpty ? [Conversation('新的对话', [])] : loaded);
+      conversation = (raw['selected'] as int? ?? 0).clamp(
+        0,
+        conversations.length - 1,
+      );
+      if (roles?.isNotEmpty == true) {
+        personas
+          ..clear()
+          ..addAll(roles!);
+      }
+      persona = (raw['persona'] as int? ?? 0).clamp(0, personas.length - 1);
+      roleFolders
         ..clear()
-        ..addAll((raw['groups'] as List).whereType<String>().toSet());
-      if (!groups.contains('全部')) groups.insert(0, '全部');
+        ..addAll(Map<String, bool>.from(raw['roleFolders'] as Map));
+      if (raw['userCard'] is Map)
+        userCard = {
+          for (final e in (raw['userCard'] as Map).entries)
+            if (e.key is String && e.value is String)
+              e.key as String: e.value as String,
+        };
+      userAvatar = Persona._readAvatar(raw['userAvatar']);
+      _restoreLibraries(raw);
+      if (raw['groups'] is List) {
+        groups
+          ..clear()
+          ..addAll((raw['groups'] as List).whereType<String>().toSet());
+        if (!groups.contains('全部')) groups.insert(0, '全部');
+      }
+      _archiveBlocked = false;
+      storageError = null;
+      changed();
+    } finally {
+      _archiveTransaction = false;
+      if (_savePending) await saveChats();
     }
-    _archiveBlocked = false;
-    storageError = null;
-    changed();
   }
 
   void newChat({String? personaId}) {
@@ -1251,7 +1305,7 @@ class DemoStore extends ChangeNotifier {
       final turn = (target.messages.where((m) => m.user).length - 1);
       final chosen = target.groupRule == 'mentions'
           ? mentioned
-          : mentioned.isNotEmpty
+          : target.groupRule != 'roundRobin' && mentioned.isNotEmpty
           ? mentioned
           : target.groupRule == 'roundRobin' || target.groupRule == 'automatic'
           ? [
@@ -1273,14 +1327,7 @@ class DemoStore extends ChangeNotifier {
       streaming = true;
       final generation = ++_generation;
       changed();
-      unawaited(
-        _beginGroup(
-          target,
-          connection.withStreaming(false),
-          selected,
-          generation,
-        ),
-      );
+      unawaited(_beginGroup(target, connection, selected, generation));
     } else {
       _begin(connection);
     }
@@ -1308,13 +1355,18 @@ class DemoStore extends ChangeNotifier {
                   (m.user || (m.text.isNotEmpty && m.status != 'failed')),
             )
             .toList();
+        var historyStart = (history.length - target.groupHistoryLimit).clamp(
+          0,
+          history.length,
+        );
+        // A history preference must not split a user/assistant turn or queued media.
+        while (historyStart > 0 &&
+            (history[historyStart].user == false ||
+                history[historyStart - 1].user)) {
+          historyStart--;
+        }
         final values = history
-            .skip(
-              (history.length - target.groupHistoryLimit).clamp(
-                0,
-                history.length,
-              ),
-            )
+            .skip(historyStart)
             .map(
               (m) => {
                 ...m.apiMessage,
@@ -1325,6 +1377,7 @@ class DemoStore extends ChangeNotifier {
             )
             .toList();
         final answer = Message(false, '')
+          ..requestStreaming = config.streaming
           ..turnId = history.lastOrNull?.turnId
           ..authorId = member.id
           ..status = 'pending'
@@ -1378,15 +1431,21 @@ class DemoStore extends ChangeNotifier {
           )
           .firstOrNull;
       if (author == null) return;
+      final requestStreaming = messages.last.requestStreaming;
       messages.removeLast();
       lastError = null;
       streaming = true;
       final generation = ++_generation;
       changed();
       unawaited(
-        _beginGroup(target, activeConnection!.withStreaming(false), [
-          author,
-        ], generation),
+        _beginGroup(
+          target,
+          requestStreaming == null
+              ? activeConnection!
+              : activeConnection!.withStreaming(requestStreaming),
+          [author],
+          generation,
+        ),
       );
     } else {
       messages.removeLast();
@@ -1526,6 +1585,7 @@ class DemoStore extends ChangeNotifier {
           if (event.thinking.isNotEmpty)
             answer.thinking = '${answer.thinking ?? ''}${event.thinking}';
         }
+        if (event.notice != null) answer.contextNotice = event.notice;
         if (event.usage != null) usage = usage.merge(event.usage!);
         if (event.limited) answer.error = '已达到输出上限，可在模型设置中增加最大输出。';
         answer.elapsedMs = watch.elapsedMilliseconds;

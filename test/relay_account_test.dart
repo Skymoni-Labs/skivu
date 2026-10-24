@@ -215,6 +215,8 @@ void main() {
       expect(account.connection!.protocol, ApiProtocol.responses);
       final restored = RelayAccount(platform: platform, clientFactory: clients);
       await restored.restore();
+      expect(restored.canChat, isFalse);
+      await restored.refresh();
       expect(restored.canChat, isTrue);
       expect(restored.activeModel, 'responses-fixture');
       expect(requests.any((r) => r.body.contains('password')), isFalse);

@@ -25,7 +25,20 @@ class CallTranscriptEntry {
   String text;
 }
 
+class VoiceReplyPart {
+  const VoiceReplyPart(this.id, this.speaker, this.text);
+  final String id, speaker, text;
+}
+
 class CurrentChatVoiceBackend extends ChangeNotifier {
+  CurrentChatVoiceBackend({DemoStore? store}) : store = store ?? demo;
+  final DemoStore store;
+  List<VoiceReplyPart> _replyParts = const [];
+  List<VoiceReplyPart> get replyParts => List.unmodifiable(_replyParts);
+  String get speakerName =>
+      store.conversations[store.conversation].groupMembers.isNotEmpty
+      ? '群聊'
+      : store.role.name;
   bool get hasLocalVoice => false;
   bool get usesLocalVoice => false;
   String get speechDescription =>
@@ -34,29 +47,74 @@ class CurrentChatVoiceBackend extends ChangeNotifier {
   VoidCallback? _listener;
   Completer<String>? _pending;
   Future<String> reply(String text, void Function(String) partial) async {
-    if (demo.streaming) throw StateError('请先等待当前文字回复结束。');
-    if (!demo.send(text, immediate: true, kind: 'voice')) throw StateError(demo.lastError ?? '请先选择可用模型。');
-    _ownsReply = true;
-    final answer = demo.messages.last;
+    if (store.streaming || _pending != null) throw StateError('请先等待当前文字回复结束。');
+    _replyParts = const [];
+    final chat = store.conversations[store.conversation];
+    final before = chat.messages.toSet();
+    if (!store.send(text, immediate: true, kind: 'voice'))
+      throw StateError(store.lastError ?? '请先选择可用模型。');
+    final turn = chat.messages
+        .where((m) => m.user && !before.contains(m))
+        .lastOrNull;
+    _ownsReply = store.streaming;
     final done = _pending = Completer<String>();
     void update() {
-      partial(answer.text);
-      if (!demo.streaming && !done.isCompleted) {
-        if (answer.status == 'failed') {
-          done.completeError(StateError(answer.error ?? '对话暂未完成，请重试。'));
-        } else {
-          done.complete(answer.text);
+      if (done.isCompleted) return;
+      if (!identical(store.conversations[store.conversation], chat)) {
+        done.completeError(StateError('对话已切换，本轮语音回复已停止。'));
+        return;
+      }
+      final answers = chat.messages
+          .where(
+            (m) =>
+                !m.user &&
+                !before.contains(m) &&
+                (turn?.turnId == null || m.turnId == turn!.turnId),
+          )
+          .toList();
+      String name(Message message) =>
+          store.personas
+              .where((p) => p.id == message.authorId)
+              .firstOrNull
+              ?.name ??
+          store.role.name;
+      partial(
+        answers
+            .map(
+              (m) => chat.groupMembers.isNotEmpty
+                  ? '${name(m)}：${m.text}'
+                  : m.text,
+            )
+            .join('\n\n'),
+      );
+      if (!store.streaming) {
+        final failed = answers.where((m) => m.status == 'failed').firstOrNull;
+        if (failed != null) {
+          done.completeError(StateError(failed.error ?? '对话暂未完成，请重试。'));
+          return;
         }
+        _replyParts = [
+          for (final answer in answers)
+            if (answer.status == 'complete' && answer.text.trim().isNotEmpty)
+              VoiceReplyPart(
+                answer.created.toIso8601String(),
+                name(answer),
+                answer.text,
+              ),
+        ];
+        // A mention-only group may intentionally have no assistant response.
+        // User input and replies belonging to an earlier turn never enter TTS.
+        done.complete(_replyParts.map((m) => m.text).join('\n\n'));
       }
     }
 
     _listener = update;
-    demo.addListener(update);
+    store.addListener(update);
     update();
     try {
       return await done.future;
     } finally {
-      demo.removeListener(update);
+      store.removeListener(update);
       _listener = null;
       _pending = null;
       _ownsReply = false;
@@ -64,13 +122,14 @@ class CurrentChatVoiceBackend extends ChangeNotifier {
   }
 
   Future<void> cancelReply() async {
-    if (_ownsReply) demo.stop();
+    if (_ownsReply) store.stop();
     if (_pending?.isCompleted == false) _pending!.complete('');
   }
 
   @override
   void dispose() {
-    if (_listener != null) demo.removeListener(_listener!);
+    if (_listener != null) store.removeListener(_listener!);
+    if (_pending?.isCompleted == false) _pending!.complete('');
     super.dispose();
   }
 }
@@ -250,7 +309,7 @@ class VoiceCallSession extends ChangeNotifier {
     transcript.add(CallTranscriptEntry('user-${transcript.length}', '你', text));
     final answer = CallTranscriptEntry(
       'assistant-${transcript.length}',
-      demo.role.name,
+      backend.speakerName,
       '',
     );
     transcript.add(answer);
@@ -265,7 +324,32 @@ class VoiceCallSession extends ChangeNotifier {
         }
       });
       if (_closed || generation != _generation) return;
-      if (_ready && reply.isNotEmpty) await _speak(reply);
+      final parts = backend.replyParts;
+      if (parts.isEmpty) {
+        answer.text = reply;
+        if (reply.trim().isEmpty) transcript.remove(answer);
+        if (_ready && reply.isNotEmpty) await _speak(reply);
+      } else {
+        final index = transcript.indexOf(answer);
+        if (index >= 0) {
+          transcript.removeAt(index);
+          transcript.insertAll(index, [
+            for (final part in parts)
+              CallTranscriptEntry(
+                'assistant-${generation}-${part.id}',
+                part.speaker,
+                part.text,
+              ),
+          ]);
+        }
+        if (!_disposed) notifyListeners();
+        if (_ready) {
+          for (final part in parts) {
+            if (_closed || generation != _generation) break;
+            await _speak(part.text);
+          }
+        }
+      }
     } catch (e) {
       if (!_closed && generation == _generation) {
         error = e is SpeechFailure

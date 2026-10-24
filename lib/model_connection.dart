@@ -171,6 +171,11 @@ class ModelConnection {
         uri.hasFragment) {
       throw const FormatException('请填写有效的 HTTPS API 地址，不要在地址中填写密钥。');
     }
+    if (uri.scheme == 'http' && !_localHttpHost(uri.host)) {
+      throw const FormatException(
+        '公网 API 地址必须使用 HTTPS，避免明文发送密钥和对话。局域网服务请填写私网 IP。',
+      );
+    }
     if (uri.queryParameters.keys.any(
       (key) => [
         'key',
@@ -247,4 +252,20 @@ class ModelConnection {
     tokenParameter: raw['tokenParameter'] as String? ?? 'max_tokens',
     credentialId: raw['credentialId'] as String?,
   );
+}
+
+bool _localHttpHost(String host) {
+  final h = host.toLowerCase().replaceAll('[', '').replaceAll(']', '');
+  if (h == 'localhost' || h == '::1') return true;
+  if (h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80:')) {
+    return h.contains(':');
+  }
+  final parts = h.split('.').map(int.tryParse).toList();
+  if (parts.length != 4 || parts.any((p) => p == null || p < 0 || p > 255))
+    return false;
+  return parts[0] == 127 ||
+      parts[0] == 10 ||
+      (parts[0] == 172 && parts[1]! >= 16 && parts[1]! <= 31) ||
+      (parts[0] == 192 && parts[1] == 168) ||
+      (parts[0] == 169 && parts[1] == 254);
 }

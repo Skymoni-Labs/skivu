@@ -276,6 +276,7 @@ class UiHostBinding {
         ? m.text
         : m.error ?? (m.status == 'pending' ? '正在思考…' : '未收到回复'),
     'thought': m.thinking,
+    'contextNotice': m.contextNotice,
     'kind': m.kind,
     'described': m.described,
     'imageData': m.imageData,
@@ -306,7 +307,14 @@ class UiHostBinding {
       values
           .take(values.isEmpty ? 0 : values.length - 1)
           .map(
-            (m) => Object.hash(m, m.text, m.thinking, m.bookmarked, m.status),
+            (m) => Object.hash(
+              m,
+              m.text,
+              m.thinking,
+              m.bookmarked,
+              m.status,
+              m.contextNotice,
+            ),
           ),
     );
     final delta =

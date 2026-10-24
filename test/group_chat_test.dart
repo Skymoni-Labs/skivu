@@ -96,6 +96,50 @@ void main() {
     },
   );
   test(
+    'automatic prioritizes mentions while roundRobin follows order; streaming is respected',
+    () async {
+      for (final rule in ['automatic', 'roundRobin']) {
+        final requests = <Map<String, dynamic>>[];
+        final store = DemoStore(
+          storage: MemoryChats(),
+          settings: TestModels(),
+          api: ChatApi(
+            clientFactory: () => MockClient((r) async {
+              requests.add(jsonDecode(r.body));
+              return http.Response(
+                'data: {"choices":[{"delta":{"content":"first"},"finish_reason":null}]}\n\ndata: {"choices":[{"delta":{"content":" second"},"finish_reason":"stop"}]}\n\n',
+                200,
+                headers: {'content-type': 'text/event-stream'},
+              );
+            }),
+          ),
+        );
+        await store.restore();
+        final members = store.personas.take(2).toList();
+        UiHostBinding(store).mutate({
+          'protocol': 1,
+          'command': 'createGroup',
+          'members': members.map((p) => p.id).toList(),
+          'title': 'test',
+          'rule': rule,
+          'maxReplies': 1,
+        });
+        store.send('@${members.last.name} 请回复');
+        await waitForReply(store);
+        expect(requests.single['stream'], true);
+        expect(
+          store.messages.last.authorId,
+          rule == 'automatic' ? members.last.id : members.first.id,
+        );
+        expect(store.messages.last.text, 'first second');
+        store.regenerate();
+        await waitForReply(store);
+        expect(requests.last['stream'], true);
+        store.dispose();
+      }
+    },
+  );
+  test(
     'mention-only groups do not call a model without an addressed member; cancellation stops later members',
     () async {
       final pending = Completer<http.Response>(), started = Completer<void>();

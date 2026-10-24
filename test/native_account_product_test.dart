@@ -386,6 +386,8 @@ void main() {
       approved = false;
       await a.selectFunding('beta');
       expect(a.betaAccount['status'], 'suspended');
+      expect(a.models, isEmpty);
+      expect(a.protocols, isEmpty);
       expect(a.canChat, isFalse);
       expect(a.funding, 'beta');
       a.dispose();

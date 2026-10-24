@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'model_connection.dart';
+import 'context_budget.dart';
 
 class ChatFailure implements Exception {
   const ChatFailure(this.message, {this.code});
@@ -24,12 +25,14 @@ class ApiUsage {
 
 class ChatEvent {
   const ChatEvent({
+    this.notice,
     this.text = '',
     this.thinking = '',
     this.usage,
     this.done = false,
     this.limited = false,
   });
+  final String? notice;
   final String text, thinking;
   final ApiUsage? usage;
   final bool done, limited;
@@ -172,7 +175,7 @@ class ChatSession {
     _client.close();
   }
 
-  Map<String, dynamic> _body() {
+  Map<String, dynamic> _body(List<Map<String, String>> history) {
     Map<String, dynamic> wire(
       Map<String, String> message,
       ApiProtocol protocol,
@@ -300,11 +303,33 @@ class ChatSession {
     var complete = false;
     try {
       if (cancelled) return;
-      final body = jsonEncode(_body());
-      if (_fixedPath != null &&
-          (history.length + (system.trim().isEmpty ? 0 : 1) > 128 ||
-              utf8.encode(body).length > 262144))
-        throw const ChatFailure('当前对话内容过长，请新建会话后继续。');
+      if (_betaHeaders == null) {
+        try {
+          config.endpoint();
+        } on FormatException catch (e) {
+          throw ChatFailure(e.message);
+        }
+      }
+      ContextBudgetResult budget;
+      try {
+        budget = budgetContext(
+          history: history,
+          system: system,
+          contextLimit: config.contextLimit,
+          outputTokens: _fixedPath != null
+              ? config.maxOutput.clamp(1, 4096)
+              : config.maxOutput,
+          account: _fixedPath != null,
+          serialize: _body,
+        );
+      } on ContextBudgetException {
+        throw const ChatFailure(
+          '当前提问、待发图片或角色设定超过模型上下文/请求上限，请减少本轮内容或输出上限后重试。未发送请求，本地记录已保留。',
+          code: 'context_budget_exceeded',
+        );
+      }
+      final body = budget.body;
+      if (budget.notice != null) yield ChatEvent(notice: budget.notice);
       final headers = _betaHeaders == null
           ? _headers(config, _key)
           : {
@@ -329,39 +354,21 @@ class ChatSession {
       final response = await _client
           .send(request)
           .timeout(Duration(seconds: config.timeoutSeconds));
-      if (response.statusCode >= 400 &&
-          _fixedPath?.startsWith('/api/app-account/') == true) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
         final text = await _boundedText(
           response.stream.timeout(Duration(seconds: config.timeoutSeconds)),
         );
         try {
           final raw = jsonDecode(text);
-          if (raw is Map && raw['code'] == 'APP_SESSION_INVALID')
-            throw const ChatFailure(
-              '账号登录已过期，请重新登录。',
-              code: 'APP_SESSION_INVALID',
-            );
-          if (raw is Map &&
-              [
-                'BETA_NOT_APPROVED',
-                'BETA_QUOTA_EXHAUSTED',
-                'BETA_CHANNEL_DISABLED',
-              ].contains(raw['code'])) {
-            throw ChatFailure(switch (raw['code']) {
-              'BETA_NOT_APPROVED' => '内测尚未批准或已暂停，请查看内测计划。',
-              'BETA_QUOTA_EXHAUSTED' => '内测额度已用完，请等待管理员发放。',
-              _ => '内测服务暂未开放，请稍后重试。',
-            }, code: raw['code'] as String);
-          }
+          final failure = _knownFailure(raw);
+          if (failure != null) throw failure;
         } on FormatException {
-          /* Use the sanitized generic error below. */
+          /* sanitized fallback */
         }
-        throw _accountHttpError(response.statusCode);
-      }
-      if (response.statusCode < 200 || response.statusCode >= 300)
         throw _fixedPath?.startsWith('/api/app-account/') == true
             ? _accountHttpError(response.statusCode)
             : _httpError(response.statusCode);
+      }
       final stream = response.stream.timeout(
         Duration(seconds: config.timeoutSeconds),
       );
@@ -434,6 +441,8 @@ class ChatSession {
   }
 
   ChatEvent _decode(Map<String, dynamic> raw, {bool full = false}) {
+    final known = _knownFailure(raw);
+    if (known != null) throw known;
     if (raw['error'] != null ||
         raw['type'] == 'error' ||
         raw['type'] == 'response.failed') {
@@ -584,3 +593,31 @@ ApiUsage? _usage(dynamic raw) => raw is Map
         ),
       )
     : null;
+
+ChatFailure? _knownFailure(dynamic raw) {
+  if (raw is! Map) return null;
+  final code = raw['code'] ?? raw['type'];
+  if (code == 'model_not_available')
+    return const ChatFailure(
+      '模型未开放或已下架，请更新模型列表并切换到当前可用模型',
+      code: 'model_not_available',
+    );
+  if (code == 'APP_SESSION_INVALID')
+    return const ChatFailure('账号登录已过期，请重新登录。', code: 'APP_SESSION_INVALID');
+  if ([
+    'BETA_NOT_APPROVED',
+    'BETA_QUOTA_EXHAUSTED',
+    'BETA_CHANNEL_DISABLED',
+  ].contains(code)) {
+    return ChatFailure(switch (code) {
+      'BETA_NOT_APPROVED' => '内测尚未批准或已暂停，请查看内测计划。',
+      'BETA_QUOTA_EXHAUSTED' => '内测额度已用完，请等待管理员发放。',
+      _ => '内测服务暂未开放，请稍后重试。',
+    }, code: code as String);
+  }
+  for (final key in ['error', 'response']) {
+    final nested = _knownFailure(raw[key]);
+    if (nested != null) return nested;
+  }
+  return null;
+}
