@@ -79,17 +79,23 @@ void main() {
       ),
     );
     expect(find.byIcon(Icons.extension_outlined), findsNWidgets(2));
-    final qq = find.byKey(const ValueKey('sidebar-plugin-qq'));
-    final wechat = find.byKey(const ValueKey('sidebar-plugin-wechat'));
+    final qq = find.byKey(const ValueKey('sidebar-plugin-toggle-qq'));
+    final wechat = find.byKey(const ValueKey('sidebar-plugin-toggle-wechat'));
+    expect(tester.widget<Switch>(qq).value, isFalse);
+    expect(tester.widget<Switch>(wechat).value, isFalse);
     await tester.tap(qq);
     await tester.pumpAndSettle();
     expect(model.mode, ChatUiMode.qq);
+    expect(tester.widget<Switch>(qq).value, isTrue);
     await tester.tap(qq);
     await tester.pumpAndSettle();
     expect(model.mode, ChatUiMode.classic);
+    expect(tester.widget<Switch>(qq).value, isFalse);
     await tester.tap(wechat);
     await tester.pumpAndSettle();
     expect(model.mode, ChatUiMode.wechat);
+    expect(tester.widget<Switch>(qq).value, isFalse);
+    expect(tester.widget<Switch>(wechat).value, isTrue);
     expect(model.mode, isNot(ChatUiMode.qq));
     expect(routes, ['/chat', '/chat', '/chat']);
     expect(tester.takeException(), isNull);

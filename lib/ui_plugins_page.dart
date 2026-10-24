@@ -112,8 +112,30 @@ class UiPluginOptions extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (model.mode == mode)
-                              const Icon(Icons.check, size: 17),
+                            Semantics(
+                              label: '启用${mode.title}',
+                              child: Switch.adaptive(
+                                key: ValueKey(
+                                  'sidebar-plugin-toggle-${mode.name}',
+                                ),
+                                value: model.mode == mode,
+                                activeTrackColor: const Color(0xff76a9bd),
+                                activeThumbColor: const Color(0xfff8fcff),
+                                inactiveThumbColor: const Color(0xff81959e),
+                                inactiveTrackColor: Colors.white.withValues(
+                                  alpha: .28,
+                                ),
+                                trackOutlineColor: const WidgetStatePropertyAll(
+                                  Color(0x3351646e),
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.padded,
+                                onChanged:
+                                    model.busy || library.workingId != null
+                                    ? null
+                                    : (enabled) => toggle(mode, enabled),
+                              ),
+                            ),
                             PopupMenuButton<String>(
                               key: ValueKey('sidebar-plugin-menu-${mode.name}'),
                               tooltip: '${mode.title}管理',
@@ -124,17 +146,9 @@ class UiPluginOptions extends StatelessWidget {
                               onSelected: (value) {
                                 if (value == 'remove') {
                                   _removePlugin(context, mode, library, model);
-                                } else {
-                                  toggle(mode, model.mode != mode);
                                 }
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(
-                                  value: 'toggle',
-                                  child: Text(
-                                    model.mode == mode ? '关闭插件' : '启用插件',
-                                  ),
-                                ),
                                 const PopupMenuItem(
                                   value: 'remove',
                                   child: Text('卸载插件'),
@@ -154,6 +168,8 @@ class UiPluginOptions extends StatelessWidget {
                 color: Colors.white.withValues(alpha: .65),
                 child: SwitchListTile.adaptive(
                   key: ValueKey('plugin-toggle-${mode.name}'),
+                  activeTrackColor: const Color(0xff76a9bd),
+                  activeThumbColor: const Color(0xfff8fcff),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 12,
@@ -368,6 +384,8 @@ class _UiPluginsPageState extends State<UiPluginsPage> {
                         if (installed != null)
                           SwitchListTile.adaptive(
                             key: ValueKey('plugin-toggle-${mode.name}'),
+                            activeTrackColor: const Color(0xff76a9bd),
+                            activeThumbColor: const Color(0xfff8fcff),
                             contentPadding: EdgeInsets.zero,
                             title: const Text(
                               '启用',
