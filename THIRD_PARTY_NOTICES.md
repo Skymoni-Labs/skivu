@@ -35,7 +35,9 @@ Flutter 的 CanvasKit / Skia Web 运行资源随构建自托管，不使用渲�
 
 ## 核对方法与证据
 
-`pubspec.lock` 固定解析版本与归档 SHA-256；`dependency-audit.json` 依据实际依赖图区分运行依赖和开发/测试依赖。现共 95 个包，其中 83 个属于运行依赖图（各平台实现由构建选择），12 个仅开发/测试；91 个托管包与 pub.dev 官方版本 API/归档校验一致。比对缓存中 `lib/`（含液态玻璃 shaders）、原生平台目录、`src/`、`hook/`、LICENSE、NOTICE、pubspec.yaml 的原始字节；已有官方归档按固定哈希复用。所有包许可正文与存在的 NOTICE 保存在 `licenses/packages/`。
+`pubspec.lock` 固定解析版本与归档 SHA-256；`dependency-audit.json` 依据 2026-10-24 的 `flutter pub deps --json` 实际依赖图区分运行依赖和开发/测试依赖。当前共 102 个包（不计应用自身），其中 90 个属于运行依赖图（各平台实现由构建选择），12 个仅开发/测试；98 个托管包有与 pub.dev 官方版本 API/归档一致的固定摘要记录，另有 4 个 SDK 包。旧记录中的 95/83/12 和 91 个托管包是新增本轮七个包前的历史统计；四个 WebView 包已不在当前解析图中。
+
+本轮新增的七个包重新下载或按固定摘要复用 pub.dev 官方归档，同时核对版本 API 的 `archive_sha256`、归档实际 SHA-256 与锁文件三者一致。逐字节比对当前缓存的 `lib/`、原生平台目录、`src/`、`hook/`、`hooks/`、`bin/`、LICENSE、NOTICE 与 pubspec.yaml，共 648 个选定文件，无额外缓存运行文件；其余未改版本包保留此前核验记录。归档仅在内存中读取，不向文件系统解压，拒绝绝对路径、父级遍历、Windows 路径与符号/硬链接。所有包完整许可正文与存在的 NOTICE 保存在 `licenses/packages/`；本轮七份 LICENSE 保留归档原始字节，七个归档没有额外根目录 NOTICE。
 
 官方元数据与归档在 `D:/CodexBuilds/ski-independent-ui/license-evidence`。字体 SHA-256 为 `a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da`，已与固定提交下载文件比对。
 
@@ -57,7 +59,17 @@ SDK 产物许可在 `licenses/Flutter-engine-NOTICES.txt`；Flutter/Dart、图�
 2026-10-22 又按用户明确要求迁入其自行新增的消息定位拨盘和通话界面，固定文件、提交和适配范围见 MODULE-MIGRATION.md 与 module-migration-sources.json。没有整份导入上游已有的 ChatScrollNavigator 或旧宿主；当前原生语音适配使用 Android 平台 API，没有新增音频库或音色/模型权重。原有第三方许可继续保留。
 
 
-## 2026-10-23 内置 HTML 界面插件
+## 2026-10-24 Flutter 社交界面
+
+0.2.35 起微信/QQ渲染器由本工程独立编写的 Flutter 组件实现，复用既有 Dart 数据、气泡和媒体服务。未复制腾讯客户端代码、素材、网络协议或其他项目宿主实现。插件预设仓库保持独立。
+
+新增 `qr 3.0.2`（BSD-3-Clause，https://pub.dev/packages/qr）、`zxing2 0.2.4`（BSD-3-Clause，https://github.com/xvrh/zxing-dart）、`image 4.10.2`（MIT，https://github.com/brendan-duncan/image），分别用于本机二维码绘制、静态图片识别及图片规范化。版本与摘要固定于锁文件，完整许可随 Flutter 生成的 NOTICES 分发；没有上传扫码照片。移除 webview_flutter 及其三项实现依赖，保留其他模块所需 web 1.1.1。
+
+其传递依赖新增 `archive 4.5.2`（MIT）、`charcode 1.4.0`（BSD-3-Clause）、`fixnum 1.1.1`（BSD-3-Clause）和 `posix 6.5.2`（MIT）。上述七个包的官方归档摘要、运行源码比对数量及完整 LICENSE 摘要已记录在 `dependency-audit.json`；原始 API 元数据、归档和本轮逐包核验结果保存在前述本机证据目录。完整许可另随 `licenses/packages/` 保留，未修改依赖源码。
+
+以下为旧 HTML 界面的历史来源。全部旧 HTML/CSS/JS/许可移至 `legacy/social_ui`，旧 Dart 宿主移至 `legacy/flutter_host/*.reference`，均不作为 Flutter assets 打包。旧 localStorage 迁移只通过 Android SDK 临时空文档读取白名单字段，备份后销毁；不运行归档脚本。下列 assets 路径指迁移前历史位置，当前对应 legacy 路径。
+
+## 2026-10-23 HTML 界面历史来源
 
 2026-10-24 插件市场：新增独立编写的数据型界面包目录、安装/卸载及摘要校验，未增加第三方依赖或任意外部脚本运行时。QQ/微信渲染器仍随 App 发布并保留以下来源和许可；插件包仅选择已适配模式，资金仍为本机角色虚拟余额。
 

@@ -154,6 +154,12 @@ class SocialActivity extends ChangeNotifier {
     return ok;
   }
 
+  /// Await queued durable writes before a UI discards its unpublished draft.
+  Future<bool> flush() async {
+    await _writes;
+    return _storageHealthy;
+  }
+
   String? publish(String channel, String text, List<String> images) {
     if (!_storageHealthy) return error ?? '动态记录暂不可写入。';
     if (!['wx', 'qq'].contains(channel) ||

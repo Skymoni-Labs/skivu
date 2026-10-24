@@ -9,7 +9,7 @@ function setup(mode='wx', page='inbox') {
   let current=page,back=0;
   const context=vm.createContext({window:{getSelection(){return {isCollapsed:true}}}, document:{querySelector(){return null}},
     $(){return root}, Date, SocialPreview:{page(){return current},switchTab(next){current=next;changes.push(next)},back(){back++;current='inbox'}}});
-  vm.runInContext(fs.readFileSync(new URL('../assets/social_ui/social_navigation.js',import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../legacy/social_ui/social_navigation.js',import.meta.url),'utf8'),context);
   context.window.SocialNavigation.update({mode,selectedId:'test-chat'});
   const target={closest(){return null}};
   const point=(x,y)=>({clientX:x,clientY:y});
@@ -55,7 +55,7 @@ test('editable or nested interaction surfaces retain their own gestures',()=>{
 });
 test('the original prototype drawer listener cannot emit host drawer commands',()=>{
   const events={},opened=[];
-  const source=fs.readFileSync(new URL('../assets/social_ui/index.html',import.meta.url),'utf8');
+  const source=fs.readFileSync(new URL('../legacy/social_ui/index.html',import.meta.url),'utf8');
   const start=source.indexOf('let touch=null;');const end=source.indexOf('fitPreview();icons();',start);
   assert.ok(start>0&&end>start);
   const context=vm.createContext({window:{SKIVU_HOSTED:true},$(){return {addEventListener(k,f){events[k]=f}}},setDrawer(side){opened.push(side)}});

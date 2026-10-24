@@ -4,6 +4,7 @@ import 'wallpaper.dart';
 import 'media_picker_session.dart';
 import 'character_avatar.dart';
 import 'state.dart';
+import 'social_post_draft.dart';
 
 Future<void> recoverInterruptedMedia() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -33,6 +34,13 @@ Future<void> recoverInterruptedMedia() async {
           case MediaDestination.chatImage:
           case MediaDestination.sticker:
             appearance.reportImportError('上次的聊天图片或表情选择已中断，请重新选择。');
+          case MediaDestination.socialPost:
+            final failure = await socialPostDrafts.recoverImage(bytes);
+            appearance.reportImportError(
+              failure ?? '上次选择的动态图片已恢复到未发布草稿，请到发表动态继续编辑。',
+            );
+          case MediaDestination.socialScan:
+            appearance.reportImportError('上次的二维码图片选择已中断，请到扫一扫重新选择。');
         }
       },
     );

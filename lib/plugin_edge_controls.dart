@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'app_platform.dart';
 
 /// Quiet until an intentional inward pull in the right middle edge.
-/// A passive parent listener leaves vertical WebView scrolling untouched.
+/// A passive parent listener leaves the content's vertical scrolling untouched.
 class PluginEdgeControls extends StatefulWidget {
   const PluginEdgeControls({
     super.key,

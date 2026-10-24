@@ -33,7 +33,8 @@ import 'plugin_market.dart';
 import 'social_settings.dart';
 import 'social_activity.dart';
 import 'virtual_wallet.dart';
-import 'html_ui_page.dart';
+import 'native_social_page.dart';
+import 'legacy_social_migration.dart';
 import 'social_ui_metrics.dart';
 import 'launch.dart';
 
@@ -89,20 +90,6 @@ Future<void> main() async {
       'Roboto Mono',
     ], await rootBundle.loadString('licenses/RobotoMono-OFL.txt'));
   });
-  LicenseRegistry.addLicense(() async* {
-    yield LicenseEntryWithLineBreaks([
-      'Tencent WeUI · built-in UI styles',
-    ], await rootBundle.loadString('assets/social_ui/vendor/LICENSE.weui.txt'));
-    yield LicenseEntryWithLineBreaks([
-      'jsQR 1.4.0 · Apache-2.0',
-    ], await rootBundle.loadString('assets/social_ui/vendor/LICENSE.jsQR.txt'));
-    yield LicenseEntryWithLineBreaks(
-      ['qrcode-generator 1.4.4 · MIT'],
-      await rootBundle.loadString(
-        'assets/social_ui/vendor/LICENSE.qrcode-generator.txt',
-      ),
-    );
-  });
   final artworkFuture = LaunchArtwork.load();
   await Future.wait([
     wallpaper.restore(),
@@ -126,6 +113,7 @@ Future<void> main() async {
   await recoverInterruptedMedia();
   final artwork = await artworkFuture;
   runApp(SkiApp(launchArtwork: artwork));
+  unawaited(legacySocialMigration.ensure(uiPlugins.mode));
   unawaited(relayAccount.refresh());
   if (artwork == null) unawaited(checkStartupUpdate());
 }
@@ -479,7 +467,7 @@ class _SkiShellState extends State<SkiShell>
     if (didPop) return;
     if (motion.offset.abs() > .1 || motion.dragging) motion.close();
     if (widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic) {
-      uiPlugins.showHome();
+      // The Flutter social shell owns its internal navigation stack.
       return;
     }
     if (widget.route.startsWith('/settings/')) {
@@ -528,14 +516,16 @@ class _SkiShellState extends State<SkiShell>
         reduced: demo.prefs['减少动态效果'] ?? false,
       );
       // Stable subtrees: drag ticks update transforms in SlideDeck, not chat layout.
-      final htmlUi =
+      final socialUi =
           widget.route == '/chat' && uiPlugins.mode != ChatUiMode.classic;
       final body = widget.route == '/chat'
-          ? htmlUi
+          ? socialUi
                 ? LaunchReveal(
                     part: LaunchPart.content,
-                    child: HtmlUiPage(
+                    child: NativeSocialPage(
                       go: go,
+                      backBlocked: () =>
+                          motion.offset.abs() > .1 || motion.dragging,
                       openNavigation: () {
                         if (motion.offset < .1) panel(1);
                       },
@@ -646,7 +636,7 @@ class _SkiShellState extends State<SkiShell>
                         child: RepaintBoundary(child: body),
                       ),
               ),
-              if (!htmlUi)
+              if (!socialUi)
                 Positioned(
                   top: 0,
                   left: 0,
@@ -701,7 +691,7 @@ class _SkiShellState extends State<SkiShell>
           child: BackdropGroup(
             child: SlideDeck(
               motion: motion,
-              dragEnabled: !htmlUi,
+              dragEnabled: !socialUi,
               left: navigation,
               right: workspace,
               child: foreground,

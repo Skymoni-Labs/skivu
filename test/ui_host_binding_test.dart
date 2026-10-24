@@ -78,14 +78,14 @@ void main() {
       },
     );
   }
-  test('the packaged styling is exactly the approved comparison styling', () {
+  test('the archived styling preserves its original provenance', () {
     final source =
-        jsonDecode(File('assets/social_ui/PROVENANCE.json').readAsStringSync())
+        jsonDecode(File('legacy/social_ui/PROVENANCE.json').readAsStringSync())
             as Map;
     for (final name in ['social.css', 'native.css', 'vendor/weui-light.css']) {
       expect(
         sha256
-            .convert(File('assets/social_ui/$name').readAsBytesSync())
+            .convert(File('legacy/social_ui/$name').readAsBytesSync())
             .toString(),
         source['files'][name],
         reason: name,

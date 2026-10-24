@@ -7,6 +7,29 @@
   },
   "packages": [
     {
+      "name": "archive",
+      "version": "4.5.2",
+      "sha256": "0d58d1fa1fddf6588251ccf2819f3fb3b6d0452c1b2813ac7413a05592bfbefe",
+      "scope": "runtime",
+      "license": "MIT",
+      "license_sha256": "32f97d332eae7453ec4079858e6f1d74be85beeb6d3881068b47d02a379cccea",
+      "source": "https://github.com/brendan-duncan/archive",
+      "archive_url": "https://pub.dev/api/archives/archive-4.5.2.tar.gz",
+      "verified_files": 126,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/archive/versions/4.5.2",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "32f97d332eae7453ec4079858e6f1d74be85beeb6d3881068b47d02a379cccea"
+      },
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "path",
+        "posix"
+      ]
+    },
+    {
       "name": "args",
       "version": "2.7.0",
       "sha256": "d0481093c50b1da8910eb0bb301626d4d8eb7284aa739614d2b394ee09e3ea04",
@@ -16,7 +39,9 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/args",
       "archive_url": "https://pub.dev/api/archives/args-2.7.0.tar.gz",
       "verified_files": 14,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "async",
@@ -28,7 +53,12 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/async",
       "archive_url": "https://pub.dev/api/archives/async-2.13.1.tar.gz",
       "verified_files": 47,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
     },
     {
       "name": "boolean_selector",
@@ -40,7 +70,12 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/boolean_selector",
       "archive_url": "https://pub.dev/api/archives/boolean_selector-2.1.2.tar.gz",
       "verified_files": 15,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "source_span",
+        "string_scanner"
+      ]
     },
     {
       "name": "characters",
@@ -52,7 +87,29 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/characters",
       "archive_url": "https://pub.dev/api/archives/characters-1.4.1.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": []
+    },
+    {
+      "name": "charcode",
+      "version": "1.4.0",
+      "sha256": "fb0f1107cac15a5ea6ef0a6ef71a807b9e4267c713bb93e00e92d737cc8dbd8a",
+      "scope": "runtime",
+      "license": "BSD-3-Clause",
+      "license_sha256": "8a4dbe6d3ddcf937b18d1768d13f9ba718b45bcb43bc00a3b63eb160d264acf7",
+      "source": "https://github.com/lrhn/charcode",
+      "archive_url": "https://pub.dev/api/archives/charcode-1.4.0.tar.gz",
+      "verified_files": 7,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/charcode/versions/1.4.0",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "8a4dbe6d3ddcf937b18d1768d13f9ba718b45bcb43bc00a3b63eb160d264acf7"
+      },
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "clock",
@@ -64,7 +121,9 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/clock",
       "archive_url": "https://pub.dev/api/archives/clock-1.1.2.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "code_assets",
@@ -76,7 +135,12 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/code_assets",
       "archive_url": "https://pub.dev/api/archives/code_assets-1.2.1.tar.gz",
       "verified_files": 16,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "hooks"
+      ]
     },
     {
       "name": "collection",
@@ -88,7 +152,9 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/collection",
       "archive_url": "https://pub.dev/api/archives/collection-1.19.1.tar.gz",
       "verified_files": 31,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "cross_file",
@@ -100,7 +166,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/cross_file",
       "archive_url": "https://pub.dev/api/archives/cross_file-0.3.5%2B5.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "meta",
+        "web"
+      ]
     },
     {
       "name": "crypto",
@@ -112,7 +183,11 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/crypto",
       "archive_url": "https://pub.dev/api/archives/crypto-3.0.7.tar.gz",
       "verified_files": 15,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "typed_data"
+      ]
     },
     {
       "name": "csslib",
@@ -124,7 +199,11 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/csslib",
       "archive_url": "https://pub.dev/api/archives/csslib-1.0.2.tar.gz",
       "verified_files": 18,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "source_span"
+      ]
     },
     {
       "name": "fake_async",
@@ -136,7 +215,12 @@
       "source": "https://github.com/dart-lang/test/tree/master/pkgs/fake_async",
       "archive_url": "https://pub.dev/api/archives/fake_async-1.3.3.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "clock",
+        "collection"
+      ]
     },
     {
       "name": "ffi",
@@ -148,7 +232,9 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/ffi",
       "archive_url": "https://pub.dev/api/archives/ffi-2.2.0.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "ffi_leak_tracker",
@@ -160,7 +246,11 @@
       "source": "https://github.com/halildurmus/win32/tree/main/packages/ffi_leak_tracker",
       "archive_url": "https://pub.dev/api/archives/ffi_leak_tracker-0.1.2.tar.gz",
       "verified_files": 11,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi"
+      ]
     },
     {
       "name": "file",
@@ -172,7 +262,12 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/file",
       "archive_url": "https://pub.dev/api/archives/file-7.0.1.tar.gz",
       "verified_files": 51,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "meta",
+        "path"
+      ]
     },
     {
       "name": "file_selector",
@@ -184,7 +279,18 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector",
       "archive_url": "https://pub.dev/api/archives/file_selector-1.1.0.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "file_selector_android",
+        "file_selector_ios",
+        "file_selector_linux",
+        "file_selector_macos",
+        "file_selector_platform_interface",
+        "file_selector_web",
+        "file_selector_windows",
+        "flutter"
+      ]
     },
     {
       "name": "file_selector_android",
@@ -196,7 +302,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_android",
       "archive_url": "https://pub.dev/api/archives/file_selector_android-0.5.2%2B6.tar.gz",
       "verified_files": 17,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "file_selector_ios",
@@ -208,7 +321,13 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_ios",
       "archive_url": "https://pub.dev/api/archives/file_selector_ios-0.5.3%2B6.tar.gz",
       "verified_files": 10,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "flutter",
+        "meta"
+      ]
     },
     {
       "name": "file_selector_linux",
@@ -220,7 +339,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_linux",
       "archive_url": "https://pub.dev/api/archives/file_selector_linux-0.9.4%2B1.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter",
+        "meta"
+      ]
     },
     {
       "name": "file_selector_macos",
@@ -232,7 +358,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_macos",
       "archive_url": "https://pub.dev/api/archives/file_selector_macos-0.9.5%2B1.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter",
+        "meta"
+      ]
     },
     {
       "name": "file_selector_platform_interface",
@@ -244,7 +377,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_platform_interface",
       "archive_url": "https://pub.dev/api/archives/file_selector_platform_interface-2.7.0.tar.gz",
       "verified_files": 10,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "file_selector_web",
@@ -256,7 +396,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_web",
       "archive_url": "https://pub.dev/api/archives/file_selector_web-0.9.5.tar.gz",
       "verified_files": 5,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "flutter",
+        "flutter_web_plugins",
+        "web"
+      ]
     },
     {
       "name": "file_selector_windows",
@@ -268,7 +415,34 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/file_selector/file_selector_windows",
       "archive_url": "https://pub.dev/api/archives/file_selector_windows-0.9.3%2B6.tar.gz",
       "verified_files": 21,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "cross_file",
+        "file_selector_platform_interface",
+        "flutter",
+        "meta"
+      ]
+    },
+    {
+      "name": "fixnum",
+      "version": "1.1.1",
+      "sha256": "b6dc7065e46c974bc7c5f143080a6764ec7a4be6da1285ececdc37be96de53be",
+      "scope": "runtime",
+      "license": "BSD-3-Clause",
+      "license_sha256": "ff0b91d4f3c32b25cb6ec84985e8da89b0ba2a2b2f7eef353cda5e5423a20390",
+      "source": "https://github.com/dart-lang/core/tree/main/pkgs/fixnum",
+      "archive_url": "https://pub.dev/api/archives/fixnum-1.1.1.tar.gz",
+      "verified_files": 7,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/fixnum/versions/1.1.1",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "ff0b91d4f3c32b25cb6ec84985e8da89b0ba2a2b2f7eef353cda5e5423a20390"
+      },
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "flutter",
@@ -278,7 +452,16 @@
       "license": "BSD-3-Clause",
       "license_sha256": "a598db94b6290ffbe10b5ecf911057b6a943351c727fdda9e5f2891d68700a20",
       "source": "https://github.com/flutter/flutter/tree/00b0c91f06209d9e4a41f71b7a512d6eb3b9c694",
-      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937"
+      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937",
+      "resolution_kind": "direct",
+      "dependencies": [
+        "characters",
+        "collection",
+        "material_color_utilities",
+        "meta",
+        "vector_math",
+        "sky_engine"
+      ]
     },
     {
       "name": "flutter_plugin_android_lifecycle",
@@ -290,7 +473,11 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/flutter_plugin_android_lifecycle",
       "archive_url": "https://pub.dev/api/archives/flutter_plugin_android_lifecycle-2.0.35.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter"
+      ]
     },
     {
       "name": "flutter_secure_storage",
@@ -302,7 +489,17 @@
       "source": "https://github.com/mogol/flutter_secure_storage/tree/develop/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage-11.2.0.tar.gz",
       "verified_files": 46,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "flutter",
+        "flutter_secure_storage_darwin",
+        "flutter_secure_storage_linux",
+        "flutter_secure_storage_platform_interface",
+        "flutter_secure_storage_web",
+        "flutter_secure_storage_windows",
+        "meta"
+      ]
     },
     {
       "name": "flutter_secure_storage_darwin",
@@ -314,7 +511,12 @@
       "source": "https://github.com/juliansteenbakker/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage_darwin-0.4.3.tar.gz",
       "verified_files": 2,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "flutter_secure_storage_linux",
@@ -326,7 +528,12 @@
       "source": "https://github.com/mogol/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage_linux-3.0.3.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_secure_storage_platform_interface"
+      ]
     },
     {
       "name": "flutter_secure_storage_platform_interface",
@@ -338,7 +545,12 @@
       "source": "https://github.com/mogol/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage_platform_interface-2.1.1.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "flutter_secure_storage_web",
@@ -350,7 +562,14 @@
       "source": "https://github.com/mogol/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage_web-2.1.1.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_secure_storage_platform_interface",
+        "flutter_web_plugins",
+        "web"
+      ]
     },
     {
       "name": "flutter_secure_storage_windows",
@@ -362,7 +581,17 @@
       "source": "https://github.com/mogol/flutter_secure_storage",
       "archive_url": "https://pub.dev/api/archives/flutter_secure_storage_windows-4.2.2.tar.gz",
       "verified_files": 11,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "flutter",
+        "flutter_secure_storage_platform_interface",
+        "path",
+        "path_provider",
+        "path_provider_platform_interface",
+        "win32"
+      ]
     },
     {
       "name": "flutter_test",
@@ -372,7 +601,22 @@
       "license": "BSD-3-Clause",
       "license_sha256": "a598db94b6290ffbe10b5ecf911057b6a943351c727fdda9e5f2891d68700a20",
       "source": "https://github.com/flutter/flutter/tree/00b0c91f06209d9e4a41f71b7a512d6eb3b9c694",
-      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937"
+      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937",
+      "resolution_kind": "dev",
+      "dependencies": [
+        "flutter",
+        "test_api",
+        "matcher",
+        "path",
+        "fake_async",
+        "clock",
+        "stack_trace",
+        "vector_math",
+        "leak_tracker_flutter_testing",
+        "collection",
+        "meta",
+        "stream_channel"
+      ]
     },
     {
       "name": "flutter_web_plugins",
@@ -382,7 +626,11 @@
       "license": "BSD-3-Clause",
       "license_sha256": "a598db94b6290ffbe10b5ecf911057b6a943351c727fdda9e5f2891d68700a20",
       "source": "https://github.com/flutter/flutter/tree/00b0c91f06209d9e4a41f71b7a512d6eb3b9c694",
-      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937"
+      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937",
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter"
+      ]
     },
     {
       "name": "hooks",
@@ -394,7 +642,17 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/hooks",
       "archive_url": "https://pub.dev/api/archives/hooks-2.0.2.tar.gz",
       "verified_files": 20,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "crypto",
+        "logging",
+        "meta",
+        "pub_semver",
+        "record_use",
+        "yaml"
+      ]
     },
     {
       "name": "html",
@@ -406,7 +664,12 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/html",
       "archive_url": "https://pub.dev/api/archives/html-0.15.7.tar.gz",
       "verified_files": 17,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "csslib",
+        "source_span"
+      ]
     },
     {
       "name": "http",
@@ -418,7 +681,14 @@
       "source": "https://github.com/dart-lang/http/tree/master/pkgs/http",
       "archive_url": "https://pub.dev/api/archives/http-1.6.0.tar.gz",
       "verified_files": 29,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "async",
+        "http_parser",
+        "meta",
+        "web"
+      ]
     },
     {
       "name": "http_parser",
@@ -430,7 +700,36 @@
       "source": "https://github.com/dart-lang/http/tree/master/pkgs/http_parser",
       "archive_url": "https://pub.dev/api/archives/http_parser-4.1.2.tar.gz",
       "verified_files": 13,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner",
+        "typed_data"
+      ]
+    },
+    {
+      "name": "image",
+      "version": "4.10.2",
+      "sha256": "0be525eb917b032c7c9c980597c508a255814a858bd8d9abfc9c57e04f3ebf89",
+      "scope": "runtime",
+      "license": "MIT",
+      "license_sha256": "f3c17da84e0780e1c334325c73098257c32221d62498ed55ef3c1361904925aa",
+      "source": "https://github.com/brendan-duncan/image",
+      "archive_url": "https://pub.dev/api/archives/image-4.10.2.tar.gz",
+      "verified_files": 386,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/image/versions/4.10.2",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "f3c17da84e0780e1c334325c73098257c32221d62498ed55ef3c1361904925aa"
+      },
+      "resolution_kind": "direct",
+      "dependencies": [
+        "archive"
+      ]
     },
     {
       "name": "image_picker",
@@ -442,7 +741,18 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker",
       "archive_url": "https://pub.dev/api/archives/image_picker-1.2.4.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "flutter",
+        "image_picker_android",
+        "image_picker_for_web",
+        "image_picker_ios",
+        "image_picker_linux",
+        "image_picker_macos",
+        "image_picker_platform_interface",
+        "image_picker_windows"
+      ]
     },
     {
       "name": "image_picker_android",
@@ -454,7 +764,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_android",
       "archive_url": "https://pub.dev/api/archives/image_picker_android-0.8.13%2B17.tar.gz",
       "verified_files": 31,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_plugin_android_lifecycle",
+        "image_picker_platform_interface",
+        "meta"
+      ]
     },
     {
       "name": "image_picker_for_web",
@@ -466,7 +783,15 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_for_web",
       "archive_url": "https://pub.dev/api/archives/image_picker_for_web-3.1.1.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "image_picker_platform_interface",
+        "mime",
+        "web"
+      ]
     },
     {
       "name": "image_picker_ios",
@@ -478,7 +803,13 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_ios",
       "archive_url": "https://pub.dev/api/archives/image_picker_ios-0.8.13%2B10.tar.gz",
       "verified_files": 26,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "image_picker_platform_interface",
+        "meta"
+      ]
     },
     {
       "name": "image_picker_linux",
@@ -490,7 +821,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_linux",
       "archive_url": "https://pub.dev/api/archives/image_picker_linux-0.2.2.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_linux",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
     },
     {
       "name": "image_picker_macos",
@@ -502,7 +840,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_macos",
       "archive_url": "https://pub.dev/api/archives/image_picker_macos-0.2.2%2B1.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_macos",
+        "file_selector_platform_interface",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
     },
     {
       "name": "image_picker_platform_interface",
@@ -514,7 +859,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_platform_interface",
       "archive_url": "https://pub.dev/api/archives/image_picker_platform_interface-2.11.2.tar.gz",
       "verified_files": 22,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "cross_file",
+        "flutter",
+        "http",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "image_picker_windows",
@@ -526,7 +878,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/image_picker/image_picker_windows",
       "archive_url": "https://pub.dev/api/archives/image_picker_windows-0.2.2.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file_selector_platform_interface",
+        "file_selector_windows",
+        "flutter",
+        "image_picker_platform_interface"
+      ]
     },
     {
       "name": "jni",
@@ -538,7 +897,18 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/jni",
       "archive_url": "https://pub.dev/api/archives/jni-1.1.0.tar.gz",
       "verified_files": 72,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "args",
+        "collection",
+        "ffi",
+        "jni_util",
+        "meta",
+        "package_config",
+        "path",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "jni_flutter",
@@ -550,7 +920,12 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/jni_flutter",
       "archive_url": "https://pub.dev/api/archives/jni_flutter-1.0.4%2B1.tar.gz",
       "verified_files": 10,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "jni"
+      ]
     },
     {
       "name": "jni_util",
@@ -562,7 +937,11 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/jni_util",
       "archive_url": "https://pub.dev/api/archives/jni_util-1.0.0.tar.gz",
       "verified_files": 4,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "path"
+      ]
     },
     {
       "name": "leak_tracker",
@@ -574,7 +953,15 @@
       "source": "https://github.com/dart-lang/leak_tracker/tree/main/pkgs/leak_tracker",
       "archive_url": "https://pub.dev/api/archives/leak_tracker-11.0.2.tar.gz",
       "verified_files": 33,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "clock",
+        "collection",
+        "meta",
+        "path",
+        "vm_service"
+      ]
     },
     {
       "name": "leak_tracker_flutter_testing",
@@ -586,7 +973,15 @@
       "source": "https://github.com/dart-lang/leak_tracker/tree/main/pkgs/leak_tracker_flutter_testing",
       "archive_url": "https://pub.dev/api/archives/leak_tracker_flutter_testing-3.0.10.tar.gz",
       "verified_files": 10,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "leak_tracker",
+        "leak_tracker_testing",
+        "matcher",
+        "meta"
+      ]
     },
     {
       "name": "leak_tracker_testing",
@@ -598,7 +993,13 @@
       "source": "https://github.com/dart-lang/leak_tracker/tree/main/pkgs/leak_tracker_testing",
       "archive_url": "https://pub.dev/api/archives/leak_tracker_testing-3.0.2.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "leak_tracker",
+        "matcher",
+        "meta"
+      ]
     },
     {
       "name": "liquid_glass_easy",
@@ -610,7 +1011,12 @@
       "source": "https://github.com/AhmeedGamil/liquid_glass_easy",
       "archive_url": "https://pub.dev/api/archives/liquid_glass_easy-5.0.0.tar.gz",
       "verified_files": 88,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "flutter",
+        "meta"
+      ]
     },
     {
       "name": "logging",
@@ -622,7 +1028,9 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/logging",
       "archive_url": "https://pub.dev/api/archives/logging-1.3.0.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "matcher",
@@ -634,7 +1042,15 @@
       "source": "https://github.com/dart-lang/test/tree/master/pkgs/matcher",
       "archive_url": "https://pub.dev/api/archives/matcher-0.12.19.tar.gz",
       "verified_files": 34,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "async",
+        "meta",
+        "stack_trace",
+        "term_glyph",
+        "test_api"
+      ]
     },
     {
       "name": "material_color_utilities",
@@ -646,7 +1062,11 @@
       "source": "https://github.com/material-foundation/material-color-utilities/tree/main/dart",
       "archive_url": "https://pub.dev/api/archives/material_color_utilities-0.13.0.tar.gz",
       "verified_files": 41,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection"
+      ]
     },
     {
       "name": "meta",
@@ -658,7 +1078,9 @@
       "source": "https://github.com/dart-lang/sdk/tree/main/pkg/meta",
       "archive_url": "https://pub.dev/api/archives/meta-1.17.0.tar.gz",
       "verified_files": 5,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "mime",
@@ -670,7 +1092,9 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/mime",
       "archive_url": "https://pub.dev/api/archives/mime-2.1.0.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "objective_c",
@@ -682,7 +1106,17 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/objective_c",
       "archive_url": "https://pub.dev/api/archives/objective_c-9.5.0.tar.gz",
       "verified_files": 57,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "code_assets",
+        "collection",
+        "ffi",
+        "hooks",
+        "logging",
+        "meta",
+        "pub_semver"
+      ]
     },
     {
       "name": "package_config",
@@ -694,7 +1128,11 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/package_config",
       "archive_url": "https://pub.dev/api/archives/package_config-3.0.0.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "meta"
+      ]
     },
     {
       "name": "path",
@@ -706,7 +1144,9 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/path",
       "archive_url": "https://pub.dev/api/archives/path-1.9.1.tar.gz",
       "verified_files": 15,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "path_provider",
@@ -718,7 +1158,16 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider",
       "archive_url": "https://pub.dev/api/archives/path_provider-2.1.6.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "flutter",
+        "path_provider_android",
+        "path_provider_foundation",
+        "path_provider_linux",
+        "path_provider_platform_interface",
+        "path_provider_windows"
+      ]
     },
     {
       "name": "path_provider_android",
@@ -730,7 +1179,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider_android",
       "archive_url": "https://pub.dev/api/archives/path_provider_android-2.3.1.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "jni",
+        "jni_flutter",
+        "path_provider_platform_interface"
+      ]
     },
     {
       "name": "path_provider_foundation",
@@ -742,7 +1198,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider_foundation",
       "archive_url": "https://pub.dev/api/archives/path_provider_foundation-2.6.0.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "flutter",
+        "objective_c",
+        "path_provider_platform_interface"
+      ]
     },
     {
       "name": "path_provider_linux",
@@ -754,7 +1217,15 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider_linux",
       "archive_url": "https://pub.dev/api/archives/path_provider_linux-2.2.2.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "flutter",
+        "path",
+        "path_provider_platform_interface",
+        "xdg_directories"
+      ]
     },
     {
       "name": "path_provider_platform_interface",
@@ -766,7 +1237,13 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider_platform_interface",
       "archive_url": "https://pub.dev/api/archives/path_provider_platform_interface-2.1.3.tar.gz",
       "verified_files": 5,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "platform",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "path_provider_windows",
@@ -778,7 +1255,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/path_provider/path_provider_windows",
       "archive_url": "https://pub.dev/api/archives/path_provider_windows-2.3.0.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "flutter",
+        "path",
+        "path_provider_platform_interface"
+      ]
     },
     {
       "name": "platform",
@@ -790,7 +1274,9 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/platform",
       "archive_url": "https://pub.dev/api/archives/platform-3.1.6.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "plugin_platform_interface",
@@ -802,7 +1288,35 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/plugin_platform_interface",
       "archive_url": "https://pub.dev/api/archives/plugin_platform_interface-2.1.8.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "meta"
+      ]
+    },
+    {
+      "name": "posix",
+      "version": "6.5.2",
+      "sha256": "bc1bad54ad2b735816e31f8d4600cfde6c7839975085ddfbca48b6c9f7c4044e",
+      "scope": "runtime",
+      "license": "MIT",
+      "license_sha256": "aaf6271abd048deb3125828613f1797b7556472de6c7acd7103bd43e9cb6a84b",
+      "source": "https://github.com/onepub-dev/dart_posix",
+      "archive_url": "https://pub.dev/api/archives/posix-6.5.2.tar.gz",
+      "verified_files": 37,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/posix/versions/6.5.2",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "aaf6271abd048deb3125828613f1797b7556472de6c7acd7103bd43e9cb6a84b"
+      },
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "meta",
+        "path"
+      ]
     },
     {
       "name": "pub_semver",
@@ -814,7 +1328,33 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/pub_semver",
       "archive_url": "https://pub.dev/api/archives/pub_semver-2.2.1.tar.gz",
       "verified_files": 9,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection"
+      ]
+    },
+    {
+      "name": "qr",
+      "version": "3.0.2",
+      "sha256": "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445",
+      "scope": "runtime",
+      "license": "BSD-3-Clause",
+      "license_sha256": "1d6c0bc8208cd835577eeb9195dc646f092728b62803abd60c404d984524abf7",
+      "source": "https://github.com/kevmoo/qr.dart",
+      "archive_url": "https://pub.dev/api/archives/qr-3.0.2.tar.gz",
+      "verified_files": 16,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/qr/versions/3.0.2",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "1d6c0bc8208cd835577eeb9195dc646f092728b62803abd60c404d984524abf7"
+      },
+      "resolution_kind": "direct",
+      "dependencies": [
+        "meta"
+      ]
     },
     {
       "name": "record_use",
@@ -826,7 +1366,13 @@
       "source": "https://github.com/dart-lang/native/tree/main/pkgs/record_use",
       "archive_url": "https://pub.dev/api/archives/record_use-0.6.0.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "meta",
+        "pub_semver"
+      ]
     },
     {
       "name": "shared_preferences",
@@ -838,7 +1384,17 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences",
       "archive_url": "https://pub.dev/api/archives/shared_preferences-2.5.6.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "flutter",
+        "shared_preferences_android",
+        "shared_preferences_foundation",
+        "shared_preferences_linux",
+        "shared_preferences_platform_interface",
+        "shared_preferences_web",
+        "shared_preferences_windows"
+      ]
     },
     {
       "name": "shared_preferences_android",
@@ -850,7 +1406,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_android",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_android-2.4.23.tar.gz",
       "verified_files": 21,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "shared_preferences_platform_interface"
+      ]
     },
     {
       "name": "shared_preferences_foundation",
@@ -862,7 +1423,13 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_foundation",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_foundation-2.5.7.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "shared_preferences_platform_interface"
+      ]
     },
     {
       "name": "shared_preferences_linux",
@@ -874,7 +1441,16 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_linux",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_linux-2.4.1.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file",
+        "flutter",
+        "path",
+        "path_provider_linux",
+        "path_provider_platform_interface",
+        "shared_preferences_platform_interface"
+      ]
     },
     {
       "name": "shared_preferences_platform_interface",
@@ -886,7 +1462,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_platform_interface",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_platform_interface-2.4.2.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "shared_preferences_web",
@@ -898,7 +1479,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_web",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_web-2.4.3.tar.gz",
       "verified_files": 4,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "shared_preferences_platform_interface",
+        "web"
+      ]
     },
     {
       "name": "shared_preferences_windows",
@@ -910,7 +1498,16 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/shared_preferences/shared_preferences_windows",
       "archive_url": "https://pub.dev/api/archives/shared_preferences_windows-2.4.1.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "file",
+        "flutter",
+        "path",
+        "path_provider_platform_interface",
+        "path_provider_windows",
+        "shared_preferences_platform_interface"
+      ]
     },
     {
       "name": "sky_engine",
@@ -920,7 +1517,9 @@
       "license": "SDK aggregate; see engine notices",
       "license_sha256": "1d531df6b9d1142fa3f6abc518cfab21adc6570ae11631c40a7ba366c93d2eaa",
       "source": "https://github.com/flutter/flutter/tree/00b0c91f06209d9e4a41f71b7a512d6eb3b9c694",
-      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937"
+      "engine": "42d3d75a56efe1a2e9902f52dc8006099c45d937",
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "source_span",
@@ -932,7 +1531,13 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/source_span",
       "archive_url": "https://pub.dev/api/archives/source_span-1.10.2.tar.gz",
       "verified_files": 14,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "path",
+        "term_glyph"
+      ]
     },
     {
       "name": "stack_trace",
@@ -944,7 +1549,11 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/stack_trace",
       "archive_url": "https://pub.dev/api/archives/stack_trace-1.12.1.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "path"
+      ]
     },
     {
       "name": "stream_channel",
@@ -956,7 +1565,11 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/stream_channel",
       "archive_url": "https://pub.dev/api/archives/stream_channel-2.1.4.tar.gz",
       "verified_files": 14,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "async"
+      ]
     },
     {
       "name": "string_scanner",
@@ -968,7 +1581,11 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/string_scanner",
       "archive_url": "https://pub.dev/api/archives/string_scanner-1.4.1.tar.gz",
       "verified_files": 11,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "source_span"
+      ]
     },
     {
       "name": "term_glyph",
@@ -980,7 +1597,9 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/term_glyph",
       "archive_url": "https://pub.dev/api/archives/term_glyph-1.2.2.tar.gz",
       "verified_files": 7,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "test_api",
@@ -992,7 +1611,19 @@
       "source": "https://github.com/dart-lang/test/tree/master/pkgs/test_api",
       "archive_url": "https://pub.dev/api/archives/test_api-0.7.10.tar.gz",
       "verified_files": 46,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "async",
+        "boolean_selector",
+        "collection",
+        "meta",
+        "source_span",
+        "stack_trace",
+        "stream_channel",
+        "string_scanner",
+        "term_glyph"
+      ]
     },
     {
       "name": "typed_data",
@@ -1004,7 +1635,11 @@
       "source": "https://github.com/dart-lang/core/tree/main/pkgs/typed_data",
       "archive_url": "https://pub.dev/api/archives/typed_data-1.4.0.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection"
+      ]
     },
     {
       "name": "vector_math",
@@ -1016,7 +1651,9 @@
       "source": "https://github.com/google/vector_math.dart",
       "archive_url": "https://pub.dev/api/archives/vector_math-2.2.0.tar.gz",
       "verified_files": 77,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "video_player",
@@ -1028,7 +1665,17 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/video_player/video_player",
       "archive_url": "https://pub.dev/api/archives/video_player-2.11.1.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": [
+        "collection",
+        "flutter",
+        "html",
+        "video_player_android",
+        "video_player_avfoundation",
+        "video_player_platform_interface",
+        "video_player_web"
+      ]
     },
     {
       "name": "video_player_android",
@@ -1040,7 +1687,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/video_player/video_player_android",
       "archive_url": "https://pub.dev/api/archives/video_player_android-2.9.5.tar.gz",
       "verified_files": 39,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "video_player_platform_interface"
+      ]
     },
     {
       "name": "video_player_avfoundation",
@@ -1052,7 +1704,13 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/video_player/video_player_avfoundation",
       "archive_url": "https://pub.dev/api/archives/video_player_avfoundation-2.12.1.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "video_player_platform_interface"
+      ]
     },
     {
       "name": "video_player_platform_interface",
@@ -1064,7 +1722,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/video_player/video_player_platform_interface",
       "archive_url": "https://pub.dev/api/archives/video_player_platform_interface-6.9.0.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
     },
     {
       "name": "video_player_web",
@@ -1076,7 +1739,14 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/video_player/video_player_web",
       "archive_url": "https://pub.dev/api/archives/video_player_web-2.4.0.tar.gz",
       "verified_files": 6,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "video_player_platform_interface",
+        "web"
+      ]
     },
     {
       "name": "vm_service",
@@ -1088,7 +1758,9 @@
       "source": "https://github.com/dart-lang/sdk/tree/main/pkg/vm_service",
       "archive_url": "https://pub.dev/api/archives/vm_service-15.4.0.tar.gz",
       "verified_files": 12,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": []
     },
     {
       "name": "web",
@@ -1100,7 +1772,9 @@
       "source": "https://github.com/dart-lang/web",
       "archive_url": "https://pub.dev/api/archives/web-1.1.1.tar.gz",
       "verified_files": 193,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "direct",
+      "dependencies": []
     },
     {
       "name": "win32",
@@ -1112,7 +1786,13 @@
       "source": "https://github.com/halildurmus/win32",
       "archive_url": "https://pub.dev/api/archives/win32-6.4.0.tar.gz",
       "verified_files": 374,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "ffi",
+        "ffi_leak_tracker",
+        "meta"
+      ]
     },
     {
       "name": "xdg_directories",
@@ -1124,7 +1804,12 @@
       "source": "https://github.com/flutter/packages/tree/main/packages/xdg_directories",
       "archive_url": "https://pub.dev/api/archives/xdg_directories-1.1.0.tar.gz",
       "verified_files": 3,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "meta",
+        "path"
+      ]
     },
     {
       "name": "yaml",
@@ -1136,7 +1821,38 @@
       "source": "https://github.com/dart-lang/tools/tree/main/pkgs/yaml",
       "archive_url": "https://pub.dev/api/archives/yaml-3.1.4.tar.gz",
       "verified_files": 18,
-      "cache_matches_official_archive": true
+      "cache_matches_official_archive": true,
+      "resolution_kind": "transitive",
+      "dependencies": [
+        "collection",
+        "source_span",
+        "string_scanner"
+      ]
+    },
+    {
+      "name": "zxing2",
+      "version": "0.2.4",
+      "sha256": "2677c49a3b9ca9457cb1d294fd4bd5041cac6aab8cdb07b216ba4e98945c684f",
+      "scope": "runtime",
+      "license": "BSD-3-Clause",
+      "license_sha256": "d2bfc0fd9aae0a7d4cdab8ea024c75881c0ab38332683539f7f26ea88fec9ca2",
+      "source": "https://github.com/xvrh/zxing-dart",
+      "archive_url": "https://pub.dev/api/archives/zxing2-0.2.4.tar.gz",
+      "verified_files": 69,
+      "cache_matches_official_archive": true,
+      "verification_date": "2026-10-24",
+      "metadata_url": "https://pub.dev/api/packages/zxing2/versions/0.2.4",
+      "verification_includes_extra_cache_files": true,
+      "notice_files": {
+        "LICENSE": "d2bfc0fd9aae0a7d4cdab8ea024c75881c0ab38332683539f7f26ea88fec9ca2"
+      },
+      "resolution_kind": "direct",
+      "dependencies": [
+        "charcode",
+        "collection",
+        "fixnum",
+        "meta"
+      ]
     }
   ],
   "assets": [
@@ -1155,5 +1871,68 @@
     }
   ],
   "engine_scope": "Official SDK aggregate notices retained verbatim. Native wallpaper storage uses dart:io. MPL-2.0 entry is fallback_root_certificates (native Dart IO). FreeType used under FTL alternative. No business code copied into covered SDK files.",
-  "status": "Pinned Pub package archives and cache checks passed, including native platform source folders; exact license texts retained. Runtime scope follows the resolved dependency graph; platform-specific implementations are selected by each build. This is not a complete audit of every native Maven artifact or future dependency."
+  "status": "Current graph: 102 packages excluding the app (90 runtime, 12 development/test only), including 98 hosted packages and 4 SDK packages. All hosted versions have pinned official-archive evidence; the 7 added packages were reverified against the active caches on 2026-10-24. Prior unchanged-package checks are retained as historical evidence. WebView packages are absent from the current graph. Runtime includes platform-specific implementations selected by each build. This is not a complete audit of native Maven artifacts or future dependencies.",
+  "resolved_graph": {
+    "captured": "2026-10-24",
+    "command": "flutter pub deps --json",
+    "root": "ski",
+    "runtime_roots": [
+      "flutter",
+      "image_picker",
+      "file_selector",
+      "liquid_glass_easy",
+      "path_provider",
+      "shared_preferences",
+      "video_player",
+      "http",
+      "flutter_secure_storage",
+      "crypto",
+      "characters",
+      "qr",
+      "zxing2",
+      "image",
+      "web"
+    ],
+    "development_roots": [
+      "flutter_test"
+    ],
+    "total_packages_excluding_root": 102,
+    "runtime_packages": 90,
+    "development_test_only_packages": 12,
+    "hosted_packages": 98,
+    "sdk_packages": 4,
+    "removed_from_current_resolution": [
+      "webview_flutter",
+      "webview_flutter_android",
+      "webview_flutter_platform_interface",
+      "webview_flutter_wkwebview"
+    ]
+  },
+  "verification_update": {
+    "date": "2026-10-24",
+    "newly_verified_packages": [
+      "qr",
+      "zxing2",
+      "image",
+      "archive",
+      "charcode",
+      "fixnum",
+      "posix"
+    ],
+    "method": "Official pub.dev version API archive_sha256 and downloaded archive SHA-256 must equal pubspec.lock. Selected runtime source, pubspec and root LICENSE/NOTICE files are compared as raw bytes with the active package_config cache; extra cache runtime files are rejected. Tar members are read in memory without filesystem extraction; absolute/traversal/Windows paths and symbolic/hard links are rejected. Existing unchanged package verification evidence is retained from the prior audit. Dependency scopes and edges are recomputed from the current flutter pub deps --json graph.",
+    "raw_license_bytes_retained": true,
+    "runtime_source_paths": [
+      "lib/",
+      "android/",
+      "ios/",
+      "macos/",
+      "windows/",
+      "linux/",
+      "src/",
+      "hook/",
+      "hooks/",
+      "bin/"
+    ],
+    "verification_summary": "7 official archives verified; 648 selected files match active caches; 7 complete LICENSE files retained; no additional root NOTICE files in those archives."
+  }
 }

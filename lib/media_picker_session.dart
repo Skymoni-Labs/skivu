@@ -11,6 +11,8 @@ enum MediaDestination {
   userAvatar,
   chatImage,
   sticker,
+  socialPost,
+  socialScan,
 }
 
 abstract interface class PendingMediaStore {
@@ -84,6 +86,8 @@ class MediaPickerSession {
         throw const FormatException('Recovered media type mismatch');
       final limit = destination == MediaDestination.video
           ? 30 * 1024 * 1024
+          : destination == MediaDestination.socialPost
+          ? 6 * 1024 * 1024
           : 3 * 1024 * 1024;
       if (await file.length() > limit)
         throw const FormatException('Recovered media too large');

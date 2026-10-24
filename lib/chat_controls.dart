@@ -244,6 +244,7 @@ Future<void> editUserCard(BuildContext context) async {
           FilledButton(
             onPressed: () async {
               demo.userCard = {
+                ...demo.userCard,
                 for (final e in fields.entries) e.key: e.value.text.trim(),
               };
               demo.changed();

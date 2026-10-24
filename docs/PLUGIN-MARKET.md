@@ -6,6 +6,6 @@ Skivu 0.2.19 起，在侧栏「插件市场」获取 QQ、微信两种界面插�
 
 国内访问优先通过 `skymoni.com/app-plugins/` 获取同步的目录和按摘要定位的包，不要求手机直连 GitHub。服务端只提供从公开固定提交核对过的 JSON，包字节与 GitHub 一致；转发不可用时可尝试官方 GitHub 原地址，完整性检查保持一致。这不是中国大陆各运营商速度测试结论。
 
-首版安装的是数据型界面预设。包仅选择已随 App 编译审阅的 `skivu.social-ui.v1` 渲染器，不下载执行任意 HTML/JavaScript，不提供第三方脚本 SDK。修改渲染器需更新 App，原创代码在 `assets/social_ui`，宿主桥接在 `lib/ui_host_binding.dart`。
+安装的是数据型界面预设。包仅选择已随 App 编译审阅的 `skivu.social-ui.v1` 渲染器，不下载执行任意 HTML/JavaScript，不提供第三方脚本 SDK。0.2.35 起该渲染器使用 Flutter，代码在 `lib/native_social_*.dart`，共用数据校验在 `lib/ui_host_binding.dart`。预设 ID 保持兼容，修改渲染器仍需更新 App。旧 HTML 与许可归档在 `legacy/`，不随安装包加载。
 
-红包、转账和礼物使用本机角色虚拟资金，不连接腾讯支付或账号。视频/屏幕入口目前仅本机预览，Android 媒体与文件保存尚需后续适配；未将本地 UI 能力描述成官方联网生态。
+红包、转账和礼物使用本机角色虚拟资金，不连接腾讯支付或账号。视频通话暂停开发，语音使用原有系统能力；媒体和文件可交给系统打开或另存。上述功能不接入腾讯账号、支付或聊天网络。

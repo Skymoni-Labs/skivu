@@ -15,7 +15,7 @@ function host(mode='wx') {
     SocialPreview:{page:()=> 'inbox',portrait:()=>''},
     SkivuHost:{emit:command=>emitted.push(command)},
   });
-  vm.runInContext(fs.readFileSync(new URL('../assets/social_ui/chat_interactions.js',import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../legacy/social_ui/chat_interactions.js',import.meta.url),'utf8'),context);
   const api=context.window.ChatInteractions;
   context.ChatInteractions=api;
   api.update({mode,selectedId:'qa',selectedRoleId:'role',roles:[],messages:[],interactions:[]});

@@ -24,7 +24,7 @@ function setup(page='inbox', reduce=false) {
     setTimeout(f){timers.set(++nextTimer,f);return nextTimer},clearTimeout(id){timers.delete(id)},
     SocialPreview:{page:()=>current,previewTab:target=>'<button id="preview">'+target+'</button>',
       switchTab(target,options){assert.equal(options.animate,false);current=target;surface.scrollTop=0;changes.push(target)}}});
-  vm.runInContext(fs.readFileSync(new URL('../assets/social_ui/social_navigation.js',import.meta.url),'utf8'),context);
+  vm.runInContext(fs.readFileSync(new URL('../legacy/social_ui/social_navigation.js',import.meta.url),'utf8'),context);
   window.SocialNavigation.update({mode:'wx',selectedId:'chat'});
   const point=(x,y)=>({clientX:x,clientY:y});
   const target={closest(){return null}};
@@ -96,7 +96,7 @@ test('reduced motion keeps direct drag feedback and commits without a timed anim
   const h=setup('inbox',true);h.drag(-130);assert.equal(h.page,'inbox');h.end(-130);assert.equal(h.page,'contacts');assert.equal(h.deck,undefined);
 });
 test('the earliest host capture consumes dragged clicks before selecting a chat',()=>{
-  const source=fs.readFileSync(new URL('../assets/social_ui/host.js',import.meta.url),'utf8');
+  const source=fs.readFileSync(new URL('../legacy/social_ui/host.js',import.meta.url),'utf8');
   const start=source.indexOf('SkivuHost.captureClick=event=>{');
   const check=source.indexOf('SocialNavigation?.consumeClick(event)',start);
   const node=source.indexOf('const node=',start);

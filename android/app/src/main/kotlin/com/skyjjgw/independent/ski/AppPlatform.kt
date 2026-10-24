@@ -17,10 +17,15 @@ import java.util.concurrent.Executors
 /** System browser authorization and user-confirmed, same-signer APK updates. */
 class AppPlatform(private val activity: Activity) {
     private val worker = Executors.newSingleThreadExecutor()
+    private val legacySocial = LegacySocialMigrationPlatform(activity)
     private var pluginEdgeOwner: String? = null
 
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "skivu/app_platform").setMethodCallHandler { call, result ->
+            if (legacySocial.accepts(call)) {
+                legacySocial.handle(call, result)
+                return@setMethodCallHandler
+            }
             worker.execute {
                 try {
                     when (call.method) {
@@ -59,6 +64,8 @@ class AppPlatform(private val activity: Activity) {
             }
         }
     }
+
+    fun close() { legacySocial.close(); worker.shutdown() }
 
     @Suppress("DEPRECATION")
     private fun signatureFlags() = if (Build.VERSION.SDK_INT >= 28)

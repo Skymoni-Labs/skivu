@@ -8,7 +8,7 @@ function host(mode='wx',chats=[]) {
   const document={visibilityState:'visible',addEventListener:(name,fn)=>events[name]=fn};
   let page='inbox';
   const window={SkivuHost:{emit:(command,value)=>emitted.push({command,...value})},SocialPreview:{page:()=>page}};
-  vm.runInNewContext(fs.readFileSync(new URL('../assets/social_ui/social_unread.js',import.meta.url),'utf8'),{window,document,addEventListener:(name,fn)=>events[name]=fn});
+  vm.runInNewContext(fs.readFileSync(new URL('../legacy/social_ui/social_unread.js',import.meta.url),'utf8'),{window,document,addEventListener:(name,fn)=>events[name]=fn});
   const api=window.SocialUnread;api.update({mode,chats,selectedId:'one'});
   return {api,events,emitted,document,set page(value){page=value}};
 }

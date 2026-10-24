@@ -11,7 +11,7 @@ function host() {
     SocialPreview: {page(){return 'inbox'}}, measureComposer(){},
     esc: String, SkivuHost: {emit(command, data){sent.push({command,...data})}},
   });
-  vm.runInContext(fs.readFileSync(new URL('../assets/social_ui/companion_ui.js', import.meta.url),'utf8'), context);
+  vm.runInContext(fs.readFileSync(new URL('../legacy/social_ui/companion_ui.js', import.meta.url),'utf8'), context);
   context.window.CompanionChat.update({messages:[]});
   return {sent, capture(dataset) {
     let cancelled = false;
