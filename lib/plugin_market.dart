@@ -8,7 +8,7 @@ import 'ui_plugins.dart';
 
 /// Downloaded data-only presets select a renderer shipped with the host.
 /// Packages cannot supply scripts, URLs, prompts, or additional permissions.
-const pluginHostVersion = '0.2.19';
+const pluginHostVersion = '0.2.20';
 const pluginCatalogUrl = 'https://skymoni.com/app-plugins/catalog/index.json';
 const pluginCatalogOriginUrl =
     'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/index.json';

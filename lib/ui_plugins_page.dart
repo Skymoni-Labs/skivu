@@ -2,6 +2,38 @@ import 'package:flutter/material.dart';
 import 'ui_plugins.dart';
 import 'plugin_market.dart';
 
+Future<void> _removePlugin(
+  BuildContext context,
+  ChatUiMode mode,
+  PluginMarket market,
+  UiPluginSettings settings,
+) async {
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('卸载${mode.title}？'),
+      content: const Text('卸载后保留角色、聊天记录和外观设置，可随时重新安装。'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('卸载'),
+        ),
+      ],
+    ),
+  );
+  if (yes != true || !context.mounted) return;
+  final removed = await market.uninstall(mode, settings);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(removed ? '插件已卸载' : market.error ?? '卸载未完成，请重试。')),
+    );
+  }
+}
+
 /// The two audited presenters use the same persisted mode in the sidebar and
 /// plugin page. Turning the selected presenter off restores the classic UI.
 class UiPluginOptions extends StatelessWidget {
@@ -36,28 +68,86 @@ class UiPluginOptions extends StatelessWidget {
       builder: (context, _) {
         final options = [
           for (final mode in [ChatUiMode.qq, ChatUiMode.wechat])
-            if (compact)
-              Expanded(
-                child: FilterChip(
-                  key: ValueKey('sidebar-plugin-${mode.name}'),
-                  label: Text(mode == ChatUiMode.qq ? 'QQ' : '微信'),
-                  selected: model.mode == mode,
-                  tooltip: library.installedFor(mode) == null
-                      ? '前往市场安装'
-                      : model.mode == mode
-                      ? '关闭${mode.title}'
-                      : '启用${mode.title}',
-                  onSelected: model.busy ? null : (v) => toggle(mode, v),
-                  backgroundColor: Colors.white.withValues(alpha: .38),
-                  selectedColor: const Color(0xffcce7f3),
-                  labelStyle: const TextStyle(
-                    color: Color(0xff17212b),
-                    fontSize: 13,
+            if (compact) ...[
+              if (library.installedFor(mode) != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Material(
+                    color: Colors.white.withValues(
+                      alpha: model.mode == mode ? .36 : .12,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      key: ValueKey('sidebar-plugin-${mode.name}'),
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: model.busy || library.workingId != null
+                          ? null
+                          : () => toggle(mode, model.mode != mode),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 8, 2, 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: .28),
+                              ),
+                              child: const Icon(
+                                Icons.extension_outlined,
+                                size: 23,
+                                color: Color(0xff38434b),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                library.installedFor(mode)!.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Color(0xff17212b),
+                                ),
+                              ),
+                            ),
+                            if (model.mode == mode)
+                              const Icon(Icons.check, size: 17),
+                            PopupMenuButton<String>(
+                              key: ValueKey('sidebar-plugin-menu-${mode.name}'),
+                              tooltip: '${mode.title}管理',
+                              enabled: !model.busy && library.workingId == null,
+                              icon: const Icon(Icons.more_horiz, size: 21),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 140),
+                              onSelected: (value) {
+                                if (value == 'remove') {
+                                  _removePlugin(context, mode, library, model);
+                                } else {
+                                  toggle(mode, model.mode != mode);
+                                }
+                              },
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'toggle',
+                                  child: Text(
+                                    model.mode == mode ? '关闭插件' : '启用插件',
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text('卸载插件'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
                 ),
-              )
-            else
+            ] else
               Card(
                 elevation: 0,
                 margin: const EdgeInsets.only(bottom: 12),
@@ -97,10 +187,7 @@ class UiPluginOptions extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (compact)
-              Row(children: [options[0], const SizedBox(width: 8), options[1]])
-            else
-              ...options,
+            ...options,
             if (model.error != null)
               Text(
                 model.error!,
@@ -141,26 +228,8 @@ class _UiPluginsPageState extends State<UiPluginsPage> {
     if (widget.autoRefresh) Future.microtask(market.refresh);
   }
 
-  Future<void> remove(ChatUiMode mode) async {
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('卸载界面插件？'),
-        content: const Text('卸载后保留角色、聊天记录和外观设置，可随时重新安装。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('卸载'),
-          ),
-        ],
-      ),
-    );
-    if (yes == true) await market.uninstall(mode, settings);
-  }
+  Future<void> remove(ChatUiMode mode) =>
+      _removePlugin(context, mode, market, settings);
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(

@@ -357,6 +357,9 @@
       state.mode=snapshot.mode==='qq'?'qq':'wx';state.nativeView=true;nativeView=true;
       state.model=snapshot.model||'选择模型';stream=snapshot.streaming?{host:true}:null;
       data.profile.name=snapshot.userLabel||data.profile.name;
+      data.profile.avatar=snapshot.userAvatar||null;
+      const profileAvatar=document.querySelector('.social-form-portrait[data-social="upload-profile-avatar"]');
+      if(profileAvatar)profileAvatar.innerHTML=portrait('self','big')+'<span>更换头像</span>';
       if(view||changed){page=view||'chat';trail=[];closeSheet()}
       if(snapshot.delta&&page==='chat'&&$('#messages .message').length===messages.length){
         const m=messages.at(-1),el=$('#messages .message:last-child .bubble');if(el)el.textContent=m.text||'正在思考…';

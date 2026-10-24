@@ -4,10 +4,10 @@
 .social-shell.native-style[data-mode=qq] .topbar-inner{height:56px;padding:0 12px}
 .social-shell.native-style[data-mode=qq] .role-title{flex:1;min-width:0;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:3px 8px}
 .social-shell.native-style[data-mode=qq] .native-online{font-size:11px;line-height:16px;margin-top:2px}
-.social-shell.native-style[data-mode=qq] .social-page{padding-top:56px;background:#fff;padding-bottom:0}
+.social-shell.native-style[data-mode=qq] .social-page{padding-top:calc(56px + var(--host-safe-top));background:#fff;padding-bottom:0}
 .social-shell.native-style[data-mode=qq][data-page=inbox]>.topbar{background:#e6e9f5}
 .social-shell.native-style[data-mode=qq][data-page=inbox] .topbar-inner{height:62px;padding:0 17px;gap:5px}
-.social-shell.native-style[data-mode=qq][data-page=inbox] .social-page{padding-top:62px}
+.social-shell.native-style[data-mode=qq][data-page=inbox] .social-page{padding-top:calc(62px + var(--host-safe-top))}
 .social-shell.native-style[data-mode=qq] #socialQQProfile{width:42px;height:48px;flex-shrink:0}
 .social-shell.native-style[data-mode=qq] #socialQQProfile .social-face{width:39px;height:39px}
 .qq-inbox-subtitle{display:block;font-size:11px;line-height:17px;color:#797d89;font-weight:400;margin-top:1px}

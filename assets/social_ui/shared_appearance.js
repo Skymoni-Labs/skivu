@@ -19,6 +19,7 @@
   function schedule(){if(!frame)frame=requestAnimationFrame(alignFrost)}
   function paint(){
     if(!settings)return;
+    root.querySelectorAll('.message.user .avatar').forEach(node=>{node.innerHTML=SocialPreview.portrait('self')});
     root.classList.add('shared-chat-appearance');
     document.body.classList.toggle('native-chat-background',settings.background&&SocialPreview.page()==='chat');
     root.dataset.bubbleShape=settings.rounded?settings.bubbleShape:'rectangle';

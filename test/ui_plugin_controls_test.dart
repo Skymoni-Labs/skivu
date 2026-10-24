@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ski/state.dart';
 import 'package:ski/ui_plugins.dart';
 import 'package:ski/ui_plugins_page.dart';
+import 'package:ski/plugin_market.dart';
 import 'real_chat_store_test.dart' show MemoryChats;
 import 'plugin_market_test.dart' show installedMarket;
 
@@ -77,7 +78,7 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(FilterChip), findsNWidgets(2));
+    expect(find.byIcon(Icons.extension_outlined), findsNWidgets(2));
     final qq = find.byKey(const ValueKey('sidebar-plugin-qq'));
     final wechat = find.byKey(const ValueKey('sidebar-plugin-wechat'));
     await tester.tap(qq);
@@ -89,13 +90,74 @@ void main() {
     await tester.tap(wechat);
     await tester.pumpAndSettle();
     expect(model.mode, ChatUiMode.wechat);
-    expect(tester.widget<FilterChip>(qq).selected, isFalse);
+    expect(model.mode, isNot(ChatUiMode.qq));
     expect(routes, ['/chat', '/chat', '/chat']);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     model.dispose();
     market.dispose();
   });
+  testWidgets(
+    'sidebar removes uninstalled cards and restores them only after installation',
+    (tester) async {
+      final model = UiPluginSettings();
+      final market = (await tester.runAsync(installedMarket))!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 230,
+              child: UiPluginOptions(
+                compact: true,
+                preferences: model,
+                market: market,
+                go: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      final card = find.byKey(const ValueKey('sidebar-plugin-wechat'));
+      expect(card, findsOneWidget);
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(model.mode, ChatUiMode.wechat);
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-plugin-menu-wechat')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('卸载插件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(card, findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-plugin-menu-wechat')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('卸载插件'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('卸载'));
+      await tester.pumpAndSettle();
+      expect(card, findsNothing);
+      expect(model.mode, ChatUiMode.classic);
+      final restored = PluginMarket();
+      await restored.restore();
+      expect(restored.installedFor(ChatUiMode.wechat), isNull);
+      expect(restored.installedFor(ChatUiMode.qq), isNotNull);
+      final available = market.catalog.singleWhere(
+        (p) => p.mode == ChatUiMode.wechat,
+      );
+      expect(await tester.runAsync(() => market.install(available)), isTrue);
+      await tester.pumpAndSettle();
+      expect(card, findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      restored.dispose();
+      model.dispose();
+      market.dispose();
+    },
+  );
   testWidgets(
     'plugin market contains exactly two toggles and no classic card',
     (tester) async {

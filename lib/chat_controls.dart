@@ -5,6 +5,7 @@ import 'model_settings.dart';
 import 'relay_account.dart';
 import 'state.dart';
 import 'widgets.dart';
+import 'character_avatar.dart';
 
 Future<void> showChatModelPicker(BuildContext context) async {
   String query = '';
@@ -160,6 +161,43 @@ Future<void> showChatModelPicker(BuildContext context) async {
   );
 }
 
+Future<void> editUserAvatar(BuildContext context) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (sheet) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          title: const Text('从相册选择头像'),
+          leading: const Icon(Icons.photo_library_outlined),
+          onTap: () => Navigator.pop(sheet, 'choose'),
+        ),
+        if (demo.userAvatar != null)
+          ListTile(
+            title: const Text('恢复默认头像'),
+            leading: const Icon(Icons.person_outline),
+            onTap: () => Navigator.pop(sheet, 'reset'),
+          ),
+      ],
+    ),
+  );
+  if (action == null) return;
+  try {
+    final bytes = action == 'reset'
+        ? null
+        : await pickCharacterAvatar(user: true);
+    if (action != 'reset' && bytes == null) return;
+    demo.userAvatar = bytes;
+    demo.changed();
+    await demo.saveChats();
+    if (context.mounted) toast(context, demo.storageError ?? '头像已保存');
+  } catch (_) {
+    if (context.mounted) toast(context, '请选择 3MB 以内的图片，头像未更改。');
+  }
+}
+
 Future<void> editUserCard(BuildContext context) async {
   final fields = {
     for (final key in ['称呼', '身份与背景', '性格与偏好', '与角色的关系', '交流边界'])
@@ -182,6 +220,16 @@ Future<void> editUserCard(BuildContext context) async {
         children: [
           label('我的角色卡', size: 22, weight: FontWeight.w600),
           label('让对方了解你。保存后用于接下来发送的对话。', size: 12),
+          AnimatedBuilder(
+            animation: demo,
+            builder: (context, _) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const UserAvatar(size: 48),
+              title: const Text('我的头像'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => editUserAvatar(context),
+            ),
+          ),
           for (final e in fields.entries)
             Padding(
               padding: const EdgeInsets.only(top: 16),

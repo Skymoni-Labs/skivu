@@ -8,6 +8,7 @@ enum MediaDestination {
   assistantBubble,
   video,
   characterAvatar,
+  userAvatar,
 }
 
 abstract interface class PendingMediaStore {

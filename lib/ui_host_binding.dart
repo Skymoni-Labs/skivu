@@ -11,6 +11,7 @@ class UiHostBinding {
   final DemoStore store;
   final Map<String, int> draftRevisions = {};
   String? _lastChat, _rolesSignature;
+  Object? _lastUserAvatar;
   int? _prefix, _count;
   Conversation get selected => store.conversations[store.conversation];
   Persona? roleFor(String id) =>
@@ -45,6 +46,7 @@ class UiHostBinding {
         'call',
         'drawer',
         'userCard',
+        'userAvatar',
         'roles',
         'userName',
         'socialSettings',
@@ -274,6 +276,9 @@ class UiHostBinding {
         )
         .join('\n');
     final fullRoles = force || signature != _rolesSignature;
+    final userAvatarChanged =
+        force || !identical(_lastUserAvatar, store.userAvatar);
+    _lastUserAvatar = store.userAvatar;
     _lastChat = chat.id;
     _count = values.length;
     _prefix = prefix;
@@ -299,6 +304,10 @@ class UiHostBinding {
       'draft': chat.draft,
       'draftRevision': draftRevisions[chat.id] ?? 0,
       'userLabel': store.userCard['称呼'] ?? '我',
+      if (userAvatarChanged)
+        'userAvatar': store.userAvatar == null
+            ? null
+            : 'data:image/png;base64,${base64Encode(store.userAvatar!)}',
       if (force || changed) 'interactions': chat.interactions,
       'hiddenInteractions': chat.hiddenInteractions.toList(),
       'interactionsClearedAt': chat.interactionsClearedAt?.toIso8601String(),

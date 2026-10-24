@@ -1,14 +1,16 @@
 /* Original adapters for complete local interactions in both phone presenters. */
 .social-shell.native-style button:focus:not(:focus-visible){outline:none}
 .social-shell.native-style[data-mode=wx][data-page=inbox] #socialSearch{margin-left:auto;width:38px}.social-shell.native-style[data-mode=wx][data-page=inbox] #socialTopAction{margin-left:0;width:38px}
-.social-shell.native-style[data-mode=wx][data-page=inbox] .social-chat-row{background:#ededed}
+.social-shell.native-style[data-mode=wx][data-page=inbox] .social-page,.social-shell.native-style[data-mode=wx][data-page=inbox] .social-chat-row{background:#fff}
+.social-shell.native-style[data-mode=wx][data-page=inbox] .social-chat-row.pinned{background:#ededed}
+.social-shell.native-style[data-mode=wx][data-page=inbox] .social-chat-row:after{display:block;left:72px;right:0;background:#e5e5e5}
 .social-shell.interaction-empty-chat .date-separator{display:none!important}
 #phone[data-presenter-mode] #sheetVeil{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
 #phone[data-presenter-mode] #sheetVeil .sheet{position:absolute;inset:0;transform:none;width:100%;max-height:100%;height:100%;border-radius:0;border:0;padding:0;background:#ededed;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:auto;scrollbar-width:none;color:#191919}
 #phone[data-presenter-mode] .sheet:before{display:none}
-#phone[data-presenter-mode] .sheet-header{height:54px;min-height:54px;position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:center;margin:0;padding:0 48px;background:#ededed;border:0;color:#191919}
+#phone[data-presenter-mode] .sheet-header{height:calc(54px + var(--host-safe-top));min-height:calc(54px + var(--host-safe-top));position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:center;margin:0;padding:var(--host-safe-top) 48px 0;background:#ededed;border:0;color:#191919}
 #phone[data-presenter-mode] #sheetTitle{font-size:17px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#phone[data-presenter-mode] .sheet-header>button{position:absolute;left:10px;top:5px;width:34px;height:44px;display:grid;place-items:center;padding:3px;color:#191919;background:none;border:0;box-shadow:none;border-radius:0}
+#phone[data-presenter-mode] .sheet-header>button{position:absolute;left:10px;top:calc(5px + var(--host-safe-top));width:34px;height:44px;display:grid;place-items:center;padding:3px;color:#191919;background:none;border:0;box-shadow:none;border-radius:0}
 #phone[data-presenter-mode] .sheet-header svg{width:23px;height:23px;stroke-width:1.7}
 #phone[data-presenter-mode] #sheetBody{padding:0 0 25px;margin:0;font-size:16px}
 #phone[data-presenter-mode] .sheet .sheet-caption{font-size:12px;line-height:1.7;color:#999;padding:14px 16px}
@@ -60,7 +62,7 @@
 .interaction-screen{--interaction-accent:#07c160;position:absolute;inset:0;z-index:90;display:flex;flex-direction:column;background:#ededed;color:#191919;font-family:Roboto,'Noto Sans SC','Microsoft YaHei',sans-serif;font-size:16px;isolation:isolate;overflow:hidden}
 .interaction-screen[data-mode=qq]{--interaction-accent:#009dff;background:#f3f4f6}
 .interaction-screen input,.interaction-screen select,.interaction-screen button{font-family:inherit}
-.interaction-header{height:54px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px}
+.interaction-header{height:calc(54px + var(--host-safe-top));flex-shrink:0;display:flex;align-items:center;gap:8px;padding:var(--host-safe-top) 12px 0}
 .interaction-screen[data-mode=qq] .interaction-header{background:#fff}
 .interaction-header>button{width:34px;height:44px;display:grid;place-items:center;padding:3px;background:none;color:inherit;border:0}
 .interaction-header svg{width:23px;height:23px;stroke-width:1.7}

@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'appearance.dart';
 import 'wallpaper.dart';
 import 'media_picker_session.dart';
+import 'character_avatar.dart';
+import 'state.dart';
 
 Future<void> recoverInterruptedMedia() async {
   if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -24,6 +26,10 @@ Future<void> recoverInterruptedMedia() async {
             // The editor's unsaved target may no longer exist after process
             // death. Never apply this image to the wallpaper or another role.
             appearance.reportImportError('上次的角色头像选择中断，请在角色卡中重新选择。');
+          case MediaDestination.userAvatar:
+            demo.userAvatar = await normalizeCharacterAvatar(bytes);
+            demo.changed();
+            await demo.saveChats();
         }
       },
     );

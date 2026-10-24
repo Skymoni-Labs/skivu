@@ -837,7 +837,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           child: m.user
-              ? Icon(Icons.person_rounded, color: green, size: 23)
+              ? UserAvatar(square: appearance.flag('squareAvatars'))
               : CharacterAvatar(
                   persona: demo.role,
                   square: appearance.flag('squareAvatars'),

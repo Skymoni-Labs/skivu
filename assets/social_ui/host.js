@@ -26,6 +26,7 @@
       }).join('')||'<div class="social-search-empty">还没有对话，点击右上角选择角色新建。</div>';
     },
     receive(update){
+      if(Number.isFinite(update.safeTop))document.documentElement.style.setProperty('--host-safe-top',Math.max(0,update.safeTop)+'px');
       const previous=snapshot;
       if(!previous){try{const saved=JSON.parse(localStorage.getItem('skivu.host.social.v1')||'null');if(Array.isArray(saved?.posts)&&saved.posts.length)emit('importPosts',{posts:saved.posts})}catch{}}
       if(update.ack==='importPosts'){try{const saved=JSON.parse(localStorage.getItem('skivu.host.social.v1')||'{}');delete saved.posts;localStorage.setItem('skivu.host.social.v1',JSON.stringify(saved))}catch{}}
@@ -85,7 +86,7 @@
       handle();if(s==='edit-role')emit('editRole',{roleId:SocialPreview.currentRole().id});else emit('roles');return;
     }
     if(s==='favorite-message'){handle();emit('messageMenu',{index:Number(node.dataset.index),created:snapshot?.messages[Number(node.dataset.index)]?.created});return}
-    if(s==='upload-profile-avatar'){handle();toast('请在角色卡编辑中修改角色头像。');return}
+    if(s==='upload-profile-avatar'){handle();emit('userAvatar');return}
   };
   document.addEventListener('contextmenu',event=>{const row=event.target.closest('.social-chat-row[data-host="select"]');if(row){event.preventDefault();emit('chatMenu',{id:row.dataset.id})}});
   let hold=null,holdOrigin=null,suppressClick=false;

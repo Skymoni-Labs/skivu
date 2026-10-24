@@ -327,6 +327,7 @@ class DemoStore extends ChangeNotifier {
   bool useBeta = false;
   bool useAccount = false;
   Map<String, String> userCard = {};
+  Uint8List? userAvatar;
   ModelConnection? get activeConnection => useBeta
       ? beta.connection
       : useAccount
@@ -634,6 +635,7 @@ class DemoStore extends ChangeNotifier {
           if (e.key is String && e.value is String)
             e.key as String: e.value as String,
       };
+      userAvatar = Persona._readAvatar(raw['userAvatar']);
       useBeta = false;
       useAccount = raw['useAccount'] == true || raw['useBeta'] == true;
       if (raw['useBeta'] == true) await account.selectFunding('beta');
@@ -662,6 +664,7 @@ class DemoStore extends ChangeNotifier {
     'persona': persona,
     'groups': groups,
     'userCard': userCard,
+    if (userAvatar != null) 'userAvatar': base64Encode(userAvatar!),
     'useBeta': useBeta,
     'useAccount': useAccount,
   });
@@ -766,6 +769,7 @@ class DemoStore extends ChangeNotifier {
           if (e.key is String && e.value is String)
             e.key as String: e.value as String,
       };
+    userAvatar = Persona._readAvatar(raw['userAvatar']);
     if (raw['groups'] is List) {
       groups
         ..clear()

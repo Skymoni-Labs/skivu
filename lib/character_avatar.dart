@@ -42,18 +42,43 @@ Future<Uint8List> normalizeCharacterAvatar(Uint8List bytes) async {
   }
 }
 
-Future<Uint8List?> pickCharacterAvatar() =>
-    mediaPickerSession.run(MediaDestination.characterAvatar, () async {
-      final file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-        requestFullMetadata: false,
-      );
-      if (file == null) return null;
-      return normalizeCharacterAvatar(await file.readAsBytes());
-    });
+Future<Uint8List?> pickCharacterAvatar({bool user = false}) =>
+    mediaPickerSession.run(
+      user ? MediaDestination.userAvatar : MediaDestination.characterAvatar,
+      () async {
+        final file = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 85,
+          requestFullMetadata: false,
+        );
+        if (file == null) return null;
+        return normalizeCharacterAvatar(await file.readAsBytes());
+      },
+    );
+
+class UserAvatar extends StatelessWidget {
+  const UserAvatar({super.key, this.size = 32, this.square = false});
+  final double size;
+  final bool square;
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(square ? 7 : size / 2),
+    child: SizedBox.square(
+      dimension: size,
+      child: demo.userAvatar == null
+          ? Icon(Icons.person_rounded, color: green, size: size * .72)
+          : Image.memory(
+              demo.userAvatar!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) =>
+                  Icon(Icons.person_rounded, color: green),
+            ),
+    ),
+  );
+}
 
 class CharacterAvatar extends StatelessWidget {
   const CharacterAvatar({

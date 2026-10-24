@@ -47,6 +47,7 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
   ChatBackdropController? _backdrop;
   bool _appearanceDirty = true;
   Map<String, String?>? _lastAppearanceAssets;
+  double _safeTop = 0;
   @override
   void initState() {
     super.initState();
@@ -63,6 +64,11 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final safeTop = MediaQuery.paddingOf(context).top;
+    if (_safeTop != safeTop) {
+      _safeTop = safeTop;
+      _queue();
+    }
     final next = ChatBackdropScope.maybeOf(context);
     if (identical(next, _backdrop)) return;
     _backdrop?.removeListener(_appearanceChanged);
@@ -125,6 +131,7 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
     _sending = true;
     _dirty = false;
     final value = binding.snapshot(uiPlugins.mode, force: _force, view: _view);
+    value['safeTop'] = _safeTop;
     if (_force || _appearanceDirty) {
       _appearanceDirty = false;
       value['appearance'] = _chatAppearance.values(
@@ -240,6 +247,8 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
       await showChatModelPicker(context);
     } else if (action == 'userCard') {
       await editUserCard(context);
+    } else if (action == 'userAvatar') {
+      await editUserAvatar(context);
     } else if (action == 'roles') {
       widget.go('/characters');
     } else if (action == 'walletInteraction') {
@@ -598,8 +607,12 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
         ),
       );
   @override
-  Widget build(BuildContext context) => SafeArea(
-    bottom: false,
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+    ),
     child: document.buildUiDocument(
       onCommand: command,
       onReady: (push) {

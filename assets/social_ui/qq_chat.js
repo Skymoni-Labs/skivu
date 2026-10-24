@@ -87,12 +87,13 @@
         else if(action==='role'){closePanel();SkivuHost.emit('editRole',{roleId:snapshot.selectedRoleId})}
         else if(action==='new'){closeSheet();SkivuHost.chooseRole(null)}
         else if(action==='roles'){closeSheet();SkivuHost.emit('roles')}
+        else if(action==='profile'){closeSheet();SkivuHost.emit('userCard')}
         else if(action==='classic'){closeSheet();SkivuHost.emit('classicUi')}
         return true;
       }
       if(s==='qq-profile'||(a==='edit-role'&&page==='inbox')){handled();SkivuHost.emit('drawer',{side:'left'});return true}
       if(s==='top-action'&&page==='inbox'){
-        handled();showSheet('添加',button('new','新建对话','chat')+button('roles','角色管理','users')+button('classic','回到原版','cloud'));return true;
+        handled();showSheet('添加',button('new','新建对话','chat')+button('roles','角色管理','users')+button('profile','我的资料与头像','user')+button('classic','回到原版','cloud'));return true;
       }
       if(s==='back'&&page==='chat'&&panel){handled();closePanel();return true}
       if(node.dataset.feature==='profile'){handled();SocialPreview.showRole(node.dataset.role||snapshot.selectedRoleId);return true}
