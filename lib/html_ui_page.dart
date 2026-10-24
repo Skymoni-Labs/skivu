@@ -16,6 +16,7 @@ import 'wallpaper.dart';
 import 'glass_preferences.dart';
 import 'chat_backdrop.dart';
 import 'ui_chat_appearance.dart';
+import 'chat_extras.dart';
 import 'ui_document_port.dart';
 import 'ui_document_native.dart'
     if (dart.library.js_interop) 'ui_document_web.dart'
@@ -224,6 +225,7 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
       uiPlugins.showConversation();
     }
     if (action == 'send') _ack = 'send';
+    if (action == 'confirmBatch') _ack = 'confirmBatch';
     if (action == 'chatInteraction') {
       await demo.saveChats();
       if (demo.storageError == null)
@@ -245,6 +247,38 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
       }
     } else if (action == 'models') {
       await showChatModelPicker(context);
+    } else if (action == 'composeMedia') {
+      if (value['kind'] == 'photo' || value['kind'] == 'voice') {
+        await composeChatMedia(
+          context,
+          photo: value['kind'] == 'photo',
+          initiallyReal: value['real'] == true,
+          streamingOverride: false,
+        );
+      }
+    } else if (action == 'stickerLibrary') {
+      widget.go('/stickers');
+    } else if (action == 'discardBatch') {
+      final chat = binding.selected;
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('清空待发送消息？'),
+          content: Text('移除这${chat.queuedMessages.length}条尚未提交的消息。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('清空'),
+            ),
+          ],
+        ),
+      );
+      if (yes == true && mounted && identical(chat, binding.selected))
+        demo.discardQueued();
     } else if (action == 'userCard') {
       await editUserCard(context);
     } else if (action == 'userAvatar') {

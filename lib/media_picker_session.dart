@@ -9,6 +9,8 @@ enum MediaDestination {
   video,
   characterAvatar,
   userAvatar,
+  chatImage,
+  sticker,
 }
 
 abstract interface class PendingMediaStore {

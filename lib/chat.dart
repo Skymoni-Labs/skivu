@@ -15,6 +15,8 @@ import 'chat_message_dial.dart';
 import 'character_avatar.dart';
 import 'assistant_reply_layout.dart';
 import 'message_info_row.dart';
+import 'chat_extras.dart';
+import 'sticker_library_page.dart';
 import 'launch.dart';
 
 class ChatPage extends StatefulWidget {
@@ -211,7 +213,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
     input.clear();
-    focus.unfocus();
+    if (demo.messages.lastOrNull?.status != 'queued') focus.unfocus();
     demo.saveChats();
   }
 
@@ -325,27 +327,47 @@ class _ChatPageState extends State<ChatPage> {
 
   void attachments() => showModalBottomSheet<void>(
     context: context,
+    useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => const SafeArea(
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text('添加内容'), subtitle: Text('即将开放')),
-            ListTile(
-              leading: Icon(Icons.image_outlined),
-              title: Text('图片'),
-              trailing: Text('即将开放'),
-            ),
-            ListTile(
-              leading: Icon(Icons.attach_file),
-              title: Text('文件'),
-              trailing: Text('即将开放'),
-            ),
-          ],
+    builder: (sheet) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.image_outlined),
+          title: const Text('照片与图片'),
+          subtitle: const Text('上传图片，或描述一张照片'),
+          onTap: () async {
+            Navigator.pop(sheet);
+            follow = true;
+            await composeChatMedia(context, photo: true);
+          },
         ),
-      ),
+        ListTile(
+          leading: const Icon(Icons.graphic_eq),
+          title: const Text('语音消息'),
+          subtitle: const Text('麦克风识别，或打字描述语音'),
+          onTap: () async {
+            Navigator.pop(sheet);
+            follow = true;
+            await composeChatMedia(context, photo: false);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.emoji_emotions_outlined),
+          title: const Text('表情包'),
+          subtitle: const Text('发送自定义分组中的表情'),
+          onTap: () async {
+            Navigator.pop(sheet);
+            follow = true;
+            await showStickerPicker(context);
+          },
+        ),
+        const ListTile(
+          leading: Icon(Icons.attach_file),
+          title: Text('文件'),
+          trailing: Text('即将开放'),
+        ),
+      ],
     ),
   );
   @override
@@ -547,6 +569,10 @@ class _ChatPageState extends State<ChatPage> {
               padding: const EdgeInsets.fromLTRB(17, 11, 10, 10),
               child: Column(
                 children: [
+                  QueuedSendBar(
+                    input: input,
+                    beforeConfirm: () => follow = true,
+                  ),
                   if (demo.attached)
                     Align(
                       alignment: Alignment.centerLeft,
@@ -678,7 +704,11 @@ class _ChatPageState extends State<ChatPage> {
     accent: true,
     onPressed: demo.streaming ? demo.stop : send,
     icon: demo.streaming ? Icons.stop_rounded : Icons.arrow_upward,
-    tooltip: demo.streaming ? '停止生成' : '发送消息',
+    tooltip: demo.streaming
+        ? '停止生成'
+        : demo.conversations[demo.conversation].confirmBeforeReply
+        ? '暂存这条消息'
+        : '发送消息',
   );
 
   void expandDraft() {
@@ -868,16 +898,18 @@ class _ChatPageState extends State<ChatPage> {
       contentPadding: AssistantReplyLayout.bubblePadding(
         m.user ? 'centered' : layout,
       ),
-      child: SelectableText(
-        m.text.isEmpty
-            ? (m.status == 'pending'
-                  ? '正在思考…'
-                  : m.status == 'cancelled'
-                  ? '已停止生成'
-                  : '未收到回复')
-            : m.text,
-        style: chatMessageStyle(context, m.user),
-      ),
+      child: m.kind != 'text'
+          ? TypedMessageBody(message: m)
+          : SelectableText(
+              m.text.isEmpty
+                  ? (m.status == 'pending'
+                        ? '正在思考…'
+                        : m.status == 'cancelled'
+                        ? '已停止生成'
+                        : '未收到回复')
+                  : m.text,
+              style: chatMessageStyle(context, m.user),
+            ),
     );
     final content = Column(
       crossAxisAlignment: fill
@@ -887,6 +919,25 @@ class _ChatPageState extends State<ChatPage> {
           : CrossAxisAlignment.start,
       children: [
         bubble,
+        if (m.status == 'queued')
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                label('待确认', size: 11),
+                IconButton(
+                  tooltip: '移除此条待发送消息',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close, size: 15),
+                  onPressed: () => demo.deleteRound(
+                    demo.conversations[demo.conversation].id,
+                    m,
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (m.error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

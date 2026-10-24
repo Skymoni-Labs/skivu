@@ -30,6 +30,9 @@ Future<void> recoverInterruptedMedia() async {
             demo.userAvatar = await normalizeCharacterAvatar(bytes);
             demo.changed();
             await demo.saveChats();
+          case MediaDestination.chatImage:
+          case MediaDestination.sticker:
+            appearance.reportImportError('上次的聊天图片或表情选择已中断，请重新选择。');
         }
       },
     );

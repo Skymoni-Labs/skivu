@@ -35,7 +35,7 @@ class CurrentChatVoiceBackend extends ChangeNotifier {
   Completer<String>? _pending;
   Future<String> reply(String text, void Function(String) partial) async {
     if (demo.streaming) throw StateError('请先等待当前文字回复结束。');
-    if (!demo.send(text)) throw StateError(demo.lastError ?? '请先选择可用模型。');
+    if (!demo.send(text, immediate: true, kind: 'voice')) throw StateError(demo.lastError ?? '请先选择可用模型。');
     _ownsReply = true;
     final answer = demo.messages.last;
     final done = _pending = Completer<String>();

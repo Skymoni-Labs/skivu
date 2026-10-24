@@ -279,6 +279,18 @@ Future<void> showChatControls(BuildContext context) async {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             label('对话设置', size: 22, weight: FontWeight.w600),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('确认后再回复'),
+              subtitle: const Text('先把短句暂存为多个气泡，确认发送后角色统一回复。'),
+              value: demo.conversations[demo.conversation].confirmBeforeReply,
+              onChanged: (v) {
+                demo.conversations[demo.conversation].confirmBeforeReply = v;
+                demo.changed();
+                demo.saveChats();
+                change(() {});
+              },
+            ),
             const SizedBox(height: 12),
             label('角色回复宽度', size: 13),
             Wrap(

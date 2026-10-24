@@ -38,6 +38,7 @@
       SharedChatAppearance.update(snapshot);
       QqChat.update(snapshot);
       ChatInteractions.update(snapshot);
+      CompanionChat.update(snapshot);
       const input=$('#messageInput');
       if(changed||!previous||((update.draftRevision||0)>=draftRevision&&(update.ack==='send'||document.activeElement!==input))){input.value=snapshot.draft||'';applyDraftState()}
       draftRevision=Math.max(changed?0:draftRevision,update.draftRevision||0);
@@ -60,7 +61,8 @@
     if(event.target.id==='socialProfileForm'){emit('userName',{name:String(new FormData(event.target).get('name')||'')})}
   },true);
   SkivuHost.captureClick=event=>{
-    const node=event.target.closest('[data-interaction],[data-qq],[data-feature],[data-host],[data-action],[data-social]');if(!node)return;
+    const node=event.target.closest('[data-companion],[data-interaction],[data-qq],[data-feature],[data-host],[data-action],[data-social]');if(!node)return;
+    if(window.CompanionChat?.capture(event,node))return;
     if(window.ChatInteractions?.capture(event,node))return;
     if(window.QqChat?.capture(event,node))return;
     if(node.dataset.feature){window.SocialFeatures?.capture(event,node);return}

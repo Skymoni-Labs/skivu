@@ -12,6 +12,7 @@ class UiHostBinding {
   final Map<String, int> draftRevisions = {};
   String? _lastChat, _rolesSignature;
   Object? _lastUserAvatar;
+  int _libraryRevision = -1;
   int? _prefix, _count;
   Conversation get selected => store.conversations[store.conversation];
   Persona? roleFor(String id) =>
@@ -47,6 +48,12 @@ class UiHostBinding {
         'drawer',
         'userCard',
         'userAvatar',
+        'composeMedia',
+        'stickerLibrary',
+        'sendSticker',
+        'confirmBatch',
+        'discardBatch',
+        'removeQueued',
         'roles',
         'userName',
         'socialSettings',
@@ -83,6 +90,11 @@ class UiHostBinding {
           'hideInteraction',
           'walletInteraction',
           'groupConfig',
+          'composeMedia',
+          'sendSticker',
+          'confirmBatch',
+          'discardBatch',
+          'removeQueued',
         ].contains(action) &&
         !current(c))
       return '当前对话已切换，请重试。';
@@ -148,6 +160,8 @@ class UiHostBinding {
       final key = c['key'], value = c['value'];
       if (value is! bool) return '聊天设置格式不正确。';
       switch (key) {
+        case 'confirmBeforeReply':
+          selected.confirmBeforeReply = value;
         case 'pinned':
           selected.pinned = value;
         case 'muted':
@@ -171,6 +185,32 @@ class UiHostBinding {
       final id = c['roleId'];
       if (id is! String || roleFor(id) == null) return '角色已不存在';
       store.newChat(personaId: id);
+      return null;
+    }
+    if (action == 'confirmBatch') {
+      if (!store.confirmPending(
+        streamingOverride: mode == ChatUiMode.classic ? null : false,
+      ))
+        return store.lastError ?? '没有待发送消息。';
+      return null;
+    }
+    if (action == 'removeQueued') {
+      final message = messageFor(c);
+      if (message == null || message.status != 'queued') return '待发送消息已变更。';
+      store.deleteRound(selected.id, message);
+      return null;
+    }
+    if (action == 'sendSticker') {
+      final id = c['stickerId'];
+      final sticker = id is String ? store.stickerFor(id) : null;
+      if (sticker == null || !sticker.active) return '这个表情已从表情库移除。';
+      if (!store.send(
+        sticker.name,
+        kind: 'sticker',
+        stickerId: sticker.id,
+        streamingOverride: mode == ChatUiMode.classic ? null : false,
+      ))
+        return store.lastError ?? '当前无法发送表情。';
       return null;
     }
     if (action == 'draft' || action == 'send') {
@@ -235,6 +275,11 @@ class UiHostBinding {
         ? m.text
         : m.error ?? (m.status == 'pending' ? '正在思考…' : '未收到回复'),
     'thought': m.thinking,
+    'kind': m.kind,
+    'described': m.described,
+    'imageData': m.imageData,
+    'stickerId': m.stickerId,
+    'queued': m.status == 'queued',
     'authorId': m.authorId,
     'created': m.created.toIso8601String(),
     'time':
@@ -276,6 +321,8 @@ class UiHostBinding {
         )
         .join('\n');
     final fullRoles = force || signature != _rolesSignature;
+    final fullLibrary = force || _libraryRevision != store.libraryRevision;
+    _libraryRevision = store.libraryRevision;
     final userAvatarChanged =
         force || !identical(_lastUserAvatar, store.userAvatar);
     _lastUserAvatar = store.userAvatar;
@@ -293,6 +340,7 @@ class UiHostBinding {
         'pinned': chat.pinned,
         'muted': chat.muted,
         'replyReminder': chat.replyReminder,
+        'confirmBeforeReply': chat.confirmBeforeReply,
         'groupMembers': chat.groupMembers,
         'title': chat.title,
         'groupRule': chat.groupRule,
@@ -304,6 +352,12 @@ class UiHostBinding {
       'draft': chat.draft,
       'draftRevision': draftRevisions[chat.id] ?? 0,
       'userLabel': store.userCard['称呼'] ?? '我',
+      'queuedCount': chat.queuedMessages.length,
+      'confirmBeforeReply': chat.confirmBeforeReply,
+      if (fullLibrary)
+        'stickerGroups': store.stickerGroups.map((g) => g.toJson()).toList(),
+      if (fullLibrary)
+        'stickers': store.stickers.map((s) => s.toJson()).toList(),
       if (userAvatarChanged)
         'userAvatar': store.userAvatar == null
             ? null

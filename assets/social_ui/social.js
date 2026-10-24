@@ -366,7 +366,7 @@
       }else if(changed||!sameMessages||!$('#messages .date-separator'))renderMessages();
       applyState();
       $('#sendButton').setAttribute('aria-label',snapshot.streaming?'停止生成':'发送消息');
-      if(changed||snapshot.ack==='send'||(oldFollow&&(snapshot.streaming||wasGenerating)))bottom();
+      if(changed||view==='chat'||snapshot.ack==='send'||(oldFollow&&(snapshot.streaming||wasGenerating)))bottom();
     }};
   window.SocialPreview.artImage=key=>key.startsWith('data:image/')?`<img src="${esc(key)}" alt="本地选择的图片">`:art(key);
 })();

@@ -34,13 +34,15 @@ Skivu brings model connections, character-based conversations and personal appea
 
 - **Model connections**: Use OpenAI-compatible Chat Completions, Responses, Claude Messages or Gemini Generate Content. Search and switch models from the composer.
 - **Characters & sessions**: Customize avatars, character settings and prompts. Share a character card across independent conversations; search, rename and pin sessions.
+- **Shared worlds**: Manage worlds, categorized lore and scenes independently, then reference them from multiple character cards.
+- **Batched messages & media**: Queue separate bubbles before one combined reply. Use grouped custom stickers, typed voice/photo descriptions, Android speech transcription and real image input.
 - **Glass & layout**: Adjust blur, transparency, the top bar and bubble styles. Choose centered, side-width or full-width reply layouts.
 - **Personal appearance**: Set fonts and colors independently for the interface, composer, user messages, character replies and thinking text. Import fonts and use image or video backgrounds.
 - **Reading & navigation**: Smooth streamed text, expandable thinking sections, message navigation dial, bookmarks and a jump-to-bottom action. Stop, retry or confirm deletion of a conversation round.
 - **Voice**: A water-drop orb call interface with captions, mute and interruption; Android system speech and configurable cloud text-to-speech connections.
 - **Accounts & updates**: In-app login, model and quota synchronization, account switching and update checks. Packages are verified before Android asks you to confirm installation.
 
-Attachments, plugin execution and the right-side workspace are not available yet. Their app entries are marked **Coming soon**.
+The plugin market installs WeChat/QQ interface data packages. File attachments, arbitrary third-party script execution and the right-side workspace are not available yet.
 
 ## Website, community & related projects
 

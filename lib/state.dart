@@ -12,6 +12,7 @@ import 'beta_access.dart';
 import 'relay_account.dart';
 import 'stream_reveal.dart';
 import 'chat_interaction.dart';
+import 'companion_library.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -37,6 +38,21 @@ class Message {
   String status = 'complete';
   String? error;
   String? authorId;
+  String kind = 'text';
+  String? stickerId, turnId, imageData;
+  bool described = false;
+  String get modelText => switch (kind) {
+    'voice' => '${described ? '[用户描述的一条语音，内容]' : '[用户发来的语音，转写内容]'} $text',
+    'photo' => '[用户描述的一张照片] $text',
+    'image' => '[用户上传的照片] $text',
+    'sticker' => '[用户发送表情包：$text]',
+    _ => text,
+  };
+  Map<String, String> get apiMessage => {
+    'role': user ? 'user' : 'assistant',
+    'content': modelText,
+    if (imageData != null) 'image': imageData!,
+  };
   Map<String, dynamic> toJson() => {
     'user': user,
     'text': text,
@@ -50,6 +66,11 @@ class Message {
     'status': status,
     'error': error,
     'authorId': authorId,
+    'kind': kind,
+    'stickerId': stickerId,
+    'turnId': turnId,
+    'imageData': imageData,
+    'described': described,
   };
   factory Message.fromJson(Map<String, dynamic> raw) =>
       Message(
@@ -60,6 +81,14 @@ class Message {
         )
         ..thinking = raw['thinking'] as String?
         ..authorId = raw['authorId'] is String ? raw['authorId'] : null
+        ..kind =
+            ['text', 'voice', 'photo', 'image', 'sticker'].contains(raw['kind'])
+            ? raw['kind']
+            : 'text'
+        ..stickerId = raw['stickerId'] is String ? raw['stickerId'] : null
+        ..turnId = raw['turnId'] is String ? raw['turnId'] : null
+        ..imageData = validChatImage(raw['imageData']) ? raw['imageData'] : null
+        ..described = raw['described'] == true
         ..modelName = raw['modelName'] as String?
         ..provider = raw['provider'] as String?
         ..tokens = raw['tokens'] as int?
@@ -86,6 +115,7 @@ class Persona {
   String name, subtitle, prompt, group;
   Uint8List? avatar;
   Map<String, String> card = {};
+  String? worldId, sceneId;
   String get compiledPrompt => [
     prompt,
     for (final e in card.entries)
@@ -100,6 +130,8 @@ class Persona {
     'prompt': prompt,
     'group': group,
     'card': card,
+    'worldId': worldId,
+    'sceneId': sceneId,
     'color': color.toARGB32(),
     'icon': icon.codePoint,
     if (avatar != null) 'avatar': base64Encode(avatar!),
@@ -121,6 +153,8 @@ class Persona {
           id: raw['id'] as String?,
         )
         ..avatar = _readAvatar(raw['avatar'])
+        ..worldId = raw['worldId'] is String ? raw['worldId'] : null
+        ..sceneId = raw['sceneId'] is String ? raw['sceneId'] : null
         ..card = {
           for (final e
               in (raw['card'] is Map
@@ -161,6 +195,9 @@ class Conversation {
   final String id;
   String? personaId;
   bool pinned, titleEdited, placeholder, muted, replyReminder;
+  bool confirmBeforeReply = false;
+  List<Message> get queuedMessages =>
+      messages.where((m) => m.user && m.status == 'queued').toList();
   String? chatBackground;
   static bool validBackground(String value) =>
       value.length <= 180000 &&
@@ -185,6 +222,7 @@ class Conversation {
     'pinned': pinned,
     'muted': muted,
     'replyReminder': replyReminder,
+    'confirmBeforeReply': confirmBeforeReply,
     'chatBackground': chatBackground,
     'titleEdited': titleEdited,
     'placeholder': placeholder,
@@ -224,6 +262,7 @@ class Conversation {
               (raw['draft'] as String? ?? '').trim().isEmpty,
         )
         ..usedTokens = raw['usedTokens'] as int? ?? 0
+        ..confirmBeforeReply = raw['confirmBeforeReply'] == true
         ..draft = raw['draft'] as String? ?? ''
         ..interactions =
             (raw['interactions'] is List ? raw['interactions'] as List : [])
@@ -328,6 +367,114 @@ class DemoStore extends ChangeNotifier {
   bool useAccount = false;
   Map<String, String> userCard = {};
   Uint8List? userAvatar;
+  final worlds = <WorldSetting>[];
+  final stickerGroups = <StickerGroup>[];
+  final stickers = <StickerAsset>[];
+  int libraryRevision = 0;
+  WorldSetting? worldFor(Persona role) =>
+      worlds.where((w) => w.id == role.worldId).firstOrNull;
+  StickerAsset? stickerFor(String? id) =>
+      stickers.where((s) => s.id == id).firstOrNull;
+  String promptFor(Persona role) => [
+    role.compiledPrompt,
+    if (worldFor(role) case final world?) world.prompt(role.sceneId),
+  ].where((v) => v.isNotEmpty).join('\n\n');
+  void saveLibrary() {
+    libraryRevision++;
+    changed();
+    saveChats();
+  }
+
+  void removeWorld(String id) {
+    worlds.removeWhere((w) => w.id == id);
+    for (final role in personas.where((p) => p.worldId == id)) {
+      role.worldId = null;
+      role.sceneId = null;
+    }
+    saveLibrary();
+  }
+
+  void removeWorldEntry(WorldSetting world, String id) {
+    world.entries.removeWhere((e) => e.id == id);
+    for (final role in personas.where(
+      (p) => p.worldId == world.id && p.sceneId == id,
+    )) {
+      role.sceneId = null;
+    }
+    saveLibrary();
+  }
+
+  void _restoreLibraries(Map raw, {bool validateOnly = false}) {
+    final nextWorlds = [
+      for (final w in (raw['worlds'] as List? ?? []))
+        WorldSetting.fromJson(w as Map),
+    ];
+    final nextGroups = [
+      for (final g in (raw['stickerGroups'] as List? ?? []))
+        StickerGroup.fromJson(g as Map),
+    ];
+    final nextStickers = [
+      for (final s in (raw['stickers'] as List? ?? []))
+        StickerAsset.fromJson(s as Map),
+    ];
+    if (nextWorlds.length > 200 ||
+        nextGroups.length > 30 ||
+        nextStickers.length > 200 ||
+        nextStickers.fold<int>(0, (sum, s) => sum + s.data.length) > 8500000 ||
+        nextWorlds.map((w) => w.id).toSet().length != nextWorlds.length ||
+        nextGroups.map((g) => g.id).toSet().length != nextGroups.length ||
+        nextStickers.map((s) => s.id).toSet().length != nextStickers.length ||
+        nextWorlds.any(
+          (w) =>
+              w.id.isEmpty ||
+              w.name.trim().isEmpty ||
+              w.entries.map((e) => e.id).toSet().length != w.entries.length ||
+              w.entries.any((e) => e.id.isEmpty),
+        ) ||
+        nextGroups.any((g) => g.id.isEmpty || g.name.trim().isEmpty) ||
+        nextStickers.any(
+          (s) =>
+              s.id.isEmpty ||
+              (s.active && !nextGroups.any((g) => g.id == s.groupId)),
+        ) ||
+        (raw['worlds'] as List? ?? []).any(
+          (w) => ((w as Map)['entries'] as List? ?? []).length > 100,
+        ))
+      throw const FormatException('资料库超出限制或标识重复');
+    if (validateOnly) return;
+    worlds
+      ..clear()
+      ..addAll(nextWorlds);
+    stickerGroups
+      ..clear()
+      ..addAll(nextGroups);
+    stickers
+      ..clear()
+      ..addAll(nextStickers);
+    for (final role in personas) {
+      final legacy = role.card['场景与世界观'];
+      if (legacy != null && legacy.trim().isNotEmpty && role.worldId == null) {
+        final world = WorldSetting(
+          id: 'legacy-world-${role.id}',
+          name: '${role.name}的原有设定',
+          category: '原有设定',
+          summary: legacy,
+        );
+        if (!worlds.any((w) => w.id == world.id)) worlds.add(world);
+        role.worldId = world.id;
+        role.card.remove('场景与世界观');
+      }
+      final world = worldFor(role);
+      if (world == null) {
+        role.worldId = null;
+        role.sceneId = null;
+      } else if (!world.scenes.any((e) => e.id == role.sceneId)) {
+        role.sceneId = null;
+      }
+    }
+    libraryRevision++;
+  }
+
   ModelConnection? get activeConnection => useBeta
       ? beta.connection
       : useAccount
@@ -537,6 +684,7 @@ class DemoStore extends ChangeNotifier {
   }
 
   Map<String, dynamic> _normalizeArchive(Map<String, dynamic> raw) {
+    _restoreLibraries(raw, validateOnly: true);
     if (raw['schema'] != 'skivu-chats-v1' || raw['conversations'] is! List)
       throw const FormatException();
     final sourceRoles = raw['personas'] as List?;
@@ -636,6 +784,7 @@ class DemoStore extends ChangeNotifier {
             e.key as String: e.value as String,
       };
       userAvatar = Persona._readAvatar(raw['userAvatar']);
+      _restoreLibraries(raw);
       useBeta = false;
       useAccount = raw['useAccount'] == true || raw['useBeta'] == true;
       if (raw['useBeta'] == true) await account.selectFunding('beta');
@@ -665,6 +814,9 @@ class DemoStore extends ChangeNotifier {
     'groups': groups,
     'userCard': userCard,
     if (userAvatar != null) 'userAvatar': base64Encode(userAvatar!),
+    'worlds': worlds.map((w) => w.toJson()).toList(),
+    'stickerGroups': stickerGroups.map((g) => g.toJson()).toList(),
+    'stickers': stickers.map((s) => s.toJson()).toList(),
     'useBeta': useBeta,
     'useAccount': useAccount,
   });
@@ -770,6 +922,7 @@ class DemoStore extends ChangeNotifier {
             e.key as String: e.value as String,
       };
     userAvatar = Persona._readAvatar(raw['userAvatar']);
+    _restoreLibraries(raw);
     if (raw['groups'] is List) {
       groups
         ..clear()
@@ -888,6 +1041,9 @@ class DemoStore extends ChangeNotifier {
     if (chat == null) return const [];
     var start = chat.messages.indexOf(anchor);
     if (start < 0) return const [];
+    if (anchor.status == 'queued') return [anchor];
+    if (anchor.turnId != null)
+      return chat.messages.where((m) => m.turnId == anchor.turnId).toList();
     while (start > 0 && !chat.messages[start].user) {
       start--;
     }
@@ -926,8 +1082,50 @@ class DemoStore extends ChangeNotifier {
     saveChats();
   }
 
-  bool send(String input, {bool? streamingOverride}) {
+  bool send(
+    String input, {
+    bool? streamingOverride,
+    String kind = 'text',
+    String? stickerId,
+    bool immediate = false,
+    String? imageData,
+    bool described = false,
+  }) {
     if (input.trim().isEmpty || streaming) return false;
+    if (!['text', 'voice', 'photo', 'image', 'sticker'].contains(kind) ||
+        (kind == 'image' && !validChatImage(imageData)) ||
+        (kind == 'sticker' && stickerFor(stickerId)?.active != true))
+      return false;
+    final target = conversations[conversation];
+    if (immediate && target.queuedMessages.isNotEmpty) {
+      lastError = '请先确认或移除待发送消息。';
+      changed();
+      return false;
+    }
+    if (!immediate &&
+        (target.confirmBeforeReply || target.queuedMessages.isNotEmpty)) {
+      if (target.queuedMessages.length >= 20 ||
+          target.queuedMessages.fold<int>(0, (n, m) => n + m.text.length) +
+                  input.length >
+              100000) {
+        lastError = '最多暂存20条消息，请先确认发送。';
+        changed();
+        return false;
+      }
+      messages.add(
+        Message(true, input.trim())
+          ..kind = kind
+          ..stickerId = stickerId
+          ..imageData = imageData
+          ..described = described
+          ..status = 'queued',
+      );
+      target.placeholder = false;
+      lastError = null;
+      changed();
+      saveChats();
+      return true;
+    }
     final config = activeConnection;
     if (config == null) {
       lastError = useBeta
@@ -940,13 +1138,62 @@ class DemoStore extends ChangeNotifier {
       changed();
       return false;
     }
-    messages.add(Message(true, input.trim()));
+    messages.add(
+      Message(true, input.trim())
+        ..kind = kind
+        ..stickerId = stickerId
+        ..imageData = imageData
+        ..described = described
+        ..turnId = _localId('turn'),
+    );
     conversations[conversation].placeholder = false;
     if (!conversations[conversation].titleEdited &&
         messages.where((m) => m.user).length == 1)
       conversations[conversation].title = input.trim().length > 14
           ? input.trim().substring(0, 14)
           : input.trim();
+    return _respond(config, input, streamingOverride: streamingOverride);
+  }
+
+  bool confirmPending({bool? streamingOverride}) {
+    final target = conversations[conversation],
+        queued = conversations[conversation].queuedMessages;
+    if (streaming || queued.isEmpty) return false;
+    final config = activeConnection;
+    if (config == null) {
+      lastError = '请先选择可用模型，待发送消息已保留。';
+      changed();
+      return false;
+    }
+    final turn = _localId('turn');
+    for (final message in queued) {
+      message.status = 'complete';
+      message.turnId = turn;
+    }
+    if (!target.titleEdited &&
+        target.messages.where((m) => m.user).length == queued.length) {
+      target.title = queued.first.text.characters.take(14).join();
+    }
+    return _respond(
+      config,
+      queued.map((m) => m.text).join('\n'),
+      streamingOverride: streamingOverride,
+    );
+  }
+
+  void discardQueued() {
+    conversations[conversation].messages.removeWhere(
+      (m) => m.status == 'queued',
+    );
+    changed();
+    saveChats();
+  }
+
+  bool _respond(
+    ModelConnection config,
+    String input, {
+    bool? streamingOverride,
+  }) {
     attached = false;
     final connection = streamingOverride == null
         ? config
@@ -1014,7 +1261,11 @@ class DemoStore extends ChangeNotifier {
           return;
         if (!personas.any((p) => p.id == member.id)) continue;
         final history = target.messages
-            .where((m) => m.user || (m.text.isNotEmpty && m.status != 'failed'))
+            .where(
+              (m) =>
+                  m.status != 'queued' &&
+                  (m.user || (m.text.isNotEmpty && m.status != 'failed')),
+            )
             .toList();
         final values = history
             .skip(
@@ -1025,14 +1276,15 @@ class DemoStore extends ChangeNotifier {
             )
             .map(
               (m) => {
-                'role': m.user ? 'user' : 'assistant',
+                ...m.apiMessage,
                 'content': m.user
-                    ? m.text
+                    ? m.modelText
                     : '${personas.where((p) => p.id == m.authorId).firstOrNull?.name ?? '群成员'}：${m.text}',
               },
             )
             .toList();
         final answer = Message(false, '')
+          ..turnId = history.lastOrNull?.turnId
           ..authorId = member.id
           ..status = 'pending'
           ..modelName = config.model
@@ -1041,7 +1293,7 @@ class DemoStore extends ChangeNotifier {
         _pending = answer;
         streaming = true;
         final prompt =
-            '${member.compiledPrompt}\n\n这是角色群聊“${target.title}”。你只以${member.name}身份回应，不代替用户或其他成员发言。'
+            '${promptFor(member)}\n\n这是角色群聊“${target.title}”。你只以${member.name}身份回应，不代替用户或其他成员发言。'
                 .replaceAll('{{char}}', member.name)
                 .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
         changed();
@@ -1116,7 +1368,7 @@ class DemoStore extends ChangeNotifier {
       'streaming': false,
       'maxOutput': active.maxOutput.clamp(16, 512),
     });
-    final prompt = persona.compiledPrompt
+    final prompt = promptFor(persona)
         .replaceAll('{{char}}', persona.name)
         .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
     final history = [
@@ -1138,10 +1390,15 @@ class DemoStore extends ChangeNotifier {
     lastError = null;
     final target = conversations[conversation];
     final history = messages
-        .where((m) => m.user || (m.text.isNotEmpty && m.status != 'failed'))
-        .map((m) => {'role': m.user ? 'user' : 'assistant', 'content': m.text})
+        .where(
+          (m) =>
+              m.status != 'queued' &&
+              (m.user || (m.text.isNotEmpty && m.status != 'failed')),
+        )
+        .map((m) => m.apiMessage)
         .toList();
     final answer = Message(false, '')
+      ..turnId = target.messages.lastOrNull?.turnId
       ..status = 'pending'
       ..modelName = config.model
       ..provider = config.provider;
@@ -1151,7 +1408,7 @@ class DemoStore extends ChangeNotifier {
     final generation = ++_generation;
     final prompt =
         [
-              role.compiledPrompt,
+              promptFor(role),
               if (userCard.values.any((v) => v.trim().isNotEmpty))
                 '用户角色资料：\n${userCard.entries.map((e) => '${e.key}：${e.value}').join('\n')}',
             ]

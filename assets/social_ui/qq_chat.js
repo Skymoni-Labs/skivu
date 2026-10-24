@@ -8,7 +8,7 @@
   const button=(action,label,ico)=>`<button data-qq="${action}" aria-label="${esc(label)}">${icon(ico)}<span>${esc(label)}</span></button>`;
   const pages=[
     [['voice-call','语音通话','phone'],['video-call','视频通话','video'],['location','位置','pin'],['file','文件','folder'],['redpacket','红包','gift'],['transfer','转账','wallet'],['favorites','收藏','star'],['screen','屏幕分享','panel']],
-    [['contacts','名片','user'],['gifts','礼物','gift'],['music','一起听歌','music']],
+    [['contacts','名片','user'],['gifts','礼物','gift'],['music','一起听歌','music'],['describe-image','描述照片','image'],['describe-voice','打字发语音','mic']],
   ];
   ICONS.video='<rect x="3" y="5" width="12" height="14" rx="3"/><path d="m15 9 6-3v12l-6-3"/>';
   ICONS.pin='<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/>';

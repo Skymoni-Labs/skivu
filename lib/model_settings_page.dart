@@ -171,7 +171,7 @@ class ModelSettingsPage extends StatelessWidget {
         label('密钥单独加密保存在此设备；发送消息时，仅连接你选择的模型服务。', size: 11, color: muted),
         const SizedBox(height: 8),
         label(
-          '支持 OpenAI 兼容、Responses、Claude 与 Gemini 文字接口。Codex 网页登录、嵌入式本地模型及语音接口将在后续提供。',
+          '支持 OpenAI 兼容、Responses、Claude 与 Gemini。图片理解需所选模型和接口支持；语音转写使用手机系统服务。',
           size: 11,
           color: muted,
         ),

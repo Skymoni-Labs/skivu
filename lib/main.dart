@@ -481,6 +481,8 @@ class _SkiShellState extends State<SkiShell>
     '/chat' => demo.role.name,
     '/characters' => '角色',
     '/characters/edit' => '角色卡',
+    '/worlds' => '世界观',
+    '/stickers' => '表情包',
     '/call' => '语音通话',
     '/plugins' => '插件',
     '/market' => '插件市场',
@@ -849,6 +851,7 @@ class _SideNavigationState extends State<SideNavigation> {
                     ),
                     const SizedBox(height: 12),
                     link('角色', Icons.badge_outlined, '/characters'),
+                    link('世界观', Icons.public_outlined, '/worlds'),
                     link('插件市场', Icons.widgets_outlined, '/market'),
                     Padding(
                       padding: const EdgeInsets.symmetric(

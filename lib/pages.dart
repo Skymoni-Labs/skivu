@@ -15,6 +15,8 @@ import 'app_updates_page.dart';
 import 'speech_settings_page.dart';
 import 'ui_plugins_page.dart';
 import 'social_settings_page.dart';
+import 'world_library_page.dart';
+import 'sticker_library_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
@@ -43,6 +45,10 @@ class ContentPage extends StatelessWidget {
       child = CharactersPage(go: go);
     } else if (route == '/characters/edit') {
       child = CharacterEditor(go: go);
+    } else if (route == '/worlds') {
+      child = const WorldLibraryPage();
+    } else if (route == '/stickers') {
+      child = const StickerLibraryPage();
     } else if (route == '/plugins') {
       child = UiPluginsPage(go: go);
     } else if (route == '/market') {
@@ -361,18 +367,12 @@ class _CharacterEditorState extends State<CharacterEditor> {
       subtitle = TextEditingController(text: demo.editingRole.subtitle),
       prompt = TextEditingController(text: demo.editingRole.prompt);
   final cardFields = <String, TextEditingController>{
-    for (final key in [
-      '角色描述',
-      '性格与说话方式',
-      '场景与世界观',
-      '与用户的关系',
-      '示例对话',
-      '开场白',
-      '回复规则与边界',
-    ])
+    for (final key in ['角色描述', '性格与说话方式', '与用户的关系', '示例对话', '开场白', '回复规则与边界'])
       key: TextEditingController(text: demo.editingRole.card[key] ?? ''),
   };
   late String group = demo.editingRole.group;
+  late String? worldId = demo.editingRole.worldId,
+      sceneId = demo.editingRole.sceneId;
   final form = GlobalKey<FormState>();
   @override
   void dispose() {
@@ -475,6 +475,83 @@ class _CharacterEditorState extends State<CharacterEditor> {
                 size: 11,
                 color: muted,
               ),
+              const SizedBox(height: 20),
+              AnimatedBuilder(
+                animation: demo,
+                builder: (context, _) {
+                  final world = demo.worlds
+                      .where((w) => w.id == worldId)
+                      .firstOrNull;
+                  final scene = world?.scenes
+                      .where((s) => s.id == sceneId)
+                      .firstOrNull;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('role-world-${world?.id}'),
+                        initialValue: world?.id ?? '',
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: '世界观',
+                          helperText: '多位角色可共享同一套设定。',
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('不关联世界观'),
+                          ),
+                          for (final w in demo.worlds)
+                            DropdownMenuItem(
+                              value: w.id,
+                              child: Text(
+                                '${w.category} · ${w.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) => setState(() {
+                          worldId = v == '' ? null : v;
+                          sceneId = null;
+                        }),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('role-scene-${world?.id}-${scene?.id}'),
+                        initialValue: scene?.id ?? '',
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: '场景'),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('不指定场景'),
+                          ),
+                          for (final s in world?.scenes ?? [])
+                            DropdownMenuItem(
+                              value: s.id,
+                              child: Text(
+                                '${s.category} · ${s.name}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: world == null
+                            ? null
+                            : (v) =>
+                                  setState(() => sceneId = v == '' ? null : v),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => manageWorldLibrary(context),
+                          icon: const Icon(Icons.public_outlined),
+                          label: const Text('管理世界观与场景'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               for (final e in cardFields.entries) ...[
                 const SizedBox(height: 18),
                 TextFormField(
@@ -504,6 +581,14 @@ class _CharacterEditorState extends State<CharacterEditor> {
                     demo.editingRole.subtitle = subtitle.text;
                     demo.editingRole.prompt = prompt.text;
                     demo.editingRole.group = group;
+                    final world = demo.worlds
+                        .where((w) => w.id == worldId)
+                        .firstOrNull;
+                    demo.editingRole.worldId = world?.id;
+                    demo.editingRole.sceneId = world?.scenes
+                        .where((s) => s.id == sceneId)
+                        .firstOrNull
+                        ?.id;
                     demo.editingRole.card = {
                       for (final e in cardFields.entries)
                         e.key: e.value.text.trim(),

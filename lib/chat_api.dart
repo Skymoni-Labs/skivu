@@ -173,16 +173,56 @@ class ChatSession {
   }
 
   Map<String, dynamic> _body() {
+    Map<String, dynamic> wire(
+      Map<String, String> message,
+      ApiProtocol protocol,
+    ) {
+      final image = message['image'], text = message['content'] ?? '';
+      if (image == null) return {'role': message['role'], 'content': text};
+      final match = RegExp(
+        r'^data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$',
+      ).firstMatch(image);
+      if (match == null || image.length > 850000)
+        throw const ChatFailure('图片数据无效，请重新选择。');
+      return {
+        'role': message['role'],
+        'content': switch (protocol) {
+          ApiProtocol.responses => [
+            {'type': 'input_text', 'text': text},
+            {'type': 'input_image', 'image_url': image},
+          ],
+          ApiProtocol.anthropic => [
+            {'type': 'text', 'text': text},
+            {
+              'type': 'image',
+              'source': {
+                'type': 'base64',
+                'media_type': match.group(1),
+                'data': match.group(2),
+              },
+            },
+          ],
+          _ => [
+            {'type': 'text', 'text': text},
+            {
+              'type': 'image_url',
+              'image_url': {'url': image},
+            },
+          ],
+        },
+      };
+    }
+
     final messages = [
       if (system.trim().isNotEmpty) {'role': 'system', 'content': system},
-      ...history,
+      ...history.map((m) => wire(m, ApiProtocol.chat)),
     ];
     final temperature = config.temperature;
     if (_betaHeaders != null && config.protocol == ApiProtocol.responses)
       return {
         'model': config.model,
         if (_funding == 'beta') 'funding': 'beta',
-        'input': history,
+        'input': history.map((m) => wire(m, ApiProtocol.responses)).toList(),
         'instructions': system,
         'stream': config.streaming,
         'max_output_tokens': config.maxOutput.clamp(1, 4096),
@@ -209,7 +249,7 @@ class ChatSession {
       },
       ApiProtocol.responses => {
         'model': config.model,
-        'input': history,
+        'input': history.map((m) => wire(m, ApiProtocol.responses)).toList(),
         if (system.trim().isNotEmpty) 'instructions': system,
         'stream': config.streaming,
         'max_output_tokens': config.maxOutput,
@@ -218,7 +258,7 @@ class ChatSession {
       },
       ApiProtocol.anthropic => {
         'model': config.model,
-        'messages': history,
+        'messages': history.map((m) => wire(m, ApiProtocol.anthropic)).toList(),
         if (system.trim().isNotEmpty) 'system': system,
         'stream': config.streaming,
         'max_tokens': config.maxOutput,
@@ -231,6 +271,13 @@ class ChatSession {
                 'role': m['role'] == 'assistant' ? 'model' : 'user',
                 'parts': [
                   {'text': m['content']},
+                  if (m['image'] case final image?)
+                    {
+                      'inlineData': {
+                        'mimeType': image.substring(5, image.indexOf(';')),
+                        'data': image.substring(image.indexOf(',') + 1),
+                      },
+                    },
                 ],
               },
             )
