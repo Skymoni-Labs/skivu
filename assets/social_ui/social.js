@@ -201,8 +201,9 @@
     window.QqChat?.paint();
     window.ChatInteractions?.paint();
   }
-  function go(target,{id=null,replace=false}={}) {
+  function go(target,{id=null,replace=false,immediate=false}={}) {
     if(!routeNames.has(target)&&target!=='chat'&&target!=='channels')return;
+    if(!immediate&&window.SocialNavigation?.navigate(target))return;
     if(target==='compose'&&page!=='compose'){draftText='';draftImages=[]}
     if(!replace&&page!==target)trail.push({page,active});
     if(trail.length>25)trail.shift();
@@ -337,7 +338,7 @@
   $('#resetPreview').onclick=()=>{stopStream();const mode=state.mode;data=initialData();active='ski';nativeView=true;state={...defaults,mode,nativeView:true};messages=structuredClone(data.threads.ski);trail=[];page='inbox';draftText='';draftImages=[];postMenu=null;$('#messageInput').value='';renderMessages();renderFolders();applyState();save();setDrawer('none');closeSheet();toast('已恢复社交模式示例')};
   messages=structuredClone(data.threads[active]||seed);state.role=current().name;state.avatar=current().avatar||null;
   renderMessages();renderFolders();applyState();
-  window.SocialPreview={go:target=>go(target),switchTab:target=>{trail=[];go(target,{replace:true})},sync,flushThread,portrait,currentRole:current,page:()=>page,showRole:id=>go('contact',{id}),back:()=>back(),locate:locateMessage,postDraft:()=>({text:$('#socialPostText')?.value.trim()||'',images:[...draftImages]}),
+  window.SocialPreview={go:target=>go(target),switchTab:(target,{animate=true}={})=>{trail=[];go(target,{replace:true,immediate:!animate})},previewTab:target=>['inbox','contacts','discover','me'].includes(target)?renderers[target]():'',sync,flushThread,portrait,currentRole:current,page:()=>page,showRole:id=>go('contact',{id}),back:()=>back(),locate:locateMessage,postDraft:()=>({text:$('#socialPostText')?.value.trim()||'',images:[...draftImages]}),
     hostApply(snapshot,{changed=false,view}={}){
       const wasGenerating=!!stream;
       const sameMessages=messages.length===snapshot.messages.length&&messages.every((m,i)=>{const n=snapshot.messages[i];return m.id===n.id&&m.text===n.text&&m.thought===n.thought&&m.authorId===n.authorId&&m.contextNotice===n.contextNotice});
