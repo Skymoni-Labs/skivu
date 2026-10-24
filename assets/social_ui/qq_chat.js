@@ -5,7 +5,7 @@
   let snapshot=null,panel=null,panelKind='',context='';
   const root=$('#chatPlane');
   const enabled=()=>window.SKIVU_HOSTED&&snapshot?.mode==='qq';
-  const button=(action,label,ico)=>`<button data-qq="${action}" aria-label="${esc(label)}">${icon(ico)}<span>${esc(label)}</span></button>`;
+  const button=(action,label,ico)=>`<button data-qq="${action}" ${action==='video-call'?'disabled aria-disabled="true"':''} aria-label="${esc(label)}${action==='video-call'?'，开发中':''}">${icon(ico)}<span>${esc(label)}${action==='video-call'?'<small class="video-call-unavailable">开发中</small>':''}</span></button>`;
   const pages=[
     [['voice-call','语音通话','phone'],['video-call','视频通话','video'],['location','位置','pin'],['file','文件','folder'],['redpacket','红包','gift'],['transfer','转账','wallet'],['favorites','收藏','star'],['screen','屏幕分享','panel']],
     [['contacts','名片','user'],['gifts','礼物','gift'],['music','一起听歌','music'],['describe-image','描述照片','image']],

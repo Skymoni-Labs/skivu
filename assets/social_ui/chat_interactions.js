@@ -4,7 +4,7 @@
   const root=$('#chatPlane'),uid=()=>crypto.randomUUID?.()||'event-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   const cash=n=>(Number(n||0)/100).toFixed(2),role=()=>state?.roles?.find(r=>r.id===state.selectedRoleId);
   const act=(action,extra='')=>`data-interaction="${action}" ${extra}`;
-  const btn=(action,label,ico,extra='')=>`<button ${act(action,extra)} aria-label="${esc(label)}">${ico?icon(ico):''}<span>${esc(label)}</span></button>`;
+  const btn=(action,label,ico,extra='')=>`<button ${act(action,extra)} ${action==='video-call'?'disabled aria-disabled="true"':''} aria-label="${esc(label)}${action==='video-call'?'，开发中':''}">${ico?icon(ico):''}<span>${esc(label)}${action==='video-call'?'<small class="video-call-unavailable">开发中</small>':''}</span></button>`;
   const wxPages=[
     [['image','相册','image'],['camera','拍摄','camera'],['video-call','视频通话','video'],['location','位置','pin'],['redpacket-menu','红包','envelope'],['gifts','礼物','gift'],['transfer','转账','transfer'],['voice','语音输入','mic']],
     [['favorites','收藏','box'],['contacts','个人名片','user'],['file','文件','folder'],['music','音乐','music'],['describe-image','描述照片','image']],
@@ -79,7 +79,7 @@
       layer._pending={kind,payload:{data:kind==='file'?data.replace(/^data:[^;]*;/,'data:application/octet-stream;'):data,name:file.name}};
     },{once:true});input.click();
   }
-  function camera(video=false,screen=false){show(screen?'屏幕分享':video?'视频通话':'拍摄',`<video id="interactionCamera" autoplay muted playsinline></video><p class="interaction-disclosure">${screen?'本机屏幕预览，不连接其他设备':video?'本机角色视频预览，不呼叫微信或QQ联系人':'打开摄像头后可拍照，发送前会预览确认'}</p><div class="interaction-camera-actions">${btn(screen?'start-screen':'start-camera',screen?'选择窗口':'打开摄像头','camera')}${!screen?btn('take-photo','拍照','camera'):''}${video?btn('native-call','进入角色语音通话','phone'):''}</div>`,'camera');layer.dataset.video=String(video)}
+  function camera(screen=false){show(screen?'屏幕分享':'拍摄',`<video id="interactionCamera" autoplay muted playsinline></video><p class="interaction-disclosure">${screen?'本机屏幕预览，不连接其他设备':'打开摄像头后可拍照，发送前会预览确认'}</p><div class="interaction-camera-actions">${btn(screen?'start-screen':'start-camera',screen?'选择窗口':'打开摄像头','camera')}${!screen?btn('take-photo','拍照','camera'):''}</div>`,'camera')}
   function voice(){show('语音',`<div class="voice-record-symbol">${icon('mic')}</div><p class="interaction-empty" id="voiceStatus">按下开始录音，完成后可试听并发送</p><audio id="voicePlayback" controls hidden></audio><div class="voice-actions">${btn('start-record','开始录音','mic')}${btn('stop-record','结束录音','stop')}${btn('send-record','发送语音','arrow-up')}</div><p class="interaction-error" role="alert" hidden></p>`,'voice')}
   function open(action){
     if(!state)return;closePanel();
@@ -87,7 +87,8 @@
     if(action==='redpacket-menu'){show('红包',`<div class="interaction-list">${btn('redpacket','红包','envelope')}${btn('redpacket','拜年红包','gift')}</div>`,'redpacket-menu');return}
     if(action==='wallet'){wallet();return}if(action==='ledger'){ledger();return}
     if(['image','file','music','video'].includes(action)){pick(action).catch(()=>toast('文件无法读取'));return}
-    if(action==='camera'||action==='video-call'||action==='screen'){camera(action==='video-call',action==='screen');return}
+    if(action==='video-call'){toast('视频通话开发中');return}
+    if(action==='camera'||action==='screen'){camera(action==='screen');return}
     if(action==='voice'){voice();return}
     if(action==='voice-call'){show('语音通话',`<div class="role-call-portrait">${SocialPreview.portrait(state.selectedRoleId,'big')}<h3>${esc(role()?.name||'角色')}</h3><p>使用 Skivu 角色语音引擎</p>${btn('native-call','开始语音通话','phone','class="interaction-primary"')}</div>`,'voice-call');return}
     if(action==='location'){show('位置',`<form id="interactionLocationForm" class="interaction-form"><label>位置名称<input name="label" required maxlength="120" placeholder="例如：湖边咖啡馆"></label><label>地址<input name="address" maxlength="300" placeholder="输入地点或情景地址"></label><div class="location-map">${icon('pin')}<span>角色场景位置</span></div><button class="interaction-primary" type="submit">发送位置</button></form>`,'location');return}

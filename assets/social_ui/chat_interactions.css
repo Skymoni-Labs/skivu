@@ -156,3 +156,7 @@
 .role-call-portrait{text-align:center;margin:70px auto 30px}.role-call-portrait .social-face{width:86px;height:86px;margin:0 auto 18px;border-radius:12px}.role-call-portrait h3{font-weight:400;font-size:24px;margin-bottom:15px}.role-call-portrait p{color:#888;font-size:13px;margin-bottom:45px}
 .interaction-delete{display:block;padding:20px;width:100%;text-align:center;color:#db4d48;background:#fff;font-size:16px}
 @media(max-width:340px){.wx-tool-page{grid-auto-rows:95px;min-height:200px}.wx-tool-page svg{width:25px;height:25px;padding:13px}.wx-tool-page button{font-size:11px}.finance-chat-card{min-width:180px}.interaction-message-content{max-width:calc(100% - 58px)}}
+
+/* Video calls are unavailable in every presentation; photos remain enabled. */
+.video-call-unavailable{display:block;font-size:10px;line-height:1.25;margin-top:2px;color:#858585}
+.wx-tool-page button:disabled,.qq-tool-page button:disabled{opacity:.5;cursor:default}

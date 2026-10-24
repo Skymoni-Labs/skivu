@@ -598,11 +598,23 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                             null,
                             compact: compact,
                           ),
-                          _control(
-                            Icons.videocam_outlined,
-                            '视频，即将开放',
-                            null,
-                            compact: compact,
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _control(
+                                Icons.videocam_outlined,
+                                '视频通话，开发中',
+                                null,
+                                compact: compact,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '开发中',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                           _control(
                             Icons.close_rounded,

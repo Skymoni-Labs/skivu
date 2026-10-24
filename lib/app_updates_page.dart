@@ -328,17 +328,17 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
                   ? const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('滑动更专注', style: _heading),
+                        Text('视频通话开发中', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '插件聊天区不再横向拉出宿主侧栏，上下翻阅更安心。左右滑动留给插件内部页面切换。',
+                          '微信、QQ 与原版中的视频通话入口暂时停用，统一显示开发中。',
                           style: _body,
                         ),
                         SizedBox(height: 20),
-                        Text('隐藏的界面控制栏', style: _heading),
+                        Text('保留日常聊天与拍照', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '从右侧中部向内拉出竖向小窗，可返回原版。闲置后自动收起，聊天记录与草稿保持不变。',
+                          '视频入口不会打开摄像头预览；相册、拍照与角色语音通话保持可用。',
                           style: _body,
                         ),
                       ],

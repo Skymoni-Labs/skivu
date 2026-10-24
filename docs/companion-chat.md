@@ -19,3 +19,7 @@ Album actions in Skivu, WeChat and QQ open the shared bottom list: system album,
 Typed photo descriptions remain separate entries. Typed voice descriptions open one text form, without a real/description mode switch. Microphone speech-recognition entries remain available. The app does not introduce a custom camera UI or request broad photo-library access.
 
 `flutter test test/chat_media_menu_test.dart` checks the shared sheet, cancellation, system source selection, queued photos, stale-conversation isolation and voice-category text. `node --test test/social_media_bridge_test.mjs` checks that both presenters consume gallery/camera clicks and route them to the host instead of their standalone camera simulation.
+
+## 视频通话状态（0.2.28）
+
+视频通话暂未开放。微信、QQ 的聊天工具与通话列表中保留灰显入口，并标注“开发中”；旧视频动作也会被拦截，不再打开本机视频预览。原版语音通话页的视频控制保持停用，并显示“开发中”。相册、系统拍照、图片描述、角色语音通话及已有视频附件不受此开关影响。
