@@ -17,6 +17,7 @@ import java.util.concurrent.Executors
 /** System browser authorization and user-confirmed, same-signer APK updates. */
 class AppPlatform(private val activity: Activity) {
     private val worker = Executors.newSingleThreadExecutor()
+    private var pluginEdgeOwner: String? = null
 
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "skivu/app_platform").setMethodCallHandler { call, result ->
@@ -24,6 +25,7 @@ class AppPlatform(private val activity: Activity) {
                 try {
                     when (call.method) {
                         "info" -> answer(result, info())
+                        "setPluginEdgeExclusion" -> setPluginEdgeExclusion(call, result)
                         "encryptPassword" -> {
                             val pem = call.argument<String>("publicKey") ?: error("missing key")
                             val password = call.argument<String>("password") ?: error("missing password")
@@ -88,6 +90,42 @@ class AppPlatform(private val activity: Activity) {
             "signerSha256" to signers(current).sorted().first(),
             "installMessage" to AppUpdateInstaller.message(activity)
         )
+    }
+
+    /** Reserve only the small explicit plugin-control pull zone, not a whole edge. */
+    private fun setPluginEdgeExclusion(call: MethodCall, result: MethodChannel.Result) {
+        activity.runOnUiThread {
+            try {
+                val owner = call.argument<String>("owner") ?: error("missing owner")
+                require(owner.length in 1..80)
+                if (Build.VERSION.SDK_INT >= 29) {
+                    val root = activity.window.decorView
+                    val values = call.argument<List<Number>>("rect")
+                    if (values == null) {
+                        if (pluginEdgeOwner == owner) {
+                            root.systemGestureExclusionRects = emptyList()
+                            pluginEdgeOwner = null
+                        }
+                    } else {
+                        require(values.size == 4)
+                        val density = activity.resources.displayMetrics.density
+                        val left = values[0].toInt().coerceIn(0, root.width)
+                        val top = values[1].toInt().coerceIn(0, root.height)
+                        val right = values[2].toInt().coerceIn(left, root.width)
+                        val bottom = values[3].toInt().coerceIn(top, root.height)
+                        require(right > left && bottom > top)
+                        val width = minOf(right - left, (32 * density).toInt())
+                        val height = minOf(bottom - top, (200 * density).toInt())
+                        val y = top + (bottom - top - height) / 2
+                        root.systemGestureExclusionRects = listOf(android.graphics.Rect(right - width, y, right, y + height))
+                        pluginEdgeOwner = owner
+                    }
+                }
+                result.success(null)
+            } catch (_: Exception) {
+                result.error("APP_PLATFORM", "界面控制手势暂不可用。", null)
+            }
+        }
     }
 
     private fun updateDirectory() = File(activity.cacheDir, "updates").canonicalFile

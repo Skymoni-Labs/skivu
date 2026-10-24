@@ -17,6 +17,7 @@ import 'glass_preferences.dart';
 import 'chat_backdrop.dart';
 import 'ui_chat_appearance.dart';
 import 'chat_extras.dart';
+import 'plugin_edge_controls.dart';
 import 'package:image_picker/image_picker.dart';
 import 'ui_document_port.dart';
 import 'ui_document_native.dart'
@@ -656,13 +657,20 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
     ),
-    child: document.buildUiDocument(
-      onCommand: command,
-      onReady: (push) {
-        _push = push;
-        _force = true;
-        _queue();
+    child: PluginEdgeControls(
+      reduceMotion: appearance.flag('reduceMotion'),
+      onExit: () async {
+        await demo.saveChats();
+        return uiPlugins.apply(ChatUiMode.classic);
       },
+      child: document.buildUiDocument(
+        onCommand: command,
+        onReady: (push) {
+          _push = push;
+          _force = true;
+          _queue();
+        },
+      ),
     ),
   );
 }

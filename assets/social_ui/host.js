@@ -39,6 +39,7 @@
       QqChat.update(snapshot);
       ChatInteractions.update(snapshot);
       CompanionChat.update(snapshot);
+      SocialNavigation.update(snapshot);
       const input=$('#messageInput');
       if(changed||!previous||((update.draftRevision||0)>=draftRevision&&(update.ack==='send'||document.activeElement!==input))){input.value=snapshot.draft||'';applyDraftState()}
       draftRevision=Math.max(changed?0:draftRevision,update.draftRevision||0);

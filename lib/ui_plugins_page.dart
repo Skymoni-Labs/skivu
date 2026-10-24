@@ -451,7 +451,7 @@ class _UiPluginsPageState extends State<UiPluginsPage> {
               },
             ),
           const Text(
-            '同时启用一种界面。关闭后回到原版，卸载不删除聊天记录。',
+            '同时启用一种界面。左右滑动切换插件页面；从右侧中部向内拉出控制栏可返回原版。卸载不删除聊天记录。',
             style: TextStyle(
               fontSize: 12,
               height: 1.7,

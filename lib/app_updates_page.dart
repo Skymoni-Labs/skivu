@@ -328,17 +328,17 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
                   ? const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('图片发送，一步直达', style: _heading),
+                        Text('滑动更专注', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '相册直接选择，拍照调用手机相机。确认照片后即可发送，不再经过额外编辑页。',
+                          '插件聊天区不再横向拉出宿主侧栏，上下翻阅更安心。左右滑动留给插件内部页面切换。',
                           style: _body,
                         ),
                         SizedBox(height: 20),
-                        Text('语音描述，更顺手', style: _heading),
+                        Text('隐藏的界面控制栏', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '媒体列表新增语音描述，输入文字即可呈现为语音气泡。照片描述与麦克风识别继续保留。',
+                          '从右侧中部向内拉出竖向小窗，可返回原版。闲置后自动收起，聊天记录与草稿保持不变。',
                           style: _body,
                         ),
                       ],

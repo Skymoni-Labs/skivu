@@ -157,9 +157,11 @@ class SlideDeck extends StatefulWidget {
     required this.left,
     required this.right,
     required this.child,
+    this.dragEnabled = true,
   });
   final DrawerMotion motion;
   final Widget left, right, child;
+  final bool dragEnabled;
   @override
   State<SlideDeck> createState() => _SlideDeckState();
 }
@@ -181,15 +183,21 @@ class _SlideDeckState extends State<SlideDeck> {
       child: GestureDetector(
         dragStartBehavior: DragStartBehavior.down,
         behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: (_) {
-          FocusScope.of(context).unfocus();
-          motion.begin();
-        },
-        onHorizontalDragUpdate: (d) => motion.dragBy(d.delta.dx),
-        onHorizontalDragCancel: motion.cancel,
-        onHorizontalDragEnd: (d) {
-          if (!_cancelled) motion.release(d.primaryVelocity ?? 0);
-        },
+        onHorizontalDragStart: !widget.dragEnabled
+            ? null
+            : (_) {
+                FocusScope.of(context).unfocus();
+                motion.begin();
+              },
+        onHorizontalDragUpdate: !widget.dragEnabled
+            ? null
+            : (d) => motion.dragBy(d.delta.dx),
+        onHorizontalDragCancel: !widget.dragEnabled ? null : motion.cancel,
+        onHorizontalDragEnd: !widget.dragEnabled
+            ? null
+            : (d) {
+                if (!_cancelled) motion.release(d.primaryVelocity ?? 0);
+              },
         child: AnimatedBuilder(
           animation: motion,
           child: RepaintBoundary(child: child),

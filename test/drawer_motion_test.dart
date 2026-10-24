@@ -14,6 +14,44 @@ class BuildProbe extends StatelessWidget {
 }
 
 void main() {
+  testWidgets(
+    'plugin surfaces retain horizontal gestures while host drag opening is disabled',
+    (tester) async {
+      final motion = DrawerMotion(vsync: tester);
+      var childDrags = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SlideDeck(
+              motion: motion,
+              dragEnabled: false,
+              left: const ColoredBox(color: Colors.blue),
+              right: const ColoredBox(color: Colors.purple),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (_) => childDrags++,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.dragFrom(const Offset(200, 250), const Offset(150, 0));
+      await tester.pumpAndSettle();
+      expect(childDrags, greaterThan(0));
+      expect(motion.offset, 0);
+      expect(motion.dragging, isFalse);
+      motion.toggle(1);
+      await tester.pumpAndSettle();
+      expect(motion.offset, motion.leftExtent);
+      motion.close();
+      await tester.pumpAndSettle();
+      expect(motion.offset, 0);
+      await tester.pumpWidget(const SizedBox());
+      motion.dispose();
+    },
+  );
+
   testWidgets('opening has a small bounded recoil mirrored on both sides', (
     tester,
   ) async {

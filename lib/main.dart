@@ -690,6 +690,7 @@ class _SkiShellState extends State<SkiShell>
           child: BackdropGroup(
             child: SlideDeck(
               motion: motion,
+              dragEnabled: !htmlUi,
               left: navigation,
               right: workspace,
               child: foreground,

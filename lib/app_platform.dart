@@ -37,6 +37,14 @@ class AppPlatform {
 
   Future<AppDeviceInfo> info() async =>
       AppDeviceInfo.fromMap(await _channel.invokeMethod<Map>('info') ?? {});
+  Future<void> setPluginEdgeExclusion(String owner, List<int>? rect) async {
+    if (!supported) return;
+    await _channel.invokeMethod<void>('setPluginEdgeExclusion', {
+      'owner': owner,
+      'rect': rect,
+    });
+  }
+
   Future<void> openWebsite(String url) async {
     final uri = Uri.parse(url);
     if (uri.scheme != 'https' ||
