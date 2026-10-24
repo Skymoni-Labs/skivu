@@ -14,7 +14,8 @@ class _Updates extends AppUpdates {
   _Updates() : super(platform: _Platform()) {
     device = const AppDeviceInfo(
       version: appVersion,
-      versionCode: 29,
+      versionCode: 34,
+      installedBytes: 70517047,
       packageName: 'com.skyjjgw.independent.ski',
       sdk: 36,
       abis: ['arm64-v8a'],
@@ -49,8 +50,8 @@ class _Updates extends AppUpdates {
 }
 
 AppRelease _release(String notes) => AppRelease(
-  version: '0.2.26',
-  versionCode: 30,
+  version: '0.3.0',
+  versionCode: 99,
   minSdk: 24,
   abi: 'arm64-v8a',
   url: Uri.https('skymoni.com', '/fixture'),
@@ -67,6 +68,8 @@ Future<void> _open(
   Size size = const Size(390, 844),
   double scale = 1,
   VoidCallback? onBack,
+  bool settle = true,
+  bool reduceMotion = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -77,6 +80,7 @@ Future<void> _open(
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context).copyWith(
           textScaler: TextScaler.linear(scale),
+          disableAnimations: reduceMotion,
           padding: const EdgeInsets.only(top: 24, bottom: 24),
         ),
         child: child!,
@@ -84,7 +88,10 @@ Future<void> _open(
       home: AppUpdatesPage(updates: updates, onBack: onBack),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle)
+    await tester.pumpAndSettle();
+  else
+    await tester.pump();
 }
 
 void main() {
@@ -96,13 +103,26 @@ void main() {
       await _open(tester, updates, onBack: () => backs++);
       expect(updates.checks, 1);
       expect(find.text('已是最新版本'), findsOneWidget);
-      expect(find.text('未读消息一眼可见'), findsOneWidget);
-      await tester.tap(find.text('此版本更新说明'));
+      expect(find.text('星空下的新版本'), findsOneWidget);
+      expect(
+        find.textContaining('Skivu $appVersion (34)  |  67.3 MB'),
+        findsOneWidget,
+      );
+      final card = find.byKey(const ValueKey('update-version-card'));
+      final openHeight = tester.getSize(card).height;
+      await tester.tap(find.text('更新说明'));
       await tester.pump();
-      expect(find.text('未读消息一眼可见'), findsNothing);
-      await tester.tap(find.text('此版本更新说明'));
-      await tester.pump();
-      expect(find.text('未读消息一眼可见'), findsOneWidget);
+      expect(find.text('星空下的新版本'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 200));
+      final midHeight = tester.getSize(card).height;
+      expect(midHeight, lessThan(openHeight));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(card).height, lessThan(midHeight));
+      expect(find.text('星空下的新版本'), findsNothing);
+      expect(find.byKey(const ValueKey('update-version-size')), findsOneWidget);
+      await tester.tap(find.text('更新说明'));
+      await tester.pumpAndSettle();
+      expect(find.text('星空下的新版本'), findsOneWidget);
       await tester.tap(find.byTooltip('返回设置'));
       expect(backs, 1);
       expect(tester.takeException(), isNull);
@@ -117,6 +137,11 @@ void main() {
       await _open(tester, updates, size: const Size(320, 640), scale: 1.5);
       final action = find.byKey(const ValueKey('update-primary-action'));
       final before = tester.getRect(action);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('update-scroll'))).bottom,
+        640,
+      );
+      expect(find.byKey(const ValueKey('update-starry-sky')), findsOneWidget);
       expect(tester.takeException(), isNull);
       for (var i = 0; i < 25; i++) {
         await tester.drag(
@@ -175,8 +200,66 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('版本信息'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('当前版本：$appVersion (29)'), findsOneWidget);
+      expect(find.textContaining('当前版本：$appVersion (34)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'checking resolves by moving the hero and revealing the card smoothly',
+    (tester) async {
+      final updates = _Updates()..checking = true;
+      await _open(tester, updates, settle: false);
+      expect(
+        find.byKey(const ValueKey('update-checking-capsule')),
+        findsOneWidget,
+      );
+      final hero = find.byKey(const ValueKey('update-hero-space'));
+      final initialHeight = tester.getSize(hero).height;
+      final initialMarkTop = tester.getTopLeft(find.byType(BrandMark)).dy;
+      expect(initialMarkTop, greaterThan(180));
+      updates.checking = false;
+      updates.changed();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 220));
+      final middleHeight = tester.getSize(hero).height;
+      final middleMarkTop = tester.getTopLeft(find.byType(BrandMark)).dy;
+      expect(middleMarkTop, lessThan(initialMarkTop));
+      expect(middleHeight, lessThan(initialHeight));
+      expect(middleHeight, greaterThan(250));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(hero).height, 250);
+      expect(
+        tester.getTopLeft(find.byType(BrandMark)).dy,
+        lessThan(middleMarkTop),
+      );
+      expect(
+        tester.getTopLeft(find.byType(BrandMark)).dy,
+        greaterThan(tester.getBottomLeft(find.byTooltip('返回设置')).dy),
+      );
+      expect(
+        find.byKey(const ValueKey('update-checking-capsule')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('update-primary-action')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'reduced motion preserves the same content and controls without a transition',
+    (tester) async {
+      final updates = _Updates();
+      await _open(tester, updates, reduceMotion: true);
+      await tester.tap(find.text('更新说明'));
+      await tester.pump();
+      expect(find.text('星空下的新版本'), findsNothing);
+      expect(find.textContaining('67.3 MB'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
 }
+
+// Flow timing is tested without a network request or fake waiting period.

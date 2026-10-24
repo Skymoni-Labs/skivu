@@ -81,9 +81,13 @@ class AppPlatform(private val activity: Activity) {
 
     private fun info(): Map<String, Any> {
         val current = packageInfo()
+        val app = activity.applicationInfo
+        val installedBytes = (listOf(app.sourceDir) + app.splitSourceDirs.orEmpty())
+            .distinct().sumOf { File(it).length() }
         return mapOf(
             "version" to (current.versionName ?: ""),
             "versionCode" to versionCode(current),
+            "installedBytes" to installedBytes,
             "packageName" to activity.packageName,
             "sdk" to Build.VERSION.SDK_INT,
             "abis" to Build.SUPPORTED_ABIS.toList(),

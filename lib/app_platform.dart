@@ -10,10 +10,12 @@ class AppDeviceInfo {
     required this.abis,
     required this.signerSha256,
     this.installMessage,
+    this.installedBytes,
   });
   final String version, packageName, signerSha256;
   final int versionCode, sdk;
   final String? installMessage;
+  final int? installedBytes;
   final List<String> abis;
 
   factory AppDeviceInfo.fromMap(Map raw) => AppDeviceInfo(
@@ -23,6 +25,10 @@ class AppDeviceInfo {
     sdk: (raw['sdk'] as num).toInt(),
     abis: (raw['abis'] as List).cast<String>(),
     signerSha256: raw['signerSha256'] as String,
+    installedBytes:
+        raw['installedBytes'] is num && (raw['installedBytes'] as num) > 0
+        ? (raw['installedBytes'] as num).toInt()
+        : null,
     installMessage:
         (raw['installMessage'] as String?)?.trim().isNotEmpty == true
         ? (raw['installMessage'] as String).trim()
