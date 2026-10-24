@@ -11,3 +11,11 @@ All three presenters use the same conversations, character cards and media libra
 Real image wire formats support OpenAI Chat/Responses, Anthropic Messages and Gemini. Account relay accepts bounded inline PNG/JPG/WebP images on backend 168. A vision-capable upstream model is required; ordinary text models may reject images. The existing account request-size limit is preserved, so long image-heavy history may need a new conversation.
 
 Media belongs to local chat backups and is sent only to the selected model service when submitting. App-owned presenter code does not access account credentials. Operit plugin catalog was checked; no usable audited implementation was selected or copied for this change.
+
+## Direct media entry points
+
+Album actions in Skivu, WeChat and QQ open the shared bottom list: system album, system camera and typed voice description. Camera shortcuts call the phone camera directly through the existing Android image-picker integration. Selecting/confirming a photo sends it directly, or queues it when conversation confirmation is enabled; there is no additional photo-mode/editor screen. Cancelling either system surface sends nothing, and a conversation change while picking prevents cross-chat delivery.
+
+Typed photo descriptions remain separate entries. Typed voice descriptions open one text form, without a real/description mode switch. Microphone speech-recognition entries remain available. The app does not introduce a custom camera UI or request broad photo-library access.
+
+`flutter test test/chat_media_menu_test.dart` checks the shared sheet, cancellation, system source selection, queued photos, stale-conversation isolation and voice-category text. `node --test test/social_media_bridge_test.mjs` checks that both presenters consume gallery/camera clicks and route them to the host instead of their standalone camera simulation.

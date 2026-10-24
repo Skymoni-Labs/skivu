@@ -328,14 +328,17 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
                   ? const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('焕新的更新体验', style: _heading),
-                        SizedBox(height: 10),
-                        Text('全屏渐变与通透玻璃，版本信息、更新说明和注意事项分区呈现。', style: _body),
-                        SizedBox(height: 20),
-                        Text('下载与安装，状态更清楚', style: _heading),
+                        Text('图片发送，一步直达', style: _heading),
                         SizedBox(height: 10),
                         Text(
-                          '底部操作随更新状态切换，查看下载进度、取消下载，或在校验完成后继续安装。',
+                          '相册直接选择，拍照调用手机相机。确认照片后即可发送，不再经过额外编辑页。',
+                          style: _body,
+                        ),
+                        SizedBox(height: 20),
+                        Text('语音描述，更顺手', style: _heading),
+                        SizedBox(height: 10),
+                        Text(
+                          '媒体列表新增语音描述，输入文字即可呈现为语音气泡。照片描述与麦克风识别继续保留。',
                           style: _body,
                         ),
                       ],

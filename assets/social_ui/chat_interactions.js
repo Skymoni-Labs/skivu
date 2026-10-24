@@ -7,7 +7,7 @@
   const btn=(action,label,ico,extra='')=>`<button ${act(action,extra)} aria-label="${esc(label)}">${ico?icon(ico):''}<span>${esc(label)}</span></button>`;
   const wxPages=[
     [['image','相册','image'],['camera','拍摄','camera'],['video-call','视频通话','video'],['location','位置','pin'],['redpacket-menu','红包','envelope'],['gifts','礼物','gift'],['transfer','转账','transfer'],['voice','语音输入','mic']],
-    [['favorites','收藏','box'],['contacts','个人名片','user'],['file','文件','folder'],['music','音乐','music'],['describe-image','描述照片','image'],['describe-voice','打字发语音','mic']],
+    [['favorites','收藏','box'],['contacts','个人名片','user'],['file','文件','folder'],['music','音乐','music'],['describe-image','描述照片','image']],
   ];
   ICONS.transfer='<path d="M4 8h15l-4-4M20 16H5l4 4"/>';
   ICONS.envelope='<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M5 8c5 5 9 5 14 0"/><circle cx="12" cy="11" r="2"/>';

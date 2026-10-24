@@ -96,13 +96,13 @@ void main() {
       await _open(tester, updates, onBack: () => backs++);
       expect(updates.checks, 1);
       expect(find.text('已是最新版本'), findsOneWidget);
-      expect(find.text('焕新的更新体验'), findsOneWidget);
+      expect(find.text('图片发送，一步直达'), findsOneWidget);
       await tester.tap(find.text('此版本更新说明'));
       await tester.pump();
-      expect(find.text('焕新的更新体验'), findsNothing);
+      expect(find.text('图片发送，一步直达'), findsNothing);
       await tester.tap(find.text('此版本更新说明'));
       await tester.pump();
-      expect(find.text('焕新的更新体验'), findsOneWidget);
+      expect(find.text('图片发送，一步直达'), findsOneWidget);
       await tester.tap(find.byTooltip('返回设置'));
       expect(backs, 1);
       expect(tester.takeException(), isNull);

@@ -92,133 +92,153 @@ class _SpeechDraft {
   }
 }
 
+enum ChatMediaChoice { gallery, camera, describedVoice }
+
+typedef ChatPhotoPicker = Future<Uint8List?> Function(ImageSource source);
+
+Future<Uint8List?> _pickSystemChatPhoto(ImageSource source) =>
+    mediaPickerSession.run(MediaDestination.chatImage, () async {
+      final file = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+        requestFullMetadata: false,
+      );
+      return file == null ? null : await file.readAsBytes();
+    });
+
+/// System selection/capture already includes confirmation. Send its result
+/// directly, or add it to the current conversation's pending batch.
+Future<bool> sendSystemChatPhoto(
+  BuildContext context, {
+  required ImageSource source,
+  bool? streamingOverride,
+  ChatPhotoPicker? picker,
+}) async {
+  final chatId = demo.conversations[demo.conversation].id;
+  try {
+    final raw = await (picker ?? _pickSystemChatPhoto)(source);
+    if (raw == null || !context.mounted) return false;
+    if (demo.conversations[demo.conversation].id != chatId) {
+      toast(context, '对话已切换，请重新选择照片。');
+      return false;
+    }
+    final bytes = await normalizeChatPhoto(raw);
+    if (!context.mounted) return false;
+    if (demo.conversations[demo.conversation].id != chatId) {
+      toast(context, '对话已切换，请重新选择照片。');
+      return false;
+    }
+    final ok = demo.send(
+      '照片',
+      kind: 'image',
+      described: false,
+      imageData: 'data:image/png;base64,${base64Encode(bytes)}',
+      streamingOverride: streamingOverride,
+    );
+    if (!ok) toast(context, demo.lastError ?? '当前无法发送，请等待回复完成。');
+    return ok;
+  } catch (_) {
+    if (context.mounted)
+      toast(
+        context,
+        source == ImageSource.camera
+            ? '相机未能完成拍摄，请检查系统相机或授权后重试。'
+            : '图片未导入，请重新选择有效图片。',
+      );
+    return false;
+  }
+}
+
+Future<bool> showChatMediaActions(
+  BuildContext context, {
+  bool? streamingOverride,
+  ChatPhotoPicker? picker,
+}) async {
+  final chatId = demo.conversations[demo.conversation].id;
+  final choice = await showModalBottomSheet<ChatMediaChoice>(
+    context: context,
+    useSafeArea: true,
+    builder: (sheet) => SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('从相册选择'),
+            onTap: () => Navigator.pop(sheet, ChatMediaChoice.gallery),
+          ),
+          if (!kIsWeb)
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('拍摄照片'),
+              onTap: () => Navigator.pop(sheet, ChatMediaChoice.camera),
+            ),
+          ListTile(
+            leading: const Icon(Icons.graphic_eq),
+            title: const Text('语音描述'),
+            onTap: () => Navigator.pop(sheet, ChatMediaChoice.describedVoice),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (choice == null || !context.mounted) return false;
+  if (demo.conversations[demo.conversation].id != chatId) {
+    toast(context, '对话已切换，请重新选择。');
+    return false;
+  }
+  if (choice == ChatMediaChoice.describedVoice) {
+    return composeChatMedia(
+      context,
+      photo: false,
+      streamingOverride: streamingOverride,
+    );
+  }
+  return sendSystemChatPhoto(
+    context,
+    source: choice == ChatMediaChoice.camera
+        ? ImageSource.camera
+        : ImageSource.gallery,
+    streamingOverride: streamingOverride,
+    picker: picker,
+  );
+}
+
 Future<bool> composeChatMedia(
   BuildContext context, {
   required bool photo,
   bool? streamingOverride,
   bool initiallyReal = false,
 }) async {
+  if (photo && initiallyReal) {
+    return showChatMediaActions(context, streamingOverride: streamingOverride);
+  }
   final chatId = demo.conversations[demo.conversation].id;
   final text = TextEditingController();
   final speech = _SpeechDraft();
-  bool described = !initiallyReal, busy = false;
-  String? data, error;
-  bool sent = false;
+  final described = !initiallyReal;
+  bool busy = false, sent = false;
+  String? error;
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (dialog) => StatefulBuilder(
       builder: (c, change) => AlertDialog(
-        title: Text(photo ? '发送图片' : '发送语音'),
+        title: Text(
+          photo
+              ? '照片描述'
+              : described
+              ? '语音描述'
+              : '语音消息',
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(
-                    value: true,
-                    label: Text(photo ? '描述图片' : '描述语音'),
-                  ),
-                  ButtonSegment(
-                    value: false,
-                    label: Text(photo ? '真实图片' : '麦克风'),
-                  ),
-                ],
-                selected: {described},
-                onSelectionChanged: busy
-                    ? null
-                    : (v) => change(() {
-                        described = v.first;
-                        error = null;
-                      }),
-              ),
-              const SizedBox(height: 16),
-              if (photo && !described) ...[
-                if (data != null)
-                  Image.memory(
-                    base64Decode(data!.split(',').last),
-                    height: 150,
-                    fit: BoxFit.contain,
-                  ),
-                OutlinedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          change(() {
-                            busy = true;
-                            error = null;
-                          });
-                          try {
-                            final source =
-                                await showModalBottomSheet<ImageSource>(
-                                  context: c,
-                                  builder: (sheet) => SafeArea(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          leading: const Icon(
-                                            Icons.photo_library_outlined,
-                                          ),
-                                          title: const Text('从相册选择'),
-                                          onTap: () => Navigator.pop(
-                                            sheet,
-                                            ImageSource.gallery,
-                                          ),
-                                        ),
-                                        if (!kIsWeb)
-                                          ListTile(
-                                            leading: const Icon(
-                                              Icons.camera_alt_outlined,
-                                            ),
-                                            title: const Text('拍摄照片'),
-                                            onTap: () => Navigator.pop(
-                                              sheet,
-                                              ImageSource.camera,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                            if (source == null) return;
-                            final file = await mediaPickerSession.run(
-                              MediaDestination.chatImage,
-                              () => ImagePicker().pickImage(
-                                source: source,
-                                maxWidth: 1600,
-                                maxHeight: 1600,
-                                imageQuality: 85,
-                                requestFullMetadata: false,
-                              ),
-                            );
-                            if (file != null) {
-                              final bytes = await normalizeChatPhoto(
-                                await file.readAsBytes(),
-                              );
-                              if (c.mounted)
-                                change(
-                                  () => data =
-                                      'data:image/png;base64,${base64Encode(bytes)}',
-                                );
-                            }
-                          } catch (_) {
-                            if (c.mounted)
-                              change(() => error = '图片未导入，请选择有效图片。');
-                          } finally {
-                            if (c.mounted) change(() => busy = false);
-                          }
-                        },
-                  icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(busy ? '正在导入…' : '选择或拍摄照片'),
-                ),
-                const Text(
-                  '压缩后的图片会发送给当前模型，需要模型和接口支持图片理解。',
-                  style: TextStyle(fontSize: 12, height: 1.6),
-                ),
-              ],
               if (!photo && !described) ...[
                 OutlinedButton.icon(
                   onPressed: busy
@@ -249,8 +269,8 @@ Future<bool> composeChatMedia(
                   '使用手机的语音识别，将转写内容作为语音消息交给角色。',
                   style: TextStyle(fontSize: 12, height: 1.6),
                 ),
+                const SizedBox(height: 12),
               ],
-              const SizedBox(height: 12),
               TextField(
                 controller: text,
                 minLines: 3,
@@ -258,8 +278,10 @@ Future<bool> composeChatMedia(
                 maxLength: 10000,
                 decoration: InputDecoration(
                   labelText: photo
-                      ? (described ? '照片内容描述' : '图片说明（可选）')
-                      : (described ? '语音内容' : '识别结果，可修改'),
+                      ? '照片内容描述'
+                      : described
+                      ? '语音内容'
+                      : '识别结果，可修改',
                   hintText: photo ? '例如：傍晚的海边，我穿着白色衬衫。' : '输入想对角色说的话…',
                   alignLabelWithHint: true,
                 ),
@@ -290,19 +312,14 @@ Future<bool> composeChatMedia(
                       change(() => error = '对话已切换，请重新发送。');
                       return;
                     }
-                    if ((described || !photo) && text.text.trim().isEmpty) {
+                    if (text.text.trim().isEmpty) {
                       change(() => error = '请先填写内容。');
                       return;
                     }
-                    if (photo && !described && data == null) {
-                      change(() => error = '请先选择图片。');
-                      return;
-                    }
                     final ok = demo.send(
-                      text.text.trim().isEmpty ? '照片' : text.text,
-                      kind: photo ? (described ? 'photo' : 'image') : 'voice',
+                      text.text,
+                      kind: photo ? 'photo' : 'voice',
                       described: described,
-                      imageData: photo && !described ? data : null,
                       streamingOverride: streamingOverride,
                     );
                     if (ok) {

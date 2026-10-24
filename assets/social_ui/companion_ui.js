@@ -53,11 +53,12 @@
     if(!state)return false;
     const action=node.dataset.companion,a=node.dataset.interaction,tool=node.dataset.tool,qq=node.dataset.qq;
     const media=action==='photo'||a==='describe-image'||qq==='describe-image'?'photo':action==='voice'||a==='describe-voice'||qq==='describe-voice'?'voice':null;
-    const realPhoto=a==='image'||tool==='image'||tool==='camera';
+    const camera=a==='camera'||tool==='camera';
+    const realPhoto=a==='image'||tool==='image'||camera;
     const realVoice=a==='voice'||tool==='voice';
     if(!action&&!media&&!realPhoto&&!realVoice)return false;
     event.preventDefault();event.stopImmediatePropagation();
-    if(media||realPhoto||realVoice){SkivuHost.emit('composeMedia',{kind:media||(realPhoto?'photo':'voice'),real:!!(realPhoto||realVoice)});return true}
+    if(media||realPhoto||realVoice){SkivuHost.emit('composeMedia',{kind:media||(realPhoto?'photo':'voice'),real:!!(realPhoto||realVoice),...(realPhoto?{source:camera?'camera':'chooser'}:{})});return true}
     if(action==='confirm')SkivuHost.emit('confirmBatch');
     if(action==='discard')SkivuHost.emit('discardBatch');
     if(action==='manage-stickers')SkivuHost.emit('stickerLibrary');

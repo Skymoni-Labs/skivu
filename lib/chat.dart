@@ -334,22 +334,29 @@ class _ChatPageState extends State<ChatPage> {
       children: [
         ListTile(
           leading: const Icon(Icons.image_outlined),
-          title: const Text('照片与图片'),
-          subtitle: const Text('上传图片，或描述一张照片'),
+          title: const Text('相册与拍照'),
           onTap: () async {
             Navigator.pop(sheet);
             follow = true;
-            await composeChatMedia(context, photo: true);
+            await showChatMediaActions(context);
           },
         ),
         ListTile(
           leading: const Icon(Icons.graphic_eq),
-          title: const Text('语音消息'),
-          subtitle: const Text('麦克风识别，或打字描述语音'),
+          title: const Text('语音识别'),
           onTap: () async {
             Navigator.pop(sheet);
             follow = true;
-            await composeChatMedia(context, photo: false);
+            await composeChatMedia(context, photo: false, initiallyReal: true);
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.description_outlined),
+          title: const Text('照片描述'),
+          onTap: () async {
+            Navigator.pop(sheet);
+            follow = true;
+            await composeChatMedia(context, photo: true);
           },
         ),
         ListTile(

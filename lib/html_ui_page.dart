@@ -17,6 +17,7 @@ import 'glass_preferences.dart';
 import 'chat_backdrop.dart';
 import 'ui_chat_appearance.dart';
 import 'chat_extras.dart';
+import 'package:image_picker/image_picker.dart';
 import 'ui_document_port.dart';
 import 'ui_document_native.dart'
     if (dart.library.js_interop) 'ui_document_web.dart'
@@ -248,7 +249,15 @@ class _HtmlUiPageState extends State<HtmlUiPage> {
     } else if (action == 'models') {
       await showChatModelPicker(context);
     } else if (action == 'composeMedia') {
-      if (value['kind'] == 'photo' || value['kind'] == 'voice') {
+      if (value['kind'] == 'photo' && value['source'] == 'camera') {
+        await sendSystemChatPhoto(
+          context,
+          source: ImageSource.camera,
+          streamingOverride: false,
+        );
+      } else if (value['kind'] == 'photo' && value['real'] == true) {
+        await showChatMediaActions(context, streamingOverride: false);
+      } else if (value['kind'] == 'photo' || value['kind'] == 'voice') {
         await composeChatMedia(
           context,
           photo: value['kind'] == 'photo',
