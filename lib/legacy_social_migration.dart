@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'state.dart';
 import 'social_activity.dart';
 import 'ui_plugins.dart';
+import 'native_social_local_options.dart';
 import 'legacy_social_migration_native.dart'
     if (dart.library.js_interop) 'legacy_social_migration_web.dart'
     as platform;
@@ -28,14 +29,19 @@ class LegacySocialMigration extends ChangeNotifier {
   LegacySocialMigration({
     DemoStore? store,
     SocialActivity? activity,
+    NativeSocialLocalOptions? localOptions,
     LegacyArchiveReader? archiveReader,
     bool? supported,
   }) : store = store ?? demo,
        activity = activity ?? socialActivity,
+       localOptions = localOptions ?? nativeSocialLocalOptions,
        _read = archiveReader ?? platform.readArchive,
        _supported = supported ?? platform.supported;
 
   static const doneKey = 'skivu.legacy-social.import.v1';
+  // Separate from the first importer: installations which already migrated
+  // profile/posts must still recover the previously archived preview options.
+  static const optionsDoneKey = 'skivu.legacy-social.options-import.v1';
   static const schema = 'skivu-legacy-social-v1';
   static const storageKeys = [
     'skivu.host.social.v1',
@@ -52,6 +58,7 @@ class LegacySocialMigration extends ChangeNotifier {
   };
   final DemoStore store;
   final SocialActivity activity;
+  final NativeSocialLocalOptions localOptions;
   final LegacyArchiveReader _read;
   final bool _supported;
   LegacySocialStatus status = LegacySocialStatus.idle;
@@ -96,7 +103,8 @@ class LegacySocialMigration extends ChangeNotifier {
     _changed();
     try {
       final preferences = await SharedPreferences.getInstance();
-      if (preferences.getBool(doneKey) == true) {
+      final contentDone = preferences.getBool(doneKey) == true;
+      if (contentDone && preferences.getBool(optionsDoneKey) == true) {
         status = LegacySocialStatus.complete;
         _changed();
         return true;
@@ -107,6 +115,12 @@ class LegacySocialMigration extends ChangeNotifier {
       if (raw == null) throw StateError('No verified archive');
       final archive = decodeArchive(raw);
       final storage = archive['storage'] as Map;
+      await _importLocalOptions(preferences, storage);
+      if (contentDone) {
+        status = LegacySocialStatus.complete;
+        _changed();
+        return true;
+      }
       final hostText = storage[storageKeys.first] as String?;
       final host = hostText == null
           ? <String, dynamic>{}
@@ -184,6 +198,99 @@ class LegacySocialMigration extends ChangeNotifier {
       _changed();
       return false;
     }
+  }
+
+  Future<void> _importLocalOptions(
+    SharedPreferences preferences,
+    Map storage,
+  ) async {
+    if (preferences.getBool(optionsDoneKey) == true) return;
+    Map? object(String key) {
+      final raw = storage[key];
+      if (raw == null) return null;
+      try {
+        final value = jsonDecode(raw as String);
+        return value is Map ? value : null;
+      } on FormatException {
+        // A malformed prototype is still preserved verbatim in the archive;
+        // it must not prevent unrelated real profile/posts from recovering.
+        return null;
+      }
+    }
+
+    final prototype = object(storageKeys[1]);
+    final presentation = object(storageKeys[2]);
+    final settings = presentation?['settings'];
+    const fonts = [13, 14, 15, 16, 18];
+    final nativeFont = settings is Map ? settings['nativeFont'] : null;
+    final fallbackFont = settings is Map ? settings['font'] : null;
+    final font = nativeFont is int && fonts.contains(nativeFont)
+        ? nativeFont
+        : fallbackFont is int && fonts.contains(fallbackFont)
+        ? fallbackFont
+        : null;
+    await localOptions.restore();
+    final currentRaw = preferences.getString(
+      NativeSocialLocalOptions.storageKey,
+    );
+    final Map<String, dynamic> current;
+    if (currentRaw == null) {
+      current = {};
+    } else {
+      final decoded = jsonDecode(currentRaw);
+      if (decoded is! Map)
+        throw const FormatException('Invalid current options');
+      current = Map<String, dynamic>.from(decoded);
+    }
+    final recovered = <String, dynamic>{
+      if (font != null) 'fontSize': font,
+      if (prototype?['notifications'] is bool)
+        'notifications': prototype!['notifications'],
+      if (prototype?['quiet'] is bool) 'quiet': prototype!['quiet'],
+      if (prototype?['note'] is String &&
+          (prototype!['note'] as String).length <= 4000)
+        'note': prototype['note'],
+    };
+    final additions = {
+      for (final entry in recovered.entries)
+        if (!current.containsKey(entry.key)) entry.key: entry.value,
+    };
+    if (additions.isNotEmpty) {
+      final merged = {...current, ...additions};
+      // Preserve existing false/empty values and unknown future fields. An
+      // ordinary UI setter would enqueue a second write and couple retries to
+      // its queue; notify mounted readers only after the direct write verifies.
+      final encoded = jsonEncode(merged);
+      try {
+        if (!await preferences.setString(
+          NativeSocialLocalOptions.storageKey,
+          encoded,
+        ))
+          throw StateError('Local options could not be saved');
+        // SharedPreferences setters update the cache before platform IO. A
+        // reload is required to verify durable data rather than our own cache.
+        await preferences.reload();
+        if (preferences.getString(NativeSocialLocalOptions.storageKey) !=
+            encoded)
+          throw StateError('Local options read-back did not match');
+      } catch (_) {
+        // A failed setter may still have updated its cache. Restore the prior
+        // destination so retry never mistakes an uncommitted import for newer
+        // user data. The verified raw legacy archive is never touched.
+        if (currentRaw == null) {
+          await preferences.remove(NativeSocialLocalOptions.storageKey);
+        } else {
+          await preferences.setString(
+            NativeSocialLocalOptions.storageKey,
+            currentRaw,
+          );
+        }
+        rethrow;
+      }
+      localOptions.reloadSnapshot(merged);
+    }
+    if (!await preferences.setBool(optionsDoneKey, true))
+      throw StateError('Local options completion could not be saved');
   }
 
   static Map<String, dynamic> decodeArchive(String raw) {

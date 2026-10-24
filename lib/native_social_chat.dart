@@ -7,15 +7,20 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'appearance.dart';
-import 'assistant_reply_layout.dart';
-import 'character_avatar.dart';
+import 'native_social_portrait.dart';
 import 'chat_bubble_surface.dart';
 import 'chat_controls.dart';
 import 'chat_extras.dart';
 import 'message_info_row.dart';
 import 'native_social_media.dart';
+import 'native_social_icons.dart';
+import 'native_social_chat_widgets.dart';
+import 'native_social_media_preview.dart';
+import 'native_social_finance.dart';
+import 'ui_chat_appearance.dart';
+import 'glass_preferences.dart';
+import 'native_social_local_options.dart';
 import 'state.dart';
-import 'sticker_library_page.dart';
 import 'ui_plugins.dart';
 import 'ui_host_binding.dart';
 import 'virtual_wallet.dart';
@@ -33,6 +38,8 @@ class NativeSocialChat extends StatefulWidget {
     this.store,
     this.active = true,
     this.locateMessage,
+    this.navigate,
+    this.onRole,
   });
 
   final ChatUiMode mode;
@@ -41,6 +48,8 @@ class NativeSocialChat extends StatefulWidget {
   final DemoStore? store;
   final bool active;
   final Message? locateMessage;
+  final ValueChanged<String>? navigate;
+  final ValueChanged<String>? onRole;
 
   @override
   State<NativeSocialChat> createState() => _NativeSocialChatState();
@@ -56,7 +65,11 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
   List<_SocialChatItem> _items = [];
   bool _follow = true, _followQueued = false, _loadingDraft = false;
   int _seek = 0;
+  int _mediaPause = 0;
   double? _height;
+  double _availableHeight = 900;
+  String _panel = '';
+  bool _voiceMode = false;
   Color get _accent => widget.mode == ChatUiMode.qq
       ? const Color(0xff1497e8)
       : const Color(0xff07a95c);
@@ -71,6 +84,9 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     _input.addListener(_draftChanged);
     _store.addListener(_update);
     virtualWallet.addListener(_update);
+    nativeSocialLocalOptions.addListener(_update);
+    glassPreferences.addListener(_update);
+    _focus.addListener(_focusChanged);
     _rebuildItems();
     _reader();
     if (widget.locateMessage == null) {
@@ -107,6 +123,10 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     });
   }
 
+  void _focusChanged() {
+    if (_focus.hasFocus && _panel.isNotEmpty) setState(() => _panel = '');
+  }
+
   void _draftChanged() {
     if (!_loadingDraft) _store.saveDraft(_chat, _input.text);
     if (mounted) setState(() {});
@@ -125,6 +145,8 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     _input.text = next.draft;
     _loadingDraft = false;
     _keys.clear();
+    _panel = '';
+    _voiceMode = false;
     _follow = true;
     _reader();
     _bottom();
@@ -167,6 +189,9 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     _store.setChatReader(this, null);
     _store.removeListener(_update);
     virtualWallet.removeListener(_update);
+    nativeSocialLocalOptions.removeListener(_update);
+    glassPreferences.removeListener(_update);
+    _focus.removeListener(_focusChanged);
     _input.removeListener(_draftChanged);
     _input.dispose();
     _focus.dispose();
@@ -261,6 +286,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     }
     _follow = true;
     if (_store.send(_input.text, streamingOverride: false)) {
+      _panel = '';
       _input.clear();
       _bottom();
     } else {
@@ -310,11 +336,9 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
   Future<void> _messageMenu(Message message) async {
     final chat = _chat;
     final media = _messageAttachment(message);
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheet) => SingleChildScrollView(
+    final choice = await _fullPage<String>(
+      '消息',
+      (sheet) => SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -388,7 +412,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
         (message.kind == 'sticker'
             ? _store.stickerFor(message.stickerId)?.data
             : null);
-    if (data == null) return null;
+    if (data == null || data.startsWith('data:image/gif;')) return null;
     return {
       'id': 'native-image-${message.created.microsecondsSinceEpoch}',
       'kind': 'image',
@@ -403,73 +427,91 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
 
   Future<void> _history() async {
     final chat = _chat;
-    String query = '';
-    bool saved = false;
-    final id = await showModalBottomSheet<Object>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheet) => StatefulBuilder(
-        builder: (sheet, change) {
+    var query = '';
+    var saved = false;
+    final id = await _fullPage<Object>(
+      '查找聊天记录',
+      (page) => StatefulBuilder(
+        builder: (page, change) {
           final items = _items
               .where(
                 (item) =>
-                    item.preview.contains(query) &&
+                    item.preview.toLowerCase().contains(query.toLowerCase()) &&
                     (!saved || item.message?.bookmarked == true),
               )
               .toList();
-          return SizedBox(
-            height: MediaQuery.sizeOf(sheet).height * .72,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text('聊天记录', style: TextStyle(fontSize: 20)),
+          return Column(
+            children: [
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          prefixIcon: NativeSocialIcon('search', size: 20),
+                          hintText: '搜索这段对话',
+                          filled: true,
+                          fillColor: Color(0xfff5f5f5),
+                          isDense: true,
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (value) => change(() => query = value),
                       ),
-                      FilterChip(
-                        label: const Text('仅收藏'),
-                        selected: saved,
-                        onSelected: (value) => change(() => saved = value),
-                      ),
-                    ],
-                  ),
-                  TextField(
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: '搜索这段对话',
                     ),
-                    onChanged: (value) => change(() => query = value),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: items.length,
-                      itemBuilder: (_, index) {
-                        final item = items[index];
-                        return ListTile(
-                          title: Text(
-                            item.preview,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            '${item.user ? '我' : _speaker(item.message?.authorId).name} · ${_time(item.created)}',
-                          ),
-                          trailing: item.message?.bookmarked == true
-                              ? const Icon(Icons.bookmark)
-                              : const Icon(Icons.north_west),
-                          onTap: () => Navigator.pop(sheet, item.id),
-                        );
-                      },
+                    const SizedBox(width: 10),
+                    FilterChip(
+                      label: const Text('仅收藏'),
+                      selected: saved,
+                      onSelected: (value) => change(() => saved = value),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (_, index) {
+                    final item = items[index];
+                    return Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Color(0xffeeeeee),
+                            width: .5,
+                          ),
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        title: Text(
+                          item.preview,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, height: 1.6),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '${item.user ? '我' : _speaker(item.message?.authorId).name} · ${_time(item.created)}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xff999999),
+                            ),
+                          ),
+                        ),
+                        onTap: () => Navigator.pop(page, item.id),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -477,48 +519,187 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     if (id != null && mounted && identical(chat, _chat)) _locate(id);
   }
 
-  Future<void> _tools() async {
+  void _tools() => _togglePanel('more');
+
+  void _togglePanel(String kind) {
     _focus.unfocus();
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheet) => SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final option in <(String, String, IconData)>[
-              ('album', '相册', Icons.photo_library_outlined),
-              ('camera', '拍摄照片', Icons.camera_alt_outlined),
-              ('speech', '语音识别', Icons.mic_none),
-              ('sticker', '表情包', Icons.emoji_emotions_outlined),
-              ('call', '语音通话', Icons.call_outlined),
-              ('redpacket', '红包 · 虚拟互动', Icons.redeem_outlined),
-              ('transfer', '转账 · 虚拟互动', Icons.swap_horiz),
-              ('gift', '礼物 · 本机虚拟互动', Icons.card_giftcard),
-              ('file', '文件 · 本机附件', Icons.attach_file),
-              ('location', '位置 · 手动填写', Icons.location_on_outlined),
-              ('contact', '角色名片', Icons.person_outline),
-              ('music', '音乐 · 本机音频', Icons.music_note),
-              ('history', '查找聊天记录', Icons.search),
-              ('models', '选择模型', Icons.tune),
-            ])
-              ListTile(
-                leading: Icon(option.$3),
-                title: Text(option.$2),
-                onTap: () => Navigator.pop(sheet, option.$1),
-              ),
-            const ListTile(
-              enabled: false,
-              leading: Icon(Icons.videocam_outlined),
-              title: Text('视频通话'),
-              trailing: Text('开发中'),
-            ),
-          ],
+    setState(() {
+      _voiceMode = false;
+      _panel = _panel == kind ? '' : kind;
+    });
+    if (_follow) _bottom();
+  }
+
+  Future<T?> _fullPage<T>(
+    String title,
+    Widget Function(BuildContext) content, {
+    bool interaction = false,
+    bool more = true,
+  }) => Navigator.of(context).push<T>(
+    MaterialPageRoute<T>(
+      builder: (page) => Scaffold(
+        backgroundColor: interaction && !_wechat
+            ? const Color(0xfff3f4f6)
+            : const Color(0xffededed),
+        appBar: AppBar(
+          toolbarHeight: 54,
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: interaction && !_wechat
+              ? Colors.white
+              : const Color(0xffededed),
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            tooltip: '返回',
+            onPressed: () => Navigator.pop(page),
+            icon: const NativeSocialIcon('chevron-left'),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+          ),
+          actions: interaction && more
+              ? [
+                  IconButton(
+                    tooltip: '更多',
+                    onPressed: () => _interactionMore(page),
+                    icon: const NativeSocialIcon('more'),
+                  ),
+                ]
+              : null,
+        ),
+        body: SafeArea(top: false, child: content(page)),
+      ),
+    ),
+  );
+
+  Future<void> _interactionMore(BuildContext origin) async {
+    final selected = await _fullPage<String>(
+      '更多',
+      (page) => SingleChildScrollView(
+        padding: _wechat ? EdgeInsets.zero : const EdgeInsets.all(14),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_wechat ? 0 : 12),
+          child: Column(
+            children: [
+              for (final item in [
+                ('wallet', '钱包', 'wallet'),
+                ('models', '选择模型', 'sparkles'),
+                ('settings', '设置', 'settings'),
+              ])
+                ListTile(
+                  minTileHeight: 58,
+                  minVerticalPadding: 0,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  tileColor: Colors.white,
+                  leading: NativeSocialIcon(item.$3, size: 22),
+                  title: Text(item.$2, style: const TextStyle(fontSize: 16)),
+                  onTap: () => Navigator.pop(page, item.$1),
+                ),
+            ],
+          ),
         ),
       ),
+      interaction: true,
+      more: false,
     );
-    if (!mounted) return;
+    if (!mounted || !origin.mounted || selected == null) return;
+    if (selected == 'models') {
+      await showChatModelPicker(origin);
+    } else {
+      Navigator.pop(origin);
+      if (selected == 'settings') {
+        widget.go('/settings');
+      } else if (widget.navigate != null) {
+        widget.navigate!('wallet');
+      } else {
+        toast(context, '请从社交页面的钱包入口查看本机账本。');
+      }
+    }
+  }
+
+  Future<void> _voiceCallPreview() async {
+    final chat = _chat, role = _speaker(_chat.personaId);
+    await _fullPage<void>(
+      '语音通话',
+      (page) => ListView(
+        padding: const EdgeInsets.fromLTRB(24, 70, 24, 30),
+        children: [
+          Center(
+            child: NativeSocialPortrait(
+              mode: widget.mode,
+              persona: role,
+              size: 86,
+              large: true,
+              borderRadius: 12,
+              store: _store,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            role.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
+          ),
+          const SizedBox(height: 15),
+          const Text(
+            '使用 Skivu 角色语音引擎',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Color(0xff888888)),
+          ),
+          const SizedBox(height: 45),
+          Center(
+            child: SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+                icon: const NativeSocialIcon(
+                  'phone',
+                  color: Colors.white,
+                  size: 22,
+                ),
+                label: const Text('开始语音通话'),
+                onPressed: () {
+                  if (!identical(chat, _chat) ||
+                      !_store.personas.contains(role)) {
+                    toast(page, '对话已切换，请重新打开语音通话。');
+                    return;
+                  }
+                  Navigator.pop(page);
+                  widget.go('/call');
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+      interaction: true,
+    );
+  }
+
+  void _insertEmoji(String value) {
+    final selection = _input.selection;
+    final start = selection.isValid ? selection.start : _input.text.length;
+    final end = selection.isValid ? selection.end : _input.text.length;
+    final next = _input.text.replaceRange(start, end, value);
+    if (next.length > 10000) {
+      toast(context, '单条消息最多 10000 字符，完整草稿已保留，请分条发送。');
+      return;
+    }
+    _input.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: start + value.length),
+    );
+  }
+
+  Future<void> _runTool(String action) async {
+    if (action != 'favorites') setState(() => _panel = '');
+    _focus.unfocus();
     _follow = true;
     switch (action) {
       case 'album':
@@ -536,27 +717,150 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
           initiallyReal: true,
           streamingOverride: false,
         );
-      case 'sticker':
-        await showStickerPicker(context, streamingOverride: false);
+      case 'describe-image':
+        await composeChatMedia(context, photo: true, streamingOverride: false);
       case 'call':
-        widget.go('/call');
+        await _voiceCallPreview();
       case 'models':
         await showChatModelPicker(context);
       case 'history':
         await _history();
+      case 'favorites':
+        await _favorites();
       case 'redpacket':
         await _composeWallet('redpacket');
+      case 'redpacket-menu':
+        await _redpacketMenu();
       case 'transfer':
         await _composeWallet('transfer');
       case 'gift':
-        await _composeWallet('gift');
+        await _gifts();
       case 'file' || 'music':
-        await _pickAttachment(action!);
+        await _pickAttachment(action);
       case 'location':
         await _location();
       case 'contact':
         await _contact();
+      case 'screen':
+        await _fullPage<void>(
+          '屏幕分享',
+          (_) => const Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              '当前原生客户端暂不支持本机屏幕预览，不连接其他设备。',
+              style: TextStyle(fontSize: 15, height: 1.7),
+            ),
+          ),
+          interaction: true,
+        );
     }
+  }
+
+  Future<void> _favorites() async {
+    await _fullPage<void>('收藏', (_) {
+      final items = _store.conversations
+          .expand((chat) => chat.messages)
+          .where((m) => m.bookmarked)
+          .toList();
+      return items.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                '暂时没有收藏的消息',
+                style: TextStyle(fontSize: 13, color: Color(0xff999999)),
+              ),
+            )
+          : ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (_, index) => ListTile(
+                tileColor: Colors.white,
+                title: Text(
+                  items[index].text,
+                  style: const TextStyle(fontSize: 14, height: 1.7),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  final chat = _store.conversations.firstWhere(
+                    (chat) => chat.messages.contains(items[index]),
+                  );
+                  _store.selectChat(_store.conversations.indexOf(chat));
+                  _locate(items[index]);
+                },
+              ),
+            );
+    }, interaction: true);
+  }
+
+  Future<void> _gifts() async {
+    final gift = await _fullPage<(String, int)>(
+      '礼物',
+      (page) => Column(
+        children: [
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 2,
+              childAspectRatio: 1,
+              padding: const EdgeInsets.all(16),
+              mainAxisSpacing: 15,
+              crossAxisSpacing: 15,
+              children: [
+                for (final item in [
+                  ('🌹', '一枝玫瑰', 100),
+                  ('☕', '一杯咖啡', 520),
+                  ('⭐', '一颗星星', 1314),
+                  ('🎂', '生日蛋糕', 2000),
+                ])
+                  InkWell(
+                    onTap: () => Navigator.pop(page, (item.$2, item.$3)),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(item.$1, style: const TextStyle(fontSize: 45)),
+                          const SizedBox(height: 15),
+                          Text(item.$2, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(height: 10),
+                          Text(
+                            '¥${(item.$3 / 100).toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xff999999),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              '角色互动 · 虚拟资金，仅保存在此设备',
+              style: TextStyle(fontSize: 12, color: Color(0xff999999)),
+            ),
+          ),
+        ],
+      ),
+      interaction: true,
+    );
+    if (gift != null && mounted)
+      await showNativeSocialFinance(
+        context,
+        mode: widget.mode,
+        kind: 'gift',
+        store: _store,
+        giftCents: gift.$2,
+        giftName: gift.$1,
+        navigate: widget.navigate,
+        go: widget.go,
+        onCreated: _latest,
+      );
   }
 
   Persona _speaker(String? id) =>
@@ -589,7 +893,36 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     final chat = _chat;
     try {
       final event = await pickNativeChatFile(kind: kind);
-      if (event != null) _appendEvent(chat, event);
+      if (event != null && mounted) {
+        final confirmed = await _fullPage<bool>(
+          kind == 'music' ? '发送音乐' : '发送文件',
+          (page) => SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                NativeSocialMediaPreview(event: event, expanded: true),
+                const SizedBox(height: 22),
+                const Text(
+                  '仅保存至当前角色对话，不发送给其他用户',
+                  style: TextStyle(fontSize: 12, color: Color(0xff999999)),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 45,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: _accent),
+                    onPressed: () => Navigator.pop(page, true),
+                    child: const Text('发送'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          interaction: true,
+        );
+        if (confirmed == true) _appendEvent(chat, event);
+      }
     } catch (error) {
       if (mounted)
         toast(
@@ -600,45 +933,66 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
   }
 
   Future<void> _location() async {
-    final chat = _chat;
-    final name = TextEditingController(), address = TextEditingController();
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('位置 · 手动填写'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('保存你填写的位置描述，不读取手机定位。'),
-              TextField(
-                controller: name,
-                maxLength: 120,
-                decoration: const InputDecoration(labelText: '地点名称'),
+    final chat = _chat,
+        name = TextEditingController(),
+        address = TextEditingController();
+    final yes = await _fullPage<bool>(
+      '位置',
+      (page) => SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 18),
+              child: Text(
+                '手动填写并保存位置描述，不读取手机定位。',
+                style: TextStyle(fontSize: 12, color: Color(0xff999999)),
               ),
-              TextField(
-                controller: address,
-                maxLength: 300,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: '地址或位置描述'),
+            ),
+            TextField(
+              controller: name,
+              maxLength: 120,
+              decoration: const InputDecoration(
+                labelText: '地点名称',
+                filled: true,
+                fillColor: Colors.white,
+                border: InputBorder.none,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: address,
+              maxLength: 300,
+              minLines: 3,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: '地址或位置描述',
+                filled: true,
+                fillColor: Colors.white,
+                border: InputBorder.none,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 45,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _accent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                onPressed: () {
+                  if (name.text.trim().isNotEmpty) Navigator.pop(page, true);
+                },
+                child: const Text('保存到聊天'),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (name.text.trim().isNotEmpty) Navigator.pop(dialog, true);
-            },
-            child: const Text('保存到聊天'),
-          ),
-        ],
       ),
+      interaction: true,
     );
     if (yes == true)
       _appendEvent(chat, {
@@ -655,23 +1009,31 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
 
   Future<void> _contact() async {
     final chat = _chat;
-    final role = await showModalBottomSheet<Persona>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheet) => ListView.builder(
-        shrinkWrap: true,
+    final role = await _fullPage<Persona>(
+      '选择名片',
+      (page) => ListView.builder(
         itemCount: _store.personas.length,
         itemBuilder: (_, index) {
           final role = _store.personas[index];
           return ListTile(
-            leading: CharacterAvatar(persona: role),
-            title: Text(role.name),
-            subtitle: const Text('本机角色名片'),
-            onTap: () => Navigator.pop(sheet, role),
+            tileColor: Colors.white,
+            leading: NativeSocialPortrait(
+              mode: widget.mode,
+              persona: role,
+              size: 45,
+              borderRadius: 6,
+              store: _store,
+            ),
+            title: Text(role.name, style: const TextStyle(fontSize: 16)),
+            subtitle: const Text(
+              '本机角色名片',
+              style: TextStyle(fontSize: 12, color: Color(0xff999999)),
+            ),
+            onTap: () => Navigator.pop(page, role),
           );
         },
       ),
+      interaction: true,
     );
     if (role != null)
       _appendEvent(chat, {
@@ -683,260 +1045,201 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
       });
   }
 
-  Future<void> _composeWallet(String kind) async {
-    final chat = _chat, role = _speaker(null);
-    if (chat.groupMembers.isNotEmpty) {
-      toast(context, '请在与角色的单独对话中使用虚拟红包和转账。');
-      return;
-    }
-    final amount = TextEditingController(), note = TextEditingController();
-    bool incoming = false, busy = false;
-    String? error;
-    await showDialog<void>(
-      context: context,
-      builder: (dialog) => StatefulBuilder(
-        builder: (dialog, change) => AlertDialog(
-          title: Text(_walletTitle(kind)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('角色扮演互动，仅记录本机虚拟零钱。'),
-                TextField(
-                  controller: amount,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    labelText: '金额',
-                    prefixText: '¥ ',
-                  ),
-                ),
-                TextField(
-                  controller: note,
-                  maxLength: 100,
-                  decoration: const InputDecoration(labelText: '备注'),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('由${role.name}发给我'),
-                  value: incoming,
-                  onChanged: busy
-                      ? null
-                      : (value) => change(() => incoming = value),
-                ),
-                if (error != null)
-                  Text(
-                    error!,
-                    style: TextStyle(color: Theme.of(dialog).colorScheme.error),
-                  ),
-              ],
+  Future<void> _redpacketMenu() async {
+    final chat = _chat;
+    final selected = await _fullPage<bool>(
+      '红包',
+      (page) => ListView(
+        children: [
+          for (final item in [('红包', 'envelope'), ('拜年红包', 'gift')])
+            ListTile(
+              tileColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 8,
+              ),
+              leading: NativeSocialIcon(item.$2),
+              title: Text(item.$1, style: const TextStyle(fontSize: 16)),
+              onTap: () => Navigator.pop(page, true),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: busy ? null : () => Navigator.pop(dialog),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: busy
-                  ? null
-                  : () async {
-                      if (!identical(chat, _chat)) {
-                        change(() => error = '对话已切换，请重新操作。');
-                        return;
-                      }
-                      final value = amount.text.trim();
-                      if (!RegExp(r'^\d{1,6}(\.\d{1,2})?$').hasMatch(value)) {
-                        change(() => error = '请填写有效金额，最多两位小数。');
-                        return;
-                      }
-                      final cents = (double.parse(value) * 100).round();
-                      change(() => busy = true);
-                      final failure = await virtualWallet.interact(
-                        requestId:
-                            'native-${DateTime.now().microsecondsSinceEpoch}',
-                        operation: 'create',
-                        chatId: chat.id,
-                        roleId: role.id,
-                        roleName: role.name,
-                        cents: cents,
-                        note: note.text,
-                        kind: kind,
-                        incoming: incoming,
-                      );
-                      if (!dialog.mounted) return;
-                      if (failure == null) {
-                        chat.placeholder = false;
-                        _store.changed();
-                        unawaited(_store.saveChats());
-                        Navigator.pop(dialog);
-                      } else {
-                        change(() {
-                          busy = false;
-                          error = failure;
-                        });
-                      }
-                    },
-              child: Text(busy ? '保存中…' : '确认'),
-            ),
-          ],
-        ),
+        ],
       ),
+      interaction: true,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    amount.dispose();
-    note.dispose();
+    if (selected == true && mounted && identical(chat, _chat))
+      await _composeWallet('redpacket');
   }
 
-  Future<void> _walletDetails(Map<String, dynamic> transaction) async {
-    final chat = _chat;
-    final operation = await showModalBottomSheet<String>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheet) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _walletTitle(transaction['kind']),
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '¥${((transaction['cents'] as int) / 100).toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 32),
-            ),
-            Text(transaction['note'] as String? ?? ''),
-            Text('仅本机角色扮演 · ${_walletState(transaction)}'),
-            if (transaction['state'] == 'pending') ...[
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: () => Navigator.pop(sheet, 'receive'),
-                child: Text(transaction['incoming'] == true ? '领取' : '由角色收取'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(sheet, 'refund'),
-                child: const Text('退回'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-    if (operation == null || !mounted || !identical(chat, _chat)) return;
-    final failure = await virtualWallet.interact(
-      requestId: 'native-${DateTime.now().microsecondsSinceEpoch}',
-      operation: operation,
-      chatId: chat.id,
-      roleId: transaction['roleId'],
-      roleName: transaction['roleName'] ?? '',
-      transactionId: transaction['id'],
-    );
-    if (failure != null && mounted) toast(context, failure);
-  }
+  Future<void> _composeWallet(String kind) => showNativeSocialFinance(
+    context,
+    mode: widget.mode,
+    kind: kind,
+    store: _store,
+    navigate: widget.navigate,
+    go: widget.go,
+    onCreated: _latest,
+  );
+
+  Future<void> _walletDetails(Map<String, dynamic> transaction) =>
+      showNativeSocialReceipt(
+        context,
+        transaction,
+        mode: widget.mode,
+        store: _store,
+        navigate: widget.navigate,
+        go: widget.go,
+      );
 
   String _walletState(Map<String, dynamic> value) => switch (value['state']) {
-    'received' => '已领取',
+    'received' => value['kind'] == 'redpacket' ? '已领取' : '已收款',
     'refunded' => '已退回',
-    _ => '待领取',
+    _ => value['kind'] == 'redpacket' ? '领取红包' : '待收款',
   };
 
   Future<void> _eventDetails(Map<String, dynamic> event) async {
-    final payload = event['payload'] as Map;
-    final kind = event['kind'];
+    setState(() => _mediaPause++);
+    final payload = event['payload'] as Map, kind = event['kind'];
     if (kind == 'contact') {
       final role = _store.personas
           .where((p) => p.id == payload['roleId'])
           .firstOrNull;
-      if (role != null) {
-        _store.persona = _store.personas.indexOf(role);
-        widget.go('/characters/edit');
-      } else {
+      if (role == null) {
         toast(context, '角色已不存在。');
+        return;
       }
+      if (widget.onRole != null) {
+        widget.onRole!(role.id);
+        return;
+      }
+      await _fullPage<void>(
+        '个人名片',
+        (page) => Column(
+          children: [
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  NativeSocialPortrait(
+                    mode: widget.mode,
+                    persona: role,
+                    size: 64,
+                    large: true,
+                    store: _store,
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          role.name,
+                          style: const TextStyle(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          role.subtitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xff888888),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              tileColor: Colors.white,
+              title: const Center(
+                child: Text('发消息', style: TextStyle(color: Color(0xff576b95))),
+              ),
+              onTap: () {
+                Navigator.pop(page);
+                final chat = _store.conversations
+                    .where(
+                      (chat) =>
+                          chat.personaId == role.id &&
+                          chat.groupMembers.isEmpty,
+                    )
+                    .firstOrNull;
+                if (chat == null)
+                  _store.newChat(personaId: role.id);
+                else
+                  _store.selectChat(_store.conversations.indexOf(chat));
+              },
+            ),
+            const SizedBox(height: 1),
+            ListTile(
+              tileColor: Colors.white,
+              title: const Center(child: Text('编辑角色资料')),
+              onTap: () {
+                Navigator.pop(page);
+                _store.persona = _store.personas.indexOf(role);
+                widget.go('/characters/edit');
+              },
+            ),
+          ],
+        ),
+      );
       return;
     }
-    final audio = kind == 'audio' || kind == 'music';
-    const audioChannel = MethodChannel('skivu/voice_call');
-    await showDialog<void>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(
-          payload['name']?.toString() ?? payload['label']?.toString() ?? '聊天附件',
-        ),
-        content: kind == 'image'
-            ? InteractiveViewer(
-                child: Image.memory(
-                  base64Decode((payload['data'] as String).split(',').last),
-                  errorBuilder: (_, _, _) => const Text('图片无法显示'),
-                ),
+    final media = const {
+      'image',
+      'video',
+      'audio',
+      'music',
+      'file',
+    }.contains(kind);
+    await _fullPage<void>(
+      payload['name']?.toString() ?? payload['label']?.toString() ?? '聊天记录',
+      (page) => SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (media)
+              Center(
+                child: NativeSocialMediaPreview(event: event, expanded: true),
               )
-            : SelectableText(
-                kind == 'location'
-                    ? '${payload['label']}\n${payload['address']}'
-                    : kind == 'call'
-                    ? '${payload['video'] == true ? '视频' : '语音'}通话 · ${payload['duration']} 秒'
-                    : '${payload['name'] ?? ''}\n${payload['bytes'] ?? 0} 字节 · 本机附件',
+            else
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: SelectableText(
+                  kind == 'location'
+                      ? '${payload['label']}\n${payload['address']}'
+                      : '${payload['video'] == true ? '视频' : '语音'}通话 · ${payload['duration']} 秒',
+                  style: const TextStyle(fontSize: 15, height: 1.7),
+                ),
               ),
-        actions: [
-          if (const {
-            'image',
-            'video',
-            'audio',
-            'music',
-            'file',
-          }.contains(kind)) ...[
-            TextButton.icon(
-              onPressed: () => openNativeChatAttachment(dialog, event),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('系统打开'),
-            ),
-            TextButton.icon(
-              onPressed: () => saveNativeChatAttachment(dialog, event),
-              icon: const Icon(Icons.save_alt),
-              label: const Text('另存'),
-            ),
-          ],
-          if (audio) ...[
-            TextButton.icon(
-              onPressed: () async {
-                try {
-                  await audioChannel.invokeMethod('playAudio', {
-                    'bytes': base64Decode(
-                      (payload['data'] as String).split(',').last,
+            if (media)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => openNativeChatAttachment(page, event),
+                      child: const Text('系统打开'),
                     ),
-                  });
-                } catch (_) {
-                  if (dialog.mounted) toast(dialog, '此设备暂时无法播放该音频。');
-                }
-              },
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('播放'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  await audioChannel.invokeMethod('stop');
-                } catch (_) {}
-              },
-              child: const Text('停止'),
-            ),
+                    const SizedBox(width: 16),
+                    TextButton(
+                      onPressed: () => saveNativeChatAttachment(page, event),
+                      child: const Text('另存'),
+                    ),
+                  ],
+                ),
+              ),
           ],
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: const Text('完成'),
-          ),
-        ],
+        ),
       ),
+      interaction: true,
     );
-    if (audio) {
-      try {
-        await audioChannel.invokeMethod('stop');
-      } catch (_) {}
-    }
   }
 
   Future<void> _hideItem(_SocialChatItem item) async {
@@ -952,158 +1255,330 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: Column(
-      children: [
-        _header(),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              if (_height != constraints.maxHeight) {
-                _height = constraints.maxHeight;
-                if (_follow) _bottom();
-              }
-              return Stack(
-                children: [
-                  if (_items.isEmpty)
-                    Center(
-                      child: Text(
-                        '和${_speaker(null).name}聊点什么吧',
-                        style: TextStyle(color: muted),
-                      ),
-                    ),
-                  NotificationListener<ScrollNotification>(
-                    onNotification: (event) {
-                      if (event is ScrollUpdateNotification &&
-                              event.dragDetails != null ||
-                          event is UserScrollNotification &&
-                              event.direction != ScrollDirection.idle) {
-                        // User inspection takes priority over a queued bottom
-                        // seek, including the first few pixels of a drag.
-                        if (_follow) {
-                          _seek++;
-                          setState(() => _follow = false);
-                        }
-                      }
-                      return false;
-                    },
-                    child: ListView.builder(
-                      key: ValueKey('social-chat-list-${_chat.id}'),
-                      controller: _scroll,
-                      // Keep frosted bubbles sampling the moving wallpaper, as
-                      // in the original presenter rather than cached layers.
-                      addRepaintBoundaries: false,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: EdgeInsets.fromLTRB(
-                        appearance.flag('wideChat') ? 8 : 14,
-                        18,
-                        appearance.flag('wideChat') ? 8 : 14,
-                        18,
-                      ),
-                      itemCount: _items.length,
-                      itemBuilder: (context, index) => _item(_items[index]),
-                    ),
-                  ),
-                  if (!_follow && _items.isNotEmpty)
-                    Positioned(
-                      right: 14,
-                      bottom: 12,
-                      child: FilledButton.tonalIcon(
-                        onPressed: _latest,
-                        icon: const Icon(
-                          Icons.keyboard_double_arrow_down,
-                          size: 18,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      _availableHeight = bounds.maxHeight;
+      return Material(
+        color:
+            UiChatAppearance().values(
+                  glassEnabled: _store.prefs['毛玻璃效果'] ?? true,
+                )['background'] ==
+                true
+            ? Colors.transparent
+            : Color(_wechat ? 0xffededed : 0xffefeff1),
+        child: Column(
+          children: [
+            _header(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (_height != constraints.maxHeight) {
+                    _height = constraints.maxHeight;
+                    if (_follow) _bottom();
+                  }
+                  return Stack(
+                    children: [
+                      if (_items.isEmpty)
+                        Center(
+                          child: Text(
+                            '和${_speaker(null).name}聊点什么吧',
+                            style: TextStyle(color: muted),
+                          ),
                         ),
-                        label: const Text('回到最新'),
+                      NotificationListener<ScrollNotification>(
+                        onNotification: (event) {
+                          if (event is ScrollUpdateNotification &&
+                                  event.dragDetails != null ||
+                              event is UserScrollNotification &&
+                                  event.direction != ScrollDirection.idle) {
+                            // User inspection takes priority over a queued bottom
+                            // seek, including the first few pixels of a drag.
+                            if (_follow) {
+                              _seek++;
+                              setState(() => _follow = false);
+                            }
+                          }
+                          return false;
+                        },
+                        child: ListView.builder(
+                          key: ValueKey('social-chat-list-${_chat.id}'),
+                          controller: _scroll,
+                          // Keep frosted bubbles sampling the moving wallpaper, as
+                          // in the original presenter rather than cached layers.
+                          addRepaintBoundaries: false,
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
+                          padding: EdgeInsets.fromLTRB(
+                            appearance.flag('wideChat') ? 8 : 12,
+                            _wechat ? 16 : 20,
+                            appearance.flag('wideChat') ? 8 : 12,
+                            _wechat ? 12 : 16,
+                          ),
+                          itemCount: _items.length,
+                          itemBuilder: (context, index) =>
+                              _item(_items[index], index),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
+                      if (!_follow && _items.isNotEmpty)
+                        Positioned(
+                          right: 14,
+                          bottom: 12,
+                          child: FilledButton.tonalIcon(
+                            onPressed: _latest,
+                            icon: const Icon(
+                              Icons.keyboard_double_arrow_down,
+                              size: 18,
+                            ),
+                            label: const Text('回到最新'),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            GestureDetector(onHorizontalDragStart: (_) {}, child: _composer()),
+          ],
+        ),
+      );
+    },
+  );
+
+  Widget _lineButton(
+    String name,
+    String label,
+    VoidCallback? onTap, {
+    double width = 36,
+    double height = 40,
+    double size = 27,
+    bool selected = false,
+  }) => Tooltip(
+    message: label,
+    child: Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          width: width,
+          height: height,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xffe1e4ea) : null,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: NativeSocialIcon(
+            name,
+            size: size,
+            color: onTap == null
+                ? const Color(0xffb3b3b3)
+                : const Color(0xff202329),
           ),
         ),
-        GestureDetector(onHorizontalDragStart: (_) {}, child: _composer()),
-      ],
+      ),
     ),
   );
 
-  Widget _header() => Container(
-    padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
-    decoration: BoxDecoration(
-      color: (_wechat ? const Color(0xfff3f3f3) : Colors.white).withValues(
-        alpha: .92,
-      ),
-      border: const Border(
-        bottom: BorderSide(color: Color(0x16000000), width: .5),
-      ),
-    ),
-    child: SizedBox(
-      height: 56,
-      child: Row(
+  Widget _headerTitle() => GestureDetector(
+    onLongPress: _history,
+    child: InkWell(
+      onTap: widget.onInfo,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: _wechat
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
         children: [
-          IconButton(
-            tooltip: '返回',
-            onPressed: () {
-              _focus.unfocus();
-              widget.onBack();
-            },
-            icon: const Icon(Icons.chevron_left, size: 30),
+          Text(
+            _chat.groupMembers.isEmpty ? _speaker(null).name : _chat.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: _wechat ? FontWeight.w500 : FontWeight.w400,
+              color: const Color(0xff191919),
+            ),
           ),
-          Expanded(
-            child: InkWell(
-              onTap: widget.onInfo,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: _wechat
-                    ? CrossAxisAlignment.center
-                    : CrossAxisAlignment.start,
+          if (!_wechat)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
                 children: [
+                  const Text(
+                    '●',
+                    style: TextStyle(fontSize: 10, color: Color(0xff00ce78)),
+                  ),
+                  const SizedBox(width: 5),
                   Text(
-                    _chat.groupMembers.isEmpty
-                        ? _speaker(null).name
-                        : _chat.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    _store.streaming
+                        ? '正在回复…'
+                        : _chat.groupMembers.isEmpty
+                        ? '当前对话'
+                        : _chat.groupKind == 'channel'
+                        ? '频道'
+                        : '群聊',
                     style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      height: 1.45,
+                      color: Color(0xff747474),
                     ),
                   ),
-                  if (_store.streaming)
-                    Text(
-                      '正在回复…',
-                      style: TextStyle(fontSize: 10, color: _accent),
-                    ),
                 ],
               ),
             ),
-          ),
-          IconButton(
-            tooltip: '查找聊天记录',
-            onPressed: _history,
-            icon: const Icon(Icons.search, size: 22),
-          ),
-          IconButton(
-            tooltip: '聊天信息',
-            onPressed: widget.onInfo,
-            icon: Icon(_wechat ? Icons.more_horiz : Icons.menu, size: 25),
-          ),
         ],
       ),
     ),
   );
 
+  Widget _header() {
+    final back = _lineButton(
+      'chevron-left',
+      '返回',
+      () {
+        if (_panel.isNotEmpty) {
+          setState(() => _panel = '');
+        } else {
+          _focus.unfocus();
+          widget.onBack();
+        }
+      },
+      width: 32,
+      height: 44,
+      size: 24,
+    );
+    final more = _lineButton(
+      _wechat ? 'more' : 'menu',
+      '聊天信息',
+      widget.onInfo,
+      width: 36,
+      height: 44,
+      size: 25,
+    );
+    return Container(
+      key: const ValueKey('social-chat-header'),
+      padding: EdgeInsets.only(
+        top: MediaQuery.paddingOf(context).top,
+        left: 12,
+        right: 12,
+      ),
+      color: Color(_wechat ? 0xffededed : 0xffefeff1),
+      child: SizedBox(
+        width: double.infinity,
+        height: _wechat ? 52 : 56,
+        child: _wechat
+            ? Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(left: 0, child: back),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 44),
+                    child: _headerTitle(),
+                  ),
+                  Positioned(right: 0, child: more),
+                ],
+              )
+            : Row(
+                children: [
+                  back,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _headerTitle(),
+                    ),
+                  ),
+                  more,
+                ],
+              ),
+      ),
+    );
+  }
+
   Widget _composer() {
     final count = _chat.queuedMessages.length;
+    final hasText = _input.text.trim().isNotEmpty;
+    final input = TextField(
+      key: const ValueKey('social-chat-input'),
+      controller: _input,
+      focusNode: _focus,
+      minLines: 1,
+      maxLines: 4,
+      textInputAction: TextInputAction.newline,
+      keyboardType: TextInputType.multiline,
+      inputFormatters: [
+        if (_input.text.length <= 10000)
+          LengthLimitingTextInputFormatter(10000),
+      ],
+      style: TextStyle(
+        fontSize: 16,
+        height: 22 / 16,
+        fontFamily: appearance.fontFamily('inputFont'),
+        color: appearance.textColor('inputText'),
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
+        hintText: '',
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: _wechat ? 8 : 10,
+          vertical: 8,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_wechat ? 4 : 7),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_wechat ? 4 : 7),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(_wechat ? 4 : 7),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+    final send = SizedBox(
+      width: _wechat ? 53 : 54,
+      height: _wechat ? 34 : 35,
+      child: TextButton(
+        key: const ValueKey('social-send'),
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          backgroundColor: _store.streaming || hasText
+              ? Color(_wechat ? 0xff07c160 : 0xff009dff)
+              : const Color(0xffc5e5fd),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(_wechat ? 4 : 7),
+          ),
+        ),
+        onPressed: _store.streaming
+            ? _store.stop
+            : hasText
+            ? _send
+            : null,
+        child: Text(
+          _store.streaming ? '停止' : '发送',
+          style: const TextStyle(fontSize: 14),
+        ),
+      ),
+    );
     return Container(
       key: const ValueKey('social-chat-composer'),
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+      padding: EdgeInsets.fromLTRB(
+        _wechat ? 8 : 12,
+        _wechat ? 5 : 7,
+        _wechat ? 8 : 12,
+        _wechat ? 3 : 4,
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xfff7f7f7).withValues(alpha: .95),
+        color: Color(_wechat ? 0xfff7f7f7 : 0xfff2f3f5),
         border: const Border(
-          top: BorderSide(color: Color(0x18000000), width: .5),
+          top: BorderSide(color: Color(0xffe5e6e8), width: .5),
         ),
       ),
       child: Column(
@@ -1113,19 +1588,15 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
             Row(
               children: [
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      count > 0 ? '$count 条待发送' : '分条输入，确认后统一回复',
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  child: Text(
+                    count > 0 ? '$count 条待发送' : '分条输入，确认后统一回复',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
                 if (count > 0)
-                  IconButton(
-                    tooltip: '清空待发送消息',
+                  TextButton(
                     onPressed: _store.streaming ? null : _discard,
-                    icon: const Icon(Icons.delete_outline, size: 19),
+                    child: const Text('清空'),
                   ),
                 TextButton(
                   onPressed: count == 0 || _store.streaming ? null : _confirm,
@@ -1134,98 +1605,206 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
               ],
             ),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              IconButton(
-                tooltip: '语音识别',
-                onPressed: _store.streaming
-                    ? null
-                    : () => composeChatMedia(
-                        context,
-                        photo: false,
-                        initiallyReal: true,
-                        streamingOverride: false,
-                      ),
-                icon: const Icon(Icons.mic_none, size: 26),
-              ),
+              if (_wechat) ...[
+                _lineButton(_voiceMode ? 'keyboard' : 'voice', '语音识别', () {
+                  _focus.unfocus();
+                  setState(() {
+                    _panel = '';
+                    _voiceMode = !_voiceMode;
+                  });
+                }, width: 28),
+                const SizedBox(width: 7),
+              ],
               Expanded(
-                child: TextField(
-                  key: const ValueKey('social-chat-input'),
-                  controller: _input,
-                  focusNode: _focus,
-                  minLines: 1,
-                  maxLines: 5,
-                  textInputAction: TextInputAction.newline,
-                  keyboardType: TextInputType.multiline,
-                  // Restored legacy drafts remain intact. Apply the normal
-                  // input limit only after the user reduces one below it.
-                  inputFormatters: [
-                    if (_input.text.length <= 10000)
-                      LengthLimitingTextInputFormatter(10000),
-                  ],
-                  decoration: InputDecoration(
-                    hintText: '发消息…',
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 11,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(_wechat ? 5 : 20),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
+                child: _voiceMode && _wechat
+                    ? GestureDetector(
+                        onTap: () => _runTool('speech'),
+                        onLongPress: () => _runTool('speech'),
+                        child: Container(
+                          height: 39,
+                          decoration: BoxDecoration(
+                            color: const Color(0xfff5f5f5),
+                            border: Border.all(color: const Color(0xffd5d5d5)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            '按住 说话',
+                            style: TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      )
+                    : ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: _wechat ? 39 : 38,
+                          maxHeight: 100,
+                        ),
+                        child: input,
+                      ),
               ),
-              IconButton(
-                tooltip: '表情包',
-                onPressed: _store.streaming
-                    ? null
-                    : () =>
-                          showStickerPicker(context, streamingOverride: false),
-                icon: const Icon(Icons.emoji_emotions_outlined, size: 26),
-              ),
-              if (_store.streaming)
-                IconButton(
-                  tooltip: '停止生成',
-                  onPressed: _store.stop,
-                  color: _accent,
-                  icon: const Icon(Icons.stop_circle_outlined, size: 28),
-                )
-              else if (_input.text.trim().isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _accent,
-                      padding: const EdgeInsets.symmetric(horizontal: 13),
-                      minimumSize: const Size(50, 38),
-                    ),
-                    onPressed: _send,
-                    child: const Text('发送'),
-                  ),
-                )
-              else
-                IconButton(
-                  tooltip: '更多功能',
-                  onPressed: _tools,
-                  icon: const Icon(Icons.add_circle_outline, size: 28),
+              SizedBox(width: _wechat ? 7 : 8),
+              if (_wechat) ...[
+                _lineButton(
+                  'smile',
+                  '表情包',
+                  () => _togglePanel('emoji'),
+                  width: 28,
+                  selected: _panel == 'emoji',
                 ),
+                const SizedBox(width: 7),
+                if (hasText || _store.streaming)
+                  send
+                else
+                  _lineButton(
+                    'plus-circle',
+                    '更多功能',
+                    _tools,
+                    width: 28,
+                    selected: _panel == 'more',
+                  ),
+              ] else
+                send,
             ],
           ),
+          if (!_wechat)
+            SizedBox(
+              height: 47,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final tool in [
+                      ('mic', '语音识别', 'speech'),
+                      ('image', '相册', 'album'),
+                      ('camera', '拍摄照片', 'camera'),
+                      ('sparkles', '模型助手', 'models'),
+                      ('smile', '表情包', 'emoji'),
+                      ('plus-circle', '更多功能', 'more'),
+                    ])
+                      _lineButton(
+                        tool.$1,
+                        tool.$2,
+                        () => tool.$3 == 'emoji' || tool.$3 == 'more'
+                            ? _togglePanel(tool.$3)
+                            : _runTool(tool.$3),
+                        width: MediaQuery.sizeOf(context).width < 330 ? 34 : 40,
+                        height: 42,
+                        selected: _panel == tool.$3,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          if (_panel.isNotEmpty)
+            Container(
+              padding: EdgeInsets.only(top: _wechat ? 16 : 8),
+              margin: EdgeInsets.only(top: _wechat ? 5 : 0),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0xffe6e7eb))),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight:
+                      (_availableHeight -
+                              MediaQuery.paddingOf(context).top -
+                              56 -
+                              (_wechat ? 120 : 170) -
+                              (_chat.confirmBeforeReply || count > 0 ? 48 : 0))
+                          .clamp(0, 350),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SocialChatInlinePanel(
+                        key: ValueKey(
+                          '${widget.mode.name}-$_panel-${_chat.id}',
+                        ),
+                        mode: widget.mode,
+                        kind: _panel,
+                        store: _store,
+                        onAction: _runTool,
+                        onEmoji: _insertEmoji,
+                        onSticker: (id) {
+                          if (!_store.send(
+                            _store.stickerFor(id)?.name ?? '',
+                            kind: 'sticker',
+                            stickerId: id,
+                            streamingOverride: false,
+                          ))
+                            toast(context, _store.lastError ?? '当前无法发送');
+                          else
+                            _latest();
+                        },
+                        onManage: () => widget.go('/stickers'),
+                      ),
+                      if (_panel == 'more')
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            TextButton(
+                              onPressed: () => _runTool('history'),
+                              child: const Text(
+                                '查找聊天记录',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            if (_wechat) ...[
+                              TextButton(
+                                onPressed: () => _runTool('models'),
+                                child: const Text(
+                                  '模型助手',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => _runTool('call'),
+                                child: const Text(
+                                  '语音通话',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _item(_SocialChatItem item) {
+  Widget _item(_SocialChatItem item, int index) {
     final key = _keys.putIfAbsent(item.id, () => GlobalKey());
     return Padding(
       key: key,
-      padding: EdgeInsets.only(bottom: _store.compact ? 14 : 22),
-      child: item.message != null ? _message(item.message!) : _attachment(item),
+      padding: EdgeInsets.only(bottom: _store.compact ? 12 : 21),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (index == 0 ||
+              item.created.difference(_items[index - 1].created).inMinutes >= 5)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 23),
+              child: Center(
+                child: Text(
+                  _date(item.created),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xffa1a1a1),
+                  ),
+                ),
+              ),
+            ),
+          item.message != null ? _message(item.message!) : _attachment(item),
+        ],
+      ),
     );
   }
 
@@ -1238,84 +1817,183 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
         widget.go('/characters/edit');
       }
     },
-    child: Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: user
-            ? const Color(0xffcce6fa)
-            : role.color.withValues(alpha: .15),
-        borderRadius: BorderRadius.circular(
-          _wechat || appearance.flag('squareAvatars') ? 7 : 19,
-        ),
-      ),
-      child: user
-          ? UserAvatar(
-              size: 38,
-              square: _wechat || appearance.flag('squareAvatars'),
-            )
-          : CharacterAvatar(
-              persona: role,
-              size: 38,
-              square: _wechat || appearance.flag('squareAvatars'),
-            ),
+    child: NativeSocialPortrait(
+      mode: widget.mode,
+      persona: role,
+      user: user,
+      store: _store,
     ),
   );
 
+  bool get _customSurface =>
+      !(UiChatAppearance().values(
+                glassEnabled: _store.prefs['毛玻璃效果'] ?? true,
+              )['defaultBubbleSurface'] ==
+              true &&
+          glassPreferences.userBlur == 6 &&
+          glassPreferences.assistantBlur == 6);
+
+  Widget _nativeRow({
+    required bool user,
+    required Persona role,
+    required Widget child,
+    bool full = false,
+    bool side = false,
+  }) => LayoutBuilder(
+    builder: (context, bounds) {
+      final avatar = appearance.flag('avatars') ? _avatar(user, role) : null;
+      if (full && !user)
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (avatar != null)
+              Align(alignment: Alignment.centerLeft, child: avatar),
+            if (avatar != null) const SizedBox(height: 12),
+            child,
+          ],
+        );
+      final width = (bounds.maxWidth - (side ? 48 : 96)).clamp(
+        80.0,
+        bounds.maxWidth,
+      );
+      return Row(
+        mainAxisAlignment: user
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!user && avatar != null) ...[avatar, const SizedBox(width: 10)],
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: width),
+              child: child,
+            ),
+          ),
+          if (user && avatar != null) ...[const SizedBox(width: 10), avatar],
+        ],
+      );
+    },
+  );
+
+  Widget _typedBody(Message message) {
+    if (message.kind == 'sticker') {
+      final data = _store.stickerFor(message.stickerId)?.data;
+      return data == null
+          ? Text('[表情包：${message.text}]')
+          : Image.memory(
+              base64Decode(data.split(',').last),
+              width: 140,
+              height: 140,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => Text('[表情包：${message.text}]'),
+            );
+    }
+    if (message.kind == 'voice')
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          dense: true,
+          leading: const NativeSocialIcon('mic', size: 22),
+          title: Text(
+            '语音 · ${message.described ? '文字描述' : '识别转写'}',
+            style: const TextStyle(fontSize: 13),
+          ),
+          subtitle: const Text('查看内容', style: TextStyle(fontSize: 10)),
+          children: [
+            Text(
+              message.text,
+              style: const TextStyle(fontSize: 14, height: 1.6),
+            ),
+          ],
+        ),
+      );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (message.imageData != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 250),
+            child: Image.memory(
+              base64Decode(message.imageData!.split(',').last),
+              frameBuilder: (_, child, frame, _) {
+                if (frame != null && _follow) _bottom();
+                return child;
+              },
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Text('图片无法显示'),
+            ),
+          )
+        else
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              NativeSocialIcon('image', size: 22),
+              SizedBox(width: 7),
+              Text('照片 · 内容描述', style: TextStyle(fontSize: 12)),
+            ],
+          ),
+        const SizedBox(height: 7),
+        Text(message.text),
+      ],
+    );
+  }
+
   Widget _message(Message message) {
-    final role = _speaker(message.authorId);
+    final role = _speaker(message.authorId), custom = _customSurface;
     final layout = appearance.text('assistantBubbleLayout');
+    final media = _messageAttachment(message);
+    final body = message.kind == 'text'
+        ? Text(
+            message.text.isNotEmpty
+                ? message.text
+                : message.status == 'cancelled'
+                ? '已停止生成'
+                : '未收到回复',
+            style: custom
+                ? chatMessageStyle(context, message.user, size: 16)
+                : null,
+          )
+        : _typedBody(message);
     final content = GestureDetector(
-      onTap: _messageAttachment(message) == null
-          ? null
-          : () => _eventDetails(_messageAttachment(message)!),
-      onHorizontalDragStart: _messageAttachment(message) == null
-          ? null
-          : (_) {},
+      onTap: media == null ? null : () => _eventDetails(media),
+      onHorizontalDragStart: media == null ? null : (_) {},
       onLongPress: () => _messageMenu(message),
       child: Column(
-        crossAxisAlignment: !message.user && layout != 'centered'
-            ? CrossAxisAlignment.stretch
-            : message.user
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: message.user
             ? CrossAxisAlignment.end
+            : custom && layout != 'centered'
+            ? CrossAxisAlignment.stretch
             : CrossAxisAlignment.start,
         children: [
-          if (!message.user &&
-              (_chat.groupMembers.isNotEmpty || appearance.flag('showRole')))
+          if (!message.user && _chat.groupMembers.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 5),
               child: Text(
                 role.name,
-                style: TextStyle(fontSize: 11, color: muted),
+                style: const TextStyle(fontSize: 11, color: Color(0xff999999)),
               ),
             ),
-          ChatBubbleSurface(
-            key: ValueKey(
-              'social-message-${message.created.microsecondsSinceEpoch}',
+          if (message.kind == 'sticker')
+            body
+          else
+            SocialChatSurface(
+              key: ValueKey(
+                'social-message-${message.created.microsecondsSinceEpoch}',
+              ),
+              mode: widget.mode,
+              user: message.user,
+              custom: custom,
+              child: body,
             ),
-            user: message.user,
-            contentPadding: AssistantReplyLayout.bubblePadding(
-              message.user ? 'centered' : layout,
-            ),
-            child: message.kind == 'text'
-                ? Text(
-                    message.text.isNotEmpty
-                        ? message.text
-                        : message.status == 'pending'
-                        ? '正在思考…'
-                        : message.status == 'cancelled'
-                        ? '已停止生成'
-                        : '未收到回复',
-                    style: chatMessageStyle(context, message.user),
-                  )
-                : TypedMessageBody(message: message),
-          ),
           if (message.contextNotice != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 message.contextNotice!,
-                style: TextStyle(fontSize: 11, color: muted),
+                style: const TextStyle(fontSize: 11, color: Color(0xff888888)),
               ),
             ),
           if (message.error != null)
@@ -1328,7 +2006,9 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
                     message.error!,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Theme.of(context).colorScheme.error,
+                      color: message.status == 'failed'
+                          ? const Color(0xffd94c45)
+                          : const Color(0xff888888),
                     ),
                   ),
                   if (!_store.streaming &&
@@ -1348,7 +2028,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
                 IconButton(
                   tooltip: '移除此条待发送消息',
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.close, size: 15),
+                  icon: const NativeSocialIcon('close', size: 15),
                   onPressed: () => _store.deleteRound(_chat.id, message),
                 ),
               ],
@@ -1360,127 +2040,248 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 _time(message.created),
-                style: TextStyle(fontSize: 10, color: muted),
+                style: const TextStyle(fontSize: 10, color: Color(0xff888888)),
               ),
             ),
           if (message.bookmarked)
-            Icon(Icons.bookmark, size: 13, color: _accent),
+            NativeSocialIcon('star', size: 13, color: _accent),
         ],
       ),
     );
-    if (!message.user) {
-      return AssistantReplyLayout(
-        layout: layout,
-        wide: appearance.flag('wideChat'),
-        avatar: appearance.flag('avatars') ? _avatar(false, role) : null,
-        thinking: appearance.flag('showThinking') ? message.thinking : null,
-        child: content,
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Flexible(child: content),
-        if (appearance.flag('avatars')) ...[
-          const SizedBox(width: 9),
-          _avatar(true, role),
-        ],
-      ],
+    return _nativeRow(
+      user: message.user,
+      role: role,
+      child: content,
+      full: custom && layout == 'full',
+      side: custom && layout == 'side',
     );
   }
 
   Widget _attachment(_SocialChatItem item) {
-    final data = item.data!;
-    final role = _speaker(item.wallet ? data['roleId'] : null);
+    final data = item.data!,
+        role = _speaker(item.wallet ? item.data!['roleId'] : null);
     final payload = item.wallet ? data : data['payload'] as Map;
     Widget body;
-    if (!item.wallet && data['kind'] == 'image') {
-      body = Image.memory(
-        base64Decode((payload['data'] as String).split(',').last),
+    if (item.wallet) {
+      final red = data['kind'] == 'redpacket',
+          resolved = data['state'] != 'pending';
+      body = Container(
         width: 210,
-        height: 160,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => const Text('图片无法显示'),
-      );
-    } else {
-      final icon = item.wallet
-          ? data['kind'] == 'redpacket'
-                ? Icons.redeem
-                : Icons.swap_horiz
-          : switch (data['kind']) {
-              'video' => Icons.videocam_outlined,
-              'audio' || 'music' => Icons.audiotrack_outlined,
-              'location' => Icons.location_on_outlined,
-              'contact' => Icons.person_outline,
-              'call' => Icons.call_outlined,
-              _ => Icons.insert_drive_file_outlined,
-            };
-      body = ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 160, maxWidth: 235),
+        decoration: BoxDecoration(
+          color: resolved
+              ? Color(_wechat ? 0xfff9dcae : 0xffefd4b0)
+              : Color(
+                  _wechat
+                      ? red
+                            ? 0xfffa9d3b
+                            : 0xfff5a142
+                      : 0xfff5ac4d,
+                ),
+          borderRadius: BorderRadius.circular(_wechat ? 5 : 10),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 16),
+              child: Row(
+                children: [
+                  NativeSocialIcon(
+                    red
+                        ? 'envelope'
+                        : data['kind'] == 'gift'
+                        ? 'gift'
+                        : 'transfer',
+                    size: 32,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          red
+                              ? data['note']?.toString().isNotEmpty == true
+                                    ? data['note']
+                                    : '恭喜发财，大吉大利'
+                              : '¥${((data['cents'] as int) / 100).toStringAsFixed(2)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: red ? 15 : 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _walletState(data),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0x35ffffff))),
+              ),
+              child: Text(
+                '${_walletTitle(data['kind'])} · 角色虚拟钱包',
+                style: const TextStyle(fontSize: 10, color: Color(0xfffffde8)),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (const {
+      'image',
+      'video',
+      'audio',
+      'music',
+      'file',
+    }.contains(data['kind'])) {
+      body = ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: NativeSocialMediaPreview(
+          key: ValueKey('social-inline-media-${data['id']}'),
+          event: data,
+          active: widget.active,
+          pauseToken: _mediaPause,
+          onReady: () {
+            if (_follow) _bottom();
+          },
+        ),
+      );
+    } else if (data['kind'] == 'location') {
+      body = Container(
+        width: 240,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Text(
+                payload['label'],
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 5, 12, 12),
+              child: Text(
+                payload['address'],
+                style: const TextStyle(fontSize: 11, color: Color(0xff999999)),
+              ),
+            ),
+            Container(
+              height: 115,
+              color: const Color(0xffe6ecdf),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  NativeSocialIcon('pin', size: 34, color: Color(0xffef6c58)),
+                  SizedBox(width: 9),
+                  Text(
+                    '位置描述',
+                    style: TextStyle(fontSize: 12, color: Color(0xff687b66)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (data['kind'] == 'contact') {
+      final contact = _store.personas
+          .where((p) => p.id == payload['roleId'])
+          .firstOrNull;
+      body = Container(
+        width: 230,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  color: item.wallet ? const Color(0xffdb7b26) : _accent,
-                ),
-                const SizedBox(width: 9),
-                Flexible(
+                if (contact != null)
+                  NativeSocialPortrait(
+                    mode: widget.mode,
+                    persona: contact,
+                    size: 40,
+                    store: _store,
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
-                    item.preview,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                    payload['name'],
+                    style: const TextStyle(fontSize: 15),
                   ),
                 ),
               ],
             ),
-            if (item.wallet) ...[
-              const SizedBox(height: 8),
-              Text('¥${((data['cents'] as int) / 100).toStringAsFixed(2)}'),
-              Text(
-                '虚拟互动 · ${_walletState(data)}',
-                style: const TextStyle(fontSize: 11),
+            const Divider(height: 20),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '个人名片',
+                style: TextStyle(fontSize: 10, color: Color(0xff999999)),
               ),
-            ],
-            if (!item.wallet && data['kind'] == 'location')
-              Text(
-                payload['address'] as String? ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11),
-              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      body = Container(
+        padding: const EdgeInsets.all(12),
+        color: Colors.white,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NativeSocialIcon(
+              payload['video'] == true ? 'video' : 'phone',
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${payload['video'] == true ? '视频' : '语音'}通话 ${payload['duration']} 秒',
+              style: const TextStyle(fontSize: 14),
+            ),
           ],
         ),
       );
     }
-    final bubble = GestureDetector(
+    final content = GestureDetector(
       onHorizontalDragStart: (_) {},
       onTap: () => item.wallet ? _walletDetails(data) : _eventDetails(data),
       onLongPress: () => _hideItem(item),
-      child: ChatBubbleSurface(user: item.user, child: body),
+      child: body,
     );
-    return Row(
-      mainAxisAlignment: item.user
-          ? MainAxisAlignment.end
-          : MainAxisAlignment.start,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!item.user && appearance.flag('avatars')) ...[
-          _avatar(false, role),
-          const SizedBox(width: 9),
-        ],
-        Flexible(child: bubble),
-        if (item.user && appearance.flag('avatars')) ...[
-          const SizedBox(width: 9),
-          _avatar(true, role),
-        ],
-      ],
-    );
+    return _nativeRow(user: item.user, role: role, child: content);
+  }
+
+  static String _date(DateTime time) {
+    final now = DateTime.now();
+    final today =
+        now.year == time.year && now.month == time.month && now.day == time.day;
+    return '${today ? '今天' : '${time.month}月${time.day}日'} ${_time(time)}';
   }
 
   static String _time(DateTime time) =>
@@ -1522,7 +2323,7 @@ class _SocialChatItem {
 }
 
 String _walletTitle(String kind) => switch (kind) {
-  'redpacket' => '虚拟红包',
-  'gift' => '虚拟礼物',
-  _ => '虚拟转账',
+  'redpacket' => '红包',
+  'gift' => '礼物',
+  _ => '转账',
 };

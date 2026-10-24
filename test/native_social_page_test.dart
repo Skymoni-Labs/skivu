@@ -15,6 +15,7 @@ void main() {
     // suite owns the native extraction channel and its retry/timeout lifecycle.
     SharedPreferences.setMockInitialValues({
       LegacySocialMigration.doneKey: true,
+      LegacySocialMigration.optionsDoneKey: true,
     });
     uiPlugins.mode = ChatUiMode.wechat;
     uiPlugins.tab = 0;
@@ -189,5 +190,34 @@ void main() {
       tester.getTopLeft(find.text('另一段会话')).dy,
       lessThan(tester.getTopLeft(find.text('独立会话')).dy),
     );
+  });
+
+  testWidgets('QQ add page retains all original actions', (tester) async {
+    uiPlugins.mode = ChatUiMode.qq;
+    await tester.pumpWidget(surface());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('添加对话'));
+    await tester.pumpAndSettle();
+    for (final title in ['新建对话', '角色管理', '我的资料与头像', '回到原版']) {
+      expect(find.text(title), findsOneWidget);
+    }
+    await tester.tap(find.text('新建对话'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择角色'), findsOneWidget);
+    expect(store.conversations, hasLength(1));
+  });
+
+  testWidgets('empty QQ groups retain the create group flow', (tester) async {
+    uiPlugins.mode = ChatUiMode.qq;
+    uiPlugins.tab = 2;
+    await tester.pumpWidget(surface());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('群聊').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('＋ 发起群聊'));
+    await tester.pumpAndSettle();
+    expect(find.text('群名称'), findsOneWidget);
+    expect(find.text('创建群聊'), findsOneWidget);
+    expect(store.conversations, hasLength(1));
   });
 }

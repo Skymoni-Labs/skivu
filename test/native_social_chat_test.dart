@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ski/appearance.dart';
 import 'package:ski/chat_api.dart';
-import 'package:ski/chat_bubble_surface.dart';
+import 'package:ski/native_social_chat_widgets.dart';
+import 'package:ski/native_social_media_preview.dart';
+import 'package:ski/native_social_portrait.dart';
 import 'package:ski/model_settings.dart';
 import 'package:ski/native_social_chat.dart';
 import 'package:ski/state.dart';
@@ -91,6 +94,8 @@ void main() {
     VoidCallback? back,
     VoidCallback? info,
     ValueChanged<String>? go,
+    ValueChanged<String>? onRole,
+    ValueChanged<String>? navigate,
     Message? locateMessage,
   }) => MaterialApp(
     home: Scaffold(
@@ -102,6 +107,8 @@ void main() {
           active: active,
           locateMessage: locateMessage,
           go: go ?? (_) {},
+          onRole: onRole,
+          navigate: navigate,
           onBack: back ?? () {},
           onInfo: info ?? () {},
         ),
@@ -122,7 +129,7 @@ void main() {
         find.byKey(const ValueKey('social-chat-input')),
       );
       expect(field().controller!.text, first.draft);
-      expect(field().maxLines, 5);
+      expect(field().maxLines, 4);
       await tester.enterText(
         find.byKey(const ValueKey('social-chat-input')),
         '保存到第一段\n仍未发送',
@@ -169,7 +176,7 @@ void main() {
       expect(chat.queuedMessages, hasLength(1));
       expect((store as _PresenterStore).confirmModes, [false]);
       expect(find.text('请先选择可用模型，待发送消息已保留。'), findsOneWidget);
-      await tester.tap(find.byTooltip('清空待发送消息'));
+      await tester.tap(find.text('清空'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认'));
       await tester.pumpAndSettle();
@@ -248,7 +255,7 @@ void main() {
       expect(find.text(store.role.name), findsOneWidget);
       expect(find.text(chat.title), findsNothing);
       expect(find.text('尚未完成的正文'), findsNothing);
-      expect(find.byTooltip('停止生成'), findsOneWidget);
+      expect(find.text('停止'), findsOneWidget);
       pending
         ..text = '完整回复一次呈现'
         ..status = 'complete';
@@ -276,9 +283,9 @@ void main() {
     ]);
     await tester.pumpWidget(surface());
     await tester.pumpAndSettle();
-    expect(find.byType(ChatBubbleSurface).evaluate().length, lessThan(30));
+    expect(find.byType(SocialChatSurface).evaluate().length, lessThan(30));
     expect(find.textContaining('记录编号 179'), findsOneWidget);
-    await tester.tap(find.byTooltip('查找聊天记录'));
+    await tester.longPress(find.text(store.role.name));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, '搜索这段对话'),
@@ -304,7 +311,7 @@ void main() {
     );
     expect(rect.top, lessThan(750));
     expect(rect.bottom, greaterThan(70));
-    expect(find.byType(ChatBubbleSurface).evaluate().length, lessThan(30));
+    expect(find.byType(SocialChatSurface).evaluate().length, lessThan(30));
     await tester.tap(find.text('回到最新'));
     await tester.pumpAndSettle();
     expect(find.textContaining('记录编号 179'), findsOneWidget);
@@ -341,6 +348,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+    'social native CSS hides reasoning in both modes without removing stored reasoning or visible status notices',
+    (tester) async {
+      final originalShowThinking = appearance.flag('showThinking');
+      addTearDown(() => appearance.set('showThinking', originalShowThinking));
+      appearance.set('showThinking', true);
+      final message = Message(false, '完整正文')
+        ..thinking = '保留在原版消息中的推理内容'
+        ..contextNotice = '上下文已截断'
+        ..error = '模型未开放或已下架'
+        ..status = 'failed';
+      store.messages.add(message);
+      for (final mode in [ChatUiMode.wechat, ChatUiMode.qq]) {
+        await tester.pumpWidget(surface(mode: mode));
+        await tester.pumpAndSettle();
+        expect(find.text(message.text), findsOneWidget);
+        expect(find.text('思考过程', skipOffstage: false), findsNothing);
+        expect(find.text(message.thinking!, skipOffstage: false), findsNothing);
+        expect(find.byType(ExpansionTile, skipOffstage: false), findsNothing);
+        expect(find.text(message.contextNotice!), findsOneWidget);
+        expect(find.text(message.error!), findsOneWidget);
+        expect(message.thinking, '保留在原版消息中的推理内容');
+        expect(appearance.flag('showThinking'), isTrue);
+      }
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('message status and long press keep context and quote behavior', (
     tester,
   ) async {
@@ -365,43 +400,63 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('tools expose direct native media and disable video calls', (
-    tester,
-  ) async {
-    int backs = 0, infos = 0;
-    final paths = <String>[];
-    await tester.pumpWidget(
-      surface(back: () => backs++, info: () => infos++, go: paths.add),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('聊天信息'));
-    await tester.tap(find.byTooltip('返回'));
-    expect(backs, 1);
-    expect(infos, 1);
-    await tester.tap(find.byTooltip('更多功能'));
-    await tester.pumpAndSettle();
-    expect(find.text('相册'), findsOneWidget);
-    expect(find.text('拍摄照片'), findsOneWidget);
-    expect(find.text('语音识别'), findsOneWidget);
-    for (final text in [
-      '文件 · 本机附件',
-      '位置 · 手动填写',
-      '角色名片',
-      '音乐 · 本机音频',
-      '礼物 · 本机虚拟互动',
-    ]) {
-      expect(find.text(text), findsOneWidget);
-    }
-    expect(
-      tester.widget<ListTile>(find.widgetWithText(ListTile, '视频通话')).enabled,
-      isFalse,
-    );
-    await tester.ensureVisible(find.text('语音通话'));
-    await tester.tap(find.text('语音通话'));
-    await tester.pumpAndSettle();
-    expect(paths, ['/call']);
-    await tester.pumpWidget(const SizedBox());
-  });
+  testWidgets(
+    'QQ restores the six-icon toolbar and original two inline tool pages',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final paths = <String>[];
+      await tester.pumpWidget(surface(mode: ChatUiMode.qq, go: paths.add));
+      await tester.pumpAndSettle();
+      for (final label in ['语音识别', '相册', '拍摄照片', '模型助手', '表情包', '更多功能'])
+        expect(find.byTooltip(label), findsOneWidget);
+      expect(find.text('发送'), findsOneWidget);
+      await tester.tap(find.byTooltip('更多功能'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('social-inline-tools')), findsOneWidget);
+      for (final label in [
+        '语音通话',
+        '视频通话',
+        '位置',
+        '文件',
+        '红包',
+        '转账',
+        '收藏',
+        '屏幕分享',
+      ])
+        expect(find.text(label), findsOneWidget);
+      expect(find.text('开发中'), findsOneWidget);
+      final video = tester.widget<InkWell>(
+        find
+            .ancestor(of: find.text('视频通话'), matching: find.byType(InkWell))
+            .first,
+      );
+      expect(video.onTap, isNull);
+      await tester.tap(find.byTooltip('更多功能第 2 页'));
+      await tester.pumpAndSettle();
+      for (final label in ['名片', '礼物', '一起听歌', '描述照片'])
+        expect(find.text(label), findsOneWidget);
+      await tester.tap(find.byTooltip('更多功能第 1 页'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('语音通话'));
+      await tester.pumpAndSettle();
+      expect(paths, isEmpty);
+      expect(find.text('使用 Skivu 角色语音引擎'), findsOneWidget);
+      final portrait = tester.widget<NativeSocialPortrait>(
+        find.byType(NativeSocialPortrait).last,
+      );
+      expect(portrait.size, 86);
+      expect(portrait.borderRadius, 12);
+      expect(portrait.persona, same(store.personas.first));
+      expect(find.byType(AppBar), findsOneWidget);
+      await tester.tap(find.text('开始语音通话'));
+      await tester.pumpAndSettle();
+      expect(paths, ['/call']);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'local location and role cards remain real archive interactions',
@@ -410,8 +465,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('更多功能'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('位置 · 手动填写'));
-      await tester.tap(find.text('位置 · 手动填写'));
+      await tester.ensureVisible(find.text('位置'));
+      await tester.tap(find.text('位置'));
       await tester.pumpAndSettle();
       await tester.enterText(find.widgetWithText(TextField, '地点名称'), '本机地点');
       await tester.enterText(
@@ -422,11 +477,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 300));
       expect(store.conversations.first.interactions.single['kind'], 'location');
-      expect(find.text('[位置] 本机地点'), findsOneWidget);
+      expect(find.text('本机地点'), findsOneWidget);
       await tester.tap(find.byTooltip('更多功能'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('角色名片'));
-      await tester.tap(find.text('角色名片'));
+      await tester.tap(find.byTooltip('更多功能第 2 页'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('个人名片'));
+      await tester.tap(find.text('个人名片'));
       await tester.pumpAndSettle();
       await tester.tap(
         find.widgetWithText(ListTile, store.personas.first.name),
@@ -477,7 +534,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(parentDrags, 0);
-      await tester.drag(find.text('[位置] 附件手势'), const Offset(140, 0));
+      await tester.drag(find.text('附件手势'), const Offset(140, 0));
       await tester.pumpAndSettle();
       expect(parentDrags, 0);
       await tester.dragFrom(const Offset(30, 400), const Offset(140, 0));
@@ -512,7 +569,7 @@ void main() {
       );
       await tester.pumpWidget(surface());
       await tester.pumpAndSettle();
-      await tester.longPress(find.byType(Image));
+      await tester.longPress(find.byType(SocialChatSurface));
       await tester.pumpAndSettle();
       await tester.tap(find.text('另存图片'));
       await tester.pumpAndSettle();
@@ -582,10 +639,10 @@ void main() {
       );
       await tester.pumpWidget(surface());
       await tester.pumpAndSettle();
-      expect(find.text('虚拟红包'), findsOneWidget);
-      await tester.tap(find.text('虚拟红包'));
+      expect(find.text('红包 · 角色虚拟钱包'), findsOneWidget);
+      await tester.tap(find.text('红包 · 角色虚拟钱包'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('领取'));
+      await tester.tap(find.text('开'));
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
         for (var i = 0; i < 50 && virtualWallet.balance != 250; i++) {
@@ -594,8 +651,10 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(virtualWallet.balance, 250);
-      expect(find.text('虚拟互动 · 已领取'), findsOneWidget);
-      await tester.longPress(find.text('虚拟红包'));
+      expect(find.text('已领取'), findsOneWidget);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.text('红包 · 角色虚拟钱包'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认'));
       await tester.pumpAndSettle();
@@ -607,22 +666,8 @@ void main() {
   );
 
   testWidgets(
-    'stored audio attachment uses the existing platform player and stops on close',
+    'stored audio attachment has real inline playback controls and full-page export',
     (tester) async {
-      const channel = MethodChannel('skivu/voice_call');
-      final methods = <String>[];
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-        call,
-      ) async {
-        methods.add(call.method);
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          channel,
-          null,
-        ),
-      );
       store.conversations.first.interactions.add({
         'id': 'native-audio-test',
         'kind': 'audio',
@@ -636,14 +681,102 @@ void main() {
       });
       await tester.pumpWidget(surface());
       await tester.pumpAndSettle();
-      await tester.tap(find.text('[附件] 录音.mp3'));
+      expect(find.byType(NativeSocialMediaPreview), findsOneWidget);
+      expect(find.byTooltip('播放音频'), findsOneWidget);
+      expect(find.byType(Slider), findsOneWidget);
+      await tester.tap(find.text('录音.mp3'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('播放'));
+      expect(find.byType(AppBar), findsOneWidget);
+      expect(find.text('系统打开'), findsOneWidget);
+      expect(find.text('另存'), findsOneWidget);
+      await tester.tap(find.byTooltip('更多'));
       await tester.pumpAndSettle();
-      expect(methods, ['playAudio']);
-      await tester.tap(find.text('完成'));
+      for (final title in ['钱包', '选择模型', '设置']) {
+        expect(find.text(title), findsOneWidget);
+      }
+      await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
-      expect(methods, ['playAudio', 'stop']);
+      expect(find.text('另存'), findsOneWidget);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      expect(store.conversations.first.interactions, hasLength(1));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'valid stored role cards delegate full profile without switching chats; removed roles do not',
+    (tester) async {
+      final chat = store.conversations.first, role = store.personas.first;
+      chat.interactions.addAll([
+        {
+          'id': 'role-card',
+          'kind': 'contact',
+          'user': true,
+          'created': DateTime.now().toIso8601String(),
+          'payload': {'roleId': role.id, 'name': '已保存角色'},
+        },
+        {
+          'id': 'removed-role-card',
+          'kind': 'contact',
+          'user': true,
+          'created': DateTime.now().toIso8601String(),
+          'payload': {'roleId': 'removed', 'name': '已删除角色'},
+        },
+      ]);
+      final opened = <String>[];
+      await tester.pumpWidget(surface(onRole: opened.add));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('已保存角色'));
+      await tester.pumpAndSettle();
+      expect(opened, [role.id]);
+      expect(find.byType(AppBar), findsNothing);
+      expect(store.conversations[store.conversation], same(chat));
+      await tester.tap(find.text('已删除角色'));
+      await tester.pumpAndSettle();
+      expect(opened, [role.id]);
+      expect(find.text('角色已不存在。'), findsOneWidget);
+      expect(chat.interactions, hasLength(2));
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'location and gift interaction More restores wallet and settings routes without changing drafts',
+    (tester) async {
+      final paths = <String>[], destinations = <String>[];
+      store.conversations.first.draft = '原草稿';
+      await tester.pumpWidget(
+        surface(mode: ChatUiMode.qq, go: paths.add, navigate: destinations.add),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多功能'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('位置'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AppBar>(find.byType(AppBar)).backgroundColor,
+        Colors.white,
+      );
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('钱包'));
+      await tester.pumpAndSettle();
+      expect(destinations, ['wallet']);
+      expect(store.conversations.first.draft, '原草稿');
+      await tester.tap(find.byTooltip('更多功能'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多功能第 2 页'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('礼物'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('更多'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('设置'));
+      await tester.pumpAndSettle();
+      expect(paths, ['/settings']);
+      expect(store.conversations.first.draft, '原草稿');
+      expect(store.conversations.first.interactions, isEmpty);
       await tester.pumpWidget(const SizedBox());
     },
   );

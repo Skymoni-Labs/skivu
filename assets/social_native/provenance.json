@@ -1,0 +1,96 @@
+{
+  "schema": "skivu-original-social-art-v1",
+  "generated": "2026-10-24",
+  "source": "legacy/social_ui/social.js::art(key)",
+  "source_sha256": "3a4c66e14d2825bd30a6e96e595dd3a06a41bbc3e6e1413e9fe47d3e360e3b95",
+  "source_function_sha256": "6ef71fd2784a35b986cdbdd4cb4a67d9ab62f8ed592ab2027935b9465dcf76aa",
+  "lineage": "Skivu approved original social HTML preview, sourceCommit 2c29740; see legacy/social_ui/PROVENANCE.json",
+  "license": "GPL-3.0-only",
+  "copyright": "Copyright (C) 2026 skyjjgw",
+  "license_reference": "../../LICENSE",
+  "copyright_reference": "../../COPYRIGHT",
+  "renderer": {
+    "kind": "Local Chromium SVG rendering; 3x2 static atlas then lossless PNG crop",
+    "installed_version_directories": [
+      "155.0.8059.86"
+    ],
+    "browser_executable_sha256": "15188ffe6bb074b2fc8f90d8e0fa4b8a17fa390ce49e58f55a94cd52edf9bec0",
+    "view_box": [
+      0,
+      0,
+      200,
+      200
+    ],
+    "output_scale": 3,
+    "network": "Disabled: static local document, no active/external SVG content, CSP default-src none, resolver blocked",
+    "changes": "Only xmlns/width/height were added for standalone SVG. Original paths, shapes, colors, opacity and transforms are unchanged. No AI generation or redrawing."
+  },
+  "assets": [
+    {
+      "key": "coast",
+      "width": 600,
+      "height": 600,
+      "png": "coast.png",
+      "png_bytes": 15440,
+      "png_sha256": "c59b62f0bc407176636e83d1596f32d2faf4838006ecd45b7c4aec16c3878929",
+      "svg": "coast.svg",
+      "svg_sha256": "018d10182de9b94d72cafc136696c005bba912135fa36cacbeb2e18fd4e72793",
+      "original_svg_markup_sha256": "416e28158cbea6a4b5d1429645dcc965b4d8edc4aaefab7fc2ef5a8812963c33"
+    },
+    {
+      "key": "flowers",
+      "width": 600,
+      "height": 600,
+      "png": "flowers.png",
+      "png_bytes": 19107,
+      "png_sha256": "05088502e1adfcc8215402ebcf26c38ddfbd566363f5d202ef3eb8dbefdae6bd",
+      "svg": "flowers.svg",
+      "svg_sha256": "5eddf3616b2db5322b9e03c045447da0c8be6f32b1e87ab803066386b34c3593",
+      "original_svg_markup_sha256": "a8dfba3896ccea0ff60bff770ab2d2aa801c00bf4bd0725324017d22f3474480"
+    },
+    {
+      "key": "clouds",
+      "width": 600,
+      "height": 600,
+      "png": "clouds.png",
+      "png_bytes": 15188,
+      "png_sha256": "4dfb8c7ff38f541524e5e0eb35972216be9734bf694a2e2ab594ba5e948bd05c",
+      "svg": "clouds.svg",
+      "svg_sha256": "3ec7d93f364fe68db3f3c46d155eaa8f31d58b1790ff311af96c321fadf71da2",
+      "original_svg_markup_sha256": "9a4444391107531cd6b3840d859ff7cf0f1f45e921732626c3829e27e74f7234"
+    },
+    {
+      "key": "coffee",
+      "width": 600,
+      "height": 600,
+      "png": "coffee.png",
+      "png_bytes": 14919,
+      "png_sha256": "25cb8faef7ab45d39d73f901661825b418582c3d7d4e9fb7b998beae5f60e3d3",
+      "svg": "coffee.svg",
+      "svg_sha256": "fd09a5995548c9ae2e304be4060c0e2290a227ea43350ea1ecfb6adef0e88a54",
+      "original_svg_markup_sha256": "8d6305c4ab0e7a76fb4630feed3724e3795e8c3cc723f66cd23f1e1c7243981e"
+    },
+    {
+      "key": "mountain",
+      "width": 600,
+      "height": 600,
+      "png": "mountain.png",
+      "png_bytes": 15160,
+      "png_sha256": "7009c10c791a1b4072d5e6a790aa4b2bc8df952d897f44558e38367250c541b5",
+      "svg": "mountain.svg",
+      "svg_sha256": "fdaf080bcfabe7be342cbc1feda2eb18e76e7e3c8c06f6a8baf47652e6c30f7c",
+      "original_svg_markup_sha256": "128e648e3e6eb3809101b685d3db6a0f763c4c99a850937508a8c49e3626fe90"
+    },
+    {
+      "key": "sunset",
+      "width": 600,
+      "height": 600,
+      "png": "sunset.png",
+      "png_bytes": 14934,
+      "png_sha256": "be80c9037b2547002fd5a2d50645756ae44902df4d49975731f1e5255fe6d508",
+      "svg": "sunset.svg",
+      "svg_sha256": "a6b48d7b0c59d335773b0e9ed26caa0f5f02e7b18a4f86cf2617d25cd0f6b9f7",
+      "original_svg_markup_sha256": "45988a3f5c273a58bcb96f8c4eb9379aa8ac9b5e5f2923fe053074197b2f1fd8"
+    }
+  ]
+}
