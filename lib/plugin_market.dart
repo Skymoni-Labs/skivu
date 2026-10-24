@@ -4,11 +4,12 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'brand.dart' show appVersion;
 import 'ui_plugins.dart';
 
 /// Downloaded data-only presets select a renderer shipped with the host.
 /// Packages cannot supply scripts, URLs, prompts, or additional permissions.
-const pluginHostVersion = '0.2.21';
+const pluginHostVersion = appVersion;
 const pluginCatalogUrl = 'https://skymoni.com/app-plugins/catalog/index.json';
 const pluginCatalogOriginUrl =
     'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/index.json';

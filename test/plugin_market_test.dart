@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:ski/brand.dart' show appVersion;
 import 'package:ski/plugin_market.dart';
 import 'package:ski/ui_plugins.dart';
 import 'package:ski/state.dart';
@@ -92,6 +93,33 @@ Future<PluginMarket> installedMarket() async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final minimum in ['0.2.22', appVersion]) {
+    test('plugins requiring $minimum install and survive restore', () async {
+      final market = PluginMarket(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode(
+              request.url.toString() == pluginCatalogUrl
+                  ? catalogFixture(minHost: minimum)
+                  : presetFixture('qq', minHost: minimum),
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+      addTearDown(market.dispose);
+      await market.refresh();
+      final plugin = market.catalog.first;
+      expect(plugin.compatible, isTrue);
+      expect(await market.install(plugin), isTrue, reason: market.error);
+      final restored = PluginMarket();
+      addTearDown(restored.dispose);
+      await restored.restore();
+      expect(restored.installedFor(ChatUiMode.qq)?.minHostVersion, minimum);
+      expect(restored.installedFor(ChatUiMode.qq)?.compatible, isTrue);
+    });
+  }
   test(
     'discover, install, restart and uninstall preserve original chats',
     () async {
