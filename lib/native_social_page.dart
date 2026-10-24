@@ -256,17 +256,23 @@ class _NativeSocialPageState extends State<NativeSocialPage> {
   String _preview(Conversation c) {
     if (c.draft.isNotEmpty) return '[草稿] ${c.draft}';
     if (c.messages.lastOrNull?.status == 'pending') return '对方正在输入中…';
-    var time = c.messages.lastOrNull?.created ?? DateTime(1970);
+    return _latestActivity(c).text;
+  }
+
+  ({DateTime? at, String text}) _latestActivity(Conversation c) {
+    var time = c.messages.lastOrNull?.created;
     var text = c.messages.lastOrNull?.text ?? '还没有消息';
     for (final e in c.interactions.where(
       (e) => !c.hiddenInteractions.contains(e['id']),
     )) {
       final at = DateTime.tryParse('${e['created']}');
-      if (at != null && at.isAfter(time)) {
+      if (at != null && (time == null || at.isAfter(time))) {
         time = at;
         text = switch (e['kind']) {
           'image' || 'photo' => '[图片]',
-          'voice' => '[语音]',
+          'voice' || 'audio' => '[语音]',
+          'music' => '[音乐]',
+          'call' => '[通话]',
           'video' => '[视频]',
           'file' => '[文件]',
           'contact' => '[角色名片]',
@@ -281,15 +287,19 @@ class _NativeSocialPageState extends State<NativeSocialPage> {
     )) {
       final at = DateTime.tryParse('${e['created']}');
       if (at != null &&
-          at.isAfter(time) &&
+          (time == null || at.isAfter(time)) &&
           !c.hiddenInteractions.contains(e['id']) &&
           (c.interactionsClearedAt == null ||
               at.isAfter(c.interactionsClearedAt!))) {
         time = at;
-        text = e['kind'] == 'redpacket' ? '[虚拟红包]' : '[虚拟转账]';
+        text = switch (e['kind']) {
+          'redpacket' => '[虚拟红包]',
+          'gift' => '[虚拟礼物]',
+          _ => '[虚拟转账]',
+        };
       }
     }
-    return text;
+    return (at: time, text: text);
   }
 
   Widget _face(Conversation c) {
@@ -353,6 +363,13 @@ class _NativeSocialPageState extends State<NativeSocialPage> {
               (channel ? c.groupKind == 'channel' : c.groupKind != 'channel'),
         )
         .toList();
+    final activity = {for (final c in chats) c.id: _latestActivity(c)};
+    chats.sort((a, b) {
+      if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+      return (activity[b.id]!.at ?? DateTime(1970)).compareTo(
+        activity[a.id]!.at ?? DateTime(1970),
+      );
+    });
     return Material(
       color: Colors.white,
       child: ListView.builder(
@@ -369,7 +386,7 @@ class _NativeSocialPageState extends State<NativeSocialPage> {
               ),
             );
           final c = chats[index], role = _role(c.personaId);
-          final at = c.messages.lastOrNull?.created;
+          final at = activity[c.id]!.at;
           return Material(
             color: c.pinned ? const Color(0xffededed) : Colors.white,
             child: InkWell(

@@ -156,4 +156,38 @@ void main() {
       expect(uiPlugins.conversationVisible, true);
     },
   );
+  testWidgets('latest visible attachment controls inbox order and time', (
+    tester,
+  ) async {
+    final chat = store.conversations.single;
+    chat.messages.clear();
+    chat.interactions.add({
+      'id': 'qa-file',
+      'kind': 'file',
+      'created': '2026-10-24T20:00:00',
+      'user': true,
+      'payload': {'name': 'qa.txt', 'data': 'data:text/plain;base64,cWE='},
+    });
+    store.conversations.add(
+      Conversation('另一段会话', [
+        Message(true, '另一段较旧消息', created: DateTime(2026, 10, 24, 13)),
+      ], personaId: store.personas.first.id)..titleEdited = true,
+    );
+    await tester.pumpWidget(surface());
+    await tester.pumpAndSettle();
+    expect(find.text('20:00'), findsOneWidget);
+    expect(find.text('[文件]'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('独立会话')).dy,
+      lessThan(tester.getTopLeft(find.text('另一段会话')).dy),
+    );
+    chat.hiddenInteractions.add('qa-file');
+    store.changed();
+    await tester.pumpAndSettle();
+    expect(find.text('20:00'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('另一段会话')).dy,
+      lessThan(tester.getTopLeft(find.text('独立会话')).dy),
+    );
+  });
 }
