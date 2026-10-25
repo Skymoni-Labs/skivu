@@ -71,6 +71,39 @@ Future<Map<String, dynamic>> call(
 ]) => b.dispatch({'id': '1', 'method': method, 'params': params});
 
 void main() {
+  test('one future or malformed catalog entry cannot hide valid plugins', () {
+    final valid = {
+      'manifest': manifest(),
+      'url': 'https://example.com/plugin.json',
+      'sha256': 'a' * 64,
+      'bytes': 100,
+    };
+    final future = jsonDecode(jsonEncode(valid)) as Map<String, dynamic>;
+    future['manifest']['permissions'] = ['future.permission'];
+    future['manifest']['minHostVersion'] = '99.0.0';
+    final result = parseOpenPluginCatalog({
+      'schemaVersion': 1,
+      'protocolVersion': '3.0',
+      'packages': [
+        future,
+        valid,
+        {'invalid': true},
+      ],
+    }, defaultOpenPluginCatalog);
+    expect(result.entries.length, 1);
+    expect(result.skipped, 2);
+    expect(result.entries.values.single['catalog'], defaultOpenPluginCatalog);
+  });
+  test('malformed catalog headers remain rejected', () {
+    expect(
+      () => parseOpenPluginCatalog({
+        'schemaVersion': 1,
+        'protocolVersion': 'unknown',
+        'packages': [],
+      }, defaultOpenPluginCatalog),
+      throwsFormatException,
+    );
+  });
   TestWidgetsFlutterBinding.ensureInitialized();
   late Directory temp;
   late OpenPluginRegistry registry;
@@ -88,6 +121,28 @@ void main() {
     await temp.delete(recursive: true);
     registry.dispose();
   });
+  test(
+    'official catalog migration keeps third-party directories and installed data',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'skivu.open-plugin.catalogs': [
+          legacyOpenPluginCatalog,
+          'https://example.com/custom.json',
+          defaultOpenPluginCatalog,
+        ],
+      });
+      await registry.restore();
+      expect(registry.catalogs, [
+        defaultOpenPluginCatalog,
+        'https://example.com/custom.json',
+      ]);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getStringList('skivu.open-plugin.catalogs'),
+        registry.catalogs,
+      );
+    },
+  );
   Future<OpenPluginBridge> bridge({
     String id = 'test.free-plugin',
     List<String> permissions = const ['storage'],

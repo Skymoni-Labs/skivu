@@ -10,6 +10,10 @@ import 'open_plugin_disk.dart'
     as disk;
 
 const openPluginApiVersion = '1.0';
+const legacyOpenPluginCatalog =
+    'https://skymoni.com/app-plugins/catalog/apps.json';
+const defaultOpenPluginCatalog =
+    'https://skymoni.com/app-plugins/catalog/apps-v2.json';
 const maxOpenPluginBytes = 32 * 1024 * 1024;
 bool pluginJsonEqual(Object? a, Object? b) {
   if (a is Map && b is Map)
@@ -251,6 +255,42 @@ class OpenPluginRecord {
       enabled && grantedDigest == package.digest && manifest.compatible;
 }
 
+class OpenPluginCatalogResult {
+  OpenPluginCatalogResult(this.entries, this.skipped);
+  final Map<String, Map<String, dynamic>> entries;
+  final int skipped;
+}
+
+OpenPluginCatalogResult parseOpenPluginCatalog(Object? raw, String url) {
+  if (raw is! Map ||
+      raw['schemaVersion'] != 1 ||
+      raw['protocolVersion'] != '3.0' ||
+      raw['packages'] is! List ||
+      (raw['packages'] as List).length > 5000)
+    throw const FormatException('目录格式无效。');
+  final entries = <String, Map<String, dynamic>>{};
+  var skipped = 0;
+  for (final e in raw['packages']) {
+    try {
+      if (e is! Map ||
+          e.length != 4 ||
+          e['url'] is! String ||
+          e['sha256'] is! String ||
+          !RegExp(r'^[a-f0-9]{64}$').hasMatch(e['sha256']) ||
+          e['bytes'] is! int ||
+          e['bytes'] <= 0 ||
+          e['bytes'] > maxOpenPluginBytes)
+        throw const FormatException();
+      final manifest = OpenPluginManifest.parse(e['manifest']);
+      if (entries.containsKey(manifest.id)) throw const FormatException();
+      entries[manifest.id] = {...Map<String, dynamic>.from(e), 'catalog': url};
+    } catch (_) {
+      skipped++;
+    }
+  }
+  return OpenPluginCatalogResult(entries, skipped);
+}
+
 class OpenPluginRegistry extends ChangeNotifier {
   final records = <String, OpenPluginRecord>{};
   static const indexKey = 'skivu.open-plugins.v1';
@@ -299,10 +339,21 @@ class OpenPluginRegistry extends ChangeNotifier {
           error = '部分插件读取失败，可重新导入修复。';
         }
       }
+      final savedCatalogs = prefs.getStringList('skivu.open-plugin.catalogs');
       catalogs.addAll(
-        prefs.getStringList('skivu.open-plugin.catalogs') ??
-            ['https://skymoni.com/app-plugins/catalog/apps.json'],
+        (savedCatalogs ?? [defaultOpenPluginCatalog])
+            .map(
+              (url) => url == legacyOpenPluginCatalog
+                  ? defaultOpenPluginCatalog
+                  : url,
+            )
+            .toSet(),
       );
+      if (savedCatalogs != null &&
+          savedCatalogs.contains(legacyOpenPluginCatalog)) {
+        if (!await prefs.setStringList('skivu.open-plugin.catalogs', catalogs))
+          throw StateError('目录迁移未保存');
+      }
     } catch (_) {
       error = '插件库读取失败，请重试。';
     }

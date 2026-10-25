@@ -69,42 +69,26 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
       error = null;
     });
     final found = <String, Map<String, dynamic>>{};
-    var failed = 0;
+    var failed = 0, skipped = 0;
     for (final url in openPlugins.catalogs) {
       try {
         List<int> bytes;
         try {
           bytes = await download(url, 4 * 1024 * 1024);
         } catch (_) {
-          if (url != 'https://skymoni.com/app-plugins/catalog/apps.json')
+          if (url != defaultOpenPluginCatalog && url != legacyOpenPluginCatalog)
             rethrow;
           bytes = await download(
-            'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/apps.json',
+            'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/${url == defaultOpenPluginCatalog ? 'apps-v2.json' : 'apps.json'}',
             4 * 1024 * 1024,
           );
         }
-        final raw = jsonDecode(utf8.decode(bytes));
-        if (raw is! Map ||
-            raw['schemaVersion'] != 1 ||
-            raw['protocolVersion'] != '3.0' ||
-            raw['packages'] is! List ||
-            (raw['packages'] as List).length > 5000)
-          throw const FormatException();
-        final next = <String, Map<String, dynamic>>{};
-        for (final e in raw['packages']) {
-          if (e is! Map ||
-              e.length != 4 ||
-              e['url'] is! String ||
-              e['sha256'] is! String ||
-              !RegExp(r'^[a-f0-9]{64}$').hasMatch(e['sha256']) ||
-              e['bytes'] is! int ||
-              e['bytes'] <= 0 ||
-              e['bytes'] > maxOpenPluginBytes)
-            throw const FormatException();
-          final m = OpenPluginManifest.parse(e['manifest']);
-          if (next.containsKey(m.id)) throw const FormatException();
-          next[m.id] = {...Map<String, dynamic>.from(e), 'catalog': url};
-        }
+        final parsed = parseOpenPluginCatalog(
+          jsonDecode(utf8.decode(bytes)),
+          url,
+        );
+        final next = parsed.entries;
+        skipped += parsed.skipped;
         // Earlier user-selected catalogs win ID collisions visibly and predictably.
         for (final e in next.entries) found.putIfAbsent(e.key, () => e.value);
       } catch (_) {
@@ -117,7 +101,11 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
           ..clear()
           ..addAll(found.values);
         busy = false;
-        error = failed > 0 ? '$failed 个目录暂时无法读取，已安装插件仍可使用。' : null;
+        final notices = [
+          if (failed > 0) '$failed 个目录暂时无法读取，已安装插件仍可使用。',
+          if (skipped > 0) '$skipped 个条目暂不兼容或格式异常，其他插件仍可安装；可更新 App 后重试。',
+        ];
+        error = notices.isEmpty ? null : notices.join('\n');
       });
   }
 
@@ -184,7 +172,8 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
 
   Future<void> installCatalog(Map<String, dynamic> e) async {
     List<int> bytes;
-    if (e['catalog'] == 'https://skymoni.com/app-plugins/catalog/apps.json') {
+    if (e['catalog'] == defaultOpenPluginCatalog ||
+        e['catalog'] == legacyOpenPluginCatalog) {
       try {
         bytes = await download(
           'https://skymoni.com/app-plugins/web-packages/${e['sha256']}.json',
