@@ -42,6 +42,35 @@ Future<void> publicExternalTarget(String host) async {
   }
 }
 
+Future<ConnectionTask<Socket>> pluginPinnedConnection(
+  Uri uri,
+  InternetAddress address, {
+  SecurityContext? securityContext,
+}) async {
+  final task = await Socket.startConnect(address, uri.port);
+  Socket? connected;
+  final socket = task.socket.then<Socket>((raw) async {
+    connected = raw;
+    if (uri.scheme != 'https') return raw;
+    try {
+      final secure = await SecureSocket.secure(
+        raw,
+        host: uri.host,
+        context: securityContext,
+      );
+      connected = secure;
+      return secure;
+    } catch (_) {
+      raw.destroy();
+      rethrow;
+    }
+  });
+  return ConnectionTask.fromSocket(socket, () {
+    task.cancel();
+    connected?.destroy();
+  });
+}
+
 Future<http.Client> publicClient(
   String host, {
   required String scheme,
@@ -83,7 +112,7 @@ Future<http.Client> publicClient(
     client.connectionFactory = (uri, proxyHost, proxyPort) {
       if (uri.host != host || uri.scheme != scheme || uri.port != port)
         throw const PluginApiError('NETWORK_DENIED', '连接目标发生变化。');
-      return Socket.startConnect(pinned, uri.port);
+      return pluginPinnedConnection(uri, pinned);
     };
     return IOClient(client);
   } on PluginApiError {
