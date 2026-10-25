@@ -124,13 +124,15 @@ void main() {
   test(
     'official catalog migration keeps third-party directories and installed data',
     () async {
-      SharedPreferences.setMockInitialValues({
-        'skivu.open-plugin.catalogs': [
-          legacyOpenPluginCatalog,
-          'https://example.com/custom.json',
-          defaultOpenPluginCatalog,
-        ],
-      });
+      expect(registry.catalogs, [defaultOpenPluginCatalog]);
+      await registry.install(package());
+      await writePluginData('test.free-plugin', 'memo', 'retained role record');
+      final before = await SharedPreferences.getInstance();
+      await before.setStringList('skivu.open-plugin.catalogs', [
+        legacyOpenPluginCatalog,
+        'https://example.com/custom.json',
+        defaultOpenPluginCatalog,
+      ]);
       await registry.restore();
       expect(registry.catalogs, [
         defaultOpenPluginCatalog,
@@ -140,6 +142,11 @@ void main() {
       expect(
         prefs.getStringList('skivu.open-plugin.catalogs'),
         registry.catalogs,
+      );
+      expect(registry.records.containsKey('test.free-plugin'), true);
+      expect(
+        await readPluginData('test.free-plugin', 'memo'),
+        'retained role record',
       );
     },
   );
