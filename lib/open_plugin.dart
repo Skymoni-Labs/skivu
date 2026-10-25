@@ -37,6 +37,7 @@ const openPluginPermissions = <String, String>{
   'ai.generate': '经每次确认使用当前模型生成文字，可能消耗额度',
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
+  'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
 };
 
 bool pluginRelativePath(String value) =>

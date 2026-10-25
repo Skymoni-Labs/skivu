@@ -2,6 +2,9 @@
 import 'open_plugin_network.dart' show PluginApiError;
 import 'package:http/http.dart' as http;
 
+Future<void> publicExternalTarget(String host) async =>
+    throw const PluginApiError('UNSUPPORTED', '此平台不支持打开外部软件。');
+
 Future<http.Client> publicClient(
   String host, {
   required String scheme,

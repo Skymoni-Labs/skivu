@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
     private val chatAttachment by lazy { ChatAttachmentPlatform(this) }
     private val voice by lazy { VoiceCallPlatform(this) }
     private val pluginFiles by lazy { OpenPluginFilesPlatform(this) }
+    private val pluginExternal by lazy { OpenPluginExternalPlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -33,6 +34,7 @@ class MainActivity : FlutterActivity() {
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
         chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginFiles.register(flutterEngine.dartExecutor.binaryMessenger)
+        pluginExternal.register(flutterEngine.dartExecutor.binaryMessenger)
         flutterEngine.platformViewsController.registry.registerViewFactory("skivu/open-plugin", OpenPluginViewFactory(flutterEngine.dartExecutor.binaryMessenger))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
             .setMethodCallHandler { call, result ->

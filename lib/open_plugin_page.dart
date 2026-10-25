@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
+import 'open_plugin_external.dart';
 import 'state.dart';
 import 'chat_api.dart';
 
@@ -236,6 +237,16 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   Future<Object?> hostCall(String method, Map<String, dynamic> p) async {
     bridge.check();
     if (method == 'context.get') return hostContext;
+    if (method == 'ui.openExternal') {
+      return openPluginExternal(
+        p,
+        check: bridge.check,
+        confirm: (uri) => confirm(
+          '打开外部软件或网页？',
+          '${widget.record.manifest.name} 请求打开：\n$uri\n\n由系统浏览器或关联软件处理。打开不表示已登录、发送、购买或完成其他业务；外部软件自行管理其账号。',
+        ),
+      );
+    }
     if (method == 'ui.toast') {
       ScaffoldMessenger.of(
         context,

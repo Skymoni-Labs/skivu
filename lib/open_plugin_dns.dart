@@ -5,6 +5,43 @@ import 'package:http/io_client.dart';
 import 'open_plugin_network.dart'
     show pluginPrivateHost, pluginProtectedHost, PluginApiError;
 
+bool pluginExternalAddressPublic(InternetAddress address) {
+  if (address.isLoopback || address.isLinkLocal || address.isMulticast)
+    return false;
+  if (address.type == InternetAddressType.IPv4)
+    return !pluginPrivateHost(address.address);
+  final words = address.address.toLowerCase().split(':');
+  final first = int.tryParse(words[0], radix: 16) ?? 0,
+      second = int.tryParse(words.length > 1 ? words[1] : '0', radix: 16) ?? 0;
+  return !address.address.contains('.') &&
+      first >= 0x2000 &&
+      first <= 0x3fff &&
+      first != 0x2002 &&
+      !(first == 0x2001 && (second < 0x0200 || second == 0x0db8));
+}
+
+Future<void> publicExternalTarget(String host) async {
+  try {
+    final addresses = await InternetAddress.lookup(
+      host,
+    ).timeout(const Duration(seconds: 12));
+
+    if (addresses.isEmpty ||
+        addresses.any((address) => !pluginExternalAddressPublic(address)))
+      throw const PluginApiError('NETWORK_DENIED', '外部链接不能指向内部地址。');
+    final protected = await InternetAddress.lookup(
+      'skymoni.com',
+    ).timeout(const Duration(seconds: 12));
+    if (protected.isEmpty ||
+        addresses.any((a) => protected.any((p) => p.address == a.address)))
+      throw const PluginApiError('NETWORK_DENIED', '宿主服务器不向插件开放。');
+  } on PluginApiError {
+    rethrow;
+  } catch (_) {
+    throw const PluginApiError('NETWORK_FAILED', '外部链接域名解析未完成。');
+  }
+}
+
 Future<http.Client> publicClient(
   String host, {
   required String scheme,

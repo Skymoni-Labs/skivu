@@ -10,6 +10,7 @@ const pluginMethodPermissions = <String, String>{
   'host.info': '',
   'context.get': '',
   'ui.toast': '',
+  'ui.openExternal': 'external.open',
   'storage.get': 'storage',
   'storage.set': 'storage',
   'storage.remove': 'storage',
