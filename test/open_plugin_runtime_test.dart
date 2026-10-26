@@ -209,7 +209,9 @@ void main() {
             'done': false,
           }),
         ),
-        throwsFormatException,
+        throwsA(
+          isA<PluginApiError>().having((e) => e.code, 'code', 'INVALID_PLAN'),
+        ),
       );
       expect(writes, 0);
     },
@@ -288,6 +290,60 @@ void main() {
         await readPluginData(record.manifest.id, 'companion-receipts'),
         contains('pending'),
       );
+    },
+  );
+  test(
+    'revocation during a read result prevents any extra model round',
+    () async {
+      await registry.install(fixture(effect: 'read'));
+      await registry.setEnabled('test.free-plugin', true);
+      record = registry.records.values.single;
+      await registry.bindRole(
+        record.manifest.id,
+        'role',
+        enabled: true,
+        chat: true,
+      );
+      int models = 0;
+      final turn = CompanionTurn(
+        registry: registry,
+        roleId: 'role',
+        roleName: 'Role',
+        chatId: 'chat',
+        turnId: 'read-turn',
+        check: () {},
+        runner: (r, t, a, c, check) async {
+          await registry.bindRole(r.manifest.id, 'role', enabled: false);
+          return {'success': true};
+        },
+      );
+      await expectLater(
+        turn.run([], '', (h, p) async {
+          models++;
+          return jsonEncode(
+            models == 1
+                ? {
+                    'reply': '',
+                    'calls': [
+                      {
+                        'name': 'test.free-plugin/save',
+                        'arguments': {'title': 'read only'},
+                      },
+                    ],
+                    'done': false,
+                  }
+                : {
+                    'reply': 'must not request again',
+                    'calls': [],
+                    'done': true,
+                  },
+          );
+        }),
+        throwsA(
+          isA<PluginApiError>().having((e) => e.code, 'code', 'CANCELLED'),
+        ),
+      );
+      expect(models, 1);
     },
   );
 }

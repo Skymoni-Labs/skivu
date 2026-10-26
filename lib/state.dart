@@ -1697,77 +1697,92 @@ class DemoStore extends ChangeNotifier {
       if (companion.active) {
         _companionGeneration = generation;
         answer.pluginCards = companion.cards;
-        answer.text = await companion.run(history, prompt, (
-          nextHistory,
-          nextPrompt,
-        ) async {
-          final session = betaRequest
-              ? beta.startChat(
-                  nextHistory,
-                  nextPrompt,
-                  streaming: false,
-                  requestConfig: config,
-                )
-              : accountRequest
-              ? account.startChat(
-                  nextHistory,
-                  nextPrompt,
-                  streaming: false,
-                  requestConfig: config,
-                )
-              : _api.start(
-                  config.withStreaming(false),
-                  key,
-                  nextHistory,
-                  nextPrompt,
-                );
-          _session = session;
-          var text = '';
-          var roundUsage = const ApiUsage();
-          await for (final event in session.events) {
-            if (generation != _generation || _disposed) {
-              session.cancel();
-              throw const ChatFailure('本轮回复已停止。');
-            }
-            text += event.text;
-            if (event.usage != null)
-              roundUsage = roundUsage.merge(event.usage!);
-            if (event.notice != null) answer.contextNotice = event.notice;
+        void companionPermissionsChanged() {
+          try {
+            companion.checkActive();
+          } catch (_) {
+            if (generation == _generation) stop();
           }
-          usage = ApiUsage(
-            input: usage.input == null && roundUsage.input == null
-                ? null
-                : (usage.input ?? 0) + (roundUsage.input ?? 0),
-            output: usage.output == null && roundUsage.output == null
-                ? null
-                : (usage.output ?? 0) + (roundUsage.output ?? 0),
-            cached: usage.cached == null && roundUsage.cached == null
-                ? null
-                : (usage.cached ?? 0) + (roundUsage.cached ?? 0),
-          );
-          answer.tokens = usage.output;
-          target.usage = ConversationUsage(
-            totalTokens: usage.input != null && usage.output != null
-                ? target.usedTokens + usage.input! + usage.output!
-                : (target.usedTokens > 0 ? target.usedTokens : null),
-            tokensPerSecond:
-                usage.output == null || watch.elapsedMilliseconds == 0
-                ? null
-                : usage.output! * 1000 / watch.elapsedMilliseconds,
-            cacheHitRate:
-                usage.cached != null && usage.input != null && usage.input! > 0
-                ? usage.cached! / usage.input!
-                : null,
-            contextUsage:
-                config.contextLimit != null &&
-                    roundUsage.input != null &&
-                    config.contextLimit! > 0
-                ? roundUsage.input! / config.contextLimit!
-                : null,
-          );
-          changed();
-          return text;
-        });
+        }
+
+        plugins.addListener(companionPermissionsChanged);
+        try {
+          answer.text = await companion.run(history, prompt, (
+            nextHistory,
+            nextPrompt,
+          ) async {
+            final session = betaRequest
+                ? beta.startChat(
+                    nextHistory,
+                    nextPrompt,
+                    streaming: false,
+                    requestConfig: config,
+                  )
+                : accountRequest
+                ? account.startChat(
+                    nextHistory,
+                    nextPrompt,
+                    streaming: false,
+                    requestConfig: config,
+                  )
+                : _api.start(
+                    config.withStreaming(false),
+                    key,
+                    nextHistory,
+                    nextPrompt,
+                  );
+            _session = session;
+            var text = '';
+            var roundUsage = const ApiUsage();
+            await for (final event in session.events) {
+              if (generation != _generation || _disposed) {
+                session.cancel();
+                throw const ChatFailure('本轮回复已停止。');
+              }
+              text += event.text;
+              if (event.usage != null)
+                roundUsage = roundUsage.merge(event.usage!);
+              if (event.notice != null) answer.contextNotice = event.notice;
+            }
+            usage = ApiUsage(
+              input: usage.input == null && roundUsage.input == null
+                  ? null
+                  : (usage.input ?? 0) + (roundUsage.input ?? 0),
+              output: usage.output == null && roundUsage.output == null
+                  ? null
+                  : (usage.output ?? 0) + (roundUsage.output ?? 0),
+              cached: usage.cached == null && roundUsage.cached == null
+                  ? null
+                  : (usage.cached ?? 0) + (roundUsage.cached ?? 0),
+            );
+            answer.tokens = usage.output;
+            target.usage = ConversationUsage(
+              totalTokens: usage.input != null && usage.output != null
+                  ? target.usedTokens + usage.input! + usage.output!
+                  : (target.usedTokens > 0 ? target.usedTokens : null),
+              tokensPerSecond:
+                  usage.output == null || watch.elapsedMilliseconds == 0
+                  ? null
+                  : usage.output! * 1000 / watch.elapsedMilliseconds,
+              cacheHitRate:
+                  usage.cached != null &&
+                      usage.input != null &&
+                      usage.input! > 0
+                  ? usage.cached! / usage.input!
+                  : null,
+              contextUsage:
+                  config.contextLimit != null &&
+                      roundUsage.input != null &&
+                      config.contextLimit! > 0
+                  ? roundUsage.input! / config.contextLimit!
+                  : null,
+            );
+            changed();
+            return text;
+          });
+        } finally {
+          plugins.removeListener(companionPermissionsChanged);
+        }
       } else {
         final session = betaRequest
             ? beta.startChat(history, prompt, streaming: config.streaming)
