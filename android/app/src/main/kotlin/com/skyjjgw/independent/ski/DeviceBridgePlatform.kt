@@ -17,6 +17,10 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
     private val main = Handler(Looper.getMainLooper())
     init {
         channel.setMethodCallHandler { call, result ->
+            if (Build.VERSION.SDK_INT < 30) {
+                result.error("ANDROID_VERSION_UNSUPPORTED", "手机操控需要 Android 11 或更新系统", null)
+                return@setMethodCallHandler
+            }
             try { when (call.method) {
                 "discover" -> {
                     val matches = context.packageManager.queryIntentServices(Intent("org.skivu.devicebridge.V1"), 0)

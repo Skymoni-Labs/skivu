@@ -37,8 +37,10 @@ Passwords must be entered locally. Sensitive-label, coordinate and unlabeled tap
 
 ## Role chat integration
 
-Role tools should return an asynchronous task ID rather than run the full device task inside the foreground short-tool instance. Preserve `chat.tools` role bindings, story scope, the existing4-round/4-call/45-second limits and effect restrictions. The explicit task start consent is separate from granting normal role tools. Integration is coordinated against the stable build45 contract, not its in-progress working files.
+The independent plugin's `prepare_task` role tool uses `storage.compareAndSet` to prepare a local draft and returns a card. It does not call device methods or start a task. Clicking the card opens the corresponding role/chat page; the user then chooses the actual app and separately consents to an asynchronous device task. Existing4-round/4-call/45-second short-runtime limits and effect restrictions remain. Short runtimes cannot call device or task methods. Bindings and prepared cards are role/chat scoped; stale/superseded drafts are refused.
 
 ## Verification scope
+
+A separately installable preview can be built from the normal, non-mock entrypoint with `flutter build apk --release --dart-define=SKIVU_DEVICE_PREVIEW=true`. Its ID is `com.skyjjgw.independent.ski.devicepreview`; it does not replace the ordinary App. Configure a model connection in this preview and import the independent plugin package. It is for manual testing, not the normal update channel. Signing follows the repository build configuration and must be reported separately from the official production certificate. Device methods reject Android versions below11 explicitly; the rest of the host remains usable on its ordinary minimum version.
 
 The isolated `lib/device_qa.dart` entrypoint is built with `--dart-define=SKIVU_DEVICE_QA=true`; its app ID is separate. It supports test-only in-process planner injection, never exposed to Web plugins. Mock tests are not real-model quality evidence. Native fixture input/clicks and task scope use actual Android IPC/accessibility. The production `main.dart` path uses the ordinary protected model gateway and no mock planner.

@@ -11,6 +11,8 @@ import 'open_plugin_page.dart';
 import 'model_connection.dart';
 import 'model_settings.dart';
 import 'open_plugin_device.dart';
+import 'open_plugin_runtime.dart';
+import 'state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -288,6 +290,66 @@ class _DeviceQaState extends State<DeviceQa> {
     }
   }
 
+  Future<void> roleDraft() async {
+    try {
+      final record = openPlugins.records['org.skivu.device-control']!;
+      if (!record.authorized)
+        throw StateError('Enable the fixture package first');
+      final role = demo.role, chat = demo.conversations[demo.conversation];
+      await openPlugins.bindRole(
+        record.manifest.id,
+        role.id,
+        enabled: true,
+        chat: true,
+      );
+      final toolContext = openPlugins.companionContext(
+        record,
+        role.id,
+        role.name,
+        chat.id,
+      );
+      toolContext['callId'] = 'isolated-role-draft';
+      final runtime = OpenPluginRuntime(
+        registry: openPlugins,
+        record: record,
+        context: toolContext,
+        effect: 'write',
+        checkContext: () {
+          if (!record.authorized ||
+              openPlugins.bindingFor(record.manifest.id, role.id) == null)
+            throw StateError('Role binding was revoked');
+        },
+        host: (method, params) async {
+          throw StateError('Unexpected UI capability $method');
+        },
+      );
+      final result = Map<String, dynamic>.from(
+        await runtime.run('prepare_task', {
+              'goal': '在便签准备明天的计划，保存后核对内容。',
+              'appHint': '隔离测试便签',
+            })
+            as Map,
+      );
+      await File(
+        '/data/user/0/com.skyjjgw.independent.ski.deviceqa/files/role-device-draft-result.json',
+      ).writeAsString(jsonEncode(result));
+      log('role-draft', result);
+      if (mounted)
+        await launchOpenPlugin(
+          context,
+          record,
+          roleId: role.id,
+          chatId: chat.id,
+          action: 'new-task',
+          payload: Map<String, dynamic>.from(
+            (result['card'] as Map)['payload'] as Map,
+          ),
+        );
+    } catch (e) {
+      log('role-draft-error', e.toString());
+    }
+  }
+
   void log(String name, Object? data) {
     entries.add({'event': name, 'data': data});
     debugPrint('DEVICE_QA ${jsonEncode(entries.last)}');
@@ -451,6 +513,10 @@ class _DeviceQaState extends State<DeviceQa> {
           FilledButton(
             onPressed: () => openPlugin(waitOnly: true),
             child: const Text('7. Plugin cancellation fixture'),
+          ),
+          FilledButton(
+            onPressed: roleDraft,
+            child: const Text('8. Role draft SDK fixture'),
           ),
           FilledButton(
             onPressed: () async {

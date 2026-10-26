@@ -214,11 +214,13 @@ class OpenPluginDeviceTasks {
         data['actions'] = active?.count ?? data['actions'];
         data['rounds'] = active?.rounds ?? data['rounds'];
         data['errorCode'] = active?.failureCode;
-        await writePluginData(
-          owner,
-          'device-task-last',
-          jsonEncode(publicTask(data)),
-        );
+        if (openPlugins.records[owner]?.package.digest == data['digest']) {
+          await writePluginData(
+            owner,
+            'device-task-last',
+            jsonEncode(publicTask(data)),
+          );
+        }
       },
       waitForConfirmation: () async {
         confirmation = Completer<void>();
@@ -326,9 +328,25 @@ class OpenPluginDeviceTasks {
       key: data[key],
   };
   Future<void> cancel() async {
+    final task = active;
     modelSession?.cancel();
     if (confirmation != null && !confirmation!.isCompleted)
       confirmation!.complete();
-    await active?.cancel();
+    await task?.cancel();
+    if (task != null) {
+      task.failureCode = 'CANCELLED';
+      final data = tasks[task.id]!;
+      data['state'] = 'cancelled';
+      data['errorCode'] = 'CANCELLED';
+      data['summary'] = '已请求停止；已经注入系统的操作可能完成，请按需核对。';
+      if (openPlugins.records[data['pluginId']]?.package.digest ==
+          data['digest']) {
+        await writePluginData(
+          data['pluginId'],
+          'device-task-last',
+          jsonEncode(publicTask(data)),
+        );
+      }
+    }
   }
 }
