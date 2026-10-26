@@ -2,22 +2,35 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'open_plugin.dart';
 import 'open_plugin_network.dart';
 import 'device_task.dart';
 import 'chat_api.dart';
 import 'state.dart';
+import 'device_task_journal.dart';
 
 typedef DeviceConsent = Future<bool> Function(String title, String details);
 var deviceTasks = OpenPluginDeviceTasks();
 
-class OpenPluginDeviceTasks {
-  OpenPluginDeviceTasks({this.plannerForTesting});
+class OpenPluginDeviceTasks extends ChangeNotifier {
+  OpenPluginDeviceTasks({this.plannerForTesting, DeviceTaskJournal? journal})
+    : journal = journal ?? DeviceTaskJournal();
+  final DeviceTaskJournal journal;
+  Future<void>? _restored;
+  Future<void> restore() => _restored ??= () async {
+    final saved = await journal.restore();
+    for (final entry in saved.entries) {
+      tasks.putIfAbsent(entry.key, () => entry.value);
+    }
+  }();
 
   /// Trusted Dart test injection only; never available through the plugin API.
   final DevicePlanner? plannerForTesting;
   static const channel = MethodChannel('skivu/device_tasks');
   final connections = <String, String>{};
+  final components = <String, String>{};
+  final signers = <String, String>{};
   final tasks = <String, Map<String, dynamic>>{};
   DeviceTaskRunner? active;
   ChatSession? modelSession;
@@ -52,6 +65,15 @@ class OpenPluginDeviceTasks {
     demo.account.addListener(changed);
     demo.beta.addListener(changed);
     channel.setMethodCallHandler((call) async {
+      if (call.method == 'deviceDisconnected' &&
+          active != null &&
+          tasks[active!.id]?['connectionId'] ==
+              (call.arguments as Map?)?['connectionId']) {
+        await cancel(
+          code: 'DEVICE_DISCONNECTED',
+          summary: '设备伴侣已断开，后续操作已停止；请核对已经执行的操作，再重新连接。',
+        );
+      }
       if (call.method == 'stop' || call.method == 'serviceStopped') {
         if (active?.id == (call.arguments as Map?)?['taskId']) await cancel();
       }
@@ -93,34 +115,86 @@ class OpenPluginDeviceTasks {
   ) async {
     initialize();
     check(record);
+    await restore();
+    check(record);
     final owner = record.manifest.id;
     if (method == 'device.discover') return channel.invokeMethod('discover');
     if (method == 'device.connect') {
       final component = p['component'];
       if (component is! String || component.length > 300)
         throw const PluginApiError('INVALID_ARGUMENT', '请选择设备伴侣。');
-      if (!await consent(
-        '连接设备伴侣？',
-        '插件：${record.manifest.name}\n目标服务：$component\n连接后还需要你在设备伴侣中人工批准。',
-      ))
+      final direct = record.manifest.permissions.contains('device.direct');
+      if (!direct &&
+          !await consent(
+            '连接设备伴侣？',
+            '插件：${record.manifest.name}\n目标服务：$component\n连接后还需要你在设备伴侣中人工批准。',
+          ))
         return null;
       check(record);
+      for (final id in connections.keys.toList()) {
+        if (connections[id] != owner || components[id] != component) continue;
+        if (p['signerSha256'] is String && p['signerSha256'] != signers[id])
+          throw const PluginApiError(
+            'COMPANION_CHANGED',
+            '设备伴侣签名已改变，请核对来源后更换连接。',
+          );
+        try {
+          final pairing = await nativeRequest(id, 'pair', {});
+          check(record);
+          return {'connectionId': id, 'signerSha256': signers[id], ...pairing};
+        } catch (_) {
+          connections.remove(id);
+          components.remove(id);
+          signers.remove(id);
+          try {
+            await channel.invokeMethod('disconnect', {'connectionId': id});
+          } catch (_) {}
+        }
+      }
+      if (connections.values.where((value) => value == owner).length >= 8)
+        throw const PluginApiError('DEVICE_BUSY', '连接过多，请关闭不再使用的设备连接。');
       final result = await channel.invokeMapMethod<String, dynamic>('connect', {
         'component': component,
+        if (p['signerSha256'] is String) 'signerSha256': p['signerSha256'],
       });
       final id = result!['connectionId'] as String;
       connections[id] = owner;
+      components[id] = component;
+      signers[id] = (result['signerSha256'] as String?) ?? '';
       final pairing = await nativeRequest(id, 'pair', {});
       check(record);
-      return {'connectionId': id, ...pairing};
+      return {
+        'connectionId': id,
+        'signerSha256': result['signerSha256'],
+        ...pairing,
+      };
     }
     final connection = p['connectionId'];
     if (method.startsWith('device.') || method == 'agent.tasks.start') {
       if (connection is! String || connections[connection] != owner)
         throw const PluginApiError('PERMISSION_DENIED', '该设备连接不属于此插件。');
     }
-    if (method == 'device.status')
-      return nativeRequest(connection, 'hello', {});
+    if (method == 'device.status') {
+      final status = await nativeRequest(connection, 'hello', {});
+      return {
+        ...status,
+        'modelName': demo.activeConnection?.model,
+        'modelSource': demo.useBeta
+            ? '内测'
+            : demo.useAccount
+            ? '账号'
+            : '自定义连接',
+      };
+    }
+    if (method == 'device.disconnect') {
+      if (active != null && tasks[active!.id]?['connectionId'] == connection)
+        await cancel();
+      await channel.invokeMethod('disconnect', {'connectionId': connection});
+      connections.remove(connection);
+      components.remove(connection);
+      signers.remove(connection);
+      return true;
+    }
     if (method == 'device.apps')
       return nativeRequest(connection, 'list_apps', {});
     if (method == 'device.openCompanion')
@@ -142,6 +216,7 @@ class OpenPluginDeviceTasks {
     final goal = p['goal'], apps = p['allowedPackages'];
     if (goal is! String ||
         goal.trim().isEmpty ||
+        goal.contains('\u0000') ||
         goal.length > 4000 ||
         apps is! List ||
         apps.isEmpty ||
@@ -168,27 +243,48 @@ class OpenPluginDeviceTasks {
         maxActions > 30 ||
         maxRounds is! int ||
         maxRounds < 1 ||
-        maxRounds > 15 ||
+        maxRounds > 30 ||
         seconds is! int ||
         seconds < 30 ||
         seconds > 600)
       throw const PluginApiError('INVALID_ARGUMENT', '任务预算无效。');
     final model = demo.activeConnection!;
+    final direct = record.manifest.permissions.contains('device.direct');
     final consentModelIdentity = identity();
-    if (!await consent(
-      '开始真实手机操作？',
-      '插件：${record.manifest.name}\n任务：$goal\n软件：${apps.join('、')}\n模型：${model.model}\n最多 $maxActions 次设备操作、$maxRounds 次模型请求、$seconds 秒。每次模型最多输出 1024 token，会消耗当前连接的额度。\n本版将所选软件的文字界面发送给当前模型；提交、坐标或无标签点击需要设备伴侣单独确认。可从通知停止。',
-    ))
+    if (!direct &&
+        !await consent(
+          '开始真实手机操作？',
+          '插件：${record.manifest.name}\n任务：$goal\n软件：${apps.join('、')}\n模型：${model.model}\n最多 $maxActions 次设备操作、$maxRounds 次模型请求、$seconds 秒。每次模型最多输出 1024 token，会消耗当前连接的额度。\n本版将所选软件的文字界面发送给当前模型；提交、坐标或无标签点击需要设备伴侣单独确认。可从通知停止。',
+        ))
       return null;
     check(record);
     if (identity() != consentModelIdentity)
       throw const PluginApiError('CANCELLED', '模型或账号已变化，请重新核对任务。');
+    if (direct) {
+      final status = await nativeRequest(connection, 'hello', {});
+      check(record);
+      if (status['approved'] != true)
+        throw const PluginApiError('UNAUTHORIZED', '首次使用请打开设备伴侣并信任此客户端。');
+      if (status['directControlApproved'] != true)
+        throw const PluginApiError(
+          'DIRECT_APPROVAL_REQUIRED',
+          '请在设备伴侣中开启此客户端的直接操控信任，之后不再逐步弹窗。',
+        );
+      if (status['accessibilityEnabled'] == false)
+        throw const PluginApiError(
+          'ACCESSIBILITY_UNAVAILABLE',
+          '请在设备伴侣中打开系统无障碍服务后重试。',
+        );
+      if (identity() != consentModelIdentity)
+        throw const PluginApiError('CANCELLED', '模型或账号已变化，请重新开始任务。');
+    }
     if (active != null) throw const PluginApiError('DEVICE_BUSY', '另一任务刚刚开始。');
     final id = 'device_${DateTime.now().microsecondsSinceEpoch}';
     final data = <String, dynamic>{
       'taskId': id,
       'pluginId': owner,
       'digest': record.package.digest,
+      'connectionId': connection,
       'state': 'starting',
       'summary': '正在启动任务。',
       'actions': 0,
@@ -202,6 +298,7 @@ class OpenPluginDeviceTasks {
       maxActions: maxActions,
       maxRounds: maxRounds,
       deadline: DateTime.now().add(Duration(seconds: seconds)),
+      directControl: direct,
       request: (method, args) => nativeRequest(connection, method, args),
       check: () {
         check(record);
@@ -214,6 +311,8 @@ class OpenPluginDeviceTasks {
         data['actions'] = active?.count ?? data['actions'];
         data['rounds'] = active?.rounds ?? data['rounds'];
         data['errorCode'] = active?.failureCode;
+        notifyListeners();
+        await journal.save(tasks);
         if (openPlugins.records[owner]?.package.digest == data['digest']) {
           await writePluginData(
             owner,
@@ -295,19 +394,33 @@ class OpenPluginDeviceTasks {
     );
     active = runner;
     try {
+      await journal.save(tasks);
       await channel.invokeMethod('startService', {'taskId': id});
-    } catch (_) {
+    } catch (error) {
       active = null;
       tasks.remove(id);
+      // Failed foreground-service startup must not leave a phantom receipt.
+      try {
+        await journal.save(tasks);
+      } catch (_) {}
+      if (error is PlatformException && error.code == 'NOTIFICATIONS_REQUIRED')
+        throw const PluginApiError(
+          'NOTIFICATIONS_REQUIRED',
+          '请在系统设置中允许 Skivu 任务通知，再点击开始；通知提供随时停止任务的入口。',
+        );
       rethrow;
     }
     final expiry = Timer(Duration(seconds: seconds), () {
-      if (identical(active, runner)) unawaited(cancel());
+      if (identical(active, runner))
+        unawaited(
+          cancel(code: 'TIME_LIMIT', summary: '任务已达到时间上限，后续操作已停止，请核对结果。'),
+        );
     });
     unawaited(
       runner.run().whenComplete(() async {
         expiry.cancel();
         if (identical(active, runner)) active = null;
+        notifyListeners();
         try {
           await channel.invokeMethod('finishService', {'taskId': id});
         } catch (_) {}
@@ -327,18 +440,25 @@ class OpenPluginDeviceTasks {
     ])
       key: data[key],
   };
-  Future<void> cancel() async {
+  Future<void> cancel({String code = 'CANCELLED', String? summary}) async {
     final task = active;
+    final message = summary ?? '已请求停止；已经注入系统的操作可能完成，请按需核对。';
+    final revoke = task?.cancel(code: code, message: message);
     modelSession?.cancel();
     if (confirmation != null && !confirmation!.isCompleted)
       confirmation!.complete();
-    await task?.cancel();
     if (task != null) {
-      task.failureCode = 'CANCELLED';
+      task.failureCode = code;
       final data = tasks[task.id]!;
-      data['state'] = 'cancelled';
-      data['errorCode'] = 'CANCELLED';
-      data['summary'] = '已请求停止；已经注入系统的操作可能完成，请按需核对。';
+      data['state'] = code == 'DEVICE_DISCONNECTED'
+          ? 'review_required'
+          : code == 'TIME_LIMIT'
+          ? 'failed'
+          : 'cancelled';
+      data['errorCode'] = code;
+      data['summary'] = message;
+      notifyListeners();
+      await journal.save(tasks);
       if (openPlugins.records[data['pluginId']]?.package.digest ==
           data['digest']) {
         await writePluginData(
@@ -348,5 +468,7 @@ class OpenPluginDeviceTasks {
         );
       }
     }
+    if (revoke != null)
+      await revoke.timeout(const Duration(seconds: 2), onTimeout: () {});
   }
 }

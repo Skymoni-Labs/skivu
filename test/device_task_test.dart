@@ -26,6 +26,95 @@ String plan({
 });
 void main() {
   test(
+    'scroll rejects missing or off-screen targets before any device call',
+    () {
+      final screen = {
+        ...observation(),
+        'display': {'width': 1080, 'height': 2400},
+      };
+      for (final args in [
+        {'direction': 'down'},
+        {'direction': 'diagonal', 'element_id': '1'},
+        {
+          'direction': 'down',
+          'element_id': '1',
+          'region': {'left': 0, 'top': 0, 'right': 20, 'bottom': 20},
+        },
+        {
+          'direction': 'down',
+          'region': {'left': 0, 'top': 0, 'right': 1081, 'bottom': 20},
+        },
+      ]) {
+        expect(
+          () => DevicePlan.parse(plan(action: 'scroll', args: args), screen, {
+            'org.example.notes',
+          }),
+          throwsA(isA<DeviceTaskFailure>()),
+        );
+      }
+      expect(
+        DevicePlan.parse(
+          plan(
+            action: 'scroll',
+            args: {'direction': 'down', 'element_id': '1'},
+          ),
+          screen,
+          {'org.example.notes'},
+        ).action,
+        'scroll',
+      );
+      expect(
+        DevicePlan.parse(
+          plan(
+            action: 'scroll',
+            args: {
+              'direction': 'up',
+              'region': {'left': 20, 'top': 200, 'right': 1000, 'bottom': 1800},
+            },
+          ),
+          screen,
+          {'org.example.notes'},
+        ).action,
+        'scroll',
+      );
+    },
+  );
+  test(
+    'opening system UI waits without reading foreign content and can be stopped',
+    () async {
+      final states = <String>[];
+      late DeviceTaskRunner runner;
+      runner = DeviceTaskRunner(
+        id: 'outside',
+        apps: {'org.example.notes'},
+        maxActions: 4,
+        maxRounds: 3,
+        deadline: DateTime.now().add(const Duration(seconds: 5)),
+        check: () {},
+        waitForConfirmation: () async {},
+        update: (state, summary) async {
+          states.add(state);
+          if (state == 'awaiting_user') await runner.cancel();
+        },
+        plan: (_, __) async =>
+            throw StateError('must not plan from foreign content'),
+        request: (method, args) async {
+          if (method == 'begin') return {'taskCapability': 'lease'};
+          if (method == 'end') return {};
+          if (args['name'] == 'observe')
+            return {
+              'error': {'code': 'APP_OUT_OF_SCOPE'},
+            };
+          return {'state': 'executed', 'action_executed': true};
+        },
+      );
+      await runner.run();
+      expect(states, contains('awaiting_user'));
+      expect(states.last, 'cancelled');
+      expect(runner.rounds, 0);
+    },
+  );
+  test(
     'only a terminal nonexecuted stale target permits bounded fresh planning',
     () async {
       int taps = 0, plans = 0, observes = 0;

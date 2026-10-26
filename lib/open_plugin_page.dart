@@ -42,6 +42,13 @@ Future<bool> confirmOpenPlugin(
                   Text('网络域名：${r.manifest.domains.join('、')}'),
                 const SizedBox(height: 12),
                 const Text('插件只能使用自己保存的第三方密钥；宿主账号、服务器配置和模型密钥不会提供给插件。'),
+                if (r.manifest.permissions.contains('device.direct'))
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      '直接操控授权会持续有效。任务可读取所选软件界面、点击和输入，并消耗当前模型额度；请只为你信任的插件开启。系统首次权限和伴侣信任仍由你设置，可随时从通知停止、停用插件或在伴侣撤销。',
+                    ),
+                  ),
               ],
             ),
           ),

@@ -41,6 +41,7 @@ const pluginMethodPermissions = <String, String>{
   'device.discover': 'device.observe',
   'device.connect': 'device.control',
   'device.status': 'device.observe',
+  'device.disconnect': 'device.control',
   'device.apps': 'device.observe',
   'device.openCompanion': 'device.control',
   'agent.tasks.start': 'agent.tasks',

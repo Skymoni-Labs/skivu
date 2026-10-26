@@ -27,7 +27,8 @@ android {
             (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
                 try { String(Base64.getDecoder().decode(it)) == "SKIVU_DEVICE_QA=true" } catch (_: Exception) { false }
             }
-        val devicePreview = (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
+        val devicePreview = providers.gradleProperty("skivuDevicePreview").orNull == "true" ||
+            (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
             try { String(Base64.getDecoder().decode(it)) == "SKIVU_DEVICE_PREVIEW=true" } catch (_: Exception) { false }
         }
         applicationId = when { deviceQa -> "com.skyjjgw.independent.ski.deviceqa"; devicePreview -> "com.skyjjgw.independent.ski.devicepreview"; else -> "com.skyjjgw.independent.ski" }

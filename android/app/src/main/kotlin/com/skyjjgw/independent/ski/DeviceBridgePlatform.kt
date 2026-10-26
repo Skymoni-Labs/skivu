@@ -9,12 +9,17 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
 import java.util.UUID
+import java.security.MessageDigest
+import android.content.pm.PackageManager
 
 /** A fixed, versioned JSON Messenger protocol, never arbitrary Binder reflection. */
 class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngine) {
     private val connections = mutableMapOf<String, Connection>()
     private val channel = MethodChannel(engine.dartExecutor.binaryMessenger, "skivu/device_tasks")
     private val main = Handler(Looper.getMainLooper())
+    @Suppress("DEPRECATION")
+    private fun signer(name:String):String = context.packageManager.getPackageInfo(name,PackageManager.GET_SIGNING_CERTIFICATES)
+        .signingInfo!!.apkContentsSigners.map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { b->"%02x".format(b) } }.sorted().joinToString(":")
     init {
         channel.setMethodCallHandler { call, result ->
             if (Build.VERSION.SDK_INT < 30) {
@@ -24,16 +29,27 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
             try { when (call.method) {
                 "discover" -> {
                     val matches = context.packageManager.queryIntentServices(Intent("org.skivu.devicebridge.V1"), 0)
-                    result.success(matches.map { mapOf("component" to ComponentName(it.serviceInfo.packageName, it.serviceInfo.name).flattenToString(), "label" to it.loadLabel(context.packageManager).toString()) })
+                    result.success(matches.map { mapOf("component" to ComponentName(it.serviceInfo.packageName, it.serviceInfo.name).flattenToString(), "label" to it.loadLabel(context.packageManager).toString(),"signerSha256" to signer(it.serviceInfo.packageName)) })
                 }
                 "connect" -> {
+                    require(connections.size<16) { "Close an unused companion connection first" }
                     val component = ComponentName.unflattenFromString(call.argument<String>("component") ?: "") ?: error("Choose a companion")
                     val discovered = context.packageManager.queryIntentServices(Intent("org.skivu.devicebridge.V1"), 0)
                     require(discovered.any { it.serviceInfo.packageName == component.packageName && it.serviceInfo.name == component.className })
+                    val expected=call.argument<String>("signerSha256")
+                    require(expected.isNullOrEmpty() || expected==signer(component.packageName)) { "设备伴侣签名已改变，请重新核对来源后更换连接" }
                     val id = UUID.randomUUID().toString()
                     val connection = Connection(id, component)
                     connections[id] = connection
-                    connection.connect(result)
+                    try { connection.connect(result) } catch(e:Exception) { connections.remove(id);connection.close();throw e }
+                }
+                "openCompanionSettings" -> {
+                    val component=ComponentName.unflattenFromString(call.argument<String>("component") ?: "") ?: error("Choose a companion")
+                    require(context.packageManager.queryIntentServices(Intent("org.skivu.devicebridge.V1"),0).any {
+                        it.serviceInfo.packageName==component.packageName && it.serviceInfo.name==component.className
+                    })
+                    val open=context.packageManager.getLaunchIntentForPackage(component.packageName) ?: error("No companion interface")
+                    context.startActivity(open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));result.success(true)
                 }
                 "request" -> {
                     val c = connections[call.argument<String>("connectionId")] ?: error("Companion disconnected")
@@ -85,6 +101,7 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
     }
     fun close() { connections.values.forEach { it.close() }; connections.clear(); channel.setMethodCallHandler(null) }
     inner class Connection(val id: String, val component: ComponentName) : ServiceConnection {
+        private val pinnedSigner=signer(component.packageName)
         private var remote: Messenger? = null
         private var ticket = 0
         private var opening: MethodChannel.Result? = null
@@ -102,17 +119,25 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
             main.postDelayed({ if (opening != null) { opening?.error("TIMEOUT", "Companion connection timed out", null); opening = null; close() } }, 10000)
         }
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            try {
+                require(signer(component.packageName)==pinnedSigner) { "Companion signing identity changed" }
+            } catch(_:Exception) {
+                opening?.error("COMPANION_CHANGED","设备伴侣签名已改变，请核对来源后重新连接",null)
+                opening=null;close();return
+            }
             remote = Messenger(binder)
-            opening?.success(mapOf("connectionId" to id)); opening = null
+            opening?.success(mapOf("connectionId" to id,"signerSha256" to signer(component.packageName))); opening = null
         }
-        override fun onServiceDisconnected(name: ComponentName?) { remote = null; pending.values.forEach { it.error("DISCONNECTED", "Companion service stopped; reconcile before retrying", null) }; pending.clear() }
+        override fun onServiceDisconnected(name: ComponentName?) { remote = null; pending.values.forEach { it.error("DISCONNECTED", "Companion service stopped; reconcile before retrying", null) }; pending.clear();channel.invokeMethod("deviceDisconnected",mapOf("connectionId" to id)) }
         fun send(json: String, result: MethodChannel.Result) {
             val target = remote ?: error("Companion disconnected")
+            require(pending.size<8) { "Too many pending companion requests" }
             val key = ++ticket; pending[key] = result
-            target.send(Message.obtain(null, 1, key, 0).apply { replyTo = receiver; data = Bundle().apply { putString("json", json) } })
+            try { target.send(Message.obtain(null, 1, key, 0).apply { replyTo = receiver; data = Bundle().apply { putString("json", json) } }) }
+            catch(e:Exception) { pending.remove(key);throw e }
             main.postDelayed({ pending.remove(key)?.error("RESULT_UNKNOWN", "Companion did not return a receipt; do not replay an action", null) }, 65000)
         }
-        fun close() { if (bound) { context.unbindService(this); bound = false }; onServiceDisconnected(null) }
+        fun close() { if (bound) { try {context.unbindService(this)} catch(_:IllegalArgumentException){}; bound = false }; onServiceDisconnected(null) }
     }
 }
 

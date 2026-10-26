@@ -8,6 +8,8 @@
     <application
         android:label="${skivuApplicationLabel}"
         android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/skivu_data_extraction_rules"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"

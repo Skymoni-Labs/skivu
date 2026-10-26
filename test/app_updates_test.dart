@@ -74,6 +74,18 @@ class UpdatePlatform extends AppPlatform {
   }
 }
 
+class PreviewUpdatePlatform extends UpdatePlatform {
+  @override
+  Future<AppDeviceInfo> info() async => const AppDeviceInfo(
+    version: '0.2.42',
+    versionCode: 46,
+    packageName: 'com.skyjjgw.independent.ski.devicepreview',
+    sdk: 36,
+    abis: ['x86_64'],
+    signerSha256: signer,
+  );
+}
+
 Future<String> memoryWriter(
   Stream<List<int>> stream, {
   required String path,
@@ -95,6 +107,23 @@ Future<String> memoryWriter(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'separate preview builds never contact or install from the production update channel',
+    () async {
+      var requests = 0;
+      final updates = AppUpdates(
+        platform: PreviewUpdatePlatform(),
+        clientFactory: () => MockClient((request) async {
+          requests++;
+          return manifest(release());
+        }),
+      );
+      await updates.check();
+      expect(requests, 0);
+      expect(updates.release, isNull);
+      expect(updates.message, contains('独立构建'));
+    },
+  );
   test(
     'native preparation receives the release identity for separate APK paths',
     () async {

@@ -108,6 +108,42 @@ class DevicePlan {
         throw const DeviceTaskFailure('INVALID_PLAN', '模型选择了不存在的控件。');
       if (action == 'launch_app' && !apps.contains(args['package_name']))
         throw const DeviceTaskFailure('INVALID_PLAN', '目标软件未授权。');
+      if (action == 'scroll') {
+        final region = args['region'];
+        final display = observation['display'] as Map? ?? {};
+        final width = display['width'], height = display['height'];
+        if (args.containsKey('element_id') == args.containsKey('region') ||
+            !{
+              'forward',
+              'backward',
+              'up',
+              'down',
+              'left',
+              'right',
+            }.contains(args['direction']))
+          throw const DeviceTaskFailure(
+            'INVALID_PLAN',
+            '滑动需要一个当前控件或界面区域，以及有效方向。',
+          );
+        if (args.containsKey('region') &&
+            (region is! Map ||
+                region.length != 4 ||
+                ![
+                  'left',
+                  'top',
+                  'right',
+                  'bottom',
+                ].every((key) => region[key] is int) ||
+                width is! int ||
+                height is! int ||
+                region['left'] < 0 ||
+                region['top'] < 0 ||
+                region['right'] > width ||
+                region['bottom'] > height ||
+                region['left'] >= region['right'] ||
+                region['top'] >= region['bottom']))
+          throw const DeviceTaskFailure('INVALID_PLAN', '滑动区域必须位于当前屏幕内。');
+      }
       if (action == 'input_text' &&
           (args['element_id'] is! String ||
               args['text'] is! String ||
@@ -147,6 +183,7 @@ class DeviceTaskRunner {
     required this.maxActions,
     required this.maxRounds,
     required this.deadline,
+    this.directControl = false,
   });
   final String id;
   final DeviceRequest request;
@@ -157,15 +194,18 @@ class DeviceTaskRunner {
   final Set<String> apps;
   final int maxActions, maxRounds;
   final DateTime deadline;
+  final bool directControl;
   String? capability;
   int count = 0, rounds = 0;
   int refreshes = 0;
   String? failureCode;
   bool cancelled = false;
+  String cancelMessage = '任务已停止。';
   final receipts = <Map<String, dynamic>>[];
   void guard() {
     check();
-    if (cancelled) throw const DeviceTaskFailure('CANCELLED', '任务已停止。');
+    if (cancelled)
+      throw DeviceTaskFailure(failureCode ?? 'CANCELLED', cancelMessage);
     if (DateTime.now().isAfter(deadline))
       throw const DeviceTaskFailure('TIME_LIMIT', '任务已达到时间上限。');
   }
@@ -262,6 +302,7 @@ class DeviceTaskRunner {
         await request('begin', {
           'allowedPackages': apps.toList(),
           'maxActions': maxActions,
+          'directControl': directControl,
           'timeoutMs': deadline
               .difference(DateTime.now())
               .inMilliseconds
@@ -274,14 +315,28 @@ class DeviceTaskRunner {
       while (rounds < maxRounds) {
         guard();
         await update('observing', '正在读取任务软件的当前界面。');
-        final observation = validated(
-          await call('observe', {
+        Map<String, dynamic> observation;
+        final returnDeadline = DateTime.now().add(const Duration(seconds: 30));
+        while (true) {
+          final value = await call('observe', {
             'mode': 'tree',
             'output': 'decision',
             'compact': true,
             'stable_wait_ms': 300,
-          }),
-        );
+          });
+          if ((value['error'] as Map?)?['code'] != 'APP_OUT_OF_SCOPE') {
+            observation = validated(value);
+            break;
+          }
+          await update('awaiting_user', '已离开允许操作的软件。请返回该软件继续，或从通知停止任务。');
+          if (DateTime.now().isAfter(returnDeadline))
+            throw const DeviceTaskFailure(
+              'APP_OUT_OF_SCOPE',
+              '长时间未返回允许的软件，任务已停止；请核对范围后重新开始。',
+            );
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+          guard();
+        }
         if (!apps.contains(observation['package_name']))
           throw const DeviceTaskFailure('APP_OUT_OF_SCOPE', '当前软件不属于任务范围。');
         await update('planning', '正在规划第 ${rounds + 1} 轮操作。');
@@ -306,6 +361,7 @@ class DeviceTaskRunner {
               'observation_id': observation['observation_id'],
             'service_instance_id': observation['service_instance_id'],
           });
+          refreshes = 0;
         } on _FreshObservationRequired {
           if (++refreshes > 2)
             throw const DeviceTaskFailure(
@@ -321,7 +377,11 @@ class DeviceTaskRunner {
       await update(
         e.code == 'CANCELLED'
             ? 'cancelled'
-            : {'RESULT_UNKNOWN', 'UNCERTAIN'}.contains(e.code)
+            : {
+                'RESULT_UNKNOWN',
+                'UNCERTAIN',
+                'DEVICE_DISCONNECTED',
+              }.contains(e.code)
             ? 'review_required'
             : 'failed',
         e.message,
@@ -340,8 +400,13 @@ class DeviceTaskRunner {
     }
   }
 
-  Future<void> cancel() async {
+  Future<void> cancel({
+    String code = 'CANCELLED',
+    String message = '任务已停止。',
+  }) async {
     cancelled = true;
+    failureCode = code;
+    cancelMessage = message;
     if (capability != null) {
       try {
         await request('end', {'taskCapability': capability});

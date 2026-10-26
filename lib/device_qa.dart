@@ -33,6 +33,7 @@ class _DeviceQaState extends State<DeviceQa> {
   DeviceTaskRunner? runner;
   Completer<void>? safetyConfirmation;
   String? safetyCapability;
+  bool dataRestored = false;
   @override
   void initState() {
     super.initState();
@@ -50,8 +51,18 @@ class _DeviceQaState extends State<DeviceQa> {
     });
   }
 
-  Future<void> openPlugin({bool waitOnly = false}) async {
+  Future<void> openPlugin({
+    bool waitOnly = false,
+    bool directAction = false,
+    bool matrix = false,
+  }) async {
     try {
+      if (!dataRestored) {
+        await demo.restore();
+        await demo.saveChats();
+        dataRestored = true;
+      }
+      var executed = 0, lastReceipt = 0;
       modelSettings.connections.clear();
       modelSettings.connections.add(
         const ModelConnection(
@@ -80,6 +91,123 @@ class _DeviceQaState extends State<DeviceQa> {
           }
           final nodes = ((observation['tree'] as Map)['elements'] as List)
               .cast<Map>();
+          if (matrix) {
+            final last = receipts.lastOrNull;
+            if (last?['actionExecuted'] == true &&
+                last?['step'] != lastReceipt) {
+              lastReceipt = last!['step'] as int;
+              executed++;
+            }
+            final steps = <String>[
+              'input1',
+              'save',
+              'settings',
+              'down',
+              'contacts',
+              'notes',
+              'input2',
+              'save',
+              'settings',
+              'up',
+              'contacts',
+              'notes',
+              'input3',
+              'save',
+              'settings',
+              'contacts',
+              'notes',
+              'input-final',
+              'save',
+            ];
+            log('matrix-observation', {
+              'package': observation['package_name'],
+              'executed': executed,
+            });
+            if (executed >= 20) {
+              final result = nodes.firstWhere(
+                (n) => (n['text'] ?? '').toString().contains('已保存：跨软件验收完成'),
+              );
+              return jsonEncode({
+                'done': true,
+                'summary': '20步跨便签/设置/联系人执行并读回最终内容。',
+                'action': '',
+                'arguments': {},
+                'evidenceIds': [result['element_id']],
+              });
+            }
+            final step = steps[executed - 1];
+            String action;
+            Map<String, dynamic> arguments;
+            if ({'settings', 'contacts', 'notes'}.contains(step)) {
+              action = 'launch_app';
+              arguments = {
+                'package_name': {
+                  'settings': 'com.android.settings',
+                  'contacts': 'com.google.android.contacts',
+                  'notes': 'org.skivu.devicefixture',
+                }[step],
+              };
+            } else if (step == 'down' || step == 'up') {
+              action = 'scroll';
+              final display = observation['display'] as Map;
+              arguments = {
+                'direction': step,
+                'region': {
+                  'left': 20,
+                  'top': (display['height'] as int) ~/ 4,
+                  'right': (display['width'] as int) - 20,
+                  'bottom': (display['height'] as int) * 3 ~/ 4,
+                },
+              };
+            } else if (step == 'save') {
+              action = 'tap';
+              arguments = {
+                'element_id': nodes.firstWhere(
+                  (n) => n['text'] == '保存便签',
+                )['element_id'],
+              };
+            } else {
+              action = 'input_text';
+              arguments = {
+                'element_id': nodes.firstWhere(
+                  (n) => n['editable'] == true && n['password'] != true,
+                )['element_id'],
+                'text': step == 'input-final' ? '跨软件验收完成' : '跨软件验收 $step',
+                'mode': 'replace',
+              };
+            }
+            return jsonEncode({
+              'done': false,
+              'summary': '跨软件步骤${executed + 1}：$step',
+              'action': action,
+              'arguments': arguments,
+              'evidenceIds': [],
+            });
+          }
+          if (directAction) {
+            final sent = nodes
+                .where((n) => n['text'] == '测试发送计数：1')
+                .firstOrNull;
+            if (sent != null)
+              return jsonEncode({
+                'done': true,
+                'summary': '直接操控关键测试按钮执行一次，未弹出逐步确认。',
+                'action': '',
+                'arguments': {},
+                'evidenceIds': [sent['element_id']],
+              });
+            return jsonEncode({
+              'done': false,
+              'summary': '点击仅改变本机计数的发送测试按钮',
+              'action': 'tap',
+              'arguments': {
+                'element_id': nodes.firstWhere(
+                  (n) => n['text'] == '发送测试消息',
+                )['element_id'],
+              },
+              'evidenceIds': [],
+            });
+          }
           final saved = nodes
               .where(
                 (n) => (n['text'] ?? '').toString().contains(
@@ -125,7 +253,9 @@ class _DeviceQaState extends State<DeviceQa> {
       ).readAsString();
       await openPlugins.restore();
       final package = OpenPluginPackage.parse(raw);
-      await openPlugins.install(package, origin: 'isolated device QA');
+      if (openPlugins.records[package.manifest.id]?.package.digest !=
+          package.digest)
+        await openPlugins.install(package, origin: 'isolated device QA');
       if (mounted)
         await launchOpenPlugin(
           context,
@@ -517,6 +647,14 @@ class _DeviceQaState extends State<DeviceQa> {
           FilledButton(
             onPressed: roleDraft,
             child: const Text('8. Role draft SDK fixture'),
+          ),
+          FilledButton(
+            onPressed: () => openPlugin(directAction: true),
+            child: const Text('9. Direct control fixture'),
+          ),
+          FilledButton(
+            onPressed: () => openPlugin(matrix: true),
+            child: const Text('10. Cross-app 20-step fixture'),
           ),
           FilledButton(
             onPressed: () async {
