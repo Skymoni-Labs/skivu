@@ -88,6 +88,12 @@ void main() {
       expect(r.companionsFor('role').length, 1);
       expect(r.companionsFor('role', tools: true).isEmpty, true);
       await r.bindRole('test.free-plugin', 'role', enabled: true, chat: true);
+      // A previously selected replacement surface must not survive a manifest
+      // that now declares the same plugin as an auxiliary role item.
+      await (await SharedPreferences.getInstance()).setString(
+        'skivu.open-plugin.chat-surface',
+        'test.free-plugin',
+      );
       final restored = OpenPluginRegistry();
       await restored.restore();
       expect(restored.companionsFor('role', tools: true).length, 1);
