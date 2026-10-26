@@ -42,6 +42,9 @@ const openPluginPermissions = <String, String>{
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
+  'device.observe': '连接你批准的设备伴侣，并读取任务软件的文字界面',
+  'device.control': '在你批准的真实手机任务中点击、输入、滑动和切换所选软件',
+  'agent.tasks': '经任务确认运行有次数和时间上限的模型操控任务，可能消耗额度',
 };
 
 bool pluginRelativePath(String value) =>

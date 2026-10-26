@@ -9,6 +9,7 @@ import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
 import 'open_plugin_external.dart';
+import 'open_plugin_device.dart';
 import 'state.dart';
 import 'chat_api.dart';
 
@@ -402,6 +403,9 @@ class _OpenPluginPageState extends State<OpenPluginPage>
         bridge.text(p, 'text', max: 32768, empty: true),
       );
       return true;
+    }
+    if (method.startsWith('device.') || method.startsWith('agent.tasks.')) {
+      return deviceTasks.dispatch(widget.record, method, p, confirm);
     }
     if (method == 'ai.generate') return generate(p);
     throw const PluginApiError('METHOD_NOT_FOUND', '该宿主能力尚未开放。');

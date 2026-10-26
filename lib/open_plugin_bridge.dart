@@ -35,6 +35,14 @@ const pluginMethodPermissions = <String, String>{
   'prompt.set': 'prompt',
   'clipboard.read': 'clipboard',
   'clipboard.write': 'clipboard',
+  'device.discover': 'device.observe',
+  'device.connect': 'device.control',
+  'device.status': 'device.observe',
+  'device.apps': 'device.observe',
+  'device.openCompanion': 'device.control',
+  'agent.tasks.start': 'agent.tasks',
+  'agent.tasks.get': 'agent.tasks',
+  'agent.tasks.cancel': 'agent.tasks',
 };
 
 typedef PluginHostCall =

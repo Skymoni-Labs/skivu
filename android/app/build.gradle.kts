@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -21,7 +23,11 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.skyjjgw.independent.ski"
+        val deviceQa = providers.gradleProperty("skivuDeviceQa").orNull == "true" ||
+            (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
+                try { String(Base64.getDecoder().decode(it)) == "SKIVU_DEVICE_QA=true" } catch (_: Exception) { false }
+            }
+        applicationId = if (deviceQa) "com.skyjjgw.independent.ski.deviceqa" else "com.skyjjgw.independent.ski"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
