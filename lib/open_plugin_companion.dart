@@ -62,6 +62,13 @@ class CompanionTurn {
       throw const PluginApiError('CANCELLED', '角色插件绑定或授权已变化。');
   }
 
+  void checkActive() {
+    check();
+    for (final record in tools.values.map((entry) => entry.$1).toSet()) {
+      checkRecord(record);
+    }
+  }
+
   static Future<Object?> _run(
     OpenPluginRecord record,
     Map<String, dynamic> tool,
@@ -104,9 +111,9 @@ class CompanionTurn {
 本轮仅返回完整JSON：{"reply":"给用户的自然回复","calls":[{"name":"插件ID/工具ID","arguments":{}}],"done":false}。
 不需要工具时calls为空、done为true。每次最多2个调用，总共4次工具、最多4轮模型。先读后改，仅按用户要求和当前剧情执行；不把生成内容或公开查询说成角色亲历。只有成功工具回执能支持“已保存”等完成陈述。失败或不确定必须如实说明，不能重试不确定写入。外部链接accepted只代表系统接收，不代表发送、登录或交易。角色本机记录不是用户现实账号数据。''';
     for (var round = 0; round < 4; round++) {
-      check();
+      checkActive();
       final text = await generate(messages, '$prompt$instruction');
-      check();
+      checkActive();
       Map plan;
       try {
         final raw = text
@@ -135,10 +142,14 @@ class CompanionTurn {
             !tools.containsKey(call['name']) ||
             call['arguments'] is! Map)
           throw const PluginApiError('INVALID_PLAN', '角色提出了未授权的工具。');
-        validatePluginArguments(
-          call['arguments'],
-          tools[call['name']]!.$2['parameters'],
-        );
+        try {
+          validatePluginArguments(
+            call['arguments'],
+            tools[call['name']]!.$2['parameters'],
+          );
+        } on FormatException {
+          throw const PluginApiError('INVALID_PLAN', '角色提供的工具参数不正确，本批次没有执行。');
+        }
       }
       messages.add({'role': 'assistant', 'content': jsonEncode(plan)});
       for (final call in calls) {

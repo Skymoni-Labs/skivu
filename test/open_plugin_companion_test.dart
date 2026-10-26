@@ -13,7 +13,7 @@ import 'package:ski/state.dart';
 import 'open_plugin_test.dart' show manifest, TestPaths;
 import 'real_chat_store_test.dart' show MemoryChats, TestModels;
 
-OpenPluginPackage fixture() {
+OpenPluginPackage fixture({String effect = 'write'}) {
   final m = manifest(permissions: ['storage', 'chat.tools']);
   m['minHostVersion'] = '0.2.41';
   m['contributes'] = {
@@ -29,7 +29,7 @@ OpenPluginPackage fixture() {
         {
           'id': 'save',
           'description': 'Save a note',
-          'effect': 'write',
+          'effect': effect,
           'parameters': {
             'type': 'object',
             'properties': {
@@ -231,6 +231,73 @@ void main() {
       expect(store.conversations[store.conversation].usedTokens, 30);
       expect(storage.data, contains('pluginCards'));
       expect(storage.data, isNot(contains('test-key-only')));
+      store.dispose();
+    },
+  );
+  test(
+    'revoking chat tools stops an in-flight model without waiting for its response',
+    () async {
+      final registry = OpenPluginRegistry();
+      await registry.install(fixture());
+      await registry.setEnabled('test.free-plugin', true);
+      final started = Completer<void>(), response = Completer<String>();
+      int writes = 0;
+      final store = DemoStore(
+        api: ChatApi(
+          clientFactory: () => MockClient((request) async {
+            if (!started.isCompleted) started.complete();
+            return http.Response(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {'content': await response.future},
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        ),
+        settings: TestModels(),
+        storage: MemoryChats(),
+        plugins: registry,
+        companionRunner: (r, t, a, c, check) async {
+          writes++;
+          return {'success': true};
+        },
+      );
+      await store.restore();
+      await registry.bindRole(
+        'test.free-plugin',
+        store.role.id,
+        enabled: true,
+        chat: true,
+      );
+      expect(store.send('记下来'), true);
+      await started.future.timeout(const Duration(seconds: 10));
+      await registry.bindRole(
+        'test.free-plugin',
+        store.role.id,
+        enabled: true,
+        chat: false,
+      );
+      expect(store.streaming, false);
+      expect(store.messages.last.status, 'cancelled');
+      response.complete(
+        jsonEncode({
+          'reply': '',
+          'calls': [
+            {
+              'name': 'test.free-plugin/save',
+              'arguments': {'title': '不得执行'},
+            },
+          ],
+          'done': false,
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(writes, 0);
       store.dispose();
     },
   );
