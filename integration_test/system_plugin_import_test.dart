@@ -39,7 +39,12 @@ void main() {
           await frames(2);
         }
         expect(find.text(title), findsOneWidget);
-        await tap(find.widgetWithText(FilledButton, '安装'));
+        await tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.widgetWithText(FilledButton, '安装'),
+          ),
+        );
         await frames(4);
         expect(openPlugins.records[id]?.manifest.version, '0.2.0');
         expect(openPlugins.records[id]?.authorized, false);
