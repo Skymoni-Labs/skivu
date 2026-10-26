@@ -319,13 +319,19 @@ class _DeviceQaState extends State<DeviceQa> {
         'timeoutMs': 120000,
       });
       safetyCapability = begin['taskCapability'] as String;
+      // Device request IDs are deduplicated per client across task leases.
+      final requestScope = DateTime.now().microsecondsSinceEpoch;
       Future<Map<String, dynamic>> call(
         String name,
         Map<String, dynamic> args,
       ) => request('call', {
         'taskCapability': safetyCapability,
         'name': name,
-        'arguments': args,
+        'arguments': {
+          ...args,
+          if (args['request_id'] is String)
+            'request_id': '$requestScope-${args['request_id']}',
+        },
       });
       Future<Map<String, dynamic>> settled(
         Map<String, dynamic> result,
