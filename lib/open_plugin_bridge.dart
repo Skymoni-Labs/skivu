@@ -11,8 +11,11 @@ const pluginMethodPermissions = <String, String>{
   'context.get': '',
   'ui.toast': '',
   'ui.openExternal': 'external.open',
+  'ui.chatDraft': 'chat.write',
+  'ui.roleSettings': '',
   'storage.get': 'storage',
   'storage.set': 'storage',
+  'storage.compareAndSet': 'storage',
   'storage.remove': 'storage',
   'storage.keys': 'storage',
   'secrets.get': 'secrets',
@@ -67,6 +70,7 @@ class OpenPluginBridge {
     required this.host,
     PluginNetwork? network,
     FlutterSecureStorage? secure,
+    this.guard,
   }) : network = network ?? PluginNetwork(),
        secure = secure ?? const FlutterSecureStorage();
   final OpenPluginRegistry registry;
@@ -74,10 +78,12 @@ class OpenPluginBridge {
   final PluginHostCall host;
   final PluginNetwork network;
   final FlutterSecureStorage secure;
+  final void Function()? guard;
   bool closed = false;
   int pending = 0;
   String get id => record.manifest.id;
   void check() {
+    guard?.call();
     if (closed || registry.records[id] != record || !record.authorized)
       throw const PluginApiError('CLOSED', '插件已关闭或需要重新授权。');
   }
@@ -159,6 +165,10 @@ class OpenPluginBridge {
         if (method == 'storage.keys') return data.keys.toList();
         final k = key(p);
         if (method == 'storage.get') return data[k];
+        if (method == 'storage.compareAndSet' &&
+            (!p.containsKey('expected') ||
+                !pluginJsonEqual(data[k], p['expected'])))
+          throw const PluginApiError('REVISION_CONFLICT', '存档已经变化，请重新读取后再操作。');
         if (method == 'storage.remove')
           data.remove(k);
         else {
@@ -172,6 +182,7 @@ class OpenPluginBridge {
           throw const PluginApiError('LIMIT_EXCEEDED', '插件存档空间已满。');
         check();
         await writePluginData(id, 'storage', encoded);
+        registry.storageChanged(id);
         return true;
       });
     if (method.startsWith('secrets.'))

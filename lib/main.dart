@@ -40,8 +40,9 @@ import 'native_social_page.dart';
 import 'legacy_social_migration.dart';
 import 'social_ui_metrics.dart';
 import 'launch.dart';
+import 'open_plugin_companion_ui.dart';
 
-final appNavigator = GlobalKey<NavigatorState>();
+final appNavigator = companionNavigator;
 
 Future<void> checkStartupUpdate() async {
   await WidgetsBinding.instance.endOfFrame;
@@ -73,6 +74,7 @@ Future<void> checkStartupUpdate() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureCompanionUI();
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
   SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
@@ -454,10 +456,15 @@ class _SkiShellState extends State<SkiShell>
     with SingleTickerProviderStateMixin {
   final _foregroundKey = GlobalKey();
   late final DrawerMotion motion;
+  late final VoidCallback _companionReturn;
   @override
   void initState() {
     super.initState();
     motion = DrawerMotion(vsync: this);
+    _companionReturn = () {
+      if (mounted && widget.route != '/chat') go('/chat');
+    };
+    companionReturnToChat = _companionReturn;
     openPlugins.addListener(_pluginChanged);
   }
 
@@ -469,6 +476,8 @@ class _SkiShellState extends State<SkiShell>
   void dispose() {
     openPlugins.removeListener(_pluginChanged);
     motion.dispose();
+    if (identical(companionReturnToChat, _companionReturn))
+      companionReturnToChat = null;
     super.dispose();
   }
 

@@ -21,6 +21,7 @@ import 'ui_chat_appearance.dart';
 import 'glass_preferences.dart';
 import 'native_social_local_options.dart';
 import 'state.dart';
+import 'open_plugin_companion_ui.dart';
 import 'ui_plugins.dart';
 import 'ui_host_binding.dart';
 import 'virtual_wallet.dart';
@@ -153,9 +154,16 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     _bottom();
   }
 
+  int _companionDraftRevision = 0;
   void _update() {
     if (!mounted) return;
     final next = _store.conversations[_store.conversation];
+    if (_companionDraftRevision != next.draftRevision) {
+      _companionDraftRevision = next.draftRevision;
+      _loadingDraft = true;
+      _input.text = next.draft;
+      _loadingDraft = false;
+    }
     if (!identical(next, _chat)) _switchChat(next);
     _rebuildItems();
     final ids = _items.map((item) => item.id).toSet();
@@ -1990,6 +1998,8 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
               custom: custom,
               child: body,
             ),
+          if (message.pluginCards.isNotEmpty)
+            CompanionMessageCards(message: message),
           if (message.contextNotice != null)
             Padding(
               padding: const EdgeInsets.only(top: 6),

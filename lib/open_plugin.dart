@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'brand.dart' show appVersion;
+import 'open_plugin_tools.dart';
 import 'plugin_market.dart' show comparePluginVersions;
 import 'open_plugin_disk.dart'
     if (dart.library.js_interop) 'open_plugin_disk_stub.dart'
@@ -12,8 +13,10 @@ import 'open_plugin_disk.dart'
 const openPluginApiVersion = '1.0';
 const legacyOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps.json';
-const defaultOpenPluginCatalog =
+const previousOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v2.json';
+const defaultOpenPluginCatalog =
+    'https://skymoni.com/app-plugins/catalog/apps-v3.json';
 const maxOpenPluginBytes = 32 * 1024 * 1024;
 bool pluginJsonEqual(Object? a, Object? b) {
   if (a is Map && b is Map)
@@ -45,6 +48,7 @@ const openPluginPermissions = <String, String>{
   'device.observe': '连接你批准的设备伴侣，并读取任务软件的文字界面',
   'device.control': '在你批准的真实手机任务中点击、输入、滑动和切换所选软件',
   'agent.tasks': '经任务确认运行有次数和时间上限的模型操控任务，可能消耗额度',
+  'chat.tools': '为单独绑定的角色提供正常聊天工具；仅聊天时按需执行',
 };
 
 bool pluginRelativePath(String value) =>
@@ -87,6 +91,10 @@ class OpenPluginManifest {
   List<String> get domains => List<String>.from(raw['networkDomains']);
   bool get launcher => raw['contributes']['launcher'] == true;
   bool get chatSurface => raw['contributes']['chatSurface'] == true;
+  Map<String, dynamic>? get companion =>
+      raw['contributes']['roleCompanion'] == null
+      ? null
+      : Map<String, dynamic>.from(raw['contributes']['roleCompanion']);
   List<Map<String, dynamic>> get chatActions =>
       List<Map<String, dynamic>>.from(raw['contributes']['chatActions']);
   bool get compatible =>
@@ -163,7 +171,12 @@ class OpenPluginManifest {
     final c = raw['contributes'];
     if (c is! Map ||
         c.keys.any(
-          (k) => !{'launcher', 'chatActions', 'chatSurface'}.contains(k),
+          (k) => !{
+            'launcher',
+            'chatActions',
+            'chatSurface',
+            'roleCompanion',
+          }.contains(k),
         ) ||
         (c.containsKey('chatSurface') && c['chatSurface'] is! bool) ||
         c['launcher'] is! bool ||
@@ -178,6 +191,15 @@ class OpenPluginManifest {
           !ids.add(a['id']))
         throw const FormatException('插件动作不正确。');
       _text(a, 'title', 80);
+    }
+    if (c['roleCompanion'] != null) {
+      validateRoleCompanion(c['roleCompanion']);
+      final path = c['roleCompanion']['entry'] as String;
+      if (!pluginRelativePath(path) ||
+          !path.endsWith('.html') ||
+          !permissions.contains('chat.tools') ||
+          comparePluginVersions(raw['minHostVersion'], '0.2.41') < 0)
+        throw const FormatException('角色工具需要新的宿主版本与聊天工具权限。');
     }
     return OpenPluginManifest._(raw);
   }
@@ -232,6 +254,9 @@ class OpenPluginPackage {
     }
     if (!files.containsKey(manifest.entry))
       throw const FormatException('缺少插件入口。');
+    final companionEntry = manifest.companion?['entry'];
+    if (companionEntry != null && files[companionEntry]?['mime'] != 'text/html')
+      throw const FormatException('缺少角色工具运行入口。');
     return OpenPluginPackage._(
       manifest,
       files,
@@ -302,6 +327,88 @@ class OpenPluginRegistry extends ChangeNotifier {
   final promptContributions = <String, Map<String, String>>{};
   final catalogs = <String>[];
   String selectedChatSurface = '';
+  final roleBindings = <String, Map<String, Map<String, dynamic>>>{};
+  final dataRevisions = <String, int>{};
+  int roleBindingRevision = 0;
+  void storageChanged(String id) {
+    dataRevisions[id] = (dataRevisions[id] ?? 0) + 1;
+    notifyListeners();
+  }
+
+  Map<String, dynamic>? bindingFor(String id, String roleId) =>
+      roleBindings[id]?[roleId];
+  List<OpenPluginRecord> companionsFor(String roleId, {bool tools = false}) =>
+      records.values
+          .where(
+            (r) =>
+                r.authorized &&
+                r.manifest.companion != null &&
+                bindingFor(r.manifest.id, roleId) != null &&
+                (!tools || bindingFor(r.manifest.id, roleId)?['chat'] == true),
+          )
+          .toList();
+
+  Future<void> bindRole(
+    String id,
+    String roleId, {
+    required bool enabled,
+    bool chat = false,
+    String scope = 'story',
+  }) async {
+    final record = records[id];
+    if (record == null ||
+        !record.authorized ||
+        record.manifest.companion == null ||
+        roleId.isEmpty ||
+        roleId.length > 200 ||
+        !{'story', 'role'}.contains(scope))
+      throw StateError('请先启用角色随身插件。');
+    final before = roleBindings[id]?[roleId];
+    final roles = roleBindings.putIfAbsent(id, () => {});
+    if (enabled) {
+      roles[roleId] = {'chat': chat, 'scope': scope};
+    } else {
+      roles.remove(roleId);
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(
+        'skivu.open-plugin.role-bindings',
+        jsonEncode(roleBindings),
+      ))
+        throw StateError('角色绑定未保存。');
+    } catch (_) {
+      if (before == null) {
+        roles.remove(roleId);
+      } else {
+        roles[roleId] = before;
+      }
+      roleBindingRevision++;
+      notifyListeners();
+      rethrow;
+    }
+    roleBindingRevision++;
+    notifyListeners();
+  }
+
+  Map<String, dynamic> companionContext(
+    OpenPluginRecord record,
+    String roleId,
+    String roleName,
+    String chatId,
+  ) {
+    final binding = bindingFor(record.manifest.id, roleId);
+    return {
+      'roleId': roleId,
+      'roleName': roleName,
+      'chatId': chatId,
+      'storageScope': binding?['scope'] ?? 'role',
+      'spaceId': sha256.convert(utf8.encode('$roleId\u0000$chatId')).toString(),
+      'roleBound': binding != null,
+      'chatToolsEnabled': binding?['chat'] == true,
+    };
+  }
+
   OpenPluginRecord? get chatSurface {
     final r = records[selectedChatSurface];
     return r != null && r.authorized && r.manifest.chatSurface ? r : null;
@@ -313,6 +420,33 @@ class OpenPluginRegistry extends ChangeNotifier {
       records.clear();
       promptContributions.clear();
       catalogs.clear();
+      roleBindings.clear();
+      try {
+        final bindings = jsonDecode(
+          prefs.getString('skivu.open-plugin.role-bindings') ?? '{}',
+        );
+        if (bindings is Map && bindings.length <= 200) {
+          for (final plugin in bindings.entries) {
+            if (plugin.key is! String ||
+                plugin.value is! Map ||
+                (plugin.value as Map).length > 1000)
+              continue;
+            roleBindings[plugin.key] = {
+              for (final role in (plugin.value as Map).entries)
+                if (role.key is String &&
+                    role.value is Map &&
+                    role.value['chat'] is bool &&
+                    {'story', 'role'}.contains(role.value['scope']))
+                  role.key: {
+                    'chat': role.value['chat'],
+                    'scope': role.value['scope'],
+                  },
+            };
+          }
+        }
+      } catch (_) {
+        error = '角色插件绑定读取失败，请重新设置。';
+      }
       selectedChatSurface =
           prefs.getString('skivu.open-plugin.chat-surface') ?? '';
       final raw = jsonDecode(prefs.getString(indexKey) ?? '{}');
@@ -346,14 +480,17 @@ class OpenPluginRegistry extends ChangeNotifier {
       catalogs.addAll(
         (savedCatalogs ?? [defaultOpenPluginCatalog])
             .map(
-              (url) => url == legacyOpenPluginCatalog
+              (url) =>
+                  url == legacyOpenPluginCatalog ||
+                      url == previousOpenPluginCatalog
                   ? defaultOpenPluginCatalog
                   : url,
             )
             .toSet(),
       );
       if (savedCatalogs != null &&
-          savedCatalogs.contains(legacyOpenPluginCatalog)) {
+          (savedCatalogs.contains(legacyOpenPluginCatalog) ||
+              savedCatalogs.contains(previousOpenPluginCatalog))) {
         if (!await prefs.setStringList('skivu.open-plugin.catalogs', catalogs))
           throw StateError('目录迁移未保存');
       }

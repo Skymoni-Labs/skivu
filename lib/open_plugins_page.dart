@@ -76,10 +76,12 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
         try {
           bytes = await download(url, 4 * 1024 * 1024);
         } catch (_) {
-          if (url != defaultOpenPluginCatalog && url != legacyOpenPluginCatalog)
+          if (url != defaultOpenPluginCatalog &&
+              url != legacyOpenPluginCatalog &&
+              url != previousOpenPluginCatalog)
             rethrow;
           bytes = await download(
-            'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/${url == defaultOpenPluginCatalog ? 'apps-v2.json' : 'apps.json'}',
+            'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/${Uri.parse(url).pathSegments.last}',
             4 * 1024 * 1024,
           );
         }
@@ -173,7 +175,8 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
   Future<void> installCatalog(Map<String, dynamic> e) async {
     List<int> bytes;
     if (e['catalog'] == defaultOpenPluginCatalog ||
-        e['catalog'] == legacyOpenPluginCatalog) {
+        e['catalog'] == legacyOpenPluginCatalog ||
+        e['catalog'] == previousOpenPluginCatalog) {
       try {
         bytes = await download(
           'https://skymoni.com/app-plugins/web-packages/${e['sha256']}.json',

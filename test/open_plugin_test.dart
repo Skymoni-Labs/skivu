@@ -130,6 +130,7 @@ void main() {
       final before = await SharedPreferences.getInstance();
       await before.setStringList('skivu.open-plugin.catalogs', [
         legacyOpenPluginCatalog,
+        previousOpenPluginCatalog,
         'https://example.com/custom.json',
         defaultOpenPluginCatalog,
       ]);

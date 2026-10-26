@@ -15,6 +15,9 @@ import 'chat_interaction.dart';
 import 'companion_library.dart';
 import 'extension_market.dart';
 import 'open_plugin.dart';
+import 'open_plugin_companion.dart';
+import 'open_plugin_runtime.dart';
+import 'open_plugin_network.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -46,6 +49,7 @@ class Message {
   String kind = 'text';
   String? stickerId, turnId, imageData;
   bool described = false;
+  List<Map<String, dynamic>> pluginCards = [];
   String get modelText => switch (kind) {
     'voice' => '${described ? '[用户描述的一条语音，内容]' : '[用户发来的语音，转写内容]'} $text',
     'photo' => '[用户描述的一张照片] $text',
@@ -79,6 +83,7 @@ class Message {
     'turnId': turnId,
     'imageData': imageData,
     'described': described,
+    'pluginCards': pluginCards,
   };
   factory Message.fromJson(Map<String, dynamic> raw) =>
       Message(
@@ -107,6 +112,22 @@ class Message {
         ..turnId = raw['turnId'] is String ? raw['turnId'] : null
         ..imageData = validChatImage(raw['imageData']) ? raw['imageData'] : null
         ..described = raw['described'] == true
+        ..pluginCards =
+            (raw['pluginCards'] is List ? raw['pluginCards'] as List : [])
+                .whereType<Map>()
+                .where(
+                  (v) =>
+                      v['pluginId'] is String &&
+                      v['title'] is String &&
+                      v['summary'] is String &&
+                      v['action'] is String &&
+                      v['roleId'] is String &&
+                      v['chatId'] is String &&
+                      utf8.encode(jsonEncode(v)).length <= 2048,
+                )
+                .take(4)
+                .map((v) => Map<String, dynamic>.from(v))
+                .toList()
         ..modelName = raw['modelName'] as String?
         ..provider = raw['provider'] as String?
         ..tokens = raw['tokens'] as int?
@@ -230,6 +251,7 @@ class Conversation {
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
+  int draftRevision = 0;
   List<Map<String, dynamic>> interactions = [];
   Set<String> hiddenInteractions = {};
   DateTime? interactionsClearedAt;
@@ -368,11 +390,14 @@ class DemoStore extends ChangeNotifier {
     ChatStorage? storage,
     BetaAccess? beta,
     RelayAccount? account,
+    OpenPluginRegistry? plugins,
+    this.companionRunner,
   }) : _api = api ?? ChatApi(),
        models = settings ?? modelSettings,
        _storage = storage ?? ChatStorage(),
        beta = beta ?? betaAccess,
-       account = account ?? relayAccount {
+       account = account ?? relayAccount,
+       plugins = plugins ?? openPlugins {
     conversations.first.personaId = personas.first.id;
     appearance.addListener(_appearanceChanged);
     models.addListener(changed);
@@ -384,10 +409,13 @@ class DemoStore extends ChangeNotifier {
   final ModelSettings models;
   final BetaAccess beta;
   final RelayAccount account;
+  final OpenPluginRegistry plugins;
+  final CompanionRunner? companionRunner;
   bool useBeta = false;
   bool useAccount = false;
   final Map<Object, String> _chatReaders = {};
   bool _chatForeground = true;
+  int? _companionGeneration;
 
   /// A selected conversation is read only while a chat surface is visible.
   void setChatReader(Object owner, String? chatId) {
@@ -401,6 +429,7 @@ class DemoStore extends ChangeNotifier {
 
   void setChatForeground(bool value) {
     _chatForeground = value;
+    if (!value && _companionGeneration == _generation) stop();
     if (value) {
       for (final id in _chatReaders.values.toSet()) {
         markChatRead(id);
@@ -1641,47 +1670,147 @@ class DemoStore extends ChangeNotifier {
           config.auth != 'none' &&
           !['Ollama', 'LM Studio'].contains(config.provider))
         throw const ChatFailure('此连接未填写 API Key，请在模型设置中补充。');
-      final session = betaRequest
-          ? beta.startChat(history, prompt, streaming: config.streaming)
-          : accountRequest
-          ? account.startChat(history, prompt, streaming: config.streaming)
-          : _api.start(config, key, history, prompt);
-      _session = session;
-      await for (final event in session.events) {
-        if (generation != _generation) return;
-        if (config.streaming) {
-          reveal.add(event.text, event.thinking);
-        } else {
-          answer.text += event.text;
-          if (event.thinking.isNotEmpty)
-            answer.thinking = '${answer.thinking ?? ''}${event.thinking}';
+      final companionRole = personas
+          .where((p) => p.id == (answer.authorId ?? target.personaId))
+          .firstOrNull;
+      final companion = CompanionTurn(
+        registry: plugins,
+        roleId: companionRole?.id ?? '',
+        roleName: companionRole?.name ?? '',
+        chatId: target.id,
+        turnId:
+            '${target.id}:${answer.turnId ?? answer.created.microsecondsSinceEpoch}',
+        runner: companionRunner,
+        check: () {
+          if (generation != _generation ||
+              _disposed ||
+              !_chatForeground ||
+              !conversations.contains(target) ||
+              conversations[conversation] != target ||
+              !personas.contains(companionRole) ||
+              (answer.authorId != null
+                  ? !target.groupMembers.contains(companionRole?.id)
+                  : target.personaId != companionRole?.id))
+            throw const ChatFailure('角色、聊天或页面状态已变化，工具已停止。');
+        },
+      );
+      if (companion.active) {
+        _companionGeneration = generation;
+        answer.pluginCards = companion.cards;
+        answer.text = await companion.run(history, prompt, (
+          nextHistory,
+          nextPrompt,
+        ) async {
+          final session = betaRequest
+              ? beta.startChat(
+                  nextHistory,
+                  nextPrompt,
+                  streaming: false,
+                  requestConfig: config,
+                )
+              : accountRequest
+              ? account.startChat(
+                  nextHistory,
+                  nextPrompt,
+                  streaming: false,
+                  requestConfig: config,
+                )
+              : _api.start(
+                  config.withStreaming(false),
+                  key,
+                  nextHistory,
+                  nextPrompt,
+                );
+          _session = session;
+          var text = '';
+          var roundUsage = const ApiUsage();
+          await for (final event in session.events) {
+            if (generation != _generation || _disposed) {
+              session.cancel();
+              throw const ChatFailure('本轮回复已停止。');
+            }
+            text += event.text;
+            if (event.usage != null)
+              roundUsage = roundUsage.merge(event.usage!);
+            if (event.notice != null) answer.contextNotice = event.notice;
+          }
+          usage = ApiUsage(
+            input: usage.input == null && roundUsage.input == null
+                ? null
+                : (usage.input ?? 0) + (roundUsage.input ?? 0),
+            output: usage.output == null && roundUsage.output == null
+                ? null
+                : (usage.output ?? 0) + (roundUsage.output ?? 0),
+            cached: usage.cached == null && roundUsage.cached == null
+                ? null
+                : (usage.cached ?? 0) + (roundUsage.cached ?? 0),
+          );
+          answer.tokens = usage.output;
+          target.usage = ConversationUsage(
+            totalTokens: usage.input != null && usage.output != null
+                ? target.usedTokens + usage.input! + usage.output!
+                : (target.usedTokens > 0 ? target.usedTokens : null),
+            tokensPerSecond:
+                usage.output == null || watch.elapsedMilliseconds == 0
+                ? null
+                : usage.output! * 1000 / watch.elapsedMilliseconds,
+            cacheHitRate:
+                usage.cached != null && usage.input != null && usage.input! > 0
+                ? usage.cached! / usage.input!
+                : null,
+            contextUsage:
+                config.contextLimit != null &&
+                    roundUsage.input != null &&
+                    config.contextLimit! > 0
+                ? roundUsage.input! / config.contextLimit!
+                : null,
+          );
+          changed();
+          return text;
+        });
+      } else {
+        final session = betaRequest
+            ? beta.startChat(history, prompt, streaming: config.streaming)
+            : accountRequest
+            ? account.startChat(history, prompt, streaming: config.streaming)
+            : _api.start(config, key, history, prompt);
+        _session = session;
+        await for (final event in session.events) {
+          if (generation != _generation) return;
+          if (config.streaming) {
+            reveal.add(event.text, event.thinking);
+          } else {
+            answer.text += event.text;
+            if (event.thinking.isNotEmpty)
+              answer.thinking = '${answer.thinking ?? ''}${event.thinking}';
+          }
+          if (event.notice != null) answer.contextNotice = event.notice;
+          if (event.usage != null) usage = usage.merge(event.usage!);
+          if (event.limited) answer.error = '已达到输出上限，可在模型设置中增加最大输出。';
+          answer.elapsedMs = watch.elapsedMilliseconds;
+          answer.tokens = usage.output;
+          target.usage = ConversationUsage(
+            totalTokens: usage.input != null && usage.output != null
+                ? target.usedTokens + usage.input! + usage.output!
+                : (target.usedTokens > 0 ? target.usedTokens : null),
+            tokensPerSecond:
+                usage.output == null || watch.elapsedMilliseconds == 0
+                ? null
+                : usage.output! * 1000 / watch.elapsedMilliseconds,
+            cacheHitRate:
+                usage.cached != null && usage.input != null && usage.input! > 0
+                ? usage.cached! / usage.input!
+                : null,
+            contextUsage:
+                config.contextLimit != null &&
+                    usage.input != null &&
+                    config.contextLimit! > 0
+                ? usage.input! / config.contextLimit!
+                : null,
+          );
+          _saveSoon();
+          if (!config.streaming || event.usage != null) changed();
         }
-        if (event.notice != null) answer.contextNotice = event.notice;
-        if (event.usage != null) usage = usage.merge(event.usage!);
-        if (event.limited) answer.error = '已达到输出上限，可在模型设置中增加最大输出。';
-        answer.elapsedMs = watch.elapsedMilliseconds;
-        answer.tokens = usage.output;
-        target.usage = ConversationUsage(
-          totalTokens: usage.input != null && usage.output != null
-              ? target.usedTokens + usage.input! + usage.output!
-              : (target.usedTokens > 0 ? target.usedTokens : null),
-          tokensPerSecond:
-              usage.output == null || watch.elapsedMilliseconds == 0
-              ? null
-              : usage.output! * 1000 / watch.elapsedMilliseconds,
-          cacheHitRate:
-              usage.cached != null && usage.input != null && usage.input! > 0
-              ? usage.cached! / usage.input!
-              : null,
-          contextUsage:
-              config.contextLimit != null &&
-                  usage.input != null &&
-                  config.contextLimit! > 0
-              ? usage.input! / config.contextLimit!
-              : null,
-        );
-        _saveSoon();
-        if (!config.streaming || event.usage != null) changed();
       }
       watch.stop();
       await reveal.finish();
@@ -1703,6 +1832,8 @@ class DemoStore extends ChangeNotifier {
       }
       answer.status = 'failed';
       answer.error = e is ChatFailure
+          ? e.message
+          : e is PluginApiError
           ? e.message
           : '读取连接配置失败，请重新保存 API Key 后重试。';
     } finally {

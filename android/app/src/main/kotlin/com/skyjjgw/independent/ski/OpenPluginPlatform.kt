@@ -22,7 +22,7 @@ class OpenPluginViewFactory(private val messenger: BinaryMessenger) : PlatformVi
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView = OpenPluginView(context, viewId, args as Map<*, *>, messenger)
 }
 
-private class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messenger: BinaryMessenger) : PlatformView {
+internal class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messenger: BinaryMessenger) : PlatformView {
     private val browser = WebView(context)
     private val main = Handler(Looper.getMainLooper())
     private val channel = MethodChannel(messenger, "skivu/open_plugin/$id")
@@ -135,4 +135,27 @@ private class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messeng
         browser.webViewClient = WebViewClient()
         browser.destroy()
     }
+}
+
+/** Short-lived role tools reuse the same isolated transport, without a view route. */
+class OpenPluginRuntimePlatform(private val context: Context) {
+    private val instances = mutableMapOf<Int, OpenPluginView>()
+    fun register(messenger: BinaryMessenger) {
+        MethodChannel(messenger,"skivu/open_plugin_runtime").setMethodCallHandler { call,result ->
+            val id=call.argument<Int>("id")
+            if (id == null || id >= 0) { result.error("INVALID_RUNTIME","Invalid runtime",null); return@setMethodCallHandler }
+            try {
+                when(call.method) {
+                    "create" -> {
+                        require(instances.size < 4 && !instances.containsKey(id))
+                        instances[id]=OpenPluginView(context,id,call.arguments as Map<*, *>,messenger)
+                        result.success(null)
+                    }
+                    "dispose" -> { instances.remove(id)?.dispose(); result.success(null) }
+                    else -> result.notImplemented()
+                }
+            } catch (_: Exception) { result.error("RUNTIME_FAILED","Runtime unavailable",null) }
+        }
+    }
+    fun close() { instances.values.toList().forEach { it.dispose() };instances.clear() }
 }

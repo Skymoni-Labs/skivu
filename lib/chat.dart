@@ -18,6 +18,7 @@ import 'message_info_row.dart';
 import 'chat_extras.dart';
 import 'sticker_library_page.dart';
 import 'launch.dart';
+import 'open_plugin_companion_ui.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -50,6 +51,7 @@ class _ChatPageState extends State<ChatPage> {
   int _messageSeek = 0;
   int oldCount = 0, _centeredIndex = 0;
   late Conversation _conversation;
+  int _draftRevision = 0;
   @override
   void initState() {
     super.initState();
@@ -88,6 +90,10 @@ class _ChatPageState extends State<ChatPage> {
   void update() {
     if (!mounted) return;
     final current = demo.conversations[demo.conversation];
+    if (_draftRevision != current.draftRevision) {
+      _draftRevision = current.draftRevision;
+      input.text = current.draft;
+    }
     if (!identical(current, _conversation)) {
       _bottomSeek++;
       _messageSeek++;
@@ -997,6 +1003,7 @@ class _ChatPageState extends State<ChatPage> {
           : CrossAxisAlignment.start,
       children: [
         bubble,
+        if (m.pluginCards.isNotEmpty) CompanionMessageCards(message: m),
         if (m.contextNotice != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
