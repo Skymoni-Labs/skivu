@@ -48,7 +48,7 @@ class _DeviceQaState extends State<DeviceQa> {
     });
   }
 
-  Future<void> openPlugin() async {
+  Future<void> openPlugin({bool waitOnly = false}) async {
     try {
       modelSettings.connections.clear();
       modelSettings.connections.add(
@@ -66,6 +66,16 @@ class _DeviceQaState extends State<DeviceQa> {
       modelSettings.activeId = 'isolated-device-model';
       deviceTasks = OpenPluginDeviceTasks(
         plannerForTesting: (observation, receipts) async {
+          if (waitOnly) {
+            await Future<void>.delayed(const Duration(seconds: 30));
+            return jsonEncode({
+              'done': false,
+              'summary': '等待停止/撤销验收',
+              'action': 'wait',
+              'arguments': {'timeout_ms': 5000},
+              'evidenceIds': [],
+            });
+          }
           final nodes = ((observation['tree'] as Map)['elements'] as List)
               .cast<Map>();
           final saved = nodes
@@ -437,6 +447,10 @@ class _DeviceQaState extends State<DeviceQa> {
           FilledButton(
             onPressed: safety,
             child: const Text('6. Safety confirmation fixture'),
+          ),
+          FilledButton(
+            onPressed: () => openPlugin(waitOnly: true),
+            child: const Text('7. Plugin cancellation fixture'),
           ),
           FilledButton(
             onPressed: () async {
