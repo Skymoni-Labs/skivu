@@ -1655,7 +1655,10 @@ class DemoStore extends ChangeNotifier {
               !_chatForeground ||
               !conversations.contains(target) ||
               conversations[conversation] != target ||
-              !personas.contains(companionRole))
+              !personas.contains(companionRole) ||
+              (answer.authorId != null
+                  ? !target.groupMembers.contains(companionRole?.id)
+                  : target.personaId != companionRole?.id))
             throw const ChatFailure('角色、聊天或页面状态已变化，工具已停止。');
         },
       );
@@ -1711,6 +1714,25 @@ class DemoStore extends ChangeNotifier {
                 : (usage.cached ?? 0) + (roundUsage.cached ?? 0),
           );
           answer.tokens = usage.output;
+          target.usage = ConversationUsage(
+            totalTokens: usage.input != null && usage.output != null
+                ? target.usedTokens + usage.input! + usage.output!
+                : (target.usedTokens > 0 ? target.usedTokens : null),
+            tokensPerSecond:
+                usage.output == null || watch.elapsedMilliseconds == 0
+                ? null
+                : usage.output! * 1000 / watch.elapsedMilliseconds,
+            cacheHitRate:
+                usage.cached != null && usage.input != null && usage.input! > 0
+                ? usage.cached! / usage.input!
+                : null,
+            contextUsage:
+                config.contextLimit != null &&
+                    roundUsage.input != null &&
+                    config.contextLimit! > 0
+                ? roundUsage.input! / config.contextLimit!
+                : null,
+          );
           changed();
           return text;
         });
