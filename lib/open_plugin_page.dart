@@ -11,6 +11,7 @@ import 'open_plugin_network.dart';
 import 'open_plugin_external.dart';
 import 'state.dart';
 import 'chat_api.dart';
+import 'open_plugin_companion_ui.dart';
 
 Future<bool> confirmOpenPlugin(
   BuildContext context,
@@ -63,6 +64,9 @@ Future<void> launchOpenPlugin(
   OpenPluginRecord record, {
   String? action,
   OpenPluginRegistry? registry,
+  String? roleId,
+  String? chatId,
+  Map<String, dynamic>? payload,
 }) async {
   final library = registry ?? openPlugins;
   if (!record.authorized) {
@@ -79,8 +83,14 @@ Future<void> launchOpenPlugin(
   if (context.mounted)
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            OpenPluginPage(record: record, registry: library, action: action),
+        builder: (_) => OpenPluginPage(
+          record: record,
+          registry: library,
+          action: action,
+          initialRoleId: roleId,
+          initialChatId: chatId,
+          payload: payload,
+        ),
       ),
     );
 }
@@ -92,11 +102,16 @@ class OpenPluginPage extends StatefulWidget {
     required this.registry,
     this.action,
     this.embedded = false,
+    this.initialRoleId,
+    this.initialChatId,
+    this.payload,
   });
   final OpenPluginRecord record;
   final OpenPluginRegistry registry;
   final String? action;
   final bool embedded;
+  final String? initialRoleId, initialChatId;
+  final Map<String, dynamic>? payload;
   @override
   State<OpenPluginPage> createState() => _OpenPluginPageState();
 }
@@ -111,11 +126,23 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   final sessions = <ChatSession>{};
   bool confirming = false, generating = false;
   int generation = 0;
+  int dataRevision = 0;
   @override
   void initState() {
     super.initState();
-    roleId = demo.role.id;
-    chatId = demo.conversations[demo.conversation].id;
+    roleId = widget.initialRoleId ?? demo.role.id;
+    chatId = widget.initialChatId ?? demo.conversations[demo.conversation].id;
+    if (!demo.conversations.any(
+      (c) =>
+          c.id == chatId &&
+          (c.personaId == roleId || c.groupMembers.contains(roleId)),
+    ))
+      chatId = demo.conversations
+          .where(
+            (c) => c.personaId == roleId || c.groupMembers.contains(roleId),
+          )
+          .firstOrNull
+          ?.id;
     bridge = OpenPluginBridge(
       registry: widget.registry,
       record: widget.record,
@@ -129,13 +156,27 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   Map<String, dynamic> get hostContext {
     final role = demo.personas.where((r) => r.id == roleId).firstOrNull;
     final chat = demo.conversations
-        .where((c) => c.id == chatId && c.personaId == roleId)
+        .where(
+          (c) =>
+              c.id == chatId &&
+              (c.personaId == roleId || c.groupMembers.contains(roleId)),
+        )
         .firstOrNull;
     return {
       'roleId': role?.id,
       'roleName': role?.name,
       'chatId': chat?.id,
       'action': widget.action,
+      if (widget.record.manifest.companion != null &&
+          role != null &&
+          chat != null)
+        ...widget.registry.companionContext(
+          widget.record,
+          role.id,
+          role.name,
+          chat.id,
+        ),
+      if (widget.payload != null) 'payload': widget.payload,
     };
   }
 
@@ -147,7 +188,11 @@ class _OpenPluginPageState extends State<OpenPluginPage>
     }
     if (!demo.personas.any((r) => r.id == roleId))
       roleId = demo.personas.firstOrNull?.id;
-    if (!demo.conversations.any((c) => c.id == chatId && c.personaId == roleId))
+    if (!demo.conversations.any(
+      (c) =>
+          c.id == chatId &&
+          (c.personaId == roleId || c.groupMembers.contains(roleId)),
+    ))
       chatId = demo.conversations
           .where((c) => c.personaId == roleId)
           .firstOrNull
@@ -166,6 +211,17 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   }
 
   void registryChanged() {
+    final next = widget.registry.dataRevisions[widget.record.manifest.id] ?? 0;
+    if (next != dataRevision) {
+      dataRevision = next;
+      unawaited(
+        channel?.invokeMethod('event', {
+          'name': 'storage.changed',
+          'detail': {'revision': next},
+        }),
+      );
+    }
+    contextChanged();
     if (!widget.record.authorized ||
         widget.registry.records[widget.record.manifest.id] != widget.record) {
       bridge.close();
@@ -237,6 +293,44 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   Future<Object?> hostCall(String method, Map<String, dynamic> p) async {
     bridge.check();
     if (method == 'context.get') return hostContext;
+    if (method == 'ui.roleSettings') {
+      final role = demo.personas.where((r) => r.id == roleId).firstOrNull;
+      if (role == null) throw const PluginApiError('NOT_FOUND', '角色已不存在。');
+      await showRoleCompanions(context, role);
+      return true;
+    }
+    if (method == 'ui.chatDraft') {
+      final chat = demo.conversations
+          .where(
+            (c) =>
+                c.id == chatId &&
+                (c.personaId == roleId || c.groupMembers.contains(roleId)),
+          )
+          .firstOrNull;
+      if (chat == null) throw const PluginApiError('NOT_FOUND', '原聊天已不存在。');
+      final text = bridge.text(p, 'text', max: 12000, empty: true);
+      final draft = [
+        chat.draft,
+        text,
+      ].where((s) => s.trim().isNotEmpty).join('\n\n');
+      if (draft.length > 30000)
+        throw const PluginApiError('LIMIT_EXCEEDED', '原聊天草稿过长，请先处理。');
+      demo.saveDraft(chat, draft);
+      chat.draftRevision++;
+      demo.changed();
+      await demo.saveChats();
+      if (demo.storageError != null)
+        throw const PluginApiError('STORAGE_FAILED', '聊天草稿尚未保存。');
+      if (demo.conversations[demo.conversation] != chat)
+        demo.selectChat(demo.conversations.indexOf(chat));
+      if (context.mounted && !widget.embedded) {
+        Navigator.pop(context);
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => companionReturnToChat?.call(),
+        );
+      }
+      return {'saved': true, 'sent': false};
+    }
     if (method == 'ui.openExternal') {
       return openPluginExternal(
         p,
@@ -637,7 +731,10 @@ class OpenPluginChatButton extends StatelessWidget {
     animation: openPlugins,
     builder: (context, _) =>
         openPlugins.records.values.any(
-          (r) => r.authorized && r.manifest.chatActions.isNotEmpty,
+          (r) =>
+              r.authorized &&
+              (r.manifest.chatActions.isNotEmpty ||
+                  r.manifest.companion != null),
         )
         ? IconButton(
             tooltip: '插件动作',
@@ -651,10 +748,13 @@ class OpenPluginChatButton extends StatelessWidget {
 Future<void> showOpenPluginActions(BuildContext context) async {
   final entries = [
     for (final r in openPlugins.records.values)
-      if (r.authorized)
+      if (r.authorized &&
+          (r.manifest.companion == null ||
+              openPlugins.bindingFor(r.manifest.id, demo.role.id) != null))
         for (final a in r.manifest.chatActions) (r, a),
   ];
-  if (entries.isEmpty) {
+  if (entries.isEmpty &&
+      !openPlugins.records.values.any((r) => r.manifest.companion != null)) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('可在插件市场安装并启用带聊天动作的插件。')));
@@ -667,6 +767,13 @@ Future<void> showOpenPluginActions(BuildContext context) async {
         shrinkWrap: true,
         children: [
           const ListTile(title: Text('插件动作')),
+          if (openPlugins.records.values.any(
+            (r) => r.manifest.companion != null,
+          ))
+            ListTile(
+              title: Text('${demo.role.name}的随身插件设置'),
+              onTap: () => Navigator.pop(c, -1),
+            ),
           for (var i = 0; i < entries.length; i++)
             ListTile(
               title: Text(entries[i].$2['title']),
@@ -677,6 +784,10 @@ Future<void> showOpenPluginActions(BuildContext context) async {
       ),
     ),
   );
+  if (choice == -1 && context.mounted) {
+    await showRoleCompanions(context, demo.role);
+    return;
+  }
   if (choice != null && context.mounted)
     await launchOpenPlugin(
       context,

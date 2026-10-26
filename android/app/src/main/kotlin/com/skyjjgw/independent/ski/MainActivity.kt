@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
     private val voice by lazy { VoiceCallPlatform(this) }
     private val pluginFiles by lazy { OpenPluginFilesPlatform(this) }
     private val pluginExternal by lazy { OpenPluginExternalPlatform(this) }
+    private val pluginRuntime by lazy { OpenPluginRuntimePlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -35,6 +36,7 @@ class MainActivity : FlutterActivity() {
         chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginFiles.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginExternal.register(flutterEngine.dartExecutor.binaryMessenger)
+        pluginRuntime.register(flutterEngine.dartExecutor.binaryMessenger)
         flutterEngine.platformViewsController.registry.registerViewFactory("skivu/open-plugin", OpenPluginViewFactory(flutterEngine.dartExecutor.binaryMessenger))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
             .setMethodCallHandler { call, result ->
@@ -60,8 +62,8 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         voice.permissionResult(requestCode, grantResults)
     }
-    override fun onStop() { voice.pause(); super.onStop() }
-    override fun onDestroy() { pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
+    override fun onStop() { pluginRuntime.close(); voice.pause(); super.onStop() }
+    override fun onDestroy() { pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")

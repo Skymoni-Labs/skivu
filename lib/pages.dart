@@ -15,6 +15,7 @@ import 'speech_settings_page.dart';
 import 'ui_plugins_page.dart';
 import 'extensions_page.dart';
 import 'open_plugins_page.dart';
+import 'open_plugin_companion_ui.dart';
 import 'social_settings_page.dart';
 import 'world_library_page.dart';
 import 'sticker_library_page.dart';
@@ -401,6 +402,12 @@ class _CharacterEditorState extends State<CharacterEditor> {
       ),
       const SizedBox(height: 16),
       const PageHeading('Shape a companion', '编辑角色卡', '设置角色名称、介绍与提示词。'),
+      if (demo.personas.contains(demo.editingRole))
+        TextButton.icon(
+          onPressed: () => showRoleCompanions(context, demo.editingRole),
+          icon: const Icon(Icons.extension_outlined),
+          label: const Text('角色随身插件'),
+        ),
       Form(
         key: form,
         child: Pane(
