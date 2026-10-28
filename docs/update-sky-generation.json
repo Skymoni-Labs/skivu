@@ -1,0 +1,10 @@
+{
+  "created": "2026-10-28",
+  "tool": "built-in image_gen.imagegen",
+  "asset": "assets/branding/skivu-update-night-20261028.png",
+  "width": 841,
+  "height": 1870,
+  "bytes": 2125847,
+  "sha256": "d52e8d5084cd2d90260bcb065dce5197b54bf86739dd3dfe96bb241819f4d59d",
+  "prompt": "Create one standalone background image for the Skivu Android app software update page. Asset type: original portrait starry-night wallpaper, approximately 9:20 vertical composition. Deep near-black navy blue, a very subtle diagonal blue galactic dust band, sparse delicate cool-white stars and a few slightly warm pinpoints, restrained photographic astronomical detail, quiet and elegant. The whole image must remain very dark so white software version text and translucent glass cards remain clearly readable. Plenty of calm negative space through the center; slight diffuse starlight on the upper right and lower left. Full bleed. No UI, no text, no logos, no planets, no landscape, no bright violet or neon colors, no giant lens flares, no meteors or trails in the still image; the app will draw a few occasional meteors as a separate animated layer. Deliver only the clean high quality wallpaper, not a phone mockup."
+}

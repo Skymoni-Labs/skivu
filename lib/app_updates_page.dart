@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'app_updates.dart';
 import 'brand.dart';
 import 'appearance.dart';
+import 'update_sky.dart';
 
 const _paper = Color(0xfff7f5ff);
 const _secondary = Color(0xffc2bfd4);
@@ -18,9 +19,15 @@ const _body = TextStyle(color: _secondary, fontSize: 14, height: 1.85);
 
 /// A dedicated update destination with its own safe areas, scroll and actions.
 class AppUpdatesPage extends StatefulWidget {
-  const AppUpdatesPage({super.key, this.updates, this.onBack});
+  const AppUpdatesPage({
+    super.key,
+    this.updates,
+    this.onBack,
+    this.preferences,
+  });
   final AppUpdates? updates;
   final VoidCallback? onBack;
+  final AppearancePreferences? preferences;
   @override
   State<AppUpdatesPage> createState() => _AppUpdatesPageState();
 }
@@ -28,14 +35,14 @@ class AppUpdatesPage extends StatefulWidget {
 class _AppUpdatesPageState extends State<AppUpdatesPage>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   AppUpdates get update => widget.updates ?? appUpdates;
+  AppearancePreferences get _look => widget.preferences ?? appearance;
   bool _expanded = true, _resolved = false, _measureQueued = false;
   late final AnimationController _flow, _notes;
   late final Animation<double> _flowCurve, _notesCurve;
   final _actionKey = GlobalKey();
   double _actionExtent = 160;
   bool get _reduceMotion =>
-      MediaQuery.disableAnimationsOf(context) ||
-      appearance.flag('reduceMotion');
+      MediaQuery.disableAnimationsOf(context) || _look.flag('reduceMotion');
   void _updated() {
     if (!mounted) return;
     if (!update.checking && !_resolved) {
@@ -171,7 +178,7 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([update, _flow]),
+    animation: Listenable.merge([update, _flow, _look]),
     builder: (context, _) {
       final version =
           update.release?.version ?? update.device?.version ?? appVersion;
@@ -195,13 +202,10 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  RepaintBoundary(
-                    child: Image.asset(
-                      'assets/branding/skymoni-night-sky.png',
-                      key: const ValueKey('update-starry-sky'),
-                      fit: BoxFit.cover,
-                      excludeFromSemantics: true,
-                    ),
+                  UpdateSky(
+                    key: const ValueKey('update-starry-sky'),
+                    meteorsEnabled:
+                        _look.flag('updateMeteors') && !_reduceMotion,
                   ),
                   SingleChildScrollView(
                     key: const ValueKey('update-scroll'),
@@ -548,39 +552,68 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
                   _UpdateGlass(
                     padding: EdgeInsets.zero,
                     radius: 24,
-                    child: PopupMenuButton<String>(
-                      tooltip: '更多更新选项',
-                      icon: const Icon(Icons.more_vert, color: _paper),
-                      color: const Color(0xff292638),
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(44, 44),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        listTileTheme: const ListTileThemeData(
+                          iconColor: _paper,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      onSelected: (value) {
-                        if (value == 'check') {
-                          update.check();
-                        } else {
-                          _details();
-                        }
-                      },
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'check',
-                          enabled: update.supported && !_busy,
-                          child: Text(
-                            '重新检查更新',
-                            style: TextStyle(
-                              color: _busy ? _secondary : _paper,
+                      child: PopupMenuButton<String>(
+                        tooltip: '更多更新选项',
+                        icon: const Icon(Icons.more_vert, color: _paper),
+                        color: const Color(0xff292638),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        onSelected: (value) async {
+                          if (value == 'check') {
+                            update.check();
+                          } else if (value == 'meteors') {
+                            _look.set(
+                              'updateMeteors',
+                              !_look.flag('updateMeteors'),
+                            );
+                            await _look.save();
+                            if (mounted && _look.error != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(_look.error!)),
+                              );
+                            }
+                          } else {
+                            _details();
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          CheckedPopupMenuItem(
+                            value: 'meteors',
+                            checked: _look.flag('updateMeteors'),
+                            child: const Text(
+                              '流星动效',
+                              style: TextStyle(color: _paper),
                             ),
                           ),
-                        ),
-                        const PopupMenuItem(
-                          value: 'details',
-                          child: Text('版本信息', style: TextStyle(color: _paper)),
-                        ),
-                      ],
+                          PopupMenuItem(
+                            value: 'check',
+                            enabled: update.supported && !_busy,
+                            child: Text(
+                              '重新检查更新',
+                              style: TextStyle(
+                                color: _busy ? _secondary : _paper,
+                              ),
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'details',
+                            child: Text(
+                              '版本信息',
+                              style: TextStyle(color: _paper),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

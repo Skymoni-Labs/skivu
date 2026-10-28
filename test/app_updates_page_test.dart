@@ -4,6 +4,8 @@ import 'package:ski/app_platform.dart';
 import 'package:ski/app_updates.dart';
 import 'package:ski/app_updates_page.dart';
 import 'package:ski/brand.dart';
+import 'package:ski/appearance.dart';
+import 'appearance_test.dart' show MemoryAppearance;
 
 class _Platform extends AppPlatform {
   @override
@@ -70,7 +72,9 @@ Future<void> _open(
   VoidCallback? onBack,
   bool settle = true,
   bool reduceMotion = false,
+  AppearancePreferences? preferences,
 }) async {
+  addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -85,7 +89,11 @@ Future<void> _open(
         ),
         child: child!,
       ),
-      home: AppUpdatesPage(updates: updates, onBack: onBack),
+      home: AppUpdatesPage(
+        updates: updates,
+        onBack: onBack,
+        preferences: preferences,
+      ),
     ),
   );
   if (settle)
@@ -95,6 +103,25 @@ Future<void> _open(
 }
 
 void main() {
+  testWidgets('meteor menu saves off across a preferences restart', (
+    tester,
+  ) async {
+    final disk = MemoryAppearance();
+    final preferences = AppearancePreferences(persistence: disk);
+    addTearDown(preferences.dispose);
+    await _open(tester, _Updates(), preferences: preferences);
+    await tester.tap(find.byTooltip('更多更新选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('流星动效'));
+    await tester.pumpAndSettle();
+    expect(preferences.flag('updateMeteors'), isFalse);
+    expect(disk.saved?['updateMeteors'], isFalse);
+    final restored = AppearancePreferences(persistence: disk);
+    await restored.restore();
+    expect(restored.flag('updateMeteors'), isFalse);
+    restored.dispose();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets(
     'latest release has its own header, collapsible notes and back action',
     (tester) async {

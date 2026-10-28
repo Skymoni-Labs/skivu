@@ -20,6 +20,7 @@ const appearanceDefaults = <String, dynamic>{
   'uiScale': 1.0,
   'glass': true,
   'reduceMotion': false,
+  'updateMeteors': true,
   'backgroundEnabled': true,
   'backgroundOpacity': 1.0,
   'videoAsset': '',
