@@ -76,7 +76,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureCompanionUI();
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
-  SemanticsBinding.instance.ensureSemantics();
+  if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(
       [appName],

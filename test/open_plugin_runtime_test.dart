@@ -91,6 +91,10 @@ void main() {
                     'ai.generate',
                     'chat.append',
                     'ui.openExternal',
+                    'device.connect',
+                    'device.apps',
+                    'agent.tasks.start',
+                    'agent.tasks.cancel',
                   ]) {
                     responses[method] = Map.from(
                       await fromNative(name, method, {

@@ -45,6 +45,10 @@ const openPluginPermissions = <String, String>{
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
+  'device.observe': '连接你批准的设备伴侣，并读取任务软件的文字界面',
+  'device.control': '在你批准的真实手机任务中点击、输入、滑动和切换所选软件',
+  'device.direct': '持续允许本插件直接操控所选软件并使用当前模型额度；开启后不再逐步弹窗，可通过停用插件或设备伴侣撤销',
+  'agent.tasks': '经任务确认运行有次数和时间上限的模型操控任务，可能消耗额度',
   'chat.tools': '为单独绑定的角色提供正常聊天工具；仅聊天时按需执行',
 };
 

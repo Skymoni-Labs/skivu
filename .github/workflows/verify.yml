@@ -1,0 +1,43 @@
+name: Skivu app checks
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools build-tools;36.0.0'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.41.9'
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test --machine > flutter-results.jsonl
+      - run: node --test test/*test.mjs test/*test.cjs
+      - run: flutter build apk --debug --dart-define=SKIVU_DEVICE_PREVIEW=true --no-pub
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence
+          path: flutter-results.jsonl
+          if-no-files-found: ignore

@@ -126,6 +126,12 @@ class SettingsHome extends StatelessWidget {
           ),
           ('聊天记录', '本地保存、备份与清理', Icons.history_rounded, '/settings/data'),
           ('隐私与权限', '了解数据如何使用', Icons.shield_outlined, '/settings/permissions'),
+          (
+            '手机操控与设备',
+            '查看设备伴侣、停止任务或管理信任',
+            Icons.devices_outlined,
+            '/settings/devices',
+          ),
         ]),
         group('应用', [
           (
@@ -469,6 +475,11 @@ class PrivacySettings extends StatelessWidget {
         label('连接由你选择，数据由你掌握', size: 18, weight: FontWeight.w600),
         const SizedBox(height: 14),
         label('聊天内容仅在发送时交给你配置的模型服务。API Key 单独加密保存在设备中，聊天备份不包含密钥。', size: 12),
+        const SizedBox(height: 14),
+        label(
+          '手机操控插件启用后，可把所选软件的文字界面交给当前模型处理并消耗额度。直接操控需要你首次信任，之后不逐步弹窗；可从通知停止、停用插件或在设备伴侣中撤销。任务结果保存在本机，不自动恢复中断操作。',
+          size: 12,
+        ),
         const SizedBox(height: 14),
         label(
           '选择自定义背景或字体时，系统会由你挑选文件。文字聊天无需麦克风、联系人或定位权限。语音通话会按需请求麦克风；系统识别可能联网，App 不保存录音文件。',

@@ -122,6 +122,12 @@ class AppUpdates extends ChangeNotifier {
     try {
       final info = await platform.info();
       device = info;
+      if (info.packageName != 'com.skyjjgw.independent.ski') {
+        release = null;
+        downloadedPath = null;
+        message = '当前为独立构建，请从原发布来源手动更新，不使用正式 App 更新渠道。';
+        return;
+      }
       final abi = info.abis
           .where((a) => ['arm64-v8a', 'x86_64'].contains(a))
           .firstOrNull;

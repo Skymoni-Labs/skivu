@@ -19,6 +19,7 @@ import 'open_plugin_companion_ui.dart';
 import 'social_settings_page.dart';
 import 'world_library_page.dart';
 import 'sticker_library_page.dart';
+import 'device_settings_page.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
@@ -181,10 +182,12 @@ class _CharactersPageState extends State<CharactersPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         label(p.name, size: 17, weight: FontWeight.w600),
-                        const SizedBox(width: 8),
                         TinyTag(p.group, color: p.color),
                       ],
                     ),
@@ -666,7 +669,7 @@ class _SettingsDetailState extends State<SettingsDetail> {
           'permissions' => const PrivacySettings(),
           'data' => data(),
           'workspace' => workspacePage(),
-          'devices' => devices(),
+          'devices' => DeviceSettingsPage(go: widget.go),
           _ => about(),
         },
       ],

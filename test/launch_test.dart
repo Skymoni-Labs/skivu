@@ -68,6 +68,36 @@ void main() {
         ),
       );
   final overlay = find.byKey(const ValueKey('skivu-launch-overlay'));
+  testWidgets(
+    'stacked routes use independent launch anchors after the cold-start sequence',
+    (tester) async {
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (context, child) => LaunchHost(
+            artwork: artwork!,
+            accent: Colors.blue,
+            dark: false,
+            child: child!,
+          ),
+          home: const Scaffold(body: _Probe()),
+        ),
+      );
+      final original = tester.state<_ProbeState>(find.byType(_Probe));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => const Scaffold(body: _Probe())),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(tester.state<_ProbeState>(find.byType(_Probe)), same(original));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('cold launch blocks taps, then keeps the real page state', (
     tester,

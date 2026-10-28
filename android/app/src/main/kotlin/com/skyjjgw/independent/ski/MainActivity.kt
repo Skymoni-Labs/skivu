@@ -19,6 +19,10 @@ import java.util.UUID
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
+    private var deviceBridge: DeviceBridgePlatform? = null
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? = DeviceTaskService.retainedEngine
+    override fun shouldDestroyEngineWithHost(): Boolean = DeviceTaskService.taskId == null
+    override fun onStart() { super.onStart(); DeviceTaskService.activityAttached = true; DeviceTaskService.currentActivity = this }
     private val chatBackup by lazy { ChatBackupPlatform(this) }
     private val appPlatform by lazy { AppPlatform(this) }
     private val chatAttachment by lazy { ChatAttachmentPlatform(this) }
@@ -30,6 +34,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        deviceBridge = DeviceTaskService.platform?.takeIf { it.engine === flutterEngine }
+            ?: DeviceBridgePlatform(applicationContext, flutterEngine).also { DeviceTaskService.platform = it }
         appPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
         chatAttachment.register(flutterEngine.dartExecutor.binaryMessenger)
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
@@ -63,7 +69,7 @@ class MainActivity : FlutterActivity() {
         voice.permissionResult(requestCode, grantResults)
     }
     override fun onStop() { pluginRuntime.close(); voice.pause(); super.onStop() }
-    override fun onDestroy() { pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
+    override fun onDestroy() { DeviceTaskService.activityAttached = false; if(DeviceTaskService.currentActivity === this)DeviceTaskService.currentActivity = null; if(DeviceTaskService.taskId == null){deviceBridge?.close();DeviceTaskService.platform=null}; pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")

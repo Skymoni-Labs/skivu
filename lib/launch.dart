@@ -72,19 +72,27 @@ double _ease(double t, double a, double b) {
 }
 
 class _LaunchTarget {
-  final key = GlobalKey();
+  GlobalKey key = GlobalKey();
   double radius = 0;
   ChatBackdropController? backdrop;
 }
 
 class _LaunchScope extends InheritedWidget {
-  const _LaunchScope({required this.sequence, required super.child});
+  const _LaunchScope({
+    required this.sequence,
+    required this.enabled,
+    required super.child,
+  });
   final _LaunchSequence sequence;
-  static _LaunchSequence? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_LaunchScope>()?.sequence;
+  final bool enabled;
+  static _LaunchSequence? of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<_LaunchScope>();
+    return scope?.enabled == true ? scope!.sequence : null;
+  }
+
   @override
   bool updateShouldNotify(_LaunchScope oldWidget) =>
-      sequence != oldWidget.sequence;
+      sequence != oldWidget.sequence || enabled != oldWidget.enabled;
 }
 
 class _LaunchSequence {
@@ -112,7 +120,7 @@ class _LaunchSequence {
 
 /// The real glass stays fully painted. A wallpaper-only overlay reveals it;
 /// fading BackdropFilter widgets inside Opacity can produce black Android rims.
-class LaunchReveal extends StatelessWidget {
+class LaunchReveal extends StatefulWidget {
   const LaunchReveal({
     super.key,
     required this.part,
@@ -122,19 +130,27 @@ class LaunchReveal extends StatelessWidget {
   final LaunchPart part;
   final Widget child;
   final double radius;
+  @override
+  State<LaunchReveal> createState() => _LaunchRevealState();
+}
+
+class _LaunchRevealState extends State<LaunchReveal> {
+  final anchor = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     final sequence = _LaunchScope.of(context);
-    if (sequence == null) return child;
-    final target = switch (part) {
-      LaunchPart.toolbar => sequence.toolbar,
-      LaunchPart.composer => sequence.composer,
-      LaunchPart.content => sequence.content,
-    };
-    target.radius = radius;
-    target.backdrop = ChatBackdropScope.maybeOf(context);
-    return KeyedSubtree(key: target.key, child: child);
+    if (sequence != null && ModalRoute.of(context)?.isCurrent != false) {
+      final target = switch (widget.part) {
+        LaunchPart.toolbar => sequence.toolbar,
+        LaunchPart.composer => sequence.composer,
+        LaunchPart.content => sequence.content,
+      };
+      target.key = anchor;
+      target.radius = widget.radius;
+      target.backdrop = ChatBackdropScope.maybeOf(context);
+    }
+    return KeyedSubtree(key: anchor, child: widget.child);
   }
 }
 
@@ -233,6 +249,7 @@ class _LaunchHostState extends State<LaunchHost>
   @override
   Widget build(BuildContext context) => _LaunchScope(
     sequence: _sequence,
+    enabled: _active,
     child: AnimatedBuilder(
       animation: _animation,
       child: Stack(
