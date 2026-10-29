@@ -613,9 +613,7 @@ class AgentChatSession {
       throw const ChatFailure('当前模型协议暂不支持编程工具调用，请切换支持的模型。');
     }
     try {
-      if (messages.isEmpty || messages.length > 128 || tools.length > 64) {
-        throw const ChatFailure('编程请求的消息或工具数量超出上限。');
-      }
+      if (messages.isEmpty) throw const ChatFailure('编程请求至少需要一条消息。');
       final body = jsonEncode({
         'model': config.model,
         if (_customKey == null && _funding == 'beta') 'funding': 'beta',
@@ -627,8 +625,8 @@ class AgentChatSession {
               .maxOutput
               .clamp(1, 4096),
       });
-      if (utf8.encode(body).length > 256 * 1024) {
-        throw const ChatFailure('编程请求过长，请减少上下文。');
+      if (utf8.encode(body).length > 4 * 1024 * 1024) {
+        throw const ChatFailure('编程请求超过 4 MB，请先压缩会话或减少大段工具输出。');
       }
       final request =
           http.AbortableRequest(

@@ -18,6 +18,70 @@ ModelConnection config({ApiProtocol protocol = ApiProtocol.chat}) =>
     );
 
 void main() {
+  test('host does not impose message or tool count caps', () async {
+    var sent = 0;
+    final session = AgentChatSession.account(
+      MockClient((request) async {
+        sent++;
+        return http.Response('{"choices":[{"message":{"content":"ok"}}]}', 200);
+      }),
+      config(),
+      'synthetic',
+    );
+    await session.send(
+      messages: List.generate(3000, (_) => {'role': 'user', 'content': 'hi'}),
+      tools: List.generate(
+        300,
+        (i) => {
+          'type': 'function',
+          'function': {
+            'name': 'tool_$i',
+            'parameters': {'type': 'object'},
+          },
+        },
+      ),
+    );
+    expect(sent, 1);
+  });
+  test(
+    'long programming requests cross former message tool and byte limits',
+    () async {
+      var sent = 0;
+      final session = AgentChatSession.account(
+        MockClient((request) async {
+          sent++;
+          final body = jsonDecode(request.body) as Map;
+          expect((body['messages'] as List).length, 300);
+          expect((body['tools'] as List).length, 96);
+          expect(utf8.encode(request.body).length, greaterThan(256 * 1024));
+          return http.Response(
+            '{"choices":[{"message":{"content":"ok"}}]}',
+            200,
+          );
+        }),
+        config(),
+        'synthetic-token',
+      );
+      await session.send(
+        messages: List.generate(
+          300,
+          (_) => {'role': 'user', 'content': 'history ' * 128},
+        ),
+        tools: List.generate(
+          96,
+          (i) => {
+            'type': 'function',
+            'function': {
+              'name': 'tool_$i',
+              'description': 'description ' * 100,
+              'parameters': {'type': 'object'},
+            },
+          },
+        ),
+      );
+      expect(sent, 1);
+    },
+  );
   test(
     'account agent request preserves tool calls and keeps selection and credentials in host',
     () async {
@@ -151,7 +215,7 @@ void main() {
     await expectLater(
       session.send(
         messages: [
-          {'role': 'user', 'content': 'x' * (256 * 1024)},
+          {'role': 'user', 'content': 'x' * (4 * 1024 * 1024)},
         ],
         tools: [],
       ),

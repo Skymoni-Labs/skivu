@@ -35,7 +35,11 @@ Skivu 0.2.47 起，若系统拒绝绑定已验证的服务，宿主可打开服�
 运行组件返回同端口的本地认证 URL。WebView 只加载这个来源，不附加宿主 JS bridge，
 禁止文件访问、外部导航和外部资源；HTML 的 CSP 由宿主代理强制注入。
 
-模型帧为换行 JSON：`{id,method:'model.generate',params:{messages,tools}}`，最多 256 KiB。
+模型帧为换行 JSON：`{id,method:'model.generate',params:{messages,tools}}`。
+Skivu0.2.48/组件0.1.4起取消宿主与服务端的固定消息条数、工具个数及单条回复工具调用数上限；
+传输层保留4MiB请求体边界。模型自身的上下文窗口和厂商限制仍适用，超大上下文由DSH压缩。
+原生启动消息通过`largeModelFrames=true`协商大帧，组件给引擎设置
+`SKIVU_LARGE_MODEL_FRAMES=1`；旧宿主仍使用256KiB，设备能力帧保持64KiB。
 Skivu 0.2.47 在打开会话时一次确认模型调用和正常计费，后续每次请求只校验本次授权，
 不逐次弹窗。账号、资金来源或自定义连接配置变化时结束本次授权；插件撤权及关闭立即取消。
 设备帧最多 64 KiB，手机操作仍使用独立设备授权。

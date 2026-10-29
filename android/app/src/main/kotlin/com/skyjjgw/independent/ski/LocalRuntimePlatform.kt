@@ -172,10 +172,11 @@ class LocalRuntimePlatform(private val context: Activity) {
                     s.worker!!.send(Message.obtain(null, 1).apply { replyTo = receiver; data = Bundle().apply {
                         putString("token", s.token); putParcelable("listener", listener); putInt("port", s.port)
                         putBoolean("modelCatalog", true)
+                        putBoolean("largeModelFrames", true)
                         putParcelable("model", model[1]); putParcelable("device", device[1])
                     } })
                     listener.close(); model[1].close(); device[1].close()
-                    broker(s, model[0], "model", 256 * 1024)
+                    broker(s, model[0], "model", 4 * 1024 * 1024)
                     broker(s, device[0], "device", 64 * 1024)
                 } catch (_: Exception) {
                     s.result?.error("RUNTIME_FAILED", "运行组件连接失败。", null); s.result = null; stop(s, null)
@@ -251,7 +252,7 @@ class LocalRuntimePlatform(private val context: Activity) {
     private fun broker(s: Session, fd: ParcelFileDescriptor, kind: String, limit: Int) {
         Thread {
             try {
-                val input = FileInputStream(fd.fileDescriptor)
+                val input = BufferedInputStream(FileInputStream(fd.fileDescriptor),65536)
                 val output = FileOutputStream(fd.fileDescriptor)
                 while (active === s && !s.closing) {
                     val frame = ByteArrayOutputStream()

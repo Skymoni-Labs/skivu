@@ -30,8 +30,8 @@ class LocalRuntimeModelGateway {
   bool _closed = false;
   AgentChatSession? _activeSession;
 
-  static const maxFrameBytes = 256 * 1024;
-  static const maxQueuedFrames = 8;
+  static const maxFrameBytes = 4 * 1024 * 1024;
+  static const maxQueuedFrames = 4;
 
   /// A host-owned transport calls this with already-authenticated bytes.
   /// EOF cancels the active request immediately, even while it is waiting on
