@@ -139,13 +139,16 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   @override
   void initState() {
     super.initState();
-    roleId = widget.initialRoleId ?? demo.role.id;
-    chatId = widget.initialChatId ?? demo.conversations[demo.conversation].id;
-    if (!demo.conversations.any(
-      (c) =>
-          c.id == chatId &&
-          (c.personaId == roleId || c.groupMembers.contains(roleId)),
-    ))
+    if (!widget.record.manifest.independentRuntime) {
+      roleId = widget.initialRoleId ?? demo.role.id;
+      chatId = widget.initialChatId ?? demo.conversations[demo.conversation].id;
+    }
+    if (!widget.record.manifest.independentRuntime &&
+        !demo.conversations.any(
+          (c) =>
+              c.id == chatId &&
+              (c.personaId == roleId || c.groupMembers.contains(roleId)),
+        ))
       chatId = demo.conversations
           .where(
             (c) => c.personaId == roleId || c.groupMembers.contains(roleId),
@@ -157,12 +160,15 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       record: widget.record,
       host: hostCall,
     );
-    demo.addListener(contextChanged);
+    if (!widget.record.manifest.independentRuntime)
+      demo.addListener(contextChanged);
     widget.registry.addListener(registryChanged);
     WidgetsBinding.instance.addObserver(this);
   }
 
   Map<String, dynamic> get hostContext {
+    if (widget.record.manifest.independentRuntime)
+      return {'action': widget.action, 'independent': true};
     final role = demo.personas.where((r) => r.id == roleId).firstOrNull;
     final chat = demo.conversations
         .where(
@@ -191,6 +197,7 @@ class _OpenPluginPageState extends State<OpenPluginPage>
 
   void contextChanged() {
     if (!mounted) return;
+    if (widget.record.manifest.independentRuntime) return;
     if (widget.embedded) {
       roleId = demo.role.id;
       chatId = demo.conversations[demo.conversation].id;
@@ -525,10 +532,14 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   }
 
   Future<Object?> generate(Map<String, dynamic> p) async {
+    final independent = widget.record.manifest.independentRuntime;
+    if (independent && p.containsKey('roleId'))
+      throw const PluginApiError('INVALID_ARGUMENT', '独立运行模块不接受角色参数。');
     if (generating) throw const PluginApiError('BUSY', '本插件已有生成任务。');
     final instruction = bridge.text(p, 'instruction', max: 60000),
         role = p['roleId'] ?? roleId;
-    if (role is! String || !demo.personas.any((r) => r.id == role))
+    if (!independent &&
+        (role is! String || !demo.personas.any((r) => r.id == role)))
       throw const PluginApiError('NOT_FOUND', '角色已不存在。');
     final max = p['maxOutput'] ?? 1024, context = p['context'] ?? [];
     if (max is! int ||
@@ -549,12 +560,17 @@ class _OpenPluginPageState extends State<OpenPluginPage>
     }
     await allow(
       '使用当前模型生成？',
-      '角色：${demo.personas.firstWhere((r) => r.id == role).name}\n最多输出 $max token；会按当前模型设置消耗额度。\n\n${instruction.substring(0, instruction.length.clamp(0, 2000))}\n\n插件提供 ${history.length} 条上下文。',
+      '${independent ? "独立模块" : "角色：${demo.personas.firstWhere((r) => r.id == role).name}"}\n最多输出 $max token；会按当前模型设置消耗额度。\n\n${instruction.substring(0, instruction.length.clamp(0, 2000))}\n\n插件提供 ${history.length} 条上下文。',
     );
     generating = true;
     ChatSession? session;
     try {
-      session = await demo.startPluginReply(role, instruction, history, max);
+      session = await demo.startPluginReply(
+        independent ? null : role as String,
+        instruction,
+        history,
+        max,
+      );
       bridge.check();
       sessions.add(session);
       var text = '', usage = const ApiUsage();
@@ -681,7 +697,8 @@ class _OpenPluginPageState extends State<OpenPluginPage>
         child: SafeArea(
           child: Column(
             children: [
-              if (!widget.embedded)
+              if (!widget.embedded &&
+                  !widget.record.manifest.independentRuntime)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(

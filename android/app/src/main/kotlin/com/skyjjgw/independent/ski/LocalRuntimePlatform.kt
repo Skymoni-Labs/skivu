@@ -1,5 +1,6 @@
 package com.skyjjgw.independent.ski
 
+import android.app.Activity
 import android.content.*
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -19,10 +20,11 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /** Generic, signed, separately installed runtime transport. No engine business code. */
-class LocalRuntimePlatform(private val context: Context) {
+class LocalRuntimePlatform(private val context: Activity) {
     companion object {
         const val ACTION = "org.skivu.runtime.V1"
         const val PERMISSION = "org.skivu.permission.RUN_RUNTIME"
+        private const val ACTIVATE_REQUEST = 7123
     }
     private val main = Handler(Looper.getMainLooper())
     private lateinit var channel: MethodChannel
@@ -32,6 +34,9 @@ class LocalRuntimePlatform(private val context: Context) {
         var worker: Messenger? = null
         var connection: ServiceConnection? = null
         var bound = false
+        var activationAttempted = false
+        var activationPending = false
+        var signer = ""
         @Volatile var closing = false
         var approvedUrl: String? = null
         var port = 0
@@ -49,6 +54,7 @@ class LocalRuntimePlatform(private val context: Context) {
                 when (call.method) {
                     "providers" -> result.success(providers())
                     "start" -> start(call, result)
+                    "settings" -> settings(call, result)
                     "stop" -> {
                         val s = active
                         if (s == null || s.id != call.argument<Int>("sessionId")) result.success(null)
@@ -98,7 +104,7 @@ class LocalRuntimePlatform(private val context: Context) {
         return MessageDigest.getInstance("SHA-256").digest(signatures!![0].toByteArray()).joinToString("") { "%02x".format(it) }
     }
     private fun service(component: ComponentName) = context.packageManager.getServiceInfo(component, PackageManager.GET_META_DATA).also {
-        require(it.exported && it.enabled && it.permission == PERMISSION && it.applicationInfo.uid != context.applicationInfo.uid)
+        require(it.exported && it.enabled && it.applicationInfo.enabled && it.permission == PERMISSION && it.applicationInfo.uid != context.applicationInfo.uid)
         require(it.metaData?.getInt("org.skivu.runtime.protocol") == 1)
         require(context.packageManager.checkPermission(android.Manifest.permission.INTERNET, component.packageName) == PackageManager.PERMISSION_DENIED)
     }
@@ -120,7 +126,7 @@ class LocalRuntimePlatform(private val context: Context) {
         val info = service(component)
         val id = call.argument<Int>("sessionId") ?: error("session")
         require(id > 0)
-        val s = Session(id, component, info.applicationInfo.uid).also { it.result = result; active = it }
+        val s = Session(id, component, info.applicationInfo.uid).also { it.result = result; it.signer = expected; active = it }
         s.connection = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                 if (active !== s || s.closing) return
@@ -142,16 +148,30 @@ class LocalRuntimePlatform(private val context: Context) {
                         if (active !== s || s.closing || message.sendingUid != s.uid) return@Handler true
                         val url = message.data.getString("url")
                         if (message.data.getString("token") != s.token) return@Handler true
+                        if (message.what == 5) {
+                            val phase = message.data.getString("phase")
+                            if (phase in setOf("unpacking", "launching")) channel.invokeMethod("status", mapOf("sessionId" to s.id, "phase" to phase, "files" to message.data.getInt("files").coerceIn(0,100000)))
+                            return@Handler true
+                        }
                         if (url != null && local(s, Uri.parse(url)) && url.length <= 4096) {
                             s.approvedUrl = url; s.result?.success(null); s.result = null
                         } else if (message.what == 3) {
-                            s.result?.error("RUNTIME_FAILED", "运行组件启动失败，请检查可用空间或重新安装组件。", null); s.result = null
+                            val text = when(message.data.getString("reason")) {
+                                "PROCESS_EXIT" -> "本地运行引擎已退出，请更新运行组件后重试。"
+                                "USER_STOP" -> "本次运行已从通知停止。"
+                                "BACKGROUND_RESTRICTED" -> "系统未允许组件在后台运行，请打开右上角运行设置完成后台运行许可。"
+                                else -> "本地运行环境准备失败，请检查可用空间并更新组件后重试。"
+                            }
+                            if (s.result != null) s.result?.error("RUNTIME_FAILED", text, null)
+                            else channel.invokeMethod("failed", mapOf("sessionId" to s.id, "message" to text))
+                            s.result = null
                             stop(s, null)
                         }
                         true
                     })
                     s.worker!!.send(Message.obtain(null, 1).apply { replyTo = receiver; data = Bundle().apply {
                         putString("token", s.token); putParcelable("listener", listener); putInt("port", s.port)
+                        putBoolean("modelCatalog", true)
                         putParcelable("model", model[1]); putParcelable("device", device[1])
                     } })
                     listener.close(); model[1].close(); device[1].close()
@@ -165,11 +185,67 @@ class LocalRuntimePlatform(private val context: Context) {
             override fun onBindingDied(name: ComponentName?) { disconnected(s) }
             override fun onNullBinding(name: ComponentName?) { disconnected(s) }
         }
-        s.bound = context.bindService(Intent().setComponent(component), s.connection!!, Context.BIND_AUTO_CREATE)
-        if (!s.bound) { active = null; s.result = null; result.error("NOT_INSTALLED", "请先安装并启用本地运行组件。", null); return }
+        connect(s)
+    }
+
+    private fun connect(s: Session) {
+        if (active !== s || s.closing) return
+        try {
+            // Revalidate after returning from another app or a system settings screen.
+            require(signing(s.component.packageName) == s.signer && service(s.component).applicationInfo.uid == s.uid)
+            s.bound = context.bindService(Intent(ACTION).setComponent(s.component), s.connection!!, Context.BIND_AUTO_CREATE)
+            if (!s.bound) {
+                runCatching { context.unbindService(s.connection!!) }
+                if (!s.activationAttempted) {
+                    s.activationAttempted = true
+                    val className = service(s.component).metaData?.getString("org.skivu.runtime.activation")
+                    if (className != null && className.startsWith(s.component.packageName + ".")) {
+                        val component = ComponentName(s.component.packageName, className)
+                        val activity = context.packageManager.getActivityInfo(component, 0)
+                        require(activity.exported && activity.enabled && activity.applicationInfo.enabled && activity.applicationInfo.uid == s.uid)
+                        s.activationPending = true
+                        context.startActivityForResult(Intent().setComponent(component), ACTIVATE_REQUEST)
+                        return
+                    }
+                }
+                failed(s, "RUNTIME_START_BLOCKED", "组件已安装，但系统阻止了 Skivu 唤起它。请从管理运行组件更新并完成启用；如仍被拦截，请在系统应用启动管理中允许关联启动后重试。无需开启 USB 调试。")
+                return
+            }
+        } catch (_: Exception) {
+            failed(s, "RUNTIME_UNAVAILABLE", "本地组件连接未完成，请检查组件是否启用、签名是否正确，以及系统是否允许关联启动。")
+            return
+        }
         main.postDelayed({ if (active === s && s.result != null) {
             s.result?.error("RUNTIME_TIMEOUT", "运行组件准备超时，请检查可用空间后重试。", null); s.result = null; stop(s, null)
-        } }, 240000)
+        } }, 600000)
+    }
+
+    fun activityResult(requestCode: Int, resultCode: Int) {
+        if (requestCode != ACTIVATE_REQUEST) return
+        val s = active ?: return
+        if (!s.activationPending || s.closing) return
+        s.activationPending = false
+        if (resultCode == Activity.RESULT_OK) connect(s)
+        else failed(s, "RUNTIME_ACTIVATION_CANCELLED", "已取消组件启用，可返回后重新启动。")
+    }
+
+    private fun settings(call:MethodCall,result:MethodChannel.Result) {
+        val component=ComponentName.unflattenFromString(call.argument<String>("component") ?: "") ?: error("component")
+        require(signing(component.packageName)==call.argument<String>("signerSha256"))
+        val service=service(component)
+        val className=service.metaData?.getString("org.skivu.runtime.activation")
+        if(className!=null && className.startsWith(component.packageName+".")) {
+            val activity=ComponentName(component.packageName,className)
+            val info=context.packageManager.getActivityInfo(activity,0)
+            require(info.exported && info.enabled && info.applicationInfo.enabled && info.applicationInfo.uid==service.applicationInfo.uid)
+            context.startActivity(Intent().setComponent(activity))
+        } else context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:${component.packageName}")))
+        result.success(null)
+    }
+
+    private fun failed(s: Session, code: String, message: String) {
+        s.result?.error(code, message, null); s.result = null
+        stop(s, null)
     }
 
     private fun broker(s: Session, fd: ParcelFileDescriptor, kind: String, limit: Int) {

@@ -61,6 +61,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        localRuntime.activityResult(requestCode, resultCode)
         chatBackup.activityResult(requestCode, resultCode, data)
         chatAttachment.onResult(requestCode, resultCode, data)
         pluginFiles.onResult(requestCode, resultCode, data)

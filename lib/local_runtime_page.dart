@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'chat_api.dart';
@@ -11,6 +10,8 @@ import 'open_plugin_device.dart';
 import 'open_plugin_network.dart';
 import 'state.dart';
 import 'runtime_install_page.dart';
+import 'local_runtime_models.dart';
+import 'model_settings_page.dart';
 
 const _runtimePlatform = MethodChannel('skivu/local_runtime');
 bool _runtimePageOpen = false;
@@ -106,6 +107,8 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
   int? generation;
   bool ready = false, closing = false, confirming = false;
   String? failure;
+  String preparing = '正在准备本地运行环境…';
+  late final LocalRuntimeModels modelAccess;
   Future<void>? stopping;
   bool get active =>
       mounted &&
@@ -116,10 +119,38 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
   @override
   void initState() {
     super.initState();
+    modelAccess = LocalRuntimeModels(
+      account: demo.account,
+      custom: demo.models,
+      useAccount: demo.useAccount || demo.models.active == null,
+    );
+    demo.account.addListener(modelAuthorizationChanged);
+    demo.models.addListener(modelAuthorizationChanged);
     widget.registry.addListener(revoked);
     _runtimePlatform.setMethodCallHandler((call) async {
       final args = call.arguments;
       if (args is! Map || args['sessionId'] != routeId) return null;
+      if (call.method == 'status') {
+        if (mounted && !closing)
+          setState(() {
+            final files = args['files'];
+            preparing = args['phase'] == 'unpacking'
+                ? (files is int && files > 0
+                      ? '正在解压本地环境，已处理 $files 个文件…'
+                      : '正在校验并解压本地环境，首次启动可能需要几分钟…')
+                : '正在启动本地编程引擎…';
+          });
+        return null;
+      }
+      if (call.method == 'failed') {
+        if (mounted)
+          setState(() {
+            ready = false;
+            failure = args['message'] as String? ?? '本地运行引擎已退出。';
+          });
+        unawaited(stop());
+        return null;
+      }
       if (call.method == 'closed') {
         unawaited(stop());
         if (mounted)
@@ -150,6 +181,15 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
           failure = '插件已停用或需要重新授权。';
         });
     }
+  }
+
+  void modelAuthorizationChanged() {
+    if (!mounted || closing || modelAccess.valid) return;
+    setState(() {
+      ready = false;
+      failure = '账号或模型配置已变化，请重新打开 DSH 以同步授权。';
+    });
+    unawaited(stop());
   }
 
   Future<bool> confirm(String title, String text) async {
@@ -186,7 +226,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
     try {
       final allowed = await confirm(
         '打开本地编程环境？',
-        '${widget.record.manifest.name} 将在独立运行组件中执行代码，可修改该组件内的项目、插件和运行环境。请保留重要文件的备份。\n\nSkivu 账号、模型密钥和服务器私有数据不会交给运行组件；模型请求和手机操作仍需宿主授权。关闭此页会停止本次运行。',
+        '${widget.record.manifest.name} 将在本地执行代码，可修改组件内的项目、插件和运行环境。请保留重要文件的备份。\n\n本次会话可使用同步的账号模型和已保存的自定义模型，后续调用不再逐次弹窗；每次最多生成 4096 token，按所选模型和服务的正常规则计费。账号和模型密钥由 Skivu 保管。手机操作仍需单独授权。关闭此页即结束本次运行和模型授权。',
       );
       if (!allowed || !mounted || closing) {
         if (mounted && !closing) Navigator.of(context).pop();
@@ -207,15 +247,11 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
         bridge: bridge,
         confirmModel: () async {
           if (!active) return false;
-          final identity = jsonEncode(demo.account.connection?.toJson());
-          final allowed = await confirm(
-            '调用编程模型？',
-            '插件：${widget.record.manifest.name}\n模型：${demo.account.connection?.model ?? "尚未选择账号模型"}\n本次会发送编程对话与工具结果，最多生成 4096 token，按当前账号计费。',
-          );
-          return allowed &&
-              active &&
-              identity == jsonEncode(demo.account.connection?.toJson());
+          modelAccess.check();
+          return true;
         },
+        listModels: modelAccess.list,
+        openModelSession: modelAccess.open,
         newModelSession: () {
           if (!active || !demo.useAccount)
             throw const ChatFailure('请在 Skivu 中登录账号并选择支持工具调用的模型。');
@@ -258,6 +294,8 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
 
   @override
   void dispose() {
+    demo.account.removeListener(modelAuthorizationChanged);
+    demo.models.removeListener(modelAuthorizationChanged);
     widget.registry.removeListener(revoked);
     unawaited(
       stop().catchError((Object _) {}).whenComplete(() {
@@ -270,7 +308,49 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.record.manifest.name)),
+    appBar: AppBar(
+      title: Text(widget.record.manifest.name),
+      actions: [
+        IconButton(
+          tooltip: '运行设置',
+          icon: const Icon(Icons.settings_applications),
+          onPressed: () async {
+            try {
+              await _runtimePlatform.invokeMethod<void>('settings', {
+                'component': widget.component,
+                'signerSha256': widget.signer,
+              });
+            } on PlatformException catch (e) {
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(e.message ?? '组件设置未能打开。')),
+                );
+            }
+          },
+        ),
+        IconButton(
+          tooltip: '自定义模型',
+          icon: const Icon(Icons.tune),
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('模型设置')),
+                  body: const SingleChildScrollView(
+                    padding: EdgeInsets.all(24),
+                    child: ModelSettingsPage(),
+                  ),
+                ),
+              ),
+            );
+            if (mounted && !modelAccess.valid)
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('模型配置已保存，重新打开 DSH 后同步生效。')),
+              );
+          },
+        ),
+      ],
+    ),
     body: failure != null
         ? Center(
             child: Padding(
@@ -284,13 +364,13 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
             creationParams: {'sessionId': routeId},
             creationParamsCodec: const StandardMessageCodec(),
           )
-        : const Center(
+        : Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 18),
-                Text('正在准备本地运行环境…'),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 18),
+                Text(preparing),
               ],
             ),
           ),

@@ -573,10 +573,8 @@ class ChatSession {
   }
 }
 
-/// Development candidate for structured agent requests through the same
-/// authenticated account and billing path. The worker never receives the
-/// account token or chooses the model, endpoint, group, or funding source.
-/// This is not connected to a runtime transport yet.
+/// Host-owned structured transport. Runtime clients receive results only;
+/// credentials, endpoints and funding remain in the host.
 class AgentChatSession {
   AgentChatSession.account(
     this._client,
@@ -584,11 +582,18 @@ class AgentChatSession {
     String token, {
     String funding = 'relay',
   }) : _token = token,
-       _funding = funding;
+       _funding = funding,
+       _customKey = null;
+
+  AgentChatSession.custom(this._client, this.config, String key)
+    : _token = '',
+      _funding = 'relay',
+      _customKey = key;
 
   final http.Client _client;
   final ModelConnection config;
   final String _token, _funding;
+  final String? _customKey;
   final _abort = Completer<void>();
   bool _used = false;
 
@@ -613,11 +618,14 @@ class AgentChatSession {
       }
       final body = jsonEncode({
         'model': config.model,
-        if (_funding == 'beta') 'funding': 'beta',
+        if (_customKey == null && _funding == 'beta') 'funding': 'beta',
         'messages': messages,
         'tools': tools,
         'stream': false,
-        'max_tokens': config.maxOutput.clamp(1, 4096),
+        if (_customKey == null || config.tokenParameter != 'omit')
+          (_customKey == null ? 'max_tokens' : config.tokenParameter): config
+              .maxOutput
+              .clamp(1, 4096),
       });
       if (utf8.encode(body).length > 256 * 1024) {
         throw const ChatFailure('编程请求过长，请减少上下文。');
@@ -625,18 +633,24 @@ class AgentChatSession {
       final request =
           http.AbortableRequest(
               'POST',
-              Uri.https(
-                'skymoni.com',
-                '/api/app-account/agent/chat/completions',
-              ),
+              _customKey != null
+                  ? config.withStreaming(false).endpoint()
+                  : Uri.https(
+                      'skymoni.com',
+                      '/api/app-account/agent/chat/completions',
+                    ),
               abortTrigger: _abort.future,
             )
             ..followRedirects = false
-            ..headers.addAll({
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': 'AppAccount $_token',
-            })
+            ..headers.addAll(
+              _customKey != null
+                  ? _headers(config.withStreaming(false), _customKey)
+                  : {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                      'Authorization': 'AppAccount $_token',
+                    },
+            )
             ..body = body;
       final response = await _client
           .send(request)

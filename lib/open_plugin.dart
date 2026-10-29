@@ -45,7 +45,7 @@ const openPluginPermissions = <String, String>{
   'characters.write': '经确认修改角色资料',
   'chat.read': '读取你在宿主选择的聊天正文',
   'chat.write': '经确认向你选择的聊天写入文本',
-  'ai.generate': '经每次确认使用当前模型生成文字，可能消耗额度',
+  'ai.generate': '按宿主授权使用模型生成内容，可能消耗额度；本地运行环境按会话授权',
   'runtime.local': '打开你批准并核验签名的独立本地编程环境，可执行代码并修改该组件内的项目和运行文件',
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
@@ -97,6 +97,21 @@ class OpenPluginManifest {
   List<String> get domains => List<String>.from(raw['networkDomains']);
   bool get launcher => raw['contributes']['launcher'] == true;
   bool get chatSurface => raw['contributes']['chatSurface'] == true;
+  bool get independentRuntime =>
+      permissions.contains('runtime.local') &&
+      companion == null &&
+      !chatSurface &&
+      chatActions.isEmpty &&
+      !permissions.any(
+        (p) => const {
+          'characters.read',
+          'characters.write',
+          'chat.read',
+          'chat.write',
+          'chat.tools',
+          'prompt',
+        }.contains(p),
+      );
   Map<String, dynamic>? get companion =>
       raw['contributes']['roleCompanion'] == null
       ? null

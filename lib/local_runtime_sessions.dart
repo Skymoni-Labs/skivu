@@ -33,6 +33,8 @@ class LocalRuntimeSessions {
     required OpenPluginBridge bridge,
     required Future<bool> Function() confirmModel,
     required AgentChatSession Function() newModelSession,
+    FutureOr<List<Map<String, Object>>> Function()? listModels,
+    Future<AgentChatSession> Function(String? model)? openModelSession,
   }) => _serial(() async {
     if (_disposed) {
       bridge.close();
@@ -55,6 +57,8 @@ class LocalRuntimeSessions {
         bridge: bridge,
         confirm: confirmModel,
         newSession: newModelSession,
+        listModels: listModels,
+        openSession: openModelSession,
       ),
       LocalRuntimeDeviceGateway(bridge),
     );

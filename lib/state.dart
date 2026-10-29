@@ -1522,14 +1522,15 @@ class DemoStore extends ChangeNotifier {
   /// The plugin receives text/usage only. Credentials and transport settings
   /// stay within the same account/beta/model path used by ordinary requests.
   Future<ChatSession> startPluginReply(
-    String personaId,
+    String? personaId,
     String instruction,
     List<Map<String, String>> context,
     int maxOutput,
   ) async {
     final persona = personas.where((p) => p.id == personaId).firstOrNull;
     final active = activeConnection;
-    if (persona == null) throw const ChatFailure('角色已不存在。');
+    if (personaId != null && persona == null)
+      throw const ChatFailure('角色已不存在。');
     if (active == null) throw const ChatFailure('请先选择可用模型。');
     final config = ModelConnection.fromJson({
       ...active.toJson(),
@@ -1540,9 +1541,11 @@ class DemoStore extends ChangeNotifier {
       ...context,
       {'role': 'user', 'content': instruction},
     ];
-    final prompt = promptFor(persona)
-        .replaceAll('{{char}}', persona.name)
-        .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
+    final prompt = persona == null
+        ? '你是独立的通用助手。仅根据本次提供的指令和上下文回复。'
+        : promptFor(persona)
+              .replaceAll('{{char}}', persona.name)
+              .replaceAll('{{user}}', userCard['称呼'] ?? '用户');
     if (useBeta) return beta.startChat(history, prompt, requestConfig: config);
     if (useAccount)
       return account.startChat(history, prompt, requestConfig: config);

@@ -8,18 +8,23 @@ import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
 
 /// Broker for an isolated runtime. It requires both the existing
-/// ai.generate grant and the host's per-request confirmation; it does not
-/// expose account credentials, endpoint, funding or model selection.
+/// ai.generate grant and a live host authorization check on each request.
+/// Model selection resolves host catalog IDs; credentials, endpoints and funding
+/// remain in the host.
 class LocalRuntimeModelGateway {
   LocalRuntimeModelGateway({
     required this.bridge,
     required this.confirm,
     required this.newSession,
+    this.listModels,
+    this.openSession,
   });
 
   final OpenPluginBridge bridge;
   final Future<bool> Function() confirm;
   final AgentChatSession Function() newSession;
+  final FutureOr<List<Map<String, Object>>> Function()? listModels;
+  final Future<AgentChatSession> Function(String? model)? openSession;
   final _seen = <String>{};
   bool _busy = false;
   bool _closed = false;
@@ -143,7 +148,7 @@ class LocalRuntimeModelGateway {
           raw.length != 3 ||
           raw['id'] is! String ||
           !RegExp(r'^[0-9]{1,16}$').hasMatch(raw['id']) ||
-          raw['method'] != 'model.generate' ||
+          !['model.generate', 'model.list'].contains(raw['method']) ||
           raw['params'] is! Map) {
         return fail('INVALID_ARGUMENT', '模型请求格式不正确。');
       }
@@ -153,7 +158,19 @@ class LocalRuntimeModelGateway {
       _seen.add(id);
       if (_busy) return fail('BUSY', '已有模型请求正在运行。');
       final params = raw['params'] as Map;
-      if (params.length != 2 ||
+      if (raw['method'] == 'model.list') {
+        if (params.isNotEmpty) return fail('INVALID_ARGUMENT', '模型列表参数不正确。');
+        if (listModels == null) return fail('METHOD_NOT_FOUND', '宿主暂不支持模型同步。');
+        final models = await listModels!();
+        _check();
+        return jsonEncode({'id': id, 'ok': true, 'result': models});
+      }
+      if ((params.length != 2 && params.length != 3) ||
+          params.keys.any((k) => !['messages', 'tools', 'model'].contains(k)) ||
+          (params.containsKey('model') &&
+              (params['model'] is! String ||
+                  (params['model'] as String).length > 512 ||
+                  openSession == null)) ||
           params['messages'] is! List ||
           params['tools'] is! List) {
         return fail('INVALID_ARGUMENT', '模型请求格式不正确。');
@@ -168,7 +185,15 @@ class LocalRuntimeModelGateway {
       try {
         if (!await confirm()) return fail('CANCELLED', '模型请求未获确认。');
         _check();
-        final session = newSession();
+        final session = openSession == null
+            ? newSession()
+            : await openSession!(params['model'] as String?);
+        try {
+          _check();
+        } catch (_) {
+          session.cancel();
+          rethrow;
+        }
         _activeSession = session;
         void revoke() {
           try {

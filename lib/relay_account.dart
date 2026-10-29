@@ -72,6 +72,7 @@ class RelayAccount extends ChangeNotifier {
   bool get signedIn =>
       _token != null && expiresAt?.isAfter(DateTime.now()) == true;
   bool get authorizing => _deviceCode != null && _verifier != null;
+  int get authorizationRevision => _generation;
   bool get canChat =>
       signedIn &&
       user != null &&
@@ -734,12 +735,29 @@ class RelayAccount extends ChangeNotifier {
 
   /// Uses the selected account model and existing wallet/beta funding. This
   /// candidate is dormant until the matching server route is deployed.
-  AgentChatSession startAgentChat() {
-    final config = connection;
-    if (config == null) throw const ChatFailure('请先登录中转站并同步模型。');
-    if (config.protocol != ApiProtocol.chat) {
+  AgentChatSession startAgentChat({String? model}) {
+    final selected = model ?? activeModel;
+    if (!signedIn || user == null || (funding == 'beta' && !canBetaChat)) {
+      throw const ChatFailure('请先登录中转站并同步当前可用模型。');
+    }
+    if (!models.contains(selected))
+      throw const ChatFailure(
+        '模型未开放或已下架，请更新模型列表并切换到当前可用模型',
+        code: 'model_not_available',
+      );
+    if (protocols[selected] != 'chat') {
       throw const ChatFailure('当前模型协议暂不支持编程工具调用，请切换支持的模型。');
     }
+    final config = ModelConnection(
+      id: 'skymoni-account',
+      name: 'Skymoni 账号',
+      provider: 'Skymoni',
+      protocol: ApiProtocol.chat,
+      address: 'https://skymoni.com/api/app-account/agent/chat/completions',
+      model: selected!,
+      maxOutput: maxOutput,
+      streaming: false,
+    );
     return AgentChatSession.account(
       _clients(),
       config,

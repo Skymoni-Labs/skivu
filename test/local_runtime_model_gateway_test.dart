@@ -33,6 +33,82 @@ void main() {
     'tools': <Object>[],
   };
 
+  test(
+    'broker lists host catalog and sends only an approved selected model',
+    () async {
+      final package = fixture.package(permissions: ['ai.generate']);
+      final registry = OpenPluginRegistry();
+      final record = OpenPluginRecord(
+        package,
+        enabled: true,
+        grantedDigest: package.digest,
+      );
+      registry.records[record.manifest.id] = record;
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (_, __) async => null,
+      );
+      var sent = 0;
+      final gateway = LocalRuntimeModelGateway(
+        bridge: bridge,
+        confirm: () async => true,
+        newSession: () => throw StateError('legacy should not dispatch'),
+        listModels: () => [
+          {
+            'id': 'account:second',
+            'name': 'second',
+            'provider': 'Skymoni',
+            'supportsTools': true,
+          },
+        ],
+        openSession: (id) async {
+          if (id != 'account:second')
+            throw const ChatFailure('unavailable', code: 'model_not_available');
+          return AgentChatSession.account(
+            MockClient((request) async {
+              sent++;
+              expect(jsonDecode(request.body)['model'], 'second');
+              return http.Response(
+                '{"choices":[{"message":{"content":"ok"}}]}',
+                200,
+              );
+            }),
+            ModelConnection.fromJson({...config.toJson(), 'model': 'second'}),
+            'synthetic',
+          );
+        },
+      );
+      final listed =
+          jsonDecode(await gateway.handle(frame('1', {}, method: 'model.list')))
+              as Map;
+      expect(listed['ok'], true);
+      expect((listed['result'] as List).single['id'], 'account:second');
+      expect(sent, 0);
+      expect(
+        (jsonDecode(
+              await gateway.handle(
+                frame('2', {...params, 'model': 'account:second'}),
+              ),
+            )
+            as Map)['ok'],
+        true,
+      );
+      final denied =
+          jsonDecode(
+                await gateway.handle(
+                  frame('3', {...params, 'model': 'https://untrusted.example'}),
+                ),
+              )
+              as Map;
+      expect(denied['error']['code'], 'model_not_available');
+      expect(sent, 1);
+      gateway.close();
+      bridge.close();
+      registry.dispose();
+    },
+  );
+
   test('transport preserves split requests and stops at disconnect', () async {
     final package = fixture.package(permissions: ['ai.generate']);
     final registry = OpenPluginRegistry();

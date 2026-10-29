@@ -21,6 +21,43 @@ OpenPluginPackage workspacePackage(
 }
 
 void main() {
+  testWidgets('independent runtime has no role selector or role/chat context', (
+    tester,
+  ) async {
+    final raw =
+        jsonDecode(
+              fixtures
+                  .package(permissions: ['runtime.local', 'ai.generate'])
+                  .raw,
+            )
+            as Map<String, dynamic>;
+    raw['manifest']['contributes'] = {'launcher': true, 'chatActions': []};
+    final package = OpenPluginPackage.parse(jsonEncode(raw));
+    final registry = OpenPluginRegistry();
+    final record = OpenPluginRecord(
+      package,
+      enabled: true,
+      grantedDigest: package.digest,
+    );
+    registry.records[record.manifest.id] = record;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OpenPluginPage(
+          record: record,
+          registry: registry,
+          initialRoleId: 'should-not-leak',
+          initialChatId: 'should-not-leak',
+        ),
+      ),
+    );
+    final dynamic state = tester.state(find.byType(OpenPluginPage));
+    expect(find.text('上下文角色：'), findsNothing);
+    expect(state.hostContext, {'action': null, 'independent': true});
+    state.contextChanged();
+    expect(state.hostContext, {'action': null, 'independent': true});
+    await tester.pumpWidget(const SizedBox());
+    registry.dispose();
+  });
   testWidgets(
     'workspace lists only authorized launcher plugins and reacts to revocation',
     (tester) async {
