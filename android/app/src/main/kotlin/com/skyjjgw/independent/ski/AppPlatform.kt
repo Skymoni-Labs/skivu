@@ -18,6 +18,7 @@ import java.util.concurrent.Executors
 class AppPlatform(private val activity: Activity) {
     private val worker = Executors.newSingleThreadExecutor()
     private val legacySocial = LegacySocialMigrationPlatform(activity)
+    private val runtimePackages = RuntimePackageInstaller(activity)
     private var pluginEdgeOwner: String? = null
 
     fun register(messenger: BinaryMessenger) {
@@ -54,6 +55,9 @@ class AppPlatform(private val activity: Activity) {
                             launch(Intent(Intent.ACTION_VIEW, uri), result, "opened")
                         }
                         "installUpdate" -> install(call, result)
+                        "runtimeInfo" -> answer(result, runtimePackages.info(call))
+                        "prepareRuntimeInstall" -> answer(result, runtimePackages.prepare(call))
+                        "installRuntime" -> answer(result, runtimePackages.install(call))
                         else -> activity.runOnUiThread { result.notImplemented() }
                     }
                 } catch (_: Exception) {

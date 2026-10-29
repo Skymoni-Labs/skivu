@@ -44,6 +44,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <receiver android:name=".AppUpdateInstallReceiver" android:exported="false" />
+        <receiver android:name=".RuntimePackageInstallReceiver" android:exported="false" />
         <service android:name=".DeviceTaskService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started, time-bounded AI assistance on selected local apps through an explicitly paired accessibility companion, with visible task status and stop control" />
         </service>

@@ -9,7 +9,7 @@
   function call(method,params={}){
     if(closed)return Promise.reject(error('CLOSED','插件已关闭。'));
     if(pending.size>=8)return Promise.reject(error('BUSY','同时运行的请求过多。'));
-    return new Promise((resolve,reject)=>{const id=String(++serial),timer=setTimeout(()=>{pending.delete(id);reject(error('TIMEOUT','宿主调用超时。'));},180000);
+    return new Promise((resolve,reject)=>{const id=String(++serial),timer=setTimeout(()=>{pending.delete(id);reject(error('TIMEOUT','宿主调用超时。'));},method==='runtime.install'?1800000:180000);
       pending.set(id,{resolve,reject,timer});
       try{const raw=JSON.stringify({id,method,params});if(raw.length>18*1024*1024)throw new Error('too large');SkivuNative.postMessage(raw);}catch(_){clearTimeout(timer);pending.delete(id);reject(error('BRIDGE_FAILED','宿主请求无法发送或超过大小上限。'));}
     });

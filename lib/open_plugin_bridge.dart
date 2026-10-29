@@ -37,6 +37,7 @@ const pluginMethodPermissions = <String, String>{
   'ai.generate': 'ai.generate',
   'runtime.providers': 'runtime.local',
   'runtime.open': 'runtime.local',
+  'runtime.install': 'runtime.local',
   'prompt.set': 'prompt',
   'clipboard.read': 'clipboard',
   'clipboard.write': 'clipboard',

@@ -10,9 +10,11 @@ import 'open_plugin_bridge.dart';
 import 'open_plugin_device.dart';
 import 'open_plugin_network.dart';
 import 'state.dart';
+import 'runtime_install_page.dart';
 
 const _runtimePlatform = MethodChannel('skivu/local_runtime');
 bool _runtimePageOpen = false;
+bool _runtimeInstallerOpen = false;
 int _runtimeRouteSerial = 0;
 
 Future<Object?> localRuntimeCall(
@@ -25,7 +27,7 @@ Future<Object?> localRuntimeCall(
   if (method == 'runtime.providers') {
     return await _runtimePlatform.invokeMethod<Object?>('providers');
   }
-  if (method != 'runtime.open')
+  if (method != 'runtime.open' && method != 'runtime.install')
     throw const PluginApiError('METHOD_NOT_FOUND', '运行环境方法不受支持。');
   final component = params['component'], signer = params['signerSha256'];
   if (component is! String ||
@@ -38,8 +40,27 @@ Future<Object?> localRuntimeCall(
       params.length != 2) {
     throw const PluginApiError('INVALID_ARGUMENT', '请选择来源已核验的本地运行组件。');
   }
-  if (_runtimePageOpen) throw const PluginApiError('BUSY', '已有本地运行环境打开。');
+  if (_runtimePageOpen || _runtimeInstallerOpen)
+    throw const PluginApiError('BUSY', '已有运行环境或组件安装页面打开。');
   if (!context.mounted) throw const PluginApiError('CLOSED', '页面已关闭。');
+  if (method == 'runtime.install') {
+    _runtimeInstallerOpen = true;
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => RuntimeInstallPage(
+            record: record,
+            registry: registry,
+            component: component,
+            signer: signer,
+          ),
+        ),
+      );
+      return {'status': 'closed'};
+    } finally {
+      _runtimeInstallerOpen = false;
+    }
+  }
   _runtimePageOpen = true;
   try {
     unawaited(

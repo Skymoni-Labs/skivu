@@ -89,4 +89,13 @@ class AppPlatform {
         'versionCode': versionCode,
       }) ??
       'opened';
+
+  Future<Map> runtimeInfo(Map<String, dynamic> identity) async =>
+      await _channel.invokeMethod<Map>('runtimeInfo', identity) ?? {};
+  Future<String> prepareRuntimeInstall(Map<String, dynamic> metadata) async =>
+      await _channel.invokeMethod<String>('prepareRuntimeInstall', metadata) ??
+      (throw StateError('无法准备运行组件下载目录'));
+  Future<String> installRuntime(Map<String, dynamic> metadata) async =>
+      await _channel.invokeMethod<String>('installRuntime', metadata) ??
+      'opened';
 }

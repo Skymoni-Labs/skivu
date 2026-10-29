@@ -301,7 +301,9 @@ class _OpenPluginPageState extends State<OpenPluginPage>
 
   Future<Object?> hostCall(String method, Map<String, dynamic> p) async {
     bridge.check();
-    if (method == 'runtime.providers' || method == 'runtime.open') {
+    if (method == 'runtime.providers' ||
+        method == 'runtime.open' ||
+        method == 'runtime.install') {
       return localRuntimeCall(
         context,
         widget.record,

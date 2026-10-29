@@ -11,6 +11,15 @@ const providers = await Skivu.call('runtime.providers', {});
 await Skivu.call('runtime.open', { component, signerSha256 });
 ```
 
+Skivu 0.2.45 起，`runtime.install({component, signerSha256})` 打开宿主安装页面，
+按设备架构从 `https://skymoni.com/api/app-runtime/latest` 取版本信息，下载始终走
+本站 `/api/app-runtime/download/…`，不跳转浏览器或 GitHub。安装页提供进度、取消、重试，
+在 App 私有缓存校验长度及 SHA-256，原生层再次校验 APK 包名、版本、服务协议、权限和证书，
+再提交要求用户确认的 Android PackageInstaller 会话。只信任服务器登记且与插件固定身份一致的组件，
+不能提交任意下载地址。宿主自身更新的上游限制保持独立，不允许运行组件安装接口覆盖宿主。
+安装来源授权和安装确认使用 Android 系统界面；不会静默安装或绕过系统许可。
+此调用在安装页关闭后完成，SDK 超时30分钟；离开或撤销插件会停止下载。
+
 `component` 必须来自用户选择且已核验来源的运行组件。插件应固定自己信任的签名摘要，
 不能把任意安装包返回的摘要当作可信来源。宿主在发现和绑定后核验签名、不同 UID、
 协议元数据、签名级服务权限，并拒绝具有 INTERNET 权限的运行组件。

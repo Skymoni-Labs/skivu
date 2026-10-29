@@ -17,8 +17,10 @@ const previousOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v2.json';
 const companionOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v3.json';
-const defaultOpenPluginCatalog =
+const runtimeOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v4.json';
+const defaultOpenPluginCatalog =
+    'https://skymoni.com/app-plugins/catalog/apps-v5.json';
 const maxOpenPluginBytes = 32 * 1024 * 1024;
 bool pluginJsonEqual(Object? a, Object? b) {
   if (a is Map && b is Map)
@@ -487,7 +489,8 @@ class OpenPluginRegistry extends ChangeNotifier {
               (url) =>
                   url == legacyOpenPluginCatalog ||
                       url == previousOpenPluginCatalog ||
-                      url == companionOpenPluginCatalog
+                      url == companionOpenPluginCatalog ||
+                      url == runtimeOpenPluginCatalog
                   ? defaultOpenPluginCatalog
                   : url,
             )
@@ -496,7 +499,8 @@ class OpenPluginRegistry extends ChangeNotifier {
       if (savedCatalogs != null &&
           (savedCatalogs.contains(legacyOpenPluginCatalog) ||
               savedCatalogs.contains(previousOpenPluginCatalog) ||
-              savedCatalogs.contains(companionOpenPluginCatalog))) {
+              savedCatalogs.contains(companionOpenPluginCatalog) ||
+              savedCatalogs.contains(runtimeOpenPluginCatalog))) {
         if (!await prefs.setStringList('skivu.open-plugin.catalogs', catalogs))
           throw StateError('目录迁移未保存');
       }
