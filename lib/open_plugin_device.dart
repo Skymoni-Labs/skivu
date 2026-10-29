@@ -111,12 +111,22 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
     OpenPluginRecord record,
     String method,
     Map<String, dynamic> p,
-    DeviceConsent consent,
-  ) async {
+    DeviceConsent consent, {
+    bool Function()? runtimeActive,
+  }) async {
+    // Cancellation must remain available after a runtime closes. Other work
+    // must re-check its lease after asynchronous consent and native calls.
+    void checkRequest() {
+      check(record);
+      if (method != 'agent.tasks.cancel' && runtimeActive?.call() == false) {
+        throw const PluginApiError('CLOSED', '运行环境已关闭。');
+      }
+    }
+
     initialize();
-    check(record);
+    checkRequest();
     await restore();
-    check(record);
+    checkRequest();
     final owner = record.manifest.id;
     if (method == 'device.discover') return channel.invokeMethod('discover');
     if (method == 'device.connect') {
@@ -130,7 +140,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
             '插件：${record.manifest.name}\n目标服务：$component\n连接后还需要你在设备伴侣中人工批准。',
           ))
         return null;
-      check(record);
+      checkRequest();
       for (final id in connections.keys.toList()) {
         if (connections[id] != owner || components[id] != component) continue;
         if (p['signerSha256'] is String && p['signerSha256'] != signers[id])
@@ -140,7 +150,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
           );
         try {
           final pairing = await nativeRequest(id, 'pair', {});
-          check(record);
+          checkRequest();
           return {'connectionId': id, 'signerSha256': signers[id], ...pairing};
         } catch (_) {
           connections.remove(id);
@@ -149,8 +159,10 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
           try {
             await channel.invokeMethod('disconnect', {'connectionId': id});
           } catch (_) {}
+          checkRequest();
         }
       }
+      checkRequest();
       if (connections.values.where((value) => value == owner).length >= 8)
         throw const PluginApiError('DEVICE_BUSY', '连接过多，请关闭不再使用的设备连接。');
       final result = await channel.invokeMapMethod<String, dynamic>('connect', {
@@ -161,13 +173,24 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
       connections[id] = owner;
       components[id] = component;
       signers[id] = (result['signerSha256'] as String?) ?? '';
-      final pairing = await nativeRequest(id, 'pair', {});
-      check(record);
-      return {
-        'connectionId': id,
-        'signerSha256': result['signerSha256'],
-        ...pairing,
-      };
+      try {
+        checkRequest();
+        final pairing = await nativeRequest(id, 'pair', {});
+        checkRequest();
+        return {
+          'connectionId': id,
+          'signerSha256': result['signerSha256'],
+          ...pairing,
+        };
+      } catch (_) {
+        connections.remove(id);
+        components.remove(id);
+        signers.remove(id);
+        try {
+          await channel.invokeMethod('disconnect', {'connectionId': id});
+        } catch (_) {}
+        rethrow;
+      }
     }
     final connection = p['connectionId'];
     if (method.startsWith('device.') || method == 'agent.tasks.start') {
@@ -257,12 +280,12 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
           '插件：${record.manifest.name}\n任务：$goal\n软件：${apps.join('、')}\n模型：${model.model}\n最多 $maxActions 次设备操作、$maxRounds 次模型请求、$seconds 秒。每次模型最多输出 1024 token，会消耗当前连接的额度。\n本版将所选软件的文字界面发送给当前模型；提交、坐标或无标签点击需要设备伴侣单独确认。可从通知停止。',
         ))
       return null;
-    check(record);
+    checkRequest();
     if (identity() != consentModelIdentity)
       throw const PluginApiError('CANCELLED', '模型或账号已变化，请重新核对任务。');
     if (direct) {
       final status = await nativeRequest(connection, 'hello', {});
-      check(record);
+      checkRequest();
       if (status['approved'] != true)
         throw const PluginApiError('UNAUTHORIZED', '首次使用请打开设备伴侣并信任此客户端。');
       if (status['directControlApproved'] != true)
@@ -301,7 +324,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
       directControl: direct,
       request: (method, args) => nativeRequest(connection, method, args),
       check: () {
-        check(record);
+        checkRequest();
         if (identity() != modelIdentity)
           throw const DeviceTaskFailure('CANCELLED', '模型或账号已变化。');
       },
@@ -393,12 +416,21 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
       },
     );
     active = runner;
+    var serviceRequested = false;
     try {
       await journal.save(tasks);
+      checkRequest();
+      serviceRequested = true;
       await channel.invokeMethod('startService', {'taskId': id});
+      checkRequest();
     } catch (error) {
       active = null;
       tasks.remove(id);
+      if (serviceRequested) {
+        try {
+          await channel.invokeMethod('finishService', {'taskId': id});
+        } catch (_) {}
+      }
       // Failed foreground-service startup must not leave a phantom receipt.
       try {
         await journal.save(tasks);

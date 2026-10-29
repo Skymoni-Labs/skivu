@@ -35,6 +35,8 @@ const pluginMethodPermissions = <String, String>{
   'chat.read': 'chat.read',
   'chat.append': 'chat.write',
   'ai.generate': 'ai.generate',
+  'runtime.providers': 'runtime.local',
+  'runtime.open': 'runtime.local',
   'prompt.set': 'prompt',
   'clipboard.read': 'clipboard',
   'clipboard.write': 'clipboard',

@@ -731,6 +731,22 @@ class RelayAccount extends ChangeNotifier {
       funding: funding,
     );
   }
+
+  /// Uses the selected account model and existing wallet/beta funding. This
+  /// candidate is dormant until the matching server route is deployed.
+  AgentChatSession startAgentChat() {
+    final config = connection;
+    if (config == null) throw const ChatFailure('请先登录中转站并同步模型。');
+    if (config.protocol != ApiProtocol.chat) {
+      throw const ChatFailure('当前模型协议暂不支持编程工具调用，请切换支持的模型。');
+    }
+    return AgentChatSession.account(
+      _clients(),
+      config,
+      _token!,
+      funding: funding,
+    );
+  }
 }
 
 final relayAccount = RelayAccount();

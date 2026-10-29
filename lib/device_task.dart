@@ -298,6 +298,7 @@ class DeviceTaskRunner {
     try {
       guard();
       await update('connecting', '正在取得本次任务的设备授权。');
+      guard();
       final lease = validated(
         await request('begin', {
           'allowedPackages': apps.toList(),

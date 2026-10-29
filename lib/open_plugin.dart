@@ -15,8 +15,10 @@ const legacyOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps.json';
 const previousOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v2.json';
-const defaultOpenPluginCatalog =
+const companionOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v3.json';
+const defaultOpenPluginCatalog =
+    'https://skymoni.com/app-plugins/catalog/apps-v4.json';
 const maxOpenPluginBytes = 32 * 1024 * 1024;
 bool pluginJsonEqual(Object? a, Object? b) {
   if (a is Map && b is Map)
@@ -42,6 +44,7 @@ const openPluginPermissions = <String, String>{
   'chat.read': '读取你在宿主选择的聊天正文',
   'chat.write': '经确认向你选择的聊天写入文本',
   'ai.generate': '经每次确认使用当前模型生成文字，可能消耗额度',
+  'runtime.local': '打开你批准并核验签名的独立本地编程环境，可执行代码并修改该组件内的项目和运行文件',
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
@@ -483,7 +486,8 @@ class OpenPluginRegistry extends ChangeNotifier {
             .map(
               (url) =>
                   url == legacyOpenPluginCatalog ||
-                      url == previousOpenPluginCatalog
+                      url == previousOpenPluginCatalog ||
+                      url == companionOpenPluginCatalog
                   ? defaultOpenPluginCatalog
                   : url,
             )
@@ -491,7 +495,8 @@ class OpenPluginRegistry extends ChangeNotifier {
       );
       if (savedCatalogs != null &&
           (savedCatalogs.contains(legacyOpenPluginCatalog) ||
-              savedCatalogs.contains(previousOpenPluginCatalog))) {
+              savedCatalogs.contains(previousOpenPluginCatalog) ||
+              savedCatalogs.contains(companionOpenPluginCatalog))) {
         if (!await prefs.setStringList('skivu.open-plugin.catalogs', catalogs))
           throw StateError('目录迁移未保存');
       }

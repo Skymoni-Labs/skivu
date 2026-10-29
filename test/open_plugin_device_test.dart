@@ -11,11 +11,164 @@ import 'package:ski/open_plugin_network.dart';
 import 'package:ski/state.dart';
 import 'package:ski/model_connection.dart';
 import 'package:ski/model_settings.dart';
+import 'dart:async';
 import 'open_plugin_test.dart' as fixtures;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'closing a runtime during consent prevents a device connection',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'skivu-runtime-consent-',
+      );
+      PathProviderPlatform.instance = fixtures.TestPaths(temp.path);
+      openPlugins.records.clear();
+      await openPlugins.install(
+        fixtures.package(permissions: ['device.observe', 'device.control']),
+      );
+      await openPlugins.setEnabled('test.free-plugin', true);
+      final record = openPlugins.records['test.free-plugin']!;
+      const channel = MethodChannel('skivu/device_tasks');
+      var nativeCalls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            nativeCalls++;
+            return null;
+          });
+      addTearDown(() async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+        openPlugins.records.clear();
+        await temp.delete(recursive: true);
+      });
+      final consentShown = Completer<void>();
+      final consentResult = Completer<bool>();
+      var active = true;
+      final tasks = OpenPluginDeviceTasks();
+      final pending = tasks.dispatch(
+        record,
+        'device.connect',
+        {'component': 'test.bridge/test.bridge.Service'},
+        (_, __) {
+          consentShown.complete();
+          return consentResult.future;
+        },
+        runtimeActive: () => active,
+      );
+      await consentShown.future;
+      active = false;
+      consentResult.complete(true);
+      await expectLater(
+        pending,
+        throwsA(isA<PluginApiError>().having((e) => e.code, 'code', 'CLOSED')),
+      );
+      expect(nativeCalls, 0);
+      expect(tasks.connections, isEmpty);
+    },
+  );
+  test('closing during task consent or service startup prevents device work', () async {
+    final temp = await Directory.systemTemp.createTemp('skivu-runtime-task-');
+    PathProviderPlatform.instance = fixtures.TestPaths(temp.path);
+    openPlugins.records.clear();
+    await openPlugins.install(
+      fixtures.package(
+        permissions: ['device.observe', 'device.control', 'agent.tasks'],
+      ),
+    );
+    await openPlugins.setEnabled('test.free-plugin', true);
+    final record = openPlugins.records['test.free-plugin']!;
+    demo.useBeta = false;
+    demo.useAccount = false;
+    modelSettings.connections.add(
+      const ModelConnection(
+        id: 'fixture',
+        name: 'Fixture',
+        provider: 'Ollama',
+        protocol: ApiProtocol.chat,
+        address: 'http://127.0.0.1:9/v1',
+        model: 'fixture',
+        auth: 'none',
+        streaming: false,
+      ),
+    );
+    modelSettings.activeId = 'fixture';
+    const channel = MethodChannel('skivu/device_tasks');
+    var nativeCalls = 0;
+    final serviceRequested = Completer<void>();
+    final serviceResult = Completer<void>();
+    final nativeMethods = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          nativeCalls++;
+          nativeMethods.add(call.method);
+          if (call.method == 'startService') {
+            serviceRequested.complete();
+            await serviceResult.future;
+          }
+          return null;
+        });
+    addTearDown(() async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+      openPlugins.records.clear();
+      modelSettings.connections.clear();
+      modelSettings.activeId = null;
+      await temp.delete(recursive: true);
+    });
+    final consentShown = Completer<void>();
+    final consentResult = Completer<bool>();
+    var active = true;
+    final tasks = OpenPluginDeviceTasks();
+    tasks.connections['owned'] = record.manifest.id;
+    final pending = tasks.dispatch(
+      record,
+      'agent.tasks.start',
+      {
+        'connectionId': 'owned',
+        'goal': 'fixture',
+        'allowedPackages': ['test.notes'],
+      },
+      (_, __) {
+        consentShown.complete();
+        return consentResult.future;
+      },
+      runtimeActive: () => active,
+    );
+    await consentShown.future;
+    active = false;
+    consentResult.complete(true);
+    await expectLater(
+      pending,
+      throwsA(isA<PluginApiError>().having((e) => e.code, 'code', 'CLOSED')),
+    );
+    expect(nativeCalls, 0);
+    expect(tasks.active, isNull);
+    expect(tasks.tasks, isEmpty);
+    active = true;
+    final duringService = tasks.dispatch(
+      record,
+      'agent.tasks.start',
+      {
+        'connectionId': 'owned',
+        'goal': 'fixture',
+        'allowedPackages': ['test.notes'],
+      },
+      (_, __) async => true,
+      runtimeActive: () => active,
+    );
+    await serviceRequested.future;
+    active = false;
+    serviceResult.complete();
+    await expectLater(
+      duringService,
+      throwsA(isA<PluginApiError>().having((e) => e.code, 'code', 'CLOSED')),
+    );
+    expect(nativeMethods, ['startService', 'finishService']);
+    expect(tasks.active, isNull);
+    expect(tasks.tasks, isEmpty);
+  });
   test(
     'direct permission skips repeat connection dialogs, reuses bindings and pins the signer',
     () async {

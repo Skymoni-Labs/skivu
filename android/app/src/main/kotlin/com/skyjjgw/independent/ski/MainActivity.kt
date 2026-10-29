@@ -30,6 +30,7 @@ class MainActivity : FlutterActivity() {
     private val pluginFiles by lazy { OpenPluginFilesPlatform(this) }
     private val pluginExternal by lazy { OpenPluginExternalPlatform(this) }
     private val pluginRuntime by lazy { OpenPluginRuntimePlatform(this) }
+    private val localRuntime by lazy { LocalRuntimePlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -43,6 +44,7 @@ class MainActivity : FlutterActivity() {
         pluginFiles.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginExternal.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginRuntime.register(flutterEngine.dartExecutor.binaryMessenger)
+        localRuntime.register(flutterEngine.dartExecutor.binaryMessenger, flutterEngine.platformViewsController.registry)
         flutterEngine.platformViewsController.registry.registerViewFactory("skivu/open-plugin", OpenPluginViewFactory(flutterEngine.dartExecutor.binaryMessenger))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
             .setMethodCallHandler { call, result ->
@@ -69,7 +71,7 @@ class MainActivity : FlutterActivity() {
         voice.permissionResult(requestCode, grantResults)
     }
     override fun onStop() { pluginRuntime.close(); voice.pause(); super.onStop() }
-    override fun onDestroy() { DeviceTaskService.activityAttached = false; if(DeviceTaskService.currentActivity === this)DeviceTaskService.currentActivity = null; if(DeviceTaskService.taskId == null){deviceBridge?.close();DeviceTaskService.platform=null}; pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
+    override fun onDestroy() { localRuntime.close(); DeviceTaskService.activityAttached = false; if(DeviceTaskService.currentActivity === this)DeviceTaskService.currentActivity = null; if(DeviceTaskService.taskId == null){deviceBridge?.close();DeviceTaskService.platform=null}; pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")

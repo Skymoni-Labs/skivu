@@ -10,6 +10,7 @@ import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
 import 'open_plugin_external.dart';
 import 'open_plugin_device.dart';
+import 'local_runtime_page.dart';
 import 'state.dart';
 import 'chat_api.dart';
 import 'open_plugin_companion_ui.dart';
@@ -300,6 +301,15 @@ class _OpenPluginPageState extends State<OpenPluginPage>
 
   Future<Object?> hostCall(String method, Map<String, dynamic> p) async {
     bridge.check();
+    if (method == 'runtime.providers' || method == 'runtime.open') {
+      return localRuntimeCall(
+        context,
+        widget.record,
+        widget.registry,
+        method,
+        p,
+      );
+    }
     if (method == 'context.get') return hostContext;
     if (method == 'ui.roleSettings') {
       final role = demo.personas.where((r) => r.id == roleId).firstOrNull;

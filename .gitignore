@@ -34,3 +34,4 @@ __pycache__/
 *.sqlite*
 /credentials/
 /screenshots/
+/runtime-*.log

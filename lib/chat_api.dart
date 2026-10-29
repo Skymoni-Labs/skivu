@@ -573,6 +573,108 @@ class ChatSession {
   }
 }
 
+/// Development candidate for structured agent requests through the same
+/// authenticated account and billing path. The worker never receives the
+/// account token or chooses the model, endpoint, group, or funding source.
+/// This is not connected to a runtime transport yet.
+class AgentChatSession {
+  AgentChatSession.account(
+    this._client,
+    this.config,
+    String token, {
+    String funding = 'relay',
+  }) : _token = token,
+       _funding = funding;
+
+  final http.Client _client;
+  final ModelConnection config;
+  final String _token, _funding;
+  final _abort = Completer<void>();
+  bool _used = false;
+
+  void cancel() {
+    if (!_abort.isCompleted) _abort.complete();
+    _client.close();
+  }
+
+  Future<Map<String, dynamic>> send({
+    required List<Map<String, dynamic>> messages,
+    required List<Map<String, dynamic>> tools,
+  }) async {
+    if (_used || _abort.isCompleted) throw const ChatFailure('请求已结束。');
+    _used = true;
+    if (config.protocol != ApiProtocol.chat) {
+      _client.close();
+      throw const ChatFailure('当前模型协议暂不支持编程工具调用，请切换支持的模型。');
+    }
+    try {
+      if (messages.isEmpty || messages.length > 128 || tools.length > 64) {
+        throw const ChatFailure('编程请求的消息或工具数量超出上限。');
+      }
+      final body = jsonEncode({
+        'model': config.model,
+        if (_funding == 'beta') 'funding': 'beta',
+        'messages': messages,
+        'tools': tools,
+        'stream': false,
+        'max_tokens': config.maxOutput.clamp(1, 4096),
+      });
+      if (utf8.encode(body).length > 256 * 1024) {
+        throw const ChatFailure('编程请求过长，请减少上下文。');
+      }
+      final request =
+          http.AbortableRequest(
+              'POST',
+              Uri.https(
+                'skymoni.com',
+                '/api/app-account/agent/chat/completions',
+              ),
+              abortTrigger: _abort.future,
+            )
+            ..followRedirects = false
+            ..headers.addAll({
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'AppAccount $_token',
+            })
+            ..body = body;
+      final response = await _client
+          .send(request)
+          .timeout(Duration(seconds: config.timeoutSeconds));
+      final bytes = <int>[];
+      await for (final part in response.stream.timeout(
+        Duration(seconds: config.timeoutSeconds),
+      )) {
+        if (bytes.length + part.length > 4 * 1024 * 1024) {
+          throw const ChatFailure('编程回复超出接收上限。');
+        }
+        bytes.addAll(part);
+      }
+      final raw = jsonDecode(utf8.decode(bytes));
+      final known = _knownFailure(raw);
+      if (known != null) throw known;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw _accountHttpError(response.statusCode);
+      }
+      if (raw is! Map<String, dynamic> || raw['choices'] is! List) {
+        throw const ChatFailure('模型没有返回有效的编程结果。');
+      }
+      return {
+        'choices': raw['choices'],
+        if (raw['usage'] is Map) 'usage': raw['usage'],
+      };
+    } on ChatFailure {
+      rethrow;
+    } on TimeoutException {
+      throw const ChatFailure('等待编程回复超时，请重试。');
+    } catch (_) {
+      throw const ChatFailure('编程请求未完成，请检查网络和模型配置。');
+    } finally {
+      _client.close();
+    }
+  }
+}
+
 int? _int(dynamic value) => value is int && value >= 0 ? value : null;
 String _text(dynamic value) => value is String
     ? value
