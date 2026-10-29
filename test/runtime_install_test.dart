@@ -39,8 +39,11 @@ class InstallerPlatform extends AppPlatform {
   InstallerPlatform(this.path);
   final String path;
   int calls = 0;
+  bool installed = false;
   @override
-  Future<Map> runtimeInfo(Map<String, dynamic> identity) async => device;
+  Future<Map> runtimeInfo(Map<String, dynamic> identity) async => installed
+      ? {...device, 'installed': true, 'valid': true, 'versionCode': 1}
+      : device;
   @override
   Future<String> prepareRuntimeInstall(Map<String, dynamic> metadata) async =>
       path;
@@ -52,6 +55,35 @@ class InstallerPlatform extends AppPlatform {
 }
 
 void main() {
+  test(
+    'late system installation is detected locally without another network request',
+    () async {
+      final platform = InstallerPlatform('/unused');
+      var requests = 0;
+      final model = RuntimeInstall(
+        component: component,
+        signer: signer,
+        platform: platform,
+        checkGrant: () {},
+        clients: () => MockClient((_) async {
+          requests++;
+          return http.Response(
+            jsonEncode({'success': true, 'data': metadata()}),
+            200,
+          );
+        }),
+      );
+      addTearDown(model.dispose);
+      await model.check();
+      expect(model.ready, isFalse);
+      model.waitingForInstaller = true;
+      platform.installed = true;
+      await model.refreshInstalled();
+      expect(model.ready, isTrue);
+      expect(model.waitingForInstaller, isFalse);
+      expect(requests, 1);
+    },
+  );
   test(
     'runtime package metadata refuses external URLs and mismatched identity or architecture',
     () {

@@ -21,6 +21,7 @@ class RuntimeInstallPage extends StatefulWidget {
 class _RuntimeInstallPageState extends State<RuntimeInstallPage>
     with WidgetsBindingObserver {
   late final RuntimeInstall download;
+  Timer? installRefresh;
   @override
   void initState() {
     super.initState();
@@ -32,6 +33,11 @@ class _RuntimeInstallPageState extends State<RuntimeInstallPage>
     WidgetsBinding.instance.addObserver(this);
     widget.registry.addListener(revoked);
     unawaited(download.check());
+    installRefresh = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed &&
+          download.waitingForInstaller)
+        unawaited(download.refreshInstalled());
+    });
   }
 
   void grant() {
@@ -51,11 +57,18 @@ class _RuntimeInstallPageState extends State<RuntimeInstallPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(download.check());
+    if (state == AppLifecycleState.resumed) {
+      unawaited(
+        download.release == null
+            ? download.check()
+            : download.refreshInstalled(),
+      );
+    }
   }
 
   @override
   void dispose() {
+    installRefresh?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.registry.removeListener(revoked);
     download.dispose();

@@ -87,6 +87,7 @@ class RuntimeInstall extends ChangeNotifier {
       disposed = false,
       cancelled = false;
   int received = 0;
+  bool waitingForInstaller = false, _refreshingInstalled = false;
   http.Client? active;
   Completer<void>? abort;
   Map<String, dynamic> get identity => {
@@ -262,6 +263,7 @@ class RuntimeInstall extends ChangeNotifier {
       checkGrant();
       final result = await platform.installRuntime({...metadata(r), 'path': p});
       if (disposed) return;
+      waitingForInstaller = true;
       message = result == 'permission_required'
           ? '请允许 Skivu 安装应用，返回后再次点击安装。'
           : '请在安卓系统页面确认安装；返回后会自动检查。';
@@ -281,5 +283,32 @@ class RuntimeInstall extends ChangeNotifier {
     disposed = true;
     cancel();
     super.dispose();
+  }
+
+  Future<void> refreshInstalled() async {
+    if (disposed ||
+        checking ||
+        downloading ||
+        installing ||
+        _refreshingInstalled)
+      return;
+    _refreshingInstalled = true;
+    try {
+      checkGrant();
+      final info = await platform.runtimeInfo(identity);
+      if (disposed) return;
+      checkGrant();
+      device = info;
+      if (ready) {
+        waitingForInstaller = false;
+        message = '运行组件已就绪，可返回入口打开。';
+      } else if ((info['message'] as String?)?.isNotEmpty == true) {
+        message = info['message'] as String;
+      }
+      changed();
+    } catch (_) {
+    } finally {
+      _refreshingInstalled = false;
+    }
   }
 }
