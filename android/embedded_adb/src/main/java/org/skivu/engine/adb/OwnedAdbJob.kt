@@ -5,11 +5,13 @@ import java.util.UUID
 /** Own one POSIX session, not an arbitrary process name or PID supplied by a model. */
 class OwnedAdbJob(val port: Int, val legacy: Boolean) {
     val id = UUID.randomUUID().toString().replace("-", "")
+    val heartbeat = "SKIVU_LEASE_$id"
+    val expiredMarker = "SKIVU_LEASE_EXPIRED_$id"
     private val directory = "/data/local/tmp/.skivu-engine-job-$id"
     private val d = '$'
     val cancellationScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
     private fun quote(text: String) = "'" + text.replace("'", "'\\''") + "'"
-    private fun cleanup() = "rm -f -- '$directory/identity' '$directory/identity.tmp'; rmdir -- '$directory' 2>/dev/null"
+    private fun cleanup() = "rm -f -- '$directory/identity' '$directory/identity.tmp' '$directory/lease-expired'; rmdir -- '$directory' 2>/dev/null"
 
     fun script(command: String): String {
         val delimiter = "SKIVU_SCRIPT_$id"
@@ -23,8 +25,19 @@ class OwnedAdbJob(val port: Int, val legacy: Boolean) {
             set --
             printf '%s %s\n' "${d}skivu_job_pid" "${d}skivu_job_start" > '$directory/identity.tmp' || exit 73
             mv -f -- '$directory/identity.tmp' '$directory/identity' || exit 73
-            /system/bin/sh
+            (
+              trap 'exit 0' HUP TERM
+              while IFS= read -r -t 8 skivu_beat <&3 2>/dev/null; do
+                [ "${d}skivu_beat" = '$heartbeat' ] || break
+              done
+              : > '$directory/lease-expired'
+              kill -KILL -- "-${d}skivu_job_pid"
+            ) &
+            skivu_lease_pid=${d}!
+            /system/bin/sh 3<&-
             skivu_job_code=${d}?
+            kill -TERM "${d}skivu_lease_pid" 2>/dev/null
+            wait "${d}skivu_lease_pid" 2>/dev/null
             exit "${d}skivu_job_code"
         """.trimIndent()
         val onDisconnect = cancellationScript(false) + "\nexit 130"
@@ -32,16 +45,21 @@ class OwnedAdbJob(val port: Int, val legacy: Boolean) {
             umask 077
             mkdir -- '$directory' || exit 73
             trap ${quote(onDisconnect)} HUP TERM
-            /system/bin/setsid /system/bin/sh -c ${quote(supervisor)} <<'$delimiter'
+            /system/bin/setsid /system/bin/sh -c ${quote(supervisor)} 3<&0 <<'$delimiter'
         """.trimIndent()
         val footer = """
             skivu_job_code=${d}?
             trap - HUP TERM
+            if [ -f '$directory/lease-expired' ]; then
+              printf '$expiredMarker\n' >&2
+              skivu_job_code=125
+            fi
             ${cleanup()}
             exit "${d}skivu_job_code"
         """.trimIndent()
         // Keep the quoted heredoc delimiter at column zero for multiline user code.
-        return header + "\n" + command + "\n" + delimiter + "\n" + footer
+        // Parse one complete compound command before dedicating stdin to the lease.
+        return "{\n" + header + "\n" + command + "\n" + delimiter + "\n" + footer + "\n}\n"
     }
 
     fun cancellationScript(clean: Boolean = true): String = """

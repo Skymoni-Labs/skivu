@@ -21,6 +21,7 @@
     "App-private encrypted key storage",
     "Separate pairing proof and command-server public-key pin; explicit first-peer trust in host UI",
     "Shell-v2 stdin framing and actual exit parsing; Skivu-owned process-group cancellation",
+    "Per-job authenticated-stream heartbeat lease; owned group cleanup on host death or suspension",
     "Dependency simplification; subsequent audited changes are in Git"
   ]
 }

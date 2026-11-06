@@ -124,7 +124,10 @@ class EmbeddedAdbEngine(context: Context) {
                     check(epoch == cancellationEpoch.get() && canExecute())
                     activeJob = job
                 }
-                val result = connection.executeScript(job.script(command), timeoutSeconds * 1000)
+                val result = connection.executeScript(job.script(command), timeoutSeconds * 1000, job.heartbeat)
+                if (result.exitCode == 125 && (result.stderr.contains(job.expiredMarker) || result.truncated)) {
+                    throw IllegalStateException("设备执行会话续约中断，已执行的操作需要核对。")
+                }
                 check(epoch == cancellationEpoch.get()) { "设备代码已停止，已执行的操作需要核对。" }
                 return mapOf("uid" to verifiedUid, "exitCode" to result.exitCode,
                     "stdout" to result.stdout, "stderr" to result.stderr, "truncated" to result.truncated)

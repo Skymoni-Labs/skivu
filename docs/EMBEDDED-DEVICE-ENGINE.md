@@ -29,3 +29,28 @@ This work is local/emulator-only. Do not modify the USB phone, publish, or repla
 ## Initial state
 
 The baseline has a companion-backed generic task runner, a role tool that prepares task cards, and a DSH gateway restricted to that companion task API. It does not contain the embedded elevated engine, a main-assistant execution loop, or a built-in Android interface catalog. These must be implemented, not represented by mock status or UI-only controls.
+
+## Owned shell lifecycle
+
+Each dispatched script runs in its own UUID-owned POSIX session. Explicit Stop and
+timeout use a separate authenticated connection and verify the supervisor PID,
+process-group ID and start time before signalling that group. Other sessions are
+outside this cancellation scope.
+
+Socket closure alone did not stop a running shell in the first forced-host-exit
+acceptance test. The host therefore sends a per-job heartbeat over the same
+authenticated ADB stream every two seconds. A supervisor-side reader terminates
+its own group on EOF, an invalid heartbeat, or eight seconds without a heartbeat.
+The user script receives its heredoc on stdin with the heartbeat descriptor closed.
+An expired lease is reported as an unknown result, never successful completion.
+Completed effects are not rolled back. This is process-group ownership, not a
+sandbox against deliberately detached privileged code.
+
+Emulator API36 acceptance covered preserved multiline output/exit7, a silent
+12-second job, timeout cleanup, and independent sessions (four native tests).
+A real native host API request was interrupted by force-stopping the App: the
+owned supervisor/script/child disappeared, its counter stayed one, and restarting
+the same request returned persisted unknown without replay. Suspending the host
+while retaining its socket also expired the lease and returned unknown after
+resuming. Main Dart assistant restart recovery and plugin/DSH UI acceptance are
+separate gates and are not proven by these native tests.

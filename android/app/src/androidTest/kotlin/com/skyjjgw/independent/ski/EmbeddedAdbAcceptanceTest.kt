@@ -63,6 +63,16 @@ class EmbeddedAdbAcceptanceTest {
         } finally { cleanup(engine, file); engine.close() }
     }
 
+    @Test fun heartbeatKeepsASilentAuthorizedJobAlive() {
+        val engine = engine()
+        try {
+            val result = engine.execute("sleep 12\nprintf 'SILENT_JOB_COMPLETED\\n'", 20)
+            assertEquals(result.toString(), 0, result["exitCode"])
+            assertEquals("SILENT_JOB_COMPLETED", result["stdout"].toString().trim())
+            assertEquals("", result["stderr"])
+        } finally { engine.close() }
+    }
+
     @Test fun stoppingOneSessionLeavesAnotherSessionRunning() {
         val first = engine(); val second = engine(); val observer = engine()
         val firstFile = marker(); val secondFile = marker()

@@ -123,13 +123,16 @@ class AdbClient(private val host: String, private val port: Int, private val key
     }
 
     /** Feed a script through stdin, not a shell-quoted command-line wrapper. */
-    fun executeScript(command: String, timeoutMs: Int = 30000): ShellV2Result {
+    fun executeScript(command: String, timeoutMs: Int = 30000, heartbeat: String? = null): ShellV2Result {
         require(command.toByteArray().size <= 65536 && !command.contains('\u0000'))
         require(timeoutMs in 1000..600000)
+        require(heartbeat == null || Regex("^SKIVU_LEASE_[a-f0-9]{32}$").matches(heartbeat))
         socket.soTimeout = timeoutMs + 3000
         if (useTls) tlsSocket.soTimeout = timeoutMs + 3000
         val decoder = ShellV2Decoder()
-        val script = (command + "\n").toByteArray(Charsets.UTF_8)
+        // The owned wrapper ends with a newline. A second one would become an
+        // empty lease frame after the shell has parsed the compound command.
+        val script = (if (command.endsWith('\n')) command else command + "\n").toByteArray(Charsets.UTF_8)
         val queue = java.util.ArrayDeque<ByteArray>()
         var offset = 0
         while (offset < script.size) {
@@ -137,29 +140,60 @@ class AdbClient(private val host: String, private val port: Int, private val key
             queue.add(shellFrame(0, script.copyOfRange(offset, end)))
             offset = end
         }
-        queue.add(shellFrame(4)) // close stdin, preserving actual process exit.
+        if (heartbeat == null) queue.add(shellFrame(4))
         val localId = 1
-        write(A_OPEN, localId, 0, "shell,v2,raw:/system/bin/sh")
+        val flow = Any()
         var opened = false
-        while (true) {
-            val packet = read()
-            val remoteId = packet.arg0
-            when (packet.command) {
-                A_OKAY -> {
-                    opened = true
-                    if (queue.isNotEmpty()) write(A_WRTE, localId, remoteId, queue.removeFirst())
-                }
-                A_WRTE -> {
-                    require(opened && packet.arg1 == localId)
-                    decoder.feed(packet.data ?: byteArrayOf())
-                    write(A_OKAY, localId, remoteId)
-                }
-                A_CLSE -> {
-                    write(A_CLSE, localId, remoteId)
-                    return decoder.result()
-                }
-                else -> error("Unexpected ADB shell packet")
+        var remoteId = 0
+        var writable = false
+        var beatPending = false
+        var ended = false
+        fun pump() {
+            if (!opened || !writable || ended || closed.get()) return
+            val payload = if (queue.isNotEmpty()) queue.removeFirst() else {
+                if (heartbeat == null || !beatPending) return
+                beatPending = false
+                shellFrame(0, (heartbeat + "\n").toByteArray(Charsets.UTF_8))
             }
+            writable = false
+            write(A_WRTE, localId, remoteId, payload)
+        }
+        val sender = if (heartbeat == null) null else java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+            Thread(task, "Skivu shell lease").apply { isDaemon = true }
+        }
+        val lease = sender?.scheduleAtFixedRate({
+            try { synchronized(flow) { beatPending = true; pump() } }
+            catch (_: Exception) { close() }
+        }, 2, 2, java.util.concurrent.TimeUnit.SECONDS)
+        try {
+            write(A_OPEN, localId, 0, "shell,v2,raw:/system/bin/sh")
+            while (true) {
+                val packet = read()
+                when (packet.command) {
+                    A_OKAY -> synchronized(flow) {
+                        require(packet.arg1 == localId && (!opened || packet.arg0 == remoteId))
+                        opened = true
+                        remoteId = packet.arg0
+                        writable = true
+                        pump()
+                    }
+                    A_WRTE -> {
+                        require(opened && packet.arg0 == remoteId && packet.arg1 == localId)
+                        decoder.feed(packet.data ?: byteArrayOf())
+                        write(A_OKAY, localId, remoteId)
+                    }
+                    A_CLSE -> {
+                        synchronized(flow) { ended = true }
+                        write(A_CLSE, localId, packet.arg0)
+                        return decoder.result()
+                    }
+                    else -> error("Unexpected ADB shell packet")
+                }
+            }
+        } finally {
+            synchronized(flow) { ended = true }
+            lease?.cancel(false)
+            sender?.shutdownNow()
         }
     }
 
@@ -167,7 +201,7 @@ class AdbClient(private val host: String, private val port: Int, private val key
 
     private fun write(command: Int, arg0: Int, arg1: Int, data: String) = write(AdbMessage(command, arg0, arg1, data))
 
-    private fun write(message: AdbMessage) {
+    @Synchronized private fun write(message: AdbMessage) {
         outputStream.write(message.toByteArray())
         outputStream.flush()
     }
