@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- LiquidGlassChip 关闭图标的无障碍描述，%1$s 为 chip 文字 -->
+    <string name="liquid_glass_chip_close_description">Remove %1$s</string>
+</resources>

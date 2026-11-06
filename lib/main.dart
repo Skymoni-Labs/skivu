@@ -41,6 +41,8 @@ import 'legacy_social_migration.dart';
 import 'social_ui_metrics.dart';
 import 'launch.dart';
 import 'open_plugin_companion_ui.dart';
+import 'personal_space.dart';
+import 'skymoni_glass.dart';
 
 final appNavigator = companionNavigator;
 
@@ -75,6 +77,7 @@ Future<void> checkStartupUpdate() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureCompanionUI();
+  await SkymoniGlassProgram.load();
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
   if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
@@ -94,6 +97,9 @@ Future<void> main() async {
     yield LicenseEntryWithLineBreaks([
       'Roboto Mono',
     ], await rootBundle.loadString('licenses/RobotoMono-OFL.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Skymoni Liquid Glass optical model',
+    ], await rootBundle.loadString('licenses/SkymoniLiquidGlass-MIT.txt'));
   });
   final artworkFuture = LaunchArtwork.load();
   await Future.wait([
@@ -107,6 +113,7 @@ Future<void> main() async {
   await betaAccess.restore();
   await relayAccount.restore();
   await demo.restore();
+  await personalSpace.restore();
   await uiPlugins.restore();
   await pluginMarket.restore();
   await extensionLibrary.restore();
@@ -276,11 +283,11 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
       builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: demo.dark
+          statusBarIconBrightness: (demo.dark)
               ? Brightness.light
               : Brightness.dark,
           systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: demo.dark
+          systemNavigationBarIconBrightness: (demo.dark)
               ? Brightness.light
               : Brightness.dark,
         ),
@@ -594,57 +601,62 @@ class _SkiShellState extends State<SkiShell>
       final toolbar = SizedBox(
         key: ValueKey(capsule ? 'capsule-toolbar' : 'rectangle-toolbar'),
         height: appToolbarHeight,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              SkiGlassButton(
-                tooltip: '打开导航',
-                plain: true,
-                onPressed: () => panel(1),
-                icon: Icons.menu_rounded,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: InkWell(
-                  onTap: widget.route == '/chat'
-                      ? () {
-                          demo.editCurrentRole();
-                          go('/characters/edit');
-                        }
-                      : null,
-                  child: Text(
-                    typing ? '对方正在输入中...' : title,
-                    key: ValueKey(
-                      typing ? 'typing-indicator' : 'toolbar-title',
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: ink,
+        child: Listener(
+          // The visible lens owns its whole hit area, including icon gaps.
+          // Content now scrolls below it and must never receive these taps.
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                SkiGlassButton(
+                  tooltip: '打开导航',
+                  plain: true,
+                  onPressed: () => panel(1),
+                  icon: Icons.menu_rounded,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: widget.route == '/chat'
+                        ? () {
+                            demo.editCurrentRole();
+                            go('/characters/edit');
+                          }
+                        : null,
+                    child: Text(
+                      typing ? '对方正在输入中...' : title,
+                      key: ValueKey(
+                        typing ? 'typing-indicator' : 'toolbar-title',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: ink,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (widget.route == '/chat') const OpenPluginChatButton(),
-              SkiGlassButton(
-                tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
-                plain: true,
-                onPressed: () =>
-                    go(widget.route == '/chat' ? '/call' : '/chat'),
-                icon: widget.route == '/chat'
-                    ? Icons.call_outlined
-                    : Icons.chat_bubble_outline,
-              ),
-              SkiGlassButton(
-                tooltip: '打开工作区',
-                plain: true,
-                onPressed: () => panel(-1),
-                icon: Icons.space_dashboard_outlined,
-              ),
-            ],
+                if (widget.route == '/chat') const OpenPluginChatButton(),
+                SkiGlassButton(
+                  tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
+                  plain: true,
+                  onPressed: () =>
+                      go(widget.route == '/chat' ? '/call' : '/chat'),
+                  icon: widget.route == '/chat'
+                      ? Icons.call_outlined
+                      : Icons.chat_bubble_outline,
+                ),
+                SkiGlassButton(
+                  tooltip: '打开工作区',
+                  plain: true,
+                  onPressed: () => panel(-1),
+                  icon: Icons.space_dashboard_outlined,
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -653,20 +665,13 @@ class _SkiShellState extends State<SkiShell>
         color: Colors.transparent,
         child: SafeArea(
           top: false,
+          bottom: widget.route == '/chat',
           child: Stack(
             children: [
               Positioned.fill(
                 child: widget.route == '/chat'
                     ? body
-                    : Padding(
-                        padding: EdgeInsets.only(
-                          top:
-                              appToolbarHeight +
-                              8 +
-                              MediaQuery.paddingOf(context).top,
-                        ),
-                        child: RepaintBoundary(child: body),
-                      ),
+                    : RepaintBoundary(child: body),
               ),
               if (!socialUi)
                 Positioned(
@@ -687,6 +692,7 @@ class _SkiShellState extends State<SkiShell>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(40),
                               child: ConfigurableGlassSurface(
+                                skymoni: true,
                                 area: 'toolbarBlur',
                                 radius: 40,
                                 child: toolbar,
@@ -698,6 +704,7 @@ class _SkiShellState extends State<SkiShell>
                           part: LaunchPart.toolbar,
                           child: ConfigurableGlassSurface(
                             key: const ValueKey('glass-rectangle-toolbar'),
+                            skymoni: true,
                             area: 'toolbarBlur',
                             radius: 0,
                             child: Padding(

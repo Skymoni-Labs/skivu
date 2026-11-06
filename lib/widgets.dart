@@ -12,7 +12,7 @@ Widget label(
   text,
   style: TextStyle(
     fontSize: size,
-    color: ink,
+    color: color ?? ink,
     fontWeight: weight,
     height: height ?? 1.65,
   ),
@@ -79,12 +79,12 @@ class PageHeading extends StatelessWidget {
           runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            label(title, size: 23, weight: FontWeight.w600),
+            label(title, size: 23, weight: FontWeight.w600, color: sceneInk),
             if (action != null) action!,
           ],
         ),
         const SizedBox(height: 8),
-        label(description, color: muted, size: 12),
+        label(description, color: sceneMuted, size: 12),
       ],
     ),
   );

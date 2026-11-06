@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'wallpaper.dart';
 import 'widgets.dart';
-import 'state.dart';
+import 'cloud_wallpaper_gallery.dart';
 
 class WallpaperSettings extends StatelessWidget {
   const WallpaperSettings({super.key, this.controller, this.onChosen});
@@ -11,6 +11,8 @@ class WallpaperSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final model = controller ?? wallpaper;
+    final ink = Theme.of(context).colorScheme.onSurface;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return AnimatedBuilder(
       animation: model,
       builder: (context, _) {
@@ -18,9 +20,11 @@ class WallpaperSettings extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            label('自定义壁纸', size: 16, weight: FontWeight.w500),
+            CloudWallpaperGallery(controller: model),
+            const SizedBox(height: 12),
+            label('本机图片', size: 14, weight: FontWeight.w500, color: ink),
             const SizedBox(height: 8),
-            label('铺满整个界面，让玻璃透出你的风景。', size: 12, color: muted),
+            label('从相册选择，铺满整个界面。', size: 12, color: muted),
             if (data != null) ...[
               const SizedBox(height: 16),
               ClipRRect(
@@ -73,7 +77,7 @@ class WallpaperSettings extends StatelessWidget {
             ),
             if (data != null) ...[
               const SizedBox(height: 18),
-              label('背景模糊 · ${data.blur.round()}', size: 12),
+              label('背景模糊 · ${data.blur.round()}', size: 12, color: ink),
               Slider(
                 key: const ValueKey('wallpaper-blur'),
                 value: data.blur,
@@ -83,7 +87,11 @@ class WallpaperSettings extends StatelessWidget {
                 onChanged: model.busy ? null : (v) => model.style(blur: v),
                 onChangeEnd: (_) => model.saveStyle(),
               ),
-              label('背景压暗 · ${(data.dim * 100).round()}%', size: 12),
+              label(
+                '背景压暗 · ${(data.dim * 100).round()}%',
+                size: 12,
+                color: ink,
+              ),
               Slider(
                 key: const ValueKey('wallpaper-dim'),
                 value: data.dim,

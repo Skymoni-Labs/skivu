@@ -1,6 +1,26 @@
 // User-authorized original module migration; see MODULE-MIGRATION.md.
 import 'dart:math' as math;
 
+/// Relative scrubbing; moving left increases range without moving selection.
+class MessageRuler {
+  MessageRuler({required this.count, required int index})
+    : position = index.clamp(0, math.max(0, count - 1)).toDouble();
+  final int count;
+  double position;
+  int get index => position.round().clamp(0, math.max(0, count - 1));
+  void move(double deltaY, {double leftwardDistance = 0, double extent = 500}) {
+    const fine = 1 / 9;
+    final fast = math.max(fine, (count - 1) / math.max(180, extent));
+    final blend = ((leftwardDistance - 24) / 120).clamp(0.0, 1.0);
+    advance(deltaY * (fine + (fast - fine) * blend));
+  }
+
+  void advance(double delta) => position = (position + delta).clamp(
+    0.0,
+    math.max(0, count - 1).toDouble(),
+  );
+}
+
 enum DialScale { fine, medium, fast }
 
 /// Relative, multi-turn navigation. A slow full turn always means 24 messages,

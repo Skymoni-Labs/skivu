@@ -14,7 +14,7 @@ class ChatStatusBar extends StatelessWidget {
         .where((message) => message.user)
         .length;
     final color = ink;
-    return DefaultTextStyle.merge(
+    final content = DefaultTextStyle.merge(
       style: TextStyle(fontSize: 10, height: 1.4, color: color),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -58,6 +58,7 @@ class ChatStatusBar extends StatelessWidget {
         ),
       ),
     );
+    return content;
   }
 
   Widget _item(String hint, Widget icon, String text) => Tooltip(

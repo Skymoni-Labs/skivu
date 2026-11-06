@@ -72,8 +72,16 @@ class ContentPage extends StatelessWidget {
         ],
       );
     }
+    final gutter = MediaQuery.sizeOf(context).width < 700 ? 16.0 : 32.0;
     return SingleChildScrollView(
-      padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 700 ? 16 : 32),
+      // Inset the first controls, not the viewport: every module can move its
+      // content behind the same live toolbar lens used by the conversation.
+      padding: EdgeInsets.fromLTRB(
+        gutter,
+        appToolbarHeight + 8 + MediaQuery.paddingOf(context).top + gutter,
+        gutter,
+        gutter + MediaQuery.paddingOf(context).bottom,
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -647,9 +655,23 @@ class _SettingsDetailState extends State<SettingsDetail> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextButton.icon(
+        OutlinedButton.icon(
           onPressed: () => widget.go('/settings'),
-          icon: const Icon(Icons.arrow_back, size: 16),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xff213244),
+            backgroundColor: Colors.white.withValues(alpha: .85),
+            side: BorderSide(color: Colors.white.withValues(alpha: .9)),
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          icon: const Icon(Icons.arrow_back, size: 18),
           label: const Text('所有设置'),
         ),
         Padding(

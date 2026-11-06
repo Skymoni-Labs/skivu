@@ -56,3 +56,4 @@ android {
 flutter {
     source = "../.."
 }
+dependencies { implementation(project(":skymoni_glass")) }

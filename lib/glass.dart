@@ -10,6 +10,8 @@ import 'appearance.dart';
 import 'video_backdrop.dart';
 import 'chat_backdrop.dart';
 import 'sidebar_layout.dart';
+import 'skymoni_glass.dart';
+import 'scroll_glass_activity.dart';
 
 /// Web lenses refract one cached capture of the static aurora, rather than
 /// capturing the whole application on every drawer animation frame.
@@ -32,6 +34,7 @@ class SkiGlassScene extends StatefulWidget {
 class _SkiGlassSceneState extends State<SkiGlassScene> {
   final _capture = LiquidGlassViewController();
   final _chatBackdrop = ChatBackdropController();
+  final _scrollActivity = ScrollGlassActivity();
   bool _dark = demo.dark;
   Size? _size;
   Size? _layoutSize;
@@ -92,6 +95,7 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
     appearance.removeListener(_updateBackdropStyle);
     glassPreferences.removeListener(_updateChatBlur);
     _chatBackdrop.dispose();
+    _scrollActivity.dispose();
     super.dispose();
   }
 
@@ -159,21 +163,27 @@ class _SkiGlassSceneState extends State<SkiGlassScene> {
         _layoutSize = constraints.biggest;
         _refreshCapture();
       }
-      return LiquidGlassView(
-        controller: _capture,
-        backgroundWidget: RepaintBoundary(
-          key: _chatBackdrop.backgroundKey,
-          child: _background(),
-        ),
-        realTimeCapture: false,
-        pixelRatio: .75,
-        // Each small lens stays in its own plane during the 3D drawer fold.
-        batch: false,
-        child: ChatBackdropScope(
-          controller: _chatBackdrop,
-          child: _GlassOpticsScope(
-            refracting: _refracting,
-            child: widget.child,
+      return ScrollGlassScope(
+        activity: _scrollActivity,
+        child: LiquidGlassView(
+          controller: _capture,
+          backgroundWidget: RepaintBoundary(
+            key: _chatBackdrop.backgroundKey,
+            child: _background(),
+          ),
+          realTimeCapture: false,
+          pixelRatio: .75,
+          // Keep the original small-lens material and individual optical bounds.
+          batch: false,
+          child: ChatBackdropScope(
+            controller: _chatBackdrop,
+            child: _GlassOpticsScope(
+              refracting: _refracting,
+              child: SkymoniGlassMotionScope(
+                motion: widget.motion,
+                child: widget.child,
+              ),
+            ),
           ),
         ),
       );
@@ -285,7 +295,7 @@ LiquidGlassStyle skiLensStyle(
   double blur = 2,
   double? opacity,
 }) => LiquidGlassStyle(
-  // Only the captured Web path needs the fold workaround. Android's live
+  // Only the captured Web path needs the moving-plane workaround. Android's live
   // backdrop keeps the same material across pointer-down, drag and settling.
   liteGlass:
       !(context
@@ -323,6 +333,7 @@ class SkiGlassButton extends StatelessWidget {
     this.accent = false,
     this.plain = false,
     this.startAligned = false,
+    this.skymoni = false,
   });
   final String tooltip;
   final String? label;
@@ -333,6 +344,7 @@ class SkiGlassButton extends StatelessWidget {
   final bool accent;
   final bool plain;
   final bool startAligned;
+  final bool skymoni;
 
   Widget? get _alignedContent => !startAligned || label == null
       ? null
@@ -364,6 +376,39 @@ class SkiGlassButton extends StatelessWidget {
           tooltip: tooltip,
           onPressed: onPressed,
           icon: Icon(icon, size: 21, color: foreground),
+        ),
+      );
+    }
+    if (skymoni &&
+        appearance.flag('skymoniGlass') &&
+        SkymoniGlassProgram.available) {
+      return Tooltip(
+        message: tooltip,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: GlassSurface(
+            skymoni: true,
+            radius: height / 2,
+            child: Material(
+              color: accent ? green.withValues(alpha: .18) : Colors.transparent,
+              child: InkWell(
+                onTap: onPressed,
+                child: Center(
+                  child:
+                      _alignedContent ??
+                      (label == null
+                          ? Icon(
+                              icon,
+                              semanticLabel: tooltip,
+                              size: 21,
+                              color: foreground,
+                            )
+                          : Text(label!, style: TextStyle(color: foreground))),
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -422,8 +467,8 @@ class SkiGlassButton extends StatelessWidget {
 }
 
 /// The side sheets use the same library lens as the floating chrome, with
-/// deeper frost and a broad optical rim. The fold scope selects its safe
-/// perspective path; refraction is available when the sheet is planar.
+/// deeper frost and a broad optical rim. Android uses the live backdrop, while
+/// the scene selects the captured-image path on other renderers.
 class SkiGlassPanel extends StatelessWidget {
   const SkiGlassPanel({
     super.key,
@@ -507,6 +552,8 @@ class GlassSurface extends StatelessWidget {
     this.liquidOpacity,
     this.outline = true,
     this.wallpaperOnly = false,
+    this.skymoni = false,
+    this.skymoniKind = SkymoniGlassKind.control,
   });
   final Widget child;
   final double radius, blur, opacity;
@@ -514,6 +561,9 @@ class GlassSurface extends StatelessWidget {
   final double liquidBlur;
   final double? liquidOpacity;
   final bool outline;
+  final SkymoniGlassKind skymoniKind;
+  // Opt in only from the main toolbar and composer/navigation components.
+  final bool skymoni;
 
   /// Read the scene's wallpaper capture instead of the composited UI. A live
   /// lens can pull nearby avatars across the input's rim even when wallpaper
@@ -521,6 +571,17 @@ class GlassSurface extends StatelessWidget {
   final bool wallpaperOnly;
   @override
   Widget build(BuildContext context) {
+    if (skymoni &&
+        appearance.flag('skymoniGlass') &&
+        SkymoniGlassProgram.available &&
+        radius > 0) {
+      return SkymoniGlassSurface(
+        radius: radius,
+        dark: appearance.textColor('interfaceText').computeLuminance() > .45,
+        kind: skymoniKind,
+        child: child,
+      );
+    }
     final enabled = demo.prefs['毛玻璃效果'] ?? true;
     if (enabled && liquid) {
       return LiquidGlassLens(
@@ -584,30 +645,54 @@ class ConfigurableGlassSurface extends StatelessWidget {
     required this.child,
     this.radius = 24,
     this.preferences,
+    this.composerFrame = false,
+    this.skymoni = false,
   });
   final String area;
   final Widget child;
   final double radius;
   final AppearancePreferences? preferences;
+  final bool composerFrame;
+  final bool skymoni;
   @override
   Widget build(BuildContext context) {
     final model = preferences ?? appearance;
     return AnimatedBuilder(
       animation: model,
       child: child,
-      builder: (context, content) => GlassSurface(
-        radius: radius,
-        liquid: radius > 0,
-        outline: radius > 0,
-        blur: model.number(area),
-        opacity: model.number(area.replaceFirst('Blur', 'Opacity')),
-        liquidBlur: model.number(area),
-        liquidOpacity: model.number(area.replaceFirst('Blur', 'Opacity')),
-        wallpaperOnly:
-            area == 'inputBlur' &&
-            ChatBackdropScope.maybeOf(context)?.wallpaperImage != null,
-        child: content!,
-      ),
+      builder: (context, content) {
+        if (skymoni && composerFrame && model.flag('skymoniGlass')) {
+          // Input and dock each own one optical pass; do not blur them twice.
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .06),
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: .38),
+                width: .6,
+              ),
+            ),
+            child: content,
+          );
+        }
+        return GlassSurface(
+          skymoni: skymoni,
+          skymoniKind: area == 'inputBlur'
+              ? SkymoniGlassKind.readable
+              : SkymoniGlassKind.navigation,
+          radius: radius,
+          liquid: radius > 0,
+          outline: radius > 0,
+          blur: model.number(area),
+          opacity: model.number(area.replaceFirst('Blur', 'Opacity')),
+          liquidBlur: model.number(area),
+          liquidOpacity: model.number(area.replaceFirst('Blur', 'Opacity')),
+          wallpaperOnly:
+              area == 'inputBlur' &&
+              ChatBackdropScope.maybeOf(context)?.wallpaperImage != null,
+          child: content!,
+        );
+      },
     );
   }
 }

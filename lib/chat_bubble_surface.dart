@@ -48,7 +48,9 @@ class ChatBubbleSurface extends StatelessWidget {
         appearance,
         if (backdrop != null) backdrop,
       ]),
-      child: child,
+      // Wallpaper sampling still repaints in scene coordinates on every scroll
+      // frame; the independent text/media layer can retain its glyphs/pictures.
+      child: RepaintBoundary(child: child),
       builder: (context, content) {
         final blur = user ? model.userBlur : model.assistantBlur;
         final glass = demo.prefs['毛玻璃效果'] ?? true;

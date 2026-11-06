@@ -2,24 +2,72 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'drawer_frame_diagnostics.dart';
 
-// Cover the perspective inset plus rounded corners without resizing content.
+// Extend the sheet past the viewport for rounded corners and spring recoil.
 double drawerSurfaceBleed(double height) => 20 + height * .015;
+
+/// Paint the contact on the adjacent page, above the glass sampling passes.
+/// Source-over keeps it visible even when the glass uses a separate layer.
+class DrawerContactShadow extends StatelessWidget {
+  const DrawerContactShadow({
+    super.key,
+    required this.leftSide,
+    required this.progress,
+  });
+  final bool leftSide;
+  final double progress;
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: leftSide ? Alignment.centerLeft : Alignment.centerRight,
+          end: leftSide ? Alignment.centerRight : Alignment.centerLeft,
+          stops: const [0, .4, 1],
+          colors: [
+            const Color(
+              0xff172538,
+            ).withValues(alpha: progress.clamp(0, 1) * .32),
+            const Color(
+              0xff172538,
+            ).withValues(alpha: progress.clamp(0, 1) * .10),
+            const Color(0x00172538),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
 /// Independent, interruptible drawer physics. Values are physical logical pixels;
 /// a new drag always starts from the current rendered position, not a stale target.
 class DrawerMotion extends ChangeNotifier {
+  static const _diagnostics = bool.fromEnvironment('SKIVU_DRAWER_DIAGNOSTICS');
+  void _trace(String message) {
+    if (_diagnostics) debugPrint('SkivuDrawer: $message');
+  }
+
   static const double maxSettleOvershoot = 10;
   DrawerMotion({required TickerProvider vsync})
     : _position = AnimationController.unbounded(vsync: vsync) {
     _position.addListener(notifyListeners);
+    if (DrawerFrameDiagnostics.enabled) addListener(_reportMotion);
   }
+  final _frames = DrawerFrameDiagnostics();
+  bool? _lastMoving;
+  void _reportMotion() {
+    if (_lastMoving == isMoving) return;
+    _lastMoving = isMoving;
+    _frames.motion(isMoving, offset);
+  }
+
   final AnimationController _position;
   double leftExtent = 330, rightExtent = 350;
-  double _anchor = 0, _originAnchor = 0;
+  double _anchor = 0, _originAnchor = 0, _dragOrigin = 0;
   int _generation = 0;
   bool dragging = false, reducedMotion = false;
+  bool get isMoving => dragging || _position.isAnimating;
   double get offset => _position.value.clamp(
     -rightExtent - maxSettleOvershoot,
     leftExtent + maxSettleOvershoot,
@@ -36,6 +84,8 @@ class DrawerMotion extends ChangeNotifier {
     _generation++;
     _position.stop();
     _originAnchor = _anchor;
+    _dragOrigin = offset;
+    _trace('begin at=$_dragOrigin');
     dragging = true;
     notifyListeners();
   }
@@ -52,6 +102,7 @@ class DrawerMotion extends ChangeNotifier {
 
   void cancel() {
     if (!dragging) return;
+    _trace('cancel at=$offset return=$_originAnchor');
     dragging = false;
     _settle(_originAnchor, 0);
   }
@@ -60,18 +111,22 @@ class DrawerMotion extends ChangeNotifier {
     if (!dragging) return;
     dragging = false;
     final x = offset;
-    final projected = x + velocity.clamp(-2400, 2400) * .13;
-    final target = x > 0
-        ? (velocity < -450
-              ? 0.0
-              : projected > leftExtent * .38
-              ? leftExtent
-              : 0.0)
-        : (velocity > 450
-              ? 0.0
-              : projected < -rightExtent * .38
-              ? -rightExtent
-              : 0.0);
+    final travel = x - _dragOrigin;
+    final extent = travel >= 0 ? leftExtent : rightExtent;
+    final threshold = (extent * .16).clamp(28.0, 48.0);
+    final flick =
+        travel.abs() >= 8 &&
+        velocity.abs() >= 320 &&
+        velocity.sign == travel.sign;
+    // Decide from this gesture's intent, not a fixed percentage of the open
+    // panel. The previous absolute threshold made closing require a long drag.
+    var target = _originAnchor;
+    if (travel.abs() >= threshold || flick) {
+      target = travel > 0
+          ? (_dragOrigin < -.1 && x < threshold ? 0.0 : leftExtent)
+          : (_dragOrigin > .1 && x > -threshold ? 0.0 : -rightExtent);
+    }
+    _trace('release travel=$travel velocity=$velocity target=$target');
     _settle(target, velocity);
   }
 
@@ -142,14 +197,16 @@ class DrawerMotion extends ChangeNotifier {
   @override
   void dispose() {
     _generation++;
+    if (DrawerFrameDiagnostics.enabled) removeListener(_reportMotion);
+    _frames.dispose();
     _position.removeListener(notifyListeners);
     _position.dispose();
     super.dispose();
   }
 }
 
-/// Drag frames only compose transforms; the content is passed as a stable child.
-/// Panels remain mounted until their closing animation actually reaches zero.
+/// Operit-style retained layers: all three pages stay mounted, while Flow moves
+/// only their compositor transforms. A closed panel is neither painted nor hit.
 class SlideDeck extends StatefulWidget {
   const SlideDeck({
     super.key,
@@ -198,173 +255,207 @@ class _SlideDeckState extends State<SlideDeck> {
             : (d) {
                 if (!_cancelled) motion.release(d.primaryVelocity ?? 0);
               },
-        child: AnimatedBuilder(
-          animation: motion,
-          child: RepaintBoundary(child: child),
-          builder: (context, content) {
-            final x = motion.offset, progress = motion.openness;
-            final extent = x >= 0 ? motion.leftExtent : motion.rightExtent;
-            final sideAngle = motion.reducedMotion
-                ? 0.0
-                : .075 * math.sin(progress * math.pi);
-            // Keep the inward fold while moving; a fully open panel rests
-            // flat so its text baselines, cards and bottom actions stay level.
-            // A shallow inward fold keeps both pages nearly full-height. The
-            // translucent side panel overlaps the home page across the seam.
-            final hingeDepth = extent * math.sin(sideAngle);
-            final pageAngle = math.asin(
-              (hingeDepth / constraints.maxWidth).clamp(0.0, .8),
-            );
-            final bleed = drawerSurfaceBleed(constraints.maxHeight);
-            Matrix4 fold(double angle) => Matrix4.identity()
-              ..setEntry(3, 2, .0007)
-              ..translateByDouble(0, 0, hingeDepth, 1)
-              ..rotateY(angle);
-            Widget side(Widget panel, bool isLeft) => Transform(
-              alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-              transform: fold(isLeft ? -sideAngle : sideAngle),
-              // Paint outside the sheet, toward the home page. The glass must
-              // not clip or refract its own shadow into a dark interior band.
-              // The library's contact ring is thick along its horizontal rim.
-              // Rotate the shadow's layout and counter-rotate the content so
-              // that broad, soft contact runs vertically beside the tall sheet.
-              child: OverflowBox(
-                minHeight: constraints.maxHeight + bleed * 2,
-                maxHeight: constraints.maxHeight + bleed * 2,
-                child: RotatedBox(
-                  quarterTurns: 1,
-                  child: LiquidGlassShadow(
-                    blur: 22,
-                    opacity: progress * .34,
-                    color: const Color(0xff172538),
-                    offset: Offset(0, isLeft ? -12 : 12),
-                    cornerRadius: 18,
-                    insideGlass: false,
-                    child: RotatedBox(
-                      quarterTurns: 3,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: bleed),
-                        child: panel,
-                      ),
-                    ),
+        child: Flow(
+          delegate: _DrawerLayers(
+            motion,
+            leftExtent: motion.leftExtent,
+            rightExtent: motion.rightExtent,
+          ),
+          children: [
+            Stack(
+              key: const ValueKey('page-plane'),
+              clipBehavior: Clip.none,
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  top: -drawerSurfaceBleed(constraints.maxHeight),
+                  bottom: -drawerSurfaceBleed(constraints.maxHeight),
+                  left: 0,
+                  right: 0,
+                  child: CustomPaint(
+                    key: const ValueKey('home-sheet-fill'),
+                    painter: _PageSheetPaint(motion),
                   ),
                 ),
-              ),
-            );
-            // Stack only detects layout overflow. An explicit clip also stops
-            // extended paint from covering the phone's separate status bar.
-            return ClipRect(
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                fit: StackFit.expand,
-                children: [
-                  Transform.translate(
-                    offset: Offset(x * .86, 0),
-                    child: Transform(
-                      key: const ValueKey('page-tilt'),
-                      alignment: x >= 0
-                          ? Alignment.centerLeft
-                          : Alignment.centerRight,
-                      transform: fold(x.sign * pageAngle),
-                      child: Stack(
-                        key: const ValueKey('page-plane'),
-                        clipBehavior: Clip.none,
-                        fit: StackFit.expand,
-                        children: [
-                          Positioned(
-                            top: -drawerSurfaceBleed(constraints.maxHeight),
-                            bottom: -drawerSurfaceBleed(constraints.maxHeight),
-                            left: 0,
-                            right: 0,
-                            child: DecoratedBox(
-                              key: const ValueKey('home-sheet-fill'),
-                              decoration: BoxDecoration(
-                                color: const Color(
-                                  0xfff3f7ff,
-                                ).withValues(alpha: progress * .30),
-                                borderRadius: BorderRadius.circular(
-                                  progress * 12,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xff3e5474,
-                                    ).withValues(alpha: progress * .13),
-                                    blurRadius: 24,
-                                    offset: Offset(x.sign * -6, 0),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(progress * 12),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                content!,
-                                if (progress > .001)
-                                  GestureDetector(
-                                    onTap: motion.close,
-                                    behavior: HitTestBehavior.opaque,
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: x >= 0
-                                              ? Alignment.centerLeft
-                                              : Alignment.centerRight,
-                                          end: x >= 0
-                                              ? Alignment.centerRight
-                                              : Alignment.centerLeft,
-                                          colors: [
-                                            const Color(
-                                              0xff3e5474,
-                                            ).withValues(alpha: progress * .07),
-                                            const Color(
-                                              0xff8293b0,
-                                            ).withValues(alpha: progress * .03),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
+                ClipRRect(
+                  clipper: _PageClip(motion),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      RepaintBoundary(child: child),
+                      AnimatedBuilder(
+                        animation: motion,
+                        child: GestureDetector(
+                          onTap: motion.close,
+                          behavior: HitTestBehavior.opaque,
+                          child: CustomPaint(painter: _PageScrimPaint(motion)),
+                        ),
+                        builder: (_, barrier) => IgnorePointer(
+                          ignoring: motion.offset.abs() < .1,
+                          child: barrier,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  if (x > .1)
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: motion.leftExtent,
-                      child: Transform.translate(
-                        // Move the whole sheet, including its contact shadow.
-                        // Its glass extends outward to cover the recoil.
-                        offset: Offset(x - motion.leftExtent, 0),
-                        child: side(left, true),
-                      ),
-                    ),
-                  if (x < -.1)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: motion.rightExtent,
-                      child: Transform.translate(
-                        offset: Offset(x + motion.rightExtent, 0),
-                        child: side(right, false),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
+                ),
+              ],
+            ),
+            _retainedSide(left, true, constraints.maxHeight),
+            _retainedSide(right, false, constraints.maxHeight),
+          ],
         ),
       ),
     ),
   );
+
+  Widget _retainedSide(Widget panel, bool isLeft, double height) =>
+      AnimatedBuilder(
+        animation: motion,
+        child: _side(panel, isLeft, height),
+        builder: (_, surface) {
+          final visible = isLeft ? motion.offset > .1 : motion.offset < -.1;
+          return ExcludeFocus(
+            excluding: !visible,
+            child: Offstage(
+              offstage: !visible,
+              child: TickerMode(enabled: visible, child: surface!),
+            ),
+          );
+        },
+      );
+
+  Widget _side(Widget panel, bool isLeft, double height) => Stack(
+    clipBehavior: Clip.none,
+    fit: StackFit.expand,
+    children: [
+      RepaintBoundary(child: panel),
+      Positioned(
+        top: -drawerSurfaceBleed(height),
+        bottom: -drawerSurfaceBleed(height),
+        left: isLeft ? null : -28,
+        right: isLeft ? -28 : null,
+        width: 28,
+        child: AnimatedBuilder(
+          animation: motion,
+          builder: (_, _) => DrawerContactShadow(
+            key: ValueKey(
+              isLeft ? 'left-contact-shadow' : 'right-contact-shadow',
+            ),
+            leftSide: isLeft,
+            progress: motion.openness,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Translation is applied in paint, not via Positioned layout on every tick.
+/// Hidden panes are not painted or hit; their wrapper also excludes semantics.
+class _DrawerLayers extends FlowDelegate {
+  _DrawerLayers(
+    this.motion, {
+    required this.leftExtent,
+    required this.rightExtent,
+  }) : super(repaint: motion);
+  final DrawerMotion motion;
+  final double leftExtent, rightExtent;
+  @override
+  BoxConstraints getConstraintsForChild(int i, BoxConstraints constraints) =>
+      BoxConstraints.tightFor(
+        width: i == 0
+            ? constraints.maxWidth
+            : (i == 1 ? leftExtent : rightExtent),
+        height: constraints.maxHeight,
+      );
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    final x = motion.offset;
+    context.paintChild(0, transform: Matrix4.translationValues(x * .86, 0, 0));
+    if (x > .1) {
+      context.paintChild(
+        1,
+        transform: Matrix4.translationValues(x - leftExtent, 0, 0),
+      );
+    } else if (x < -.1) {
+      context.paintChild(
+        2,
+        transform: Matrix4.translationValues(context.size.width + x, 0, 0),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DrawerLayers oldDelegate) => motion != oldDelegate.motion;
+  @override
+  bool shouldRelayout(_DrawerLayers oldDelegate) =>
+      leftExtent != oldDelegate.leftExtent ||
+      rightExtent != oldDelegate.rightExtent;
+}
+
+class _PageClip extends CustomClipper<RRect> {
+  _PageClip(this.motion) : super(reclip: motion);
+  final DrawerMotion motion;
+  @override
+  RRect getClip(Size size) => RRect.fromRectAndRadius(
+    Offset.zero & size,
+    Radius.circular(motion.openness * 12),
+  );
+  @override
+  bool shouldReclip(_PageClip oldClipper) => motion != oldClipper.motion;
+}
+
+class _PageSheetPaint extends CustomPainter {
+  _PageSheetPaint(this.motion) : super(repaint: motion);
+  final DrawerMotion motion;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final progress = motion.openness;
+    if (progress < .001) return;
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(progress * 12),
+    );
+    canvas.drawRRect(
+      rect.shift(Offset(motion.offset.sign * -6, 0)),
+      Paint()
+        ..color = const Color(0xff3e5474).withValues(alpha: progress * .13)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14.36),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = const Color(0xfff3f7ff).withValues(alpha: progress * .30),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PageSheetPaint oldDelegate) =>
+      motion != oldDelegate.motion;
+}
+
+class _PageScrimPaint extends CustomPainter {
+  _PageScrimPaint(this.motion) : super(repaint: motion);
+  final DrawerMotion motion;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final progress = motion.openness;
+    if (progress < .001) return;
+    final gradient = LinearGradient(
+      begin: motion.offset >= 0 ? Alignment.centerLeft : Alignment.centerRight,
+      end: motion.offset >= 0 ? Alignment.centerRight : Alignment.centerLeft,
+      colors: [
+        const Color(0xff3e5474).withValues(alpha: progress * .07),
+        const Color(0xff8293b0).withValues(alpha: progress * .03),
+      ],
+    );
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..shader = gradient.createShader(Offset.zero & size),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PageScrimPaint oldDelegate) =>
+      motion != oldDelegate.motion;
 }

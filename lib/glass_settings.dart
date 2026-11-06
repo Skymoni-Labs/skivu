@@ -6,13 +6,17 @@ import 'widgets.dart';
 import 'chat_bubble_surface.dart';
 
 class GlassSettings extends StatelessWidget {
-  const GlassSettings({super.key, this.preferences});
+  const GlassSettings({super.key, this.preferences, this.showHeading = true});
   final GlassPreferences? preferences;
+  final bool showHeading;
 
   @override
   Widget build(BuildContext context) {
     final model = preferences ?? glassPreferences;
     final deck = context.findAncestorWidgetOfExactType<SlideDeck>();
+    final ink = Theme.of(context).colorScheme.onSurface;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final accent = Theme.of(context).colorScheme.primary;
     return AnimatedBuilder(
       animation: model,
       builder: (context, _) => Column(
@@ -22,8 +26,13 @@ class GlassSettings extends StatelessWidget {
             spacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              label('侧栏玻璃', size: 16, weight: FontWeight.w500),
-              TextButton(onPressed: model.reset, child: const Text('恢复默认模糊')),
+              if (showHeading)
+                label('侧栏玻璃', size: 16, weight: FontWeight.w500, color: ink),
+              TextButton(
+                onPressed: model.reset,
+                style: TextButton.styleFrom(foregroundColor: accent),
+                child: const Text('恢复默认模糊'),
+              ),
             ],
           ),
           label('左右独立调节，数值越大越朦胧。', size: 12, color: muted),
@@ -31,14 +40,20 @@ class GlassSettings extends StatelessWidget {
           for (final left in [true, false]) ...[
             Row(
               children: [
-                Expanded(child: label(left ? '左侧导航' : '右侧工作区', size: 13)),
+                Expanded(
+                  child: label(left ? '左侧导航' : '右侧工作区', size: 13, color: ink),
+                ),
                 TextButton(
+                  style: TextButton.styleFrom(foregroundColor: accent),
                   onPressed: deck == null
                       ? null
                       : () => deck.motion.toggle(left ? 1 : -1),
                   child: Text(left ? '预览左侧' : '预览右侧'),
                 ),
-                TinyTag('${(left ? model.leftBlur : model.rightBlur).round()}'),
+                TinyTag(
+                  '${(left ? model.leftBlur : model.rightBlur).round()}',
+                  color: accent,
+                ),
               ],
             ),
             Slider(
@@ -66,12 +81,20 @@ class GlassSettings extends StatelessWidget {
 }
 
 class BubbleGlassSettings extends StatelessWidget {
-  const BubbleGlassSettings({super.key, this.preferences});
+  const BubbleGlassSettings({
+    super.key,
+    this.preferences,
+    this.showHeading = true,
+  });
   final GlassPreferences? preferences;
+  final bool showHeading;
 
   @override
   Widget build(BuildContext context) {
     final model = preferences ?? glassPreferences;
+    final ink = Theme.of(context).colorScheme.onSurface;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final accent = Theme.of(context).colorScheme.primary;
     return AnimatedBuilder(
       animation: Listenable.merge([model, demo]),
       builder: (context, _) => Column(
@@ -81,8 +104,10 @@ class BubbleGlassSettings extends StatelessWidget {
             spacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              label('对话气泡', size: 16, weight: FontWeight.w500),
+              if (showHeading)
+                label('对话气泡', size: 16, weight: FontWeight.w500, color: ink),
               TextButton(
+                style: TextButton.styleFrom(foregroundColor: accent),
                 onPressed: model.resetBubbles,
                 child: const Text('恢复默认气泡'),
               ),
@@ -93,9 +118,12 @@ class BubbleGlassSettings extends StatelessWidget {
           for (final user in [true, false]) ...[
             Row(
               children: [
-                Expanded(child: label(user ? '我的消息' : '对方回复', size: 13)),
+                Expanded(
+                  child: label(user ? '我的消息' : '对方回复', size: 13, color: ink),
+                ),
                 TinyTag(
                   '${(user ? model.userBlur : model.assistantBlur).round()}',
+                  color: accent,
                 ),
               ],
             ),

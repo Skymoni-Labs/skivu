@@ -19,6 +19,7 @@ const appearanceDefaults = <String, dynamic>{
   'textScale': 1.0,
   'uiScale': 1.0,
   'glass': true,
+  'skymoniGlass': false,
   'reduceMotion': false,
   'updateMeteors': true,
   'backgroundEnabled': true,

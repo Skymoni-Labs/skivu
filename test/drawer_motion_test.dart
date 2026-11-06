@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/drawer_motion.dart';
 import 'package:ski/glass.dart';
@@ -14,6 +16,201 @@ class BuildProbe extends StatelessWidget {
 }
 
 void main() {
+  testWidgets(
+    'all panes retain layout and mounting across repeated side changes',
+    (tester) async {
+      final motion = DrawerMotion(vsync: tester);
+      final semantics = tester.ensureSemantics();
+      final builds = [0, 0, 0], layouts = [0, 0, 0], taps = [0, 0, 0];
+      Widget pane(int index) => Builder(
+        builder: (_) {
+          builds[index]++;
+          return LayoutBuilder(
+            builder: (_, _) {
+              layouts[index]++;
+              return Semantics(
+                label: 'retained layer $index',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => taps[index]++,
+                  child: SizedBox.expand(key: ValueKey('retained-pane-$index')),
+                ),
+              );
+            },
+          );
+        },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SlideDeck(
+            motion: motion,
+            left: pane(1),
+            right: pane(2),
+            child: pane(0),
+          ),
+        ),
+      );
+      final initialBuilds = List.of(builds), initialLayouts = List.of(layouts);
+      expect(find.bySemanticsLabel('retained layer 1'), findsNothing);
+      expect(find.bySemanticsLabel('retained layer 2'), findsNothing);
+      await tester.tapAt(const Offset(100, 100));
+      expect(taps, [1, 0, 0]);
+      for (final side in [1, -1, 1, -1]) {
+        motion.begin();
+        for (var i = 0; i < 12; i++) {
+          motion.dragBy(side * 8);
+          await tester.pump(const Duration(milliseconds: 8));
+        }
+        motion.release(side * 800);
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel('retained layer ${side > 0 ? 1 : 2}'),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel('retained layer ${side > 0 ? 2 : 1}'),
+          findsNothing,
+        );
+        await tester.tapAt(
+          tester.getCenter(
+            find.byKey(ValueKey('retained-pane-${side > 0 ? 1 : 2}')),
+          ),
+        );
+        motion.close();
+        await tester.pumpAndSettle();
+        expect(builds, initialBuilds);
+        expect(layouts, initialLayouts);
+      }
+      expect(taps, [1, 2, 2]);
+      await tester.pumpWidget(const SizedBox());
+      motion.dispose();
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('contact shadows remain visible and mirror at both side seams', (
+    tester,
+  ) async {
+    for (final left in [true, false]) {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: RepaintBoundary(
+              key: key,
+              child: SizedBox(
+                width: 28,
+                height: 90,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: DrawerContactShadow(leftSide: left, progress: 1),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final luminance = (await tester.runAsync(() async {
+        final image =
+            await (key.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary)
+                .toImage(pixelRatio: 1);
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          double pixel(int x) {
+            final i = (45 * 28 + x) * 4;
+            return Color.fromARGB(
+              255,
+              bytes.getUint8(i),
+              bytes.getUint8(i + 1),
+              bytes.getUint8(i + 2),
+            ).computeLuminance();
+          }
+
+          return [pixel(left ? 2 : 25), pixel(left ? 27 : 0)];
+        } finally {
+          image.dispose();
+        }
+      }))!;
+      expect(luminance[0], lessThan(.75));
+      expect(luminance[1], greaterThan(.95));
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('drawer renderer handoff waits for drag, cancel and settle', (
+    tester,
+  ) async {
+    final motion = DrawerMotion(vsync: tester);
+    expect(motion.isMoving, isFalse);
+    motion.begin();
+    expect(motion.isMoving, isTrue);
+    motion.dragBy(60);
+    motion.cancel();
+    expect(motion.isMoving, isTrue);
+    await tester.pumpAndSettle();
+    expect(motion.isMoving, isFalse);
+    motion.toggle(-1);
+    expect(motion.isMoving, isTrue);
+    await tester.pumpAndSettle();
+    expect(motion.isMoving, isFalse);
+    motion.close();
+    await tester.pumpAndSettle();
+    expect(motion.isMoving, isFalse);
+    motion.dispose();
+  });
+
+  testWidgets('short slow drags open and close either panel symmetrically', (
+    tester,
+  ) async {
+    final motion = DrawerMotion(vsync: tester);
+    for (final side in [1, -1]) {
+      motion.begin();
+      motion.dragBy(side * 56);
+      motion.release(0);
+      await tester.pumpAndSettle();
+      expect(motion.offset, side > 0 ? motion.leftExtent : -motion.rightExtent);
+      motion.begin();
+      motion.dragBy(-side * 56);
+      motion.release(0);
+      await tester.pumpAndSettle();
+      expect(motion.offset, 0);
+    }
+    motion.dispose();
+  });
+
+  testWidgets(
+    'small flicks work but tiny jitter and cancellation do not switch',
+    (tester) async {
+      final motion = DrawerMotion(vsync: tester);
+      for (final side in [1, -1]) {
+        motion.begin();
+        motion.dragBy(side * 4);
+        motion.release(side * 800);
+        await tester.pumpAndSettle();
+        expect(motion.offset, 0);
+        motion.begin();
+        motion.dragBy(side * 24);
+        motion.release(side * 500);
+        await tester.pumpAndSettle();
+        final open = motion.offset;
+        expect(open, side > 0 ? motion.leftExtent : -motion.rightExtent);
+        motion.begin();
+        motion.dragBy(-side * 80);
+        motion.cancel();
+        await tester.pumpAndSettle();
+        expect(motion.offset, open);
+        motion.close();
+        await tester.pumpAndSettle();
+      }
+      motion.dispose();
+    },
+  );
+
   testWidgets(
     'plugin surfaces retain horizontal gestures while host drag opening is disabled',
     (tester) async {
@@ -95,7 +292,13 @@ void main() {
           peak = motion.offset.abs();
           peakEdge = tester.getTopLeft(content).dx;
           if (peak > extent) {
-            final fill = find.byKey(const ValueKey('side-sheet-fill'));
+            final fill = find.descendant(
+              of: find.ancestor(
+                of: content,
+                matching: find.byType(SkiGlassPanel),
+              ),
+              matching: find.byKey(const ValueKey('side-sheet-fill')),
+            );
             final viewport = tester.getRect(find.byType(SlideDeck));
             // Glass still covers the outer edge while sheet and shadow move.
             if (side > 0) {
@@ -233,16 +436,16 @@ void main() {
     motion.dragBy(140);
     await tester.pump();
     expect(find.byKey(const ValueKey('left')), findsOneWidget);
-    expect(find.byKey(const ValueKey('right')), findsNothing);
+    expect(find.byKey(const ValueKey('right')).hitTestable(), findsNothing);
     expect(tester.getSize(find.byType(BuildProbe)), size);
-    // Both inner edges recede slightly, with translucent overlap at the seam.
+    // Retained planar layers keep baselines level and preserve 14% overlap.
     final page = find.byKey(const ValueKey('page-plane'));
     final pageLeft = tester.getTopLeft(page);
     final pageRight = tester.getTopRight(page);
     final sideLeft = tester.getTopLeft(find.byKey(const ValueKey('left')));
     final sideRight = tester.getTopRight(find.byKey(const ValueKey('left')));
-    expect(pageLeft.dy, greaterThan(pageRight.dy + 1));
-    expect(sideRight.dy, greaterThan(sideLeft.dy + 1));
+    expect(pageLeft.dy, closeTo(pageRight.dy, .001));
+    expect(sideRight.dy, closeTo(sideLeft.dy, .001));
     expect(sideRight.dy, closeTo(pageLeft.dy, .001));
     expect(sideRight.dx - pageLeft.dx, closeTo(140 * .14, .001));
     // Motion preserves the original content scale and its sheet alignment.
@@ -255,6 +458,10 @@ void main() {
     expect(builds, initialBuilds);
     await tester.pumpAndSettle();
     final openSideTop = tester.getTopRight(find.byKey(const ValueKey('left')));
+    expect(
+      openSideTop.dx - tester.getTopLeft(page).dx,
+      closeTo(motion.leftExtent * .14, .001),
+    );
     expect(
       openSideTop.dy,
       closeTo(tester.getTopLeft(find.byKey(const ValueKey('left'))).dy, .001),
@@ -282,7 +489,7 @@ void main() {
     motion.cancel();
     await tester.pumpAndSettle();
     expect(motion.offset, 0);
-    expect(find.byKey(const ValueKey('left')), findsNothing);
+    expect(find.byKey(const ValueKey('left')).hitTestable(), findsNothing);
     motion.begin();
     motion.dragBy(-160);
     await tester.pump();
@@ -294,8 +501,8 @@ void main() {
     final mirroredSideRight = tester.getTopRight(
       find.byKey(const ValueKey('right')),
     );
-    expect(mirroredPageRight.dy, greaterThan(mirroredPageLeft.dy + 1));
-    expect(mirroredSideLeft.dy, greaterThan(mirroredSideRight.dy + 1));
+    expect(mirroredPageRight.dy, closeTo(mirroredPageLeft.dy, .001));
+    expect(mirroredSideLeft.dy, closeTo(mirroredSideRight.dy, .001));
     expect(mirroredSideLeft.dy, closeTo(mirroredPageRight.dy, .001));
     expect(
       mirroredPageRight.dx - mirroredSideLeft.dx,
@@ -307,6 +514,11 @@ void main() {
     await tester.pumpAndSettle();
     motion.toggle(-1);
     await tester.pumpAndSettle();
+    expect(
+      tester.getTopRight(page).dx -
+          tester.getTopLeft(find.byKey(const ValueKey('right'))).dx,
+      closeTo(motion.rightExtent * .14, .001),
+    );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('right'))).dy,
       closeTo(tester.getTopRight(find.byKey(const ValueKey('right'))).dy, .001),

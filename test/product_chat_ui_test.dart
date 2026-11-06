@@ -562,7 +562,7 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('dial preview stays above the ring on a short enlarged phone', (
+  testWidgets('ruler and preview fit side by side on a short enlarged phone', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -604,18 +604,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump(const Duration(milliseconds: 200));
     final preview = tester.getRect(
-      find.byKey(const ValueKey('chat-message-dial-target')),
+      find.byKey(const ValueKey('chat-message-ruler-target')),
     );
-    final ring = tester.getRect(
-      find.byKey(const ValueKey('chat-message-dial-ring')),
+    final ruler = tester.getRect(
+      find.byKey(const ValueKey('chat-message-ruler')),
     );
     final viewport = tester.getRect(
       find.byKey(const ValueKey('dial-viewport')),
     );
-    expect(preview.overlaps(ring), isFalse);
-    expect(preview.bottom, lessThanOrEqualTo(ring.top - 12));
+    expect(preview.overlaps(ruler), isFalse);
+    expect(preview.right, lessThanOrEqualTo(ruler.left - 8));
     expect(preview.top, greaterThanOrEqualTo(viewport.top + 8));
-    expect(viewport.contains(ring.bottomRight - const Offset(1, 1)), isTrue);
+    expect(viewport.contains(ruler.bottomRight - const Offset(1, 1)), isTrue);
+    expect(viewport.contains(preview.bottomRight - const Offset(1, 1)), isTrue);
+    expect(find.byKey(const ValueKey('chat-message-dial-ring')), findsNothing);
     expect(tester.takeException(), isNull);
     await gesture.cancel();
     await tester.pumpWidget(const SizedBox());

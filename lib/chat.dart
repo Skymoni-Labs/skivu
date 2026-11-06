@@ -19,6 +19,11 @@ import 'chat_extras.dart';
 import 'sticker_library_page.dart';
 import 'launch.dart';
 import 'open_plugin_companion_ui.dart';
+import 'personal_space.dart';
+import 'personal_space_ui.dart';
+import 'chat_quote.dart';
+import 'scroll_glass_activity.dart';
+import 'scroll_benchmark.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -35,7 +40,12 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage>
+    with SingleTickerProviderStateMixin {
+  int _module = 0;
+  late final AnimationController _moduleFade;
+  late final Animation<double> _moduleProgress;
+  late final Animation<Offset> _moduleSlide;
   final input = TextEditingController();
   final focus = FocusNode();
   final scroll = ScrollController();
@@ -45,6 +55,7 @@ class _ChatPageState extends State<ChatPage> {
   double? _viewportExtent;
   bool _composerMeasureQueued = false;
   Timer? navTimer;
+  final _navigationRevision = ValueNotifier(0);
   bool showNav = false, follow = true;
   bool _followQueued = false;
   int _bottomSeek = 0;
@@ -55,6 +66,16 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    _moduleFade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: 1,
+    );
+    _moduleProgress = _moduleFade.drive(CurveTween(curve: Curves.easeOutCubic));
+    _moduleSlide = Tween<Offset>(
+      begin: const Offset(0, .008),
+      end: Offset.zero,
+    ).animate(_moduleProgress);
     _conversation = demo.conversations[demo.conversation];
     input.text = _conversation.draft;
     input.addListener(() => demo.saveDraft(_conversation, input.text));
@@ -62,8 +83,47 @@ class _ChatPageState extends State<ChatPage> {
       if (focus.hasFocus) hideNavigation();
     });
     demo.addListener(update);
+    personalSpace.addListener(_personalChanged);
     _queueChatReader();
     _queueComposerMeasure();
+  }
+
+  void _personalChanged() {
+    if (mounted && _module != 0) setState(() {});
+  }
+
+  void _selectModule(int value) {
+    if (_module == value) return;
+    focus.unfocus();
+    navTimer?.cancel();
+    setState(() {
+      _module = value;
+      showNav = false;
+    });
+    if (MediaQuery.disableAnimationsOf(context) ||
+        appearance.flag('reduceMotion') ||
+        (demo.prefs['减少动态效果'] ?? false)) {
+      _moduleFade.value = 1;
+    } else {
+      _moduleFade.forward(from: 0);
+    }
+    _queueChatReader();
+    _queueComposerMeasure();
+  }
+
+  Widget _moduleContent(Widget child) => FadeTransition(
+    opacity: _moduleProgress,
+    child: SlideTransition(position: _moduleSlide, child: child),
+  );
+
+  void _personalDraft(String text) {
+    // The existing conversation keeps its draft; personal-page suggestions
+    // append to it and never send or create a separate plugin conversation.
+    final previous = input.text;
+    _selectModule(0);
+    input.text = previous.trim().isEmpty ? text : '$previous\n\n$text';
+    input.selection = TextSelection.collapsed(offset: input.text.length);
+    focus.requestFocus();
   }
 
   void _queueComposerMeasure() {
@@ -92,9 +152,12 @@ class _ChatPageState extends State<ChatPage> {
     final current = demo.conversations[demo.conversation];
     if (_draftRevision != current.draftRevision) {
       _draftRevision = current.draftRevision;
-      input.text = current.draft;
+      if (input.text != current.draft) input.text = current.draft;
     }
     if (!identical(current, _conversation)) {
+      _module = 0;
+      _moduleFade.stop();
+      _moduleFade.value = 1;
       _bottomSeek++;
       _messageSeek++;
       _conversation = current;
@@ -131,40 +194,45 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     demo.setChatReader(this, null);
     demo.removeListener(update);
+    personalSpace.removeListener(_personalChanged);
+    _moduleFade.dispose();
     input.dispose();
     focus.dispose();
     scroll.dispose();
+    _navigationRevision.dispose();
     navTimer?.cancel();
     super.dispose();
   }
 
   void _queueChatReader() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) demo.setChatReader(this, _conversation.id);
+      if (mounted)
+        demo.setChatReader(this, _module == 0 ? _conversation.id : null);
     });
   }
 
   void hideNavigation() {
     navTimer?.cancel();
-    if (mounted)
-      setState(() {
-        showNav = false;
-      });
+    if (mounted && showNav) {
+      showNav = false;
+      _navigationRevision.value++;
+    }
   }
 
-  void revealNavigation() {
+  void revealNavigation({bool scrolling = false}) {
+    final changed = !showNav || follow;
+    follow = false;
     if (focus.hasFocus || demo.messages.isEmpty) return;
     navTimer?.cancel();
-    setState(() => showNav = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final index = selectedMessageIndex();
-        if (index != _centeredIndex) setState(() => _centeredIndex = index);
-      }
-    });
-    navTimer = Timer(const Duration(milliseconds: 2200), () {
-      if (mounted) hideNavigation();
-    });
+    navTimer = null;
+    if (changed) {
+      showNav = true;
+      _navigationRevision.value++;
+    }
+    if (!scrolling)
+      navTimer = Timer(const Duration(milliseconds: 2200), () {
+        if (mounted) hideNavigation();
+      });
   }
 
   void locate(int index) {
@@ -264,9 +332,10 @@ class _ChatPageState extends State<ChatPage> {
   void send() {
     final value = input.text;
     if (value.trim().isEmpty || demo.streaming) return;
+    if (_module != 0) _selectModule(0);
     hideNavigation();
     follow = true;
-    if (!demo.send(value)) {
+    if (!demo.send(value, quotes: List.of(_conversation.draftQuotes))) {
       if (demo.lastError != null) toast(context, demo.lastError!);
       if (demo.activeConnection == null) openModels();
       return;
@@ -445,108 +514,153 @@ class _ChatPageState extends State<ChatPage> {
         // padding reserves its measured height without cutting a dark seam.
         LaunchReveal(
           part: LaunchPart.content,
-          child: NotificationListener<ScrollMetricsNotification>(
-            onNotification: (n) {
-              if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
-              final previous = _viewportExtent;
-              _viewportExtent = n.metrics.viewportDimension;
-              if (previous != null &&
-                  (previous - _viewportExtent!).abs() > .5 &&
-                  follow) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && follow && scroll.hasClients)
-                    scroll.jumpTo(scroll.position.maxScrollExtent);
-                });
-              }
-              return false;
-            },
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (n) {
-                if ((n is ScrollUpdateNotification && n.dragDetails != null) ||
-                    (n is UserScrollNotification &&
-                        n.direction != ScrollDirection.idle)) {
-                  revealNavigation();
-                  follow = false;
-                }
-                return false;
-              },
-              child: ListView.builder(
-                controller: scroll,
-                // Frost samples the live scene. Caching each message as a
-                // separate scrolling layer can retain an unfiltered backdrop
-                // while its transform changes on Android's renderer.
-                addRepaintBoundaries: false,
-                padding: EdgeInsets.fromLTRB(
-                  appearance.flag('wideChat') ? 8 : 14,
-                  appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
-                  appearance.flag('wideChat') ? 8 : 14,
-                  24 + _composerExtent,
-                ),
-                itemCount: demo.messages.isEmpty
-                    ? 1
-                    : demo.messages.length +
-                          1 +
-                          (demo.streaming && appearance.flag('showStatus')
-                              ? 1
-                              : 0),
-                itemBuilder: (context, index) {
-                  if (demo.messages.isEmpty) return emptyState();
-                  if (index == 0)
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 25),
-                      child: Center(
-                        child: label(
-                          '与 ${demo.role.name} 的对话',
-                          size: 10,
-                          color: muted,
-                        ),
-                      ),
-                    );
-                  if (index <= demo.messages.length)
-                    return message(demo.messages[index - 1], index - 1);
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 44),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 9,
-                          height: 9,
-                          child: CircularProgressIndicator(strokeWidth: 1.5),
-                        ),
-                        const SizedBox(width: 8),
-                        label('正在回复…', size: 10, color: muted),
-                      ],
-                    ),
-                  );
+          child: _moduleContent(
+            Visibility(
+              visible: _module == 0,
+              maintainState: true,
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: (n) {
+                  if (n.depth != 0 || n.metrics.axis != Axis.vertical)
+                    return false;
+                  final previous = _viewportExtent;
+                  _viewportExtent = n.metrics.viewportDimension;
+                  if (previous != null &&
+                      (previous - _viewportExtent!).abs() > .5 &&
+                      follow) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && follow && scroll.hasClients)
+                        scroll.jumpTo(scroll.position.maxScrollExtent);
+                    });
+                  }
+                  return false;
                 },
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if (n.depth != 0 || n.metrics.axis != Axis.vertical)
+                      return false;
+                    if ((n is ScrollStartNotification &&
+                            n.dragDetails != null) ||
+                        (n is ScrollUpdateNotification &&
+                            n.dragDetails != null) ||
+                        (n is UserScrollNotification &&
+                            n.direction != ScrollDirection.idle)) {
+                      revealNavigation(scrolling: true);
+                    } else if (n is ScrollEndNotification && showNav && !follow)
+                      revealNavigation();
+                    return false;
+                  },
+                  child: ScrollGlassSurface(
+                    child: ListView.builder(
+                      controller: scroll,
+                      // The frost must follow scene coordinates as rows move.
+                      // ChatBubbleSurface retains text/media separately, leaving
+                      // the wallpaper plane live instead of caching the whole row.
+                      addRepaintBoundaries: false,
+                      padding: EdgeInsets.fromLTRB(
+                        appearance.flag('wideChat') ? 8 : 14,
+                        appToolbarHeight +
+                            20 +
+                            MediaQuery.paddingOf(context).top,
+                        appearance.flag('wideChat') ? 8 : 14,
+                        24 + _composerExtent,
+                      ),
+                      itemCount: demo.messages.isEmpty
+                          ? 1
+                          : demo.messages.length +
+                                1 +
+                                (demo.streaming && appearance.flag('showStatus')
+                                    ? 1
+                                    : 0),
+                      itemBuilder: (context, index) {
+                        if (demo.messages.isEmpty) return emptyState();
+                        if (index == 0)
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 25),
+                            child: Center(
+                              child: label(
+                                '与 ${demo.role.name} 的对话',
+                                size: 10,
+                                color: sceneMuted,
+                              ),
+                            ),
+                          );
+                        if (index <= demo.messages.length)
+                          return message(demo.messages[index - 1], index - 1);
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 44),
+                          child: Row(
+                            children: [
+                              const SizedBox(
+                                width: 9,
+                                height: 9,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              label('正在回复…', size: 10, color: sceneMuted),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
-        if (demo.messages.isNotEmpty)
+        if (_module != 0)
+          Positioned.fill(
+            child: _moduleContent(
+              PersonalModulePage(
+                module: _module,
+                topInset:
+                    appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
+                bottomInset: _composerExtent + 24,
+                onDraft: _personalDraft,
+                onModule: _selectModule,
+              ),
+            ),
+          ),
+        if (ScrollBenchmark.enabled && _module == 0)
+          Positioned(
+            top: appToolbarHeight + 12 + MediaQuery.paddingOf(context).top,
+            right: 16,
+            child: ScrollBenchmark(
+              controller: scroll,
+              onStart: () => follow = false,
+            ),
+          ),
+        if (_module == 0 && demo.messages.isNotEmpty)
           Positioned.fill(
             bottom: _composerExtent,
             child: LayoutBuilder(
-              builder: (context, bounds) => ChatMessageDial(
-                key: ObjectKey(_conversation),
-                visible: showNav,
-                viewportHeight: bounds.maxHeight,
-                currentTimestamp: _centeredIndex,
-                loadEntries: () async => [
-                  for (int i = 0; i < demo.messages.length; i++)
-                    ChatMessageLocatorPreview(
-                      timestamp: i,
-                      sender: demo.messages[i].user ? 'user' : 'assistant',
-                      previewContent: demo.messages[i].text,
-                      messageIndex: i,
-                    ),
-                ],
-                onOpenLocator: messageNavigator,
-                onLatest: latest,
-                showLatest: !follow && !focus.hasFocus,
-                onJump: locate,
-                onHidden: hideNavigation,
-                senderName: (sender) => sender == 'user' ? '你' : demo.role.name,
+              builder: (context, bounds) => ValueListenableBuilder<int>(
+                valueListenable: _navigationRevision,
+                builder: (_, revision, _) => ChatMessageDial(
+                  key: ObjectKey(_conversation),
+                  visible: showNav,
+                  viewportHeight: bounds.maxHeight,
+                  currentTimestamp: _centeredIndex,
+                  resolveCurrentTimestamp: selectedMessageIndex,
+                  loadEntries: () async => [
+                    for (int i = 0; i < demo.messages.length; i++)
+                      ChatMessageLocatorPreview(
+                        timestamp: i,
+                        sender: demo.messages[i].user ? 'user' : 'assistant',
+                        previewContent: demo.messages[i].text,
+                        messageIndex: i,
+                      ),
+                  ],
+                  onOpenLocator: messageNavigator,
+                  onLatest: latest,
+                  showLatest: !follow && !focus.hasFocus,
+                  onJump: locate,
+                  onHidden: hideNavigation,
+                  senderName: (sender) =>
+                      sender == 'user' ? '你' : demo.role.name,
+                ),
               ),
             ),
           ),
@@ -560,6 +674,7 @@ class _ChatPageState extends State<ChatPage> {
             child: SizeChangedLayoutNotifier(
               key: _composerMeasureKey,
               child: ChatComposerBackdrop(
+                liveContent: appearance.flag('skymoniGlass'),
                 sceneAnchor: widget.backdropAnchor,
                 topInset: 6,
                 child: Column(
@@ -621,23 +736,22 @@ class _ChatPageState extends State<ChatPage> {
   Widget composer() => Padding(
     key: const ValueKey('chat-composer'),
     padding: EdgeInsets.fromLTRB(
-      appearance.flag('floatingInput') ? 10 : 0,
+      appearance.flag('floatingInput') ? 12 : 0,
       6,
-      appearance.flag('floatingInput') ? 10 : 0,
+      appearance.flag('floatingInput') ? 12 : 0,
       appearance.flag('floatingInput') ? 9 : 0,
     ),
     child: Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        LaunchReveal(
-          part: LaunchPart.composer,
-          radius: appearance.flag('floatingInput') ? 24 : 0,
-          child: ConfigurableGlassSurface(
-            area: 'inputBlur',
-            radius: appearance.flag('floatingInput') ? 24 : 0,
-            child: Container(
-              color: Colors.transparent,
-              padding: const EdgeInsets.fromLTRB(17, 11, 10, 10),
+        if (_module == 0) ...[
+          LaunchReveal(
+            part: LaunchPart.composer,
+            radius: 26,
+            child: MainComposerInputSurface(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   QueuedSendBar(
                     input: input,
@@ -661,6 +775,14 @@ class _ChatPageState extends State<ChatPage> {
                         },
                       ),
                     ),
+                  if (_conversation.draftQuotes.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _quoteBadge(
+                        _conversation.draftQuotes,
+                        draft: true,
+                      ),
+                    ),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -679,6 +801,9 @@ class _ChatPageState extends State<ChatPage> {
                           cursorColor: appearance.textColor('inputText'),
                           style: TextStyle(
                             fontSize: 14,
+                            fontWeight: appearance.flag('skymoniGlass')
+                                ? FontWeight.w500
+                                : null,
                             height: 1.65,
                             color: appearance.textColor('inputText'),
                             fontFamily: appearance.fontFamily('inputFont'),
@@ -689,7 +814,11 @@ class _ChatPageState extends State<ChatPage> {
                             hintStyle: TextStyle(
                               color: appearance
                                   .textColor('inputText')
-                                  .withValues(alpha: .65),
+                                  .withValues(
+                                    alpha: appearance.flag('skymoniGlass')
+                                        ? .8
+                                        : .65,
+                                  ),
                             ),
                             filled: false,
                             border: InputBorder.none,
@@ -703,7 +832,11 @@ class _ChatPageState extends State<ChatPage> {
                         tooltip: '展开输入',
                         onPressed: expandDraft,
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.open_in_full, size: 16, color: muted),
+                        icon: Icon(
+                          Icons.open_in_full,
+                          size: 16,
+                          color: _composerControlInk,
+                        ),
                       ),
                     ],
                   ),
@@ -728,13 +861,22 @@ class _ChatPageState extends State<ChatPage> {
                                   child: Text(
                                     demo.model,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: appearance.flag('skymoniGlass')
+                                          ? appearance.textColor('inputText')
+                                          : null,
+                                      fontWeight:
+                                          appearance.flag('skymoniGlass')
+                                          ? FontWeight.w500
+                                          : null,
+                                    ),
                                   ),
                                 ),
                                 Icon(
                                   Icons.keyboard_arrow_down,
                                   size: 16,
-                                  color: muted,
+                                  color: _composerControlInk,
                                 ),
                               ],
                             ),
@@ -745,13 +887,21 @@ class _ChatPageState extends State<ChatPage> {
                         tooltip: '对话设置',
                         onPressed: () => picker(true),
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.tune, size: 20, color: muted),
+                        icon: Icon(
+                          Icons.tune,
+                          size: 20,
+                          color: _composerControlInk,
+                        ),
                       ),
                       IconButton(
                         tooltip: '添加内容',
                         onPressed: attachments,
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.add, size: 23, color: muted),
+                        icon: Icon(
+                          Icons.add,
+                          size: 23,
+                          color: _composerControlInk,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       sendControl(),
@@ -761,16 +911,19 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ),
-        ),
-        if (appearance.flag('showUsage')) ...[
+          if (appearance.flag('showUsage')) ...[
+            const SizedBox(height: 4),
+            ChatStatusBar(conversation: _conversation),
+          ],
           const SizedBox(height: 6),
-          ChatStatusBar(conversation: demo.conversations[demo.conversation]),
         ],
+        PersonalModuleBar(selected: _module, onSelected: _selectModule),
       ],
     ),
   );
 
   Widget sendControl() => SkiGlassButton(
+    skymoni: true,
     accent: true,
     onPressed: demo.streaming ? demo.stop : send,
     icon: demo.streaming ? Icons.stop_rounded : Icons.arrow_upward,
@@ -780,6 +933,163 @@ class _ChatPageState extends State<ChatPage> {
         ? '暂存这条消息'
         : '发送消息',
   );
+
+  Color get _composerControlInk => appearance.flag('skymoniGlass')
+      ? appearance.textColor('inputText').withValues(alpha: .92)
+      : muted;
+
+  Widget _quoteBadge(List<ChatQuote> quotes, {bool draft = false}) {
+    final foreground = appearance.textColor(draft ? 'inputText' : 'userText');
+    final lightText = foreground.computeLuminance() > .45;
+    return Container(
+      key: draft ? const ValueKey('chat-draft-quote-badge') : null,
+      margin: const EdgeInsets.only(top: 2, bottom: 2),
+      decoration: BoxDecoration(
+        color: lightText
+            ? const Color(0xff1e3045).withValues(alpha: .86)
+            : Colors.white.withValues(alpha: .78),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: foreground.withValues(alpha: .14), width: .6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () => _showQuotes(quotes, draft: draft),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.comment_outlined,
+                    size: 12,
+                    color: foreground.withValues(alpha: .9),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${quotes.length} 条引用',
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.2,
+                      color: foreground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (draft)
+            Tooltip(
+              message: '移除全部引用',
+              child: InkWell(
+                onTap: () => demo.removeDraftQuote(_conversation, null),
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Icon(
+                    Icons.close,
+                    size: 12,
+                    color: foreground.withValues(alpha: .85),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuotes(List<ChatQuote> quotes, {bool draft = false}) {
+    final target = _conversation;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => AnimatedBuilder(
+        animation: demo,
+        builder: (context, _) {
+          final rows = draft ? target.draftQuotes : quotes;
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .7,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '引用内容 · ${rows.length}',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final q in rows)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  q.sender,
+                                  style: TextStyle(fontSize: 12, color: muted),
+                                ),
+                              ),
+                              if (draft)
+                                IconButton(
+                                  tooltip: '移除此条引用',
+                                  onPressed: () => demo.removeDraftQuote(
+                                    target,
+                                    q.messageId,
+                                  ),
+                                  icon: const Icon(Icons.close, size: 17),
+                                ),
+                            ],
+                          ),
+                          SelectableText(
+                            q.text,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.6,
+                              color: ink,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed:
+                                target.id == q.chatId &&
+                                    target.messages.any(
+                                      (m) => m.id == q.messageId,
+                                    )
+                                ? () {
+                                    Navigator.pop(sheetContext);
+                                    _selectModule(0);
+                                    locate(
+                                      target.messages.indexWhere(
+                                        (m) => m.id == q.messageId,
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            child: const Text('定位原文'),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   void expandDraft() {
     final draft = TextEditingController(text: input.text);
@@ -820,73 +1130,86 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget emptyState() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 65, horizontal: 20),
-    child: Column(
-      children: [
-        CircleAvatar(
-          radius: 35,
-          backgroundColor: mist,
-          child: IconButton(
-            tooltip: '编辑角色卡',
-            onPressed: () {
-              demo.editCurrentRole();
-              Navigator.of(context).pushReplacementNamed('/characters/edit');
-            },
-            icon: CharacterAvatar(persona: demo.role, size: 52),
-          ),
-        ),
-        const SizedBox(height: 24),
-        label('你好，我是 ${demo.role.name}', size: 23, weight: FontWeight.w500),
-        const SizedBox(height: 10),
-        label(
-          demo.activeConnection == null
-              ? (demo.useBeta ? '先检查内测状态，继续你的对话。' : '登录中转站或使用自己的模型连接。')
-              : '想聊点什么？我在这里。',
-          size: 13,
-          color: muted,
-        ),
-        if (demo.activeConnection == null) ...[
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: demo.useBeta
-                ? openModels
-                : () => Navigator.of(
-                    context,
-                  ).pushReplacementNamed('/settings/account'),
-            icon: const Icon(Icons.login, size: 18),
-            label: Text(demo.useBeta ? '检查内测状态' : '登录中转站'),
-          ),
-          if (!demo.useBeta) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(
-                context,
-              ).pushReplacementNamed('/settings/models'),
-              icon: const Icon(Icons.hub_outlined, size: 18),
-              label: const Text('连接自己的 API'),
+  Widget emptyState() {
+    final compact = MediaQuery.sizeOf(context).height - _composerExtent < 500;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        compact ? 12 : 65,
+        20,
+        compact ? 20 : 65,
+      ),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: compact ? 28 : 35,
+            backgroundColor: mist,
+            child: IconButton(
+              tooltip: '编辑角色卡',
+              onPressed: () {
+                demo.editCurrentRole();
+                Navigator.of(context).pushReplacementNamed('/characters/edit');
+              },
+              icon: CharacterAvatar(persona: demo.role, size: 52),
             ),
-          ],
-        ],
-        const SizedBox(height: 30),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: [
-            for (final text in ['聊聊今天', '记录一个想法', '一起做个计划'])
-              ActionChip(
-                label: Text(text, style: const TextStyle(fontSize: 11)),
-                onPressed: () {
-                  input.text = text;
-                  focus.requestFocus();
-                },
+          ),
+          SizedBox(height: compact ? 16 : 24),
+          label(
+            '你好，我是 ${demo.role.name}',
+            size: 23,
+            weight: FontWeight.w500,
+            color: sceneInk,
+          ),
+          const SizedBox(height: 10),
+          label(
+            demo.activeConnection == null
+                ? (demo.useBeta ? '先检查内测状态，继续你的对话。' : '登录中转站或使用自己的模型连接。')
+                : '想聊点什么？我在这里。',
+            size: 13,
+            color: sceneMuted,
+          ),
+          if (demo.activeConnection == null) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: demo.useBeta
+                  ? openModels
+                  : () => Navigator.of(
+                      context,
+                    ).pushReplacementNamed('/settings/account'),
+              icon: const Icon(Icons.login, size: 18),
+              label: Text(demo.useBeta ? '检查内测状态' : '登录中转站'),
+            ),
+            if (!demo.useBeta) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushReplacementNamed('/settings/models'),
+                icon: const Icon(Icons.hub_outlined, size: 18),
+                label: const Text('连接自己的 API'),
               ),
+            ],
           ],
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 30),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final text in ['聊聊今天', '记录一个想法', '一起做个计划'])
+                ActionChip(
+                  label: Text(text, style: const TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    input.text = text;
+                    focus.requestFocus();
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> deleteRound(Message message) async {
     final chatId = _conversation.id;
@@ -1002,6 +1325,7 @@ class _ChatPageState extends State<ChatPage> {
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
+        if (m.quotes.isNotEmpty) _quoteBadge(m.quotes),
         bubble,
         if (m.pluginCards.isNotEmpty) CompanionMessageCards(message: m),
         if (m.contextNotice != null)
@@ -1063,12 +1387,12 @@ class _ChatPageState extends State<ChatPage> {
             spacing: 8,
             children: [
               if (appearance.flag('showUser'))
-                label('我', size: 10, color: muted),
+                label('我', size: 10, color: sceneMuted),
               if (appearance.flag('showTime'))
                 label(
                   '${m.created.hour.toString().padLeft(2, '0')}:${m.created.minute.toString().padLeft(2, '0')}',
                   size: 10,
-                  color: muted,
+                  color: sceneMuted,
                 ),
             ],
           ),
@@ -1078,7 +1402,7 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               const SizedBox(width: 4),
               if (appearance.flag('showRole'))
-                label(speaker.name, size: 10, color: muted),
+                label(speaker.name, size: 10, color: sceneMuted),
               if (m.bookmarked) ...[
                 const SizedBox(width: 6),
                 Icon(Icons.bookmark, size: 12, color: green),
@@ -1088,7 +1412,7 @@ class _ChatPageState extends State<ChatPage> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 iconSize: 17,
-                icon: Icon(Icons.more_horiz, color: muted),
+                icon: Icon(Icons.more_horiz, color: sceneMuted),
                 onSelected: (v) async {
                   if (v == 'save') {
                     m.bookmarked = !m.bookmarked;
@@ -1102,10 +1426,9 @@ class _ChatPageState extends State<ChatPage> {
                     demo.regenerate();
                   } else if (v == 'delete-round') {
                     await deleteRound(m);
-                  } else {
-                    input.text = m.text;
+                  } else if (v == 'quote') {
+                    demo.quoteMessage(_conversation, m);
                     focus.requestFocus();
-                    setState(() {});
                   }
                 },
                 itemBuilder: (_) => [
@@ -1136,6 +1459,9 @@ class _ChatPageState extends State<ChatPage> {
               wide: appearance.flag('wideChat'),
               avatar: appearance.flag('avatars') ? avatar : null,
               thinking: hasThinking ? m.thinking : null,
+              thinkingColor: appearance.textColorEnabled('thinkingText')
+                  ? appearance.textColor('thinkingText')
+                  : sceneMuted,
               child: content,
             )
           : Row(

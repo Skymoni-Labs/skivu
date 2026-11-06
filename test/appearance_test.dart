@@ -161,6 +161,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.text('效果预览'));
+      await tester.pumpAndSettle();
       final module = find.byKey(const ValueKey('appearance-module-userText'));
       await tester.ensureVisible(module);
       await tester.tap(
@@ -229,6 +231,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('appearance-tab-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('效果预览'));
     await tester.pumpAndSettle();
     final bubble = find.byKey(const ValueKey('preview-assistant-bubble'));
     final preview = find.byKey(const ValueKey('appearance-chat-preview'));

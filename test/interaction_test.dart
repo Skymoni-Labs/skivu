@@ -79,12 +79,11 @@ void main() {
         ),
         findsOneWidget,
       );
+      final contact = find.byKey(const ValueKey('right-contact-shadow'));
+      expect(contact, findsOneWidget);
       expect(
-        find.ancestor(
-          of: find.byType(WorkspacePanel),
-          matching: find.byType(LiquidGlassShadow),
-        ),
-        findsOneWidget,
+        tester.getRect(contact).right,
+        closeTo(tester.getRect(find.byType(WorkspacePanel)).left, .01),
       );
       final viewport = tester.getRect(find.byType(SkiShell));
       for (final key in ['side-sheet-fill', 'home-sheet-fill']) {
@@ -219,7 +218,7 @@ void main() {
   );
 
   previewTestWidgets(
-    'message navigation appears on scroll, holds a fixed ring center, hides on input',
+    'message navigation shows a fixed ruler only while held and hides on input',
     (tester) async {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1;
@@ -240,32 +239,25 @@ void main() {
       final hold = await tester.startGesture(before);
       await tester.pump(const Duration(milliseconds: 700));
       await tester.pump(const Duration(milliseconds: 200));
-      final ring = find.byKey(const ValueKey('chat-message-dial-ring'));
-      expect(ring, findsOneWidget);
-      final ringCenter = tester.getCenter(ring);
-      final preview = find.byKey(const ValueKey('chat-message-dial-target'));
-      expect(
-        tester.getBottomRight(preview).dy,
-        lessThanOrEqualTo(tester.getTopLeft(ring).dy - 12),
-      );
+      final ruler = find.byKey(const ValueKey('chat-message-ruler'));
+      expect(ruler, findsOneWidget);
+      final track = tester.getRect(ruler);
+      final preview = find.byKey(const ValueKey('chat-message-ruler-target'));
+      expect(tester.getRect(preview).right, lessThanOrEqualTo(track.left - 8));
       await hold.moveBy(const Offset(-20, -30));
       await tester.pump();
-      expect((tester.getCenter(ring) - ringCenter).distance, lessThan(1));
+      expect(tester.getRect(ruler), track);
       await hold.up();
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('chat-message-dial-ring')),
-        findsNothing,
-      );
+      expect(find.byKey(const ValueKey('chat-message-ruler')), findsNothing);
       await tester.pump(const Duration(milliseconds: 1300));
       await tester.drag(find.byType(ListView).first, const Offset(0, -90));
       await tester.pump(const Duration(milliseconds: 100));
       if (button.evaluate().isNotEmpty) {
         await tester.tap(button);
         await tester.pumpAndSettle();
-        expect(find.text('消息定位'), findsOneWidget);
-        Navigator.of(tester.element(find.text('消息定位'))).pop();
-        await tester.pumpAndSettle();
+        expect(find.text('消息定位'), findsNothing);
+        expect(ruler, findsNothing);
       }
       await tester.tap(find.byType(TextField).first);
       await tester.pump();

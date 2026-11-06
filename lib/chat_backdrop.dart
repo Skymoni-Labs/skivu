@@ -177,12 +177,17 @@ class ChatComposerBackdrop extends StatelessWidget {
     required this.child,
     this.topInset = 0,
     this.sceneAnchor,
+    this.liveContent = false,
   });
   final Widget child;
   final double topInset;
   final GlobalKey? sceneAnchor;
+
+  /// Let a live glass input sample scrolling messages instead of covering them.
+  final bool liveContent;
   @override
   Widget build(BuildContext context) {
+    if (liveContent) return child;
     final source = ChatBackdropScope.maybeOf(context);
     final image = source?.wallpaperImage;
     if (source == null || image == null) return child;

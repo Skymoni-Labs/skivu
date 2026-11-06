@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ski/appearance.dart';
 import 'package:ski/chat_api.dart';
+import 'package:ski/chat_quote.dart';
 import 'package:ski/native_social_chat_widgets.dart';
 import 'package:ski/native_social_media_preview.dart';
 import 'package:ski/native_social_portrait.dart';
@@ -31,6 +32,7 @@ class _PresenterStore extends DemoStore {
     bool immediate = false,
     String? imageData,
     bool described = false,
+    List<ChatQuote> quotes = const [],
   }) {
     sendModes.add(streamingOverride);
     return super.send(
@@ -41,6 +43,7 @@ class _PresenterStore extends DemoStore {
       immediate: immediate,
       imageData: imageData,
       described: described,
+      quotes: quotes,
     );
   }
 

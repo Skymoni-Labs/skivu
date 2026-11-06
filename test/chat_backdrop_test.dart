@@ -12,6 +12,86 @@ import 'package:ski/drawer_motion.dart';
 import 'glass_preferences_test.dart' show MemoryGlassPreferences;
 
 void main() {
+  testWidgets(
+    'live composer leaves moving content visible even with a captured wallpaper',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final source = ChatBackdropController();
+      final capture = GlobalKey();
+      final color = ValueNotifier<Color>(Colors.red);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: capture,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                RepaintBoundary(
+                  key: source.backgroundKey,
+                  child: const ColoredBox(color: Colors.black),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 140,
+                  child: ValueListenableBuilder<Color>(
+                    valueListenable: color,
+                    builder: (_, value, _) => ColoredBox(color: value),
+                  ),
+                ),
+                ChatBackdropScope(
+                  controller: source,
+                  child: const Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ChatComposerBackdrop(
+                      liveContent: true,
+                      child: SizedBox(width: 320, height: 140),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => source.capture(revision: 'live', enabled: true, radii: {}),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-wallpaper-plane')),
+        findsNothing,
+      );
+      Future<List<int>> sample() async => (await tester.runAsync(() async {
+        final image =
+            await (capture.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary)
+                .toImage(pixelRatio: 1);
+        try {
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          return List.generate(
+            3,
+            (c) => bytes.getUint8((500 * 320 + 40) * 4 + c),
+          );
+        } finally {
+          image.dispose();
+        }
+      }))!;
+    expect(await sample(), [244, 67, 54]);
+      color.value = Colors.blue;
+      await tester.pumpAndSettle();
+      expect(await sample(), [33, 150, 243]);
+      await tester.pumpWidget(const SizedBox());
+      source.dispose();
+      color.dispose();
+    },
+  );
   testWidgets('composer cover fades before the rim without a hard avatar cut', (
     tester,
   ) async {

@@ -18,6 +18,7 @@ import 'open_plugin.dart';
 import 'open_plugin_companion.dart';
 import 'open_plugin_runtime.dart';
 import 'open_plugin_network.dart';
+import 'chat_quote.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -27,13 +28,23 @@ Color get paper => Color.lerp(green, Colors.white, .965)!;
 Color get muted => appearance.textColorEnabled('interfaceText')
     ? appearance.textColor('interfaceText')
     : const Color(0xff39434f);
+Color get sceneInk => ink;
+Color get sceneMuted => muted;
+Color get sceneAccent => green;
 int _localSequence = 0;
 String _localId(String kind) =>
     '$kind-${DateTime.now().microsecondsSinceEpoch}-${_localSequence++}';
 
 class Message {
-  Message(this.user, this.text, {this.bookmarked = false, DateTime? created})
-    : created = created ?? DateTime.now();
+  Message(
+    this.user,
+    this.text, {
+    this.bookmarked = false,
+    DateTime? created,
+    String? id,
+  }) : id = id ?? _localId('message'),
+       created = created ?? DateTime.now();
+  final String id;
   final bool user;
   String text;
   bool bookmarked;
@@ -50,19 +61,26 @@ class Message {
   String? stickerId, turnId, imageData;
   bool described = false;
   List<Map<String, dynamic>> pluginCards = [];
-  String get modelText => switch (kind) {
-    'voice' => '${described ? '[用户描述的一条语音，内容]' : '[用户发来的语音，转写内容]'} $text',
-    'photo' => '[用户描述的一张照片] $text',
-    'image' => '[用户上传的照片] $text',
-    'sticker' => '[用户发送表情包：$text]',
-    _ => text,
-  };
+  List<ChatQuote> quotes = [];
+  String get modelText {
+    final body = switch (kind) {
+      'voice' => '${described ? '[用户描述的一条语音，内容]' : '[用户发来的语音，转写内容]'} $text',
+      'photo' => '[用户描述的一张照片] $text',
+      'image' => '[用户上传的照片] $text',
+      'sticker' => '[用户发送表情包：$text]',
+      _ => text,
+    };
+    if (quotes.isEmpty) return body;
+    return '${quotes.asMap().entries.map((e) => '［引用 ${e.key + 1} · ${e.value.sender}］\n${e.value.text}\n［引用结束］').join('\n\n')}\n\n［本条消息］\n$body';
+  }
+
   Map<String, String> get apiMessage => {
     'role': user ? 'user' : 'assistant',
     'content': modelText,
     if (imageData != null) 'image': imageData!,
   };
   Map<String, dynamic> toJson() => {
+    'id': id,
     'user': user,
     'text': text,
     'bookmarked': bookmarked,
@@ -84,6 +102,7 @@ class Message {
     'imageData': imageData,
     'described': described,
     'pluginCards': pluginCards,
+    'quotes': quotes.map((q) => q.toJson()).toList(),
   };
   factory Message.fromJson(Map<String, dynamic> raw) =>
       Message(
@@ -91,7 +110,11 @@ class Message {
           raw['text'] as String,
           bookmarked: raw['bookmarked'] as bool? ?? false,
           created: DateTime.tryParse(raw['created'] as String? ?? ''),
+          id: raw['id'] is String && (raw['id'] as String).isNotEmpty
+              ? raw['id']
+              : null,
         )
+        ..quotes = ChatQuote.parseList(raw['quotes'])
         ..requestStreaming = raw['requestStreaming'] is bool
             ? raw['requestStreaming']
             : null
@@ -251,6 +274,7 @@ class Conversation {
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
+  List<ChatQuote> draftQuotes = [];
   int draftRevision = 0;
   List<Map<String, dynamic>> interactions = [];
   Set<String> hiddenInteractions = {};
@@ -273,6 +297,7 @@ class Conversation {
     'messages': messages.map((m) => m.toJson()).toList(),
     'usedTokens': usedTokens,
     'draft': draft,
+    'draftQuotes': draftQuotes.map((q) => q.toJson()).toList(),
     'interactions': interactions,
     'hiddenInteractions': hiddenInteractions.toList(),
     'interactionsClearedAt': interactionsClearedAt?.toIso8601String(),
@@ -307,6 +332,9 @@ class Conversation {
         ..usedTokens = raw['usedTokens'] as int? ?? 0
         ..confirmBeforeReply = raw['confirmBeforeReply'] == true
         ..draft = raw['draft'] as String? ?? ''
+        ..draftQuotes = ChatQuote.parseList(
+          raw['draftQuotes'],
+        ).where((q) => q.chatId == raw['id']).toList()
         ..interactions =
             (raw['interactions'] is List ? raw['interactions'] as List : [])
                 .whereType<Map>()
@@ -963,6 +991,37 @@ class DemoStore extends ChangeNotifier {
     _saveSoon();
   }
 
+  void quoteMessage(Conversation target, Message source) {
+    if (!conversations.contains(target) || !target.messages.contains(source))
+      return;
+    final speaker = personas
+        .where((p) => p.id == (source.authorId ?? target.personaId))
+        .firstOrNull;
+    target.draftQuotes.removeWhere((q) => q.messageId == source.id);
+    target.draftQuotes.add(
+      ChatQuote(
+        chatId: target.id,
+        messageId: source.id,
+        sender: source.user ? '我' : speaker?.name ?? '回复',
+        text: source.text,
+      ),
+    );
+    target.placeholder = false;
+    target.draftRevision++;
+    changed();
+    saveChats();
+  }
+
+  void removeDraftQuote(Conversation target, String? messageId) {
+    if (!conversations.contains(target)) return;
+    target.draftQuotes.removeWhere(
+      (q) => messageId == null || q.messageId == messageId,
+    );
+    target.draftRevision++;
+    changed();
+    saveChats();
+  }
+
   Future<void> clearChats() async {
     if (_archiveTransaction) throw StateError('聊天记录操作正在进行');
     _archiveTransaction = true;
@@ -1218,6 +1277,7 @@ class DemoStore extends ChangeNotifier {
     bool immediate = false,
     String? imageData,
     bool described = false,
+    List<ChatQuote> quotes = const [],
   }) {
     if (input.trim().isEmpty || streaming) return false;
     if (!['text', 'voice', 'photo', 'image', 'sticker'].contains(kind) ||
@@ -1225,6 +1285,16 @@ class DemoStore extends ChangeNotifier {
         (kind == 'sticker' && stickerFor(stickerId)?.active != true))
       return false;
     final target = conversations[conversation];
+    final outgoingQuotes = List<ChatQuote>.of(
+      quotes.where((q) => q.chatId == target.id),
+    );
+    void consumeQuotes() {
+      final sentIds = outgoingQuotes.map((q) => q.messageId).toSet();
+      final previous = target.draftQuotes.length;
+      target.draftQuotes.removeWhere((q) => sentIds.contains(q.messageId));
+      if (previous != target.draftQuotes.length) target.draftRevision++;
+    }
+
     if (immediate && target.queuedMessages.isNotEmpty) {
       lastError = '请先确认或移除待发送消息。';
       changed();
@@ -1246,9 +1316,11 @@ class DemoStore extends ChangeNotifier {
           ..stickerId = stickerId
           ..imageData = imageData
           ..described = described
+          ..quotes = outgoingQuotes
           ..status = 'queued',
       );
       target.placeholder = false;
+      consumeQuotes();
       lastError = null;
       changed();
       saveChats();
@@ -1272,9 +1344,11 @@ class DemoStore extends ChangeNotifier {
         ..stickerId = stickerId
         ..imageData = imageData
         ..described = described
+        ..quotes = outgoingQuotes
         ..turnId = _localId('turn'),
     );
     conversations[conversation].placeholder = false;
+    consumeQuotes();
     if (!conversations[conversation].titleEdited &&
         messages.where((m) => m.user).length == 1)
       conversations[conversation].title = input.trim().length > 14
