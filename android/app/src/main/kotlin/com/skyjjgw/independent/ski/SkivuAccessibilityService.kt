@@ -81,12 +81,14 @@ class SkivuAccessibilityService : AccessibilityService() {
             "windowId" to observedWindow, "elements" to rows)
     }
 
-    fun act(tool: String, args: Map<String, Any?>, allowed: Set<String>): Boolean {
+    fun act(tool: String, args: Map<String, Any?>, allowed: Set<String>, beforeDispatch: () -> Unit): Boolean {
         val root = current(allowed)
         val matches = root.packageName?.toString() == observedPackage && root.windowId == observedWindow
         @Suppress("DEPRECATION") root.recycle()
         if (tool == "ui.back" || tool == "ui.home") {
+            require(args.isEmpty()) { "界面动作参数无效。" }
             clearObservation()
+            beforeDispatch()
             return performGlobalAction(if (tool == "ui.back") GLOBAL_ACTION_BACK else GLOBAL_ACTION_HOME)
         }
         require(observation.isNotEmpty() && args["observationId"] == observation && matches &&
@@ -104,16 +106,18 @@ class SkivuAccessibilityService : AccessibilityService() {
             "系统权限管理页面由用户操作；请使用明确的系统接口修改设置。"
         }
         val result = when (tool) {
-            "ui.tap" -> node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            "ui.tap" -> { beforeDispatch(); node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
             "ui.input" -> {
                 val text = args["text"] as? String ?: error("缺少输入文字。")
                 require(text.length <= 12000 && !text.contains('\u0000') && node.isEditable)
+                beforeDispatch()
                 node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
                     putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
                 })
             }
             "ui.scroll" -> {
                 require(args["direction"] in listOf("forward", "backward"))
+                beforeDispatch()
                 node.performAction(if (args["direction"] == "forward") AccessibilityNodeInfo.ACTION_SCROLL_FORWARD else AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
             }
             else -> error("不支持的界面操作。")

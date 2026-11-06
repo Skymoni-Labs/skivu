@@ -30,6 +30,7 @@ private const val TAG = "AdbClient"
 class AdbClient(private val host: String, private val port: Int, private val key: AdbKey,
                 private val requireTls: Boolean = true) : Closeable {
     private val closed = java.util.concurrent.atomic.AtomicBoolean(false)
+    val serverPeerPin get() = key.observedPeerPin
 
     private lateinit var socket: Socket
     private lateinit var plainInputStream: DataInputStream
@@ -123,7 +124,7 @@ class AdbClient(private val host: String, private val port: Int, private val key
 
     /** Feed a script through stdin, not a shell-quoted command-line wrapper. */
     fun executeScript(command: String, timeoutMs: Int = 30000): ShellV2Result {
-        require(command.toByteArray().size <= 32768 && !command.contains('\u0000'))
+        require(command.toByteArray().size <= 65536 && !command.contains('\u0000'))
         require(timeoutMs in 1000..600000)
         socket.soTimeout = timeoutMs + 3000
         if (useTls) tlsSocket.soTimeout = timeoutMs + 3000

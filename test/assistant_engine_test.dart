@@ -135,11 +135,98 @@ void main() {
         '{"type":"call","tool":"clock.alarms.show","arguments":{},"message":"show"}',
       );
       await run;
+      await Future<void>.delayed(Duration.zero);
       expect(a.phase, 'stopped');
-      expect(calls, 1);
+      expect(calls, 0);
       expect(a.pending, isNull);
     },
   );
+  test('stop waits for its own request and retains uncertain shutdown', () async {
+    final executing = Completer<void>(),
+        stopped = Completer<Map<String, dynamic>>();
+    final result = Completer<Map<String, dynamic>>();
+    var invokes = 0, cancels = 0;
+    late String ownedRequest;
+    final a = assistant(
+      DeviceEngine(
+        transport: (method, args) async {
+          if (method == 'status')
+            return {'enabled': true, 'shell': true, 'shellConnected': true};
+          if (method == 'invoke') {
+            invokes++;
+            ownedRequest = args['requestId'] as String;
+            executing.complete();
+            return result.future;
+          }
+          expect(method, 'cancelRequest');
+          expect(args['owner'], startsWith('assistant:cloud_'));
+          expect(args['requestId'], ownedRequest);
+          cancels++;
+          return stopped.future;
+        },
+      ),
+      (_, __) async =>
+          '{"type":"call","tool":"shell.execute","arguments":{"command":"sleep 45"},"message":"run"}',
+    );
+    final run = a.send('test stop');
+    await executing.future;
+    final stop = a.stop();
+    final again = a.stop();
+    await Future<void>.delayed(Duration.zero);
+    expect(a.phase, 'stopping');
+    await a.send('must not start while stopping');
+    expect(invokes, 1);
+    stopped.complete({'outcome': 'unknown'});
+    await Future.wait([stop, again]);
+    expect(cancels, 1);
+    expect(a.phase, 'unknown');
+    result.complete({
+      'requestId': ownedRequest,
+      'outcome': 'verified',
+      'summary': 'late',
+    });
+    await run;
+    expect(a.phase, 'unknown');
+  });
+  test('a journal failure cannot prevent an in-flight cancellation', () async {
+    final started = Completer<void>(),
+        result = Completer<Map<String, dynamic>>();
+    var failSaving = false, cancelled = false;
+    late String id;
+    final a = assistant(
+      DeviceEngine(
+        transport: (method, args) async {
+          if (method == 'status')
+            return {'enabled': true, 'shell': true, 'shellConnected': true};
+          if (method == 'invoke') {
+            id = args['requestId'] as String;
+            started.complete();
+            return result.future;
+          }
+          expect(method, 'cancelRequest');
+          cancelled = true;
+          return {'outcome': 'cancelled'};
+        },
+      ),
+      (_, __) async =>
+          '{"type":"call","tool":"shell.execute","arguments":{"command":"sleep 45"},"message":"run"}',
+      write: (_) async {
+        if (failSaving) throw StateError('storage unavailable');
+      },
+    );
+    final run = a.send('stop even when journal fails');
+    await started.future;
+    failSaving = true;
+    await a.stop();
+    expect(cancelled, true);
+    expect(a.phase, 'stopped');
+    result.complete({
+      'requestId': id,
+      'outcome': 'verified',
+      'summary': 'late',
+    });
+    await run;
+  });
   test('rejects forged ownership and invalid arguments before transport', () async {
     var calls = 0;
     final a = assistant(

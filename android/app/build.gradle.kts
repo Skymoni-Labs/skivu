@@ -48,6 +48,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -64,3 +65,7 @@ flutter {
 }
 dependencies { implementation(project(":skymoni_glass")) }
 dependencies { implementation(project(":embedded_adb")) }
+dependencies {
+    androidTestImplementation("androidx.test:runner:1.2.0")
+    androidTestImplementation("junit:junit:4.12")
+}

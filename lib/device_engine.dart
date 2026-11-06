@@ -66,8 +66,10 @@ class DeviceEngine {
 
   Future<Map<String, dynamic>> pair(int port, String code) =>
       _transport('adb.pair', {'port': port, 'code': code});
-  Future<Map<String, dynamic>> connect(int port) =>
-      _transport('adb.connect', {'port': port});
+  Future<Map<String, dynamic>> startPairingNotification() =>
+      _transport('pairing.start', {});
+  Future<Map<String, dynamic>> connect(int port, {bool trustPeer = false}) =>
+      _transport('adb.connect', {'port': port, 'trustPeer': trustPeer});
   Future<Map<String, dynamic>> disconnect() => _transport('adb.stop', {});
   Future<Map<String, dynamic>> stop() => _transport('stop', {});
   Future<Map<String, dynamic>> cancelRequest(String owner, String requestId) =>

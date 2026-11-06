@@ -24,6 +24,71 @@ void main() {
   }
 
   test(
+    'a cancel frame bypasses a running DSH call and cannot target another scope',
+    () async {
+      final (registry, record) = setup(['device.observe']);
+      final reply = Completer<Map<String, dynamic>>();
+      final cancelled = Completer<void>();
+      var cancellations = 0;
+      final scope = DeviceEngineScope(
+        engine: DeviceEngine(
+          transport: (method, args) async {
+            if (method == 'invoke') return reply.future;
+            expect(method, 'cancelRequest');
+            expect(args['owner'], devicePluginOwner(record));
+            expect(args['requestId'], 'owned_read');
+            cancellations++;
+            cancelled.complete();
+            reply.complete({
+              'requestId': 'owned_read',
+              'outcome': 'unknown',
+              'summary': 'interrupted',
+            });
+            return {'outcome': 'cancelled'};
+          },
+        ),
+      );
+      final other = await scope.call(registry, record, 'device.engine.cancel', {
+        'requestId': 'someone_else',
+      });
+      expect((other as Map)['outcome'], 'cancelled');
+      expect(cancellations, 0);
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (method, args) => scope.call(registry, record, method, args),
+      );
+      final gateway = LocalRuntimeDeviceGateway(bridge);
+      final input = StreamController<List<int>>();
+      final responses = <Map>[];
+      final serving = gateway.serve(input.stream, (bytes) async {
+        responses.add(jsonDecode(utf8.decode(bytes)) as Map);
+      });
+      input.add(
+        utf8.encode(
+          '${jsonEncode({
+            'id': '1',
+            'method': 'device.engine.invoke',
+            'params': {'tool': 'settings.brightness.read', 'arguments': {}, 'requestId': 'owned_read'},
+          })}\n${jsonEncode({
+            'id': '2',
+            'method': 'device.engine.cancel',
+            'params': {'requestId': 'owned_read'},
+          })}\n',
+        ),
+      );
+      await cancelled.future.timeout(const Duration(seconds: 2));
+      await Future<void>.delayed(Duration.zero);
+      expect(cancellations, 1);
+      expect(responses.map((r) => r['id']).toSet(), {'1', '2'});
+      await input.close();
+      await serving;
+      scope.close();
+      bridge.close();
+    },
+  );
+
+  test(
     'a plugin cannot obtain system/shell access through a generic invoke method',
     () async {
       final (registry, record) = setup(['device.observe']);

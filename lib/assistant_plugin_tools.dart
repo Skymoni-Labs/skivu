@@ -13,6 +13,7 @@ class AssistantPluginTools implements AssistantExtensions {
   }
   final OpenPluginRegistry registry;
   final active = <OpenPluginRuntime, OpenPluginRecord>{};
+  final activeScopes = <OpenPluginRuntime, DeviceEngineScope>{};
   void dispose() {
     registry.removeListener(_changed);
     cancel();
@@ -27,10 +28,19 @@ class AssistantPluginTools implements AssistantExtensions {
   }
 
   @override
-  void cancel() {
+  Future<Map<String, dynamic>> cancel() async {
+    final scopes = activeScopes.values.toList();
     for (final runtime in active.keys.toList()) {
       runtime.cancel();
     }
+    final results = await Future.wait([
+      for (final scope in scopes) scope.closeAndWait(),
+    ]);
+    return {
+      'outcome': results.expand((r) => r).any((r) => r['outcome'] == 'unknown')
+          ? 'unknown'
+          : 'cancelled',
+    };
   }
 
   Iterable<OpenPluginRecord> get records => registry.records.values.where(
@@ -97,6 +107,7 @@ class AssistantPluginTools implements AssistantExtensions {
       ),
     );
     active[runtime] = record;
+    activeScopes[runtime] = scope;
     try {
       final result = await runtime.run(parts[1], args);
       guard();
@@ -113,6 +124,7 @@ class AssistantPluginTools implements AssistantExtensions {
       });
     } finally {
       active.remove(runtime);
+      activeScopes.remove(runtime);
     }
   }
 }

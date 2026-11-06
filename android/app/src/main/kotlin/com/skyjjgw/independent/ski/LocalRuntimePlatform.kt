@@ -44,6 +44,8 @@ class LocalRuntimePlatform(private val context: Activity) {
         val descriptors = mutableListOf<ParcelFileDescriptor>()
         val views = mutableListOf<WebView>()
         val stopResults = mutableListOf<MethodChannel.Result>()
+        val exchanges = java.util.concurrent.ConcurrentHashMap.newKeySet<CountDownLatch>()
+        val brokerWorkers = mutableListOf<java.util.concurrent.ExecutorService>()
     }
 
     fun register(messenger: BinaryMessenger, registry: PlatformViewRegistry) {
@@ -250,10 +252,38 @@ class LocalRuntimePlatform(private val context: Activity) {
     }
 
     private fun broker(s: Session, fd: ParcelFileDescriptor, kind: String, limit: Int) {
+        // A cancellation frame must not wait behind its own running script.
+        val workers = if (kind == "device") java.util.concurrent.Executors.newFixedThreadPool(16) { action ->
+            Thread(action, "Skivu device exchange").apply { isDaemon = true }
+        }.also { s.brokerWorkers.add(it) } else null
+        val normalSlots = java.util.concurrent.Semaphore(8)
+        val cancelSlots = java.util.concurrent.Semaphore(8)
         Thread {
             try {
                 val input = BufferedInputStream(FileInputStream(fd.fileDescriptor),65536)
                 val output = FileOutputStream(fd.fileDescriptor)
+                fun exchange(text: String): () -> Unit {
+                    val latch = CountDownLatch(1)
+                    s.exchanges.add(latch)
+                    val answer = AtomicReference<String?>()
+                    // Dispatch in stream order; only waiting/writing is concurrent.
+                    main.post { if (active === s && !s.closing) {
+                        channel.invokeMethod(kind, mapOf("sessionId" to s.id, "frame" to text), object : MethodChannel.Result {
+                            override fun success(value: Any?) { answer.set(value as? String); latch.countDown() }
+                            override fun error(code: String, message: String?, details: Any?) { latch.countDown() }
+                            override fun notImplemented() { latch.countDown() }
+                        })
+                    } else latch.countDown() }
+                    return { try {
+                        if (!latch.await(if (kind == "device") 660 else 180, TimeUnit.SECONDS)) throw IOException("broker timeout")
+                        val bytes = (answer.get() ?: throw IOException("broker closed")).toByteArray(Charsets.UTF_8)
+                        require(bytes.size <= limit)
+                        synchronized(output) {
+                            check(active === s && !s.closing)
+                            output.write(bytes); output.write(10); output.flush()
+                        }
+                    } finally { s.exchanges.remove(latch) } }
+                }
                 while (active === s && !s.closing) {
                     val frame = ByteArrayOutputStream()
                     while (true) {
@@ -263,20 +293,18 @@ class LocalRuntimePlatform(private val context: Activity) {
                         if (frame.size() >= limit) throw IOException("frame limit")
                         frame.write(byte)
                     }
-                    val latch = CountDownLatch(1)
-                    val answer = AtomicReference<String?>()
-                    main.post { if (active === s && !s.closing) {
-                        channel.invokeMethod(kind, mapOf("sessionId" to s.id, "frame" to frame.toString("UTF-8")), object : MethodChannel.Result {
-                            override fun success(value: Any?) { answer.set(value as? String); latch.countDown() }
-                            override fun error(code: String, message: String?, details: Any?) { latch.countDown() }
-                            override fun notImplemented() { latch.countDown() }
-                        })
-                    } else latch.countDown() }
-                    if (!latch.await(180, TimeUnit.SECONDS)) throw IOException("broker timeout")
-                    val response = answer.get() ?: throw IOException("broker closed")
-                    val bytes = response.toByteArray(Charsets.UTF_8)
-                    if (bytes.size > limit || active !== s || s.closing) throw IOException("response limit")
-                    output.write(bytes); output.write(10); output.flush()
+                    val text = frame.toString("UTF-8")
+                    if (workers == null) exchange(text).invoke() else {
+                        val cancellation = runCatching { org.json.JSONObject(text).optString("method") == "device.engine.cancel" }.getOrDefault(false)
+                        val slots = if (cancellation) cancelSlots else normalSlots
+                        check(slots.tryAcquire()) { "device broker busy" }
+                        val awaitReply = exchange(text)
+                        workers.execute {
+                            try { awaitReply() }
+                            catch (_: Exception) { main.post { disconnected(s) } }
+                            finally { slots.release() }
+                        }
+                    }
                 }
             } catch (_: Exception) { main.post { disconnected(s) } }
         }.apply { name = "Skivu runtime $kind"; isDaemon = true; start() }
@@ -345,6 +373,8 @@ class LocalRuntimePlatform(private val context: Activity) {
         if (result != null) s.stopResults.add(result)
         if (s.closing) return
         s.closing = true
+        s.exchanges.forEach { it.countDown() }
+        s.brokerWorkers.forEach { it.shutdownNow() }; s.brokerWorkers.clear()
         s.descriptors.forEach { runCatching { it.close() } }; s.descriptors.clear()
         s.views.forEach { it.stopLoading(); it.loadUrl("about:blank") }
         s.result?.error("CANCELLED", "运行环境已关闭。", null); s.result = null

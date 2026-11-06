@@ -50,7 +50,7 @@ const openPluginPermissions = <String, String>{
   'prompt': '向所选角色的后续对话贡献提示词',
   'clipboard': '读取和写入系统剪贴板',
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
-  'device.observe': '连接你批准的设备伴侣，并读取任务软件的文字界面',
+  'device.observe': '读取已授权的手机状态、软件清单和任务界面；不会自动开启系统权限',
   'device.control': '在你批准的真实手机任务中点击、输入、滑动和切换所选软件',
   'device.system': '通过 Skivu 内置接口调用已授权的系统功能，例如手机时钟和系统设置',
   'device.shell': '通过 Skivu 中已单独启用的 shell/root 后端执行命令；不自动取得或扩大系统权限',

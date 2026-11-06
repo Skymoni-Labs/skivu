@@ -136,7 +136,11 @@ class OpenPluginRuntime with WidgetsBindingObserver {
           }
         }
         if (!reads.contains(method) &&
-            !(assistant && method == 'device.engine.catalog') &&
+            !(assistant &&
+                {
+                  'device.engine.catalog',
+                  'device.engine.cancel',
+                }.contains(method)) &&
             !allowedDeviceCall &&
             !(effect == 'write' && writes.contains(method)) &&
             !(effect == 'external' && method == 'ui.openExternal'))

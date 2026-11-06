@@ -15,16 +15,20 @@ class DeviceEngineScope {
   final DeviceEngine engine;
   final calls = <Object, (String, String)>{};
   bool closed = false;
+  Future<List<Map<String, dynamic>>>? _shutdown;
   void close() {
-    if (closed) return;
+    unawaited(closeAndWait());
+  }
+
+  Future<List<Map<String, dynamic>>> closeAndWait() => _shutdown ??= _close();
+  Future<List<Map<String, dynamic>>> _close() async {
     closed = true;
-    for (final entry in calls.entries.toList()) {
-      unawaited(
+    return Future.wait([
+      for (final entry in calls.entries.toList())
         engine
             .cancelRequest(entry.value.$1, entry.value.$2)
-            .catchError((_) => <String, dynamic>{}),
-      );
-    }
+            .catchError((_) => <String, dynamic>{'outcome': 'unknown'}),
+    ]);
   }
 
   Future<Object?> call(
@@ -40,6 +44,17 @@ class DeviceEngineScope {
     }
 
     check();
+    if (method == 'device.engine.cancel') {
+      if (params.length != 1 || params['requestId'] is! String) {
+        throw const PluginApiError('INVALID_ARGUMENT', '取消请求编号无效。');
+      }
+      final owned = calls.values
+          .where((call) => call.$2 == params['requestId'])
+          .firstOrNull;
+      return owned == null
+          ? {'outcome': 'cancelled', 'summary': '本会话没有这个正在执行的请求，已生效的操作请核对。'}
+          : engine.cancelRequest(owned.$1, owned.$2);
+    }
     final normalized = Map<String, dynamic>.from(params);
     final id = method == 'device.engine.invoke'
         ? normalized.putIfAbsent(

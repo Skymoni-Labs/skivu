@@ -26,6 +26,7 @@ class LocalRuntimeDeviceGateway {
   static const methods = <String>{
     'device.engine.catalog',
     'device.engine.invoke',
+    'device.engine.cancel',
     'device.discover',
     'device.connect',
     'device.status',
@@ -60,8 +61,8 @@ class LocalRuntimeDeviceGateway {
   }
 
   /// Consume newline-delimited UTF-8 frames from a host-owned local transport.
-  /// Sequential dispatch bounds outstanding device operations and preserves
-  /// request order. The caller owns connection lifetime and authentication.
+  /// Requests start in stream order; bounded concurrent replies let a Stop
+  /// frame reach a running request. The caller owns lifetime and authentication.
   /// A malformed or oversized frame terminates the transport; it is never
   /// passed to the plugin bridge.
   Future<void> serve(
@@ -72,8 +73,9 @@ class LocalRuntimeDeviceGateway {
     StreamSubscription<List<int>>? subscription;
     var frame = BytesBuilder(copy: false);
     var queued = 0;
+    var cancellations = 0;
     var ended = false;
-    Future<void> tail = Future<void>.value();
+    Future<void> sendTail = Future<void>.value();
 
     void finish([Object? error, StackTrace? stack]) {
       if (ended) return;
@@ -91,10 +93,6 @@ class LocalRuntimeDeviceGateway {
     }
 
     void enqueue(List<int> bytes) {
-      if (++queued > maxQueuedFrames) {
-        finish(const FormatException('Too many queued device frames'));
-        return;
-      }
       late final String text;
       try {
         text = utf8.decode(bytes);
@@ -102,14 +100,34 @@ class LocalRuntimeDeviceGateway {
         finish(error, stack);
         return;
       }
-      tail = tail
-          .then<void>((_) async {
-            if (ended) return;
-            final reply = await handle(text);
-            if (!ended) await send(utf8.encode('$reply\n'));
-            queued--;
-          })
-          .catchError((Object error, StackTrace stack) => finish(error, stack));
+      var cancellation = false;
+      try {
+        cancellation =
+            (jsonDecode(text) as Map)['method'] == 'device.engine.cancel';
+      } catch (_) {}
+      if (cancellation
+          ? ++cancellations > maxQueuedFrames
+          : ++queued > maxQueuedFrames) {
+        finish(const FormatException('Too many queued device frames'));
+        return;
+      }
+      unawaited(
+        handle(text)
+            .then<void>((reply) async {
+              sendTail = sendTail.then((_) async {
+                if (!ended) await send(utf8.encode('$reply\n'));
+              });
+              await sendTail;
+              if (cancellation) {
+                cancellations--;
+              } else {
+                queued--;
+              }
+            })
+            .catchError(
+              (Object error, StackTrace stack) => finish(error, stack),
+            ),
+      );
     }
 
     subscription = input.listen(

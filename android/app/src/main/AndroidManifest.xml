@@ -56,6 +56,9 @@
         <service android:name=".EmbeddedTaskService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started independent assistant task on explicitly authorized Android apps, with a stop notification" />
         </service>
+        <service android:name=".EmbeddedPairingService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-requested local wireless-debugging pairing via a visible notification with inline code input and stop control" />
+        </service>
         <receiver android:name=".RuntimePackageInstallReceiver" android:exported="false" />
         <service android:name=".DeviceTaskService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started, time-bounded AI assistance on selected local apps through an explicitly paired accessibility companion, with visible task status and stop control" />

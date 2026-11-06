@@ -19,6 +19,8 @@
     "Removed sensitive debug logs",
     "Socket timeouts and frame-size checks",
     "App-private encrypted key storage",
+    "Separate pairing proof and command-server public-key pin; explicit first-peer trust in host UI",
+    "Shell-v2 stdin framing and actual exit parsing; Skivu-owned process-group cancellation",
     "Dependency simplification; subsequent audited changes are in Git"
   ]
 }

@@ -17,7 +17,7 @@ abstract class AssistantExtensions {
     String requestId,
     void Function() check,
   );
-  void cancel();
+  Future<Map<String, dynamic>> cancel();
 }
 
 /// A conversation owns the loop; leaving its view does not invent a new task.
@@ -61,10 +61,11 @@ class AssistantEngine extends ChangeNotifier {
   String? lastModelResponse;
   bool loaded = false;
   bool _starting = false, journalError = false;
-  bool get running => phase == 'thinking' || phase == 'executing';
+  bool get running => {'thinking', 'executing', 'stopping'}.contains(phase);
   bool get canResume => phase == 'permission';
   Future<void> _saveTail = Future.value();
   Future<void>? _restoring;
+  Future<void>? _stopping;
   Future<void> save() {
     if (journalError) throw StateError('存档未能恢复，未覆盖原记录。');
     final raw = jsonEncode({
@@ -107,7 +108,7 @@ class AssistantEngine extends ChangeNotifier {
         pending = null;
         messages.add({'role': 'assistant', 'content': '连接已更换，旧任务已停止。'});
       }
-      if (phase == 'executing') {
+      if (phase == 'executing' || phase == 'stopping') {
         phase = 'unknown';
         pending = null;
         messages.add({
@@ -196,17 +197,39 @@ class AssistantEngine extends ChangeNotifier {
     }
   }
 
-  Future<void> stop({String reason = '已停止。已派发的动作可能已经生效，请核对实际结果。'}) async {
+  Future<void> stop({String reason = '已停止。已派发的动作可能已经生效，请核对实际结果。'}) =>
+      _stopping ??= _stop(reason).whenComplete(() => _stopping = null);
+
+  Future<void> _stop(String reason) async {
     ++epoch;
     cancelModel?.call();
-    extensions?.cancel();
-    phase = 'stopped';
+    final call = pending;
+    final owner = 'assistant:$taskId';
+    phase = 'stopping';
     pending = null;
-    messages.add({'role': 'assistant', 'content': reason});
     notifyListeners();
+    var uncertain = false;
+    // Dispatch cancellation before journal I/O; a storage failure must never prevent Stop.
+    final cancelling = [
+      if (extensions != null) extensions!.cancel(),
+      if (call != null && !(call['tool'] as String).startsWith('plugin:'))
+        engine.cancelRequest(owner, call['requestId'] as String),
+    ];
     try {
-      await engine.stop();
+      await save();
     } catch (_) {}
+    try {
+      final results = await Future.wait(cancelling);
+      uncertain = results.any((r) => r['outcome'] != 'cancelled');
+    } catch (_) {
+      uncertain = true;
+    }
+    phase = uncertain ? 'unknown' : 'stopped';
+    messages.add({
+      'role': 'assistant',
+      'content': uncertain ? '已停止后续派发，尚未确认全部执行进程退出。请核对手机实际状态。' : reason,
+    });
+    notifyListeners();
     try {
       await save();
     } catch (_) {

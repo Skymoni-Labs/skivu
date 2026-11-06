@@ -211,6 +211,7 @@ class AdbPairingClient(private val host: String, private val port: Int, private 
 
         val sslContext = key.sslContext
         val sslSocket = sslContext.socketFactory.createSocket(socket, host, port, true) as SSLSocket
+        sslSocket.soTimeout = 30000
         sslSocket.startHandshake()
         candidateCertificatePin = java.security.MessageDigest.getInstance("SHA-256")
             .digest(sslSocket.session.peerCertificates.first().encoded)

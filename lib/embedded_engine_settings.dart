@@ -17,6 +17,7 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
   final pairCode = TextEditingController();
   final connectPort = TextEditingController();
   bool busy = false;
+  bool trustPeer = false;
   String? message;
   @override
   void initState() {
@@ -167,10 +168,30 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
           subtitle: Text(
             state['shellConnected'] == true
                 ? '已连接 · UID ${state['shellUid']}'
+                : state['shellPaired'] == true
+                ? '已配对 · 等待连接'
                 : '未连接 · Android 11 及以上',
           ),
           childrenPadding: const EdgeInsets.all(12),
           children: [
+            const Text('推荐使用配对通知：保持系统配对窗口打开，在通知栏输入六位代码，无需切换回应用。'),
+            FilledButton.icon(
+              onPressed:
+                  busy || state['enabled'] != true || state['shell'] != true
+                  ? null
+                  : () => run(() async {
+                      final result = await deviceEngine
+                          .startPairingNotification();
+                      if (result['outcome'] == 'permission_required') {
+                        await deviceEngine.openAuthorization('notifications');
+                      }
+                      if (mounted)
+                        setState(() => message = result['summary'] as String?);
+                    }),
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('开启配对通知'),
+            ),
+            const SizedBox(height: 12),
             if (state['developerOptions'] != true)
               const Padding(
                 padding: EdgeInsets.only(bottom: 12),
@@ -188,6 +209,8 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
               icon: const Icon(Icons.settings_outlined),
               label: const Text('打开系统无线调试设置'),
             ),
+            const Text('以下手动输入适合分屏使用；切换应用可能会关闭系统配对端口。'),
+            const SizedBox(height: 8),
             portField(pairPort, '配对窗口中的端口'),
             portField(pairCode, '六位配对码', secret: true),
             FilledButton(
@@ -208,12 +231,25 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
             const SizedBox(height: 16),
             const Text('配对完成后，使用无线调试主页面“IP 地址和端口”中的连接端口。两个端口通常不同。'),
             portField(connectPort, '无线调试连接端口'),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('已核对系统端口，信任本机调试证书'),
+              subtitle: const Text('首次连接或系统调试证书更新时需要。后续连接会校验已保存的证书公钥。'),
+              value: trustPeer,
+              onChanged: busy
+                  ? null
+                  : (v) => setState(() => trustPeer = v == true),
+            ),
             FilledButton(
               onPressed:
                   busy || state['enabled'] != true || state['shell'] != true
                   ? null
                   : () => run(() async {
-                      await deviceEngine.connect(port(connectPort));
+                      await deviceEngine.connect(
+                        port(connectPort),
+                        trustPeer: trustPeer,
+                      );
+                      trustPeer = false;
                       final result = await deviceEngine.status();
                       if (mounted)
                         setState(() {

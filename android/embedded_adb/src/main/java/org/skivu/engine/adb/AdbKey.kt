@@ -40,16 +40,19 @@ private const val TAG = "AdbKey"
 
 class AdbKey(private val adbKeyStore: AdbKeyStore, name: String,
              private val expectedServerPin: String? = null,
-             private val pairingHandshake: Boolean = false) {
+             private val allowUnpinnedPeer: Boolean = false) {
+    var observedPeerPin: String? = null
+        private set
 
     private fun checkPeer(chain: Array<out X509Certificate>?) {
         val certificate = chain?.firstOrNull() ?: throw java.security.cert.CertificateException("Missing ADB peer certificate")
-        val actual = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
+        val actual = MessageDigest.getInstance("SHA-256").digest(certificate.publicKey.encoded)
             .joinToString("") { "%02x".format(it) }
-        if (!pairingHandshake && (expectedServerPin == null ||
+        if (!allowUnpinnedPeer && (expectedServerPin == null ||
             !MessageDigest.isEqual(actual.toByteArray(), expectedServerPin.toByteArray()))) {
             throw java.security.cert.CertificateException("ADB peer changed; pair again explicitly")
         }
+        observedPeerPin = actual
     }
 
     companion object {

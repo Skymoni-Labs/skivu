@@ -43,6 +43,8 @@ const pluginMethodPermissions = <String, String>{
   'clipboard.write': 'clipboard',
   'device.discover': 'device.observe',
   'device.engine.catalog': 'device.observe',
+  'device.engine.cancel':
+      '', // Only a request owned by this exact runtime scope can be stopped.
   'device.engine.invoke':
       '', // The host checks the selected tool's own permission.
   'device.connect': 'device.control',

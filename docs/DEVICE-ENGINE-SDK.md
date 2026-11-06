@@ -5,6 +5,13 @@ DSH model settings keep their original behavior. Engine setup lives in the main
 Cloud assistant and Settings → phone control. Android grants are checked by the
 native host on every call; opening a settings page is not a grant.
 
+Wireless setup uses an inline pairing notification so Android's pairing window
+can stay open. Pairing and the adbd command server use different certificates.
+The first command connection requires the user to check the port in Android's
+wireless-debugging page and explicitly trust the local peer. Its certificate
+public key is then pinned; a changed key is never silently accepted by model or
+plugin requests. Re-check the system port before trusting a changed debug peer.
+
 ## Discover and invoke
 
 Declare the actual permissions needed (`device.observe`, `device.control`,
@@ -37,6 +44,22 @@ Closing a plugin/DSH session cancels its outstanding native calls. Revoking or
 replacing an authorized plugin rejects future calls and cancels active calls.
 Previously dispatched mutations can already have taken effect. A missing callback
 or app restart is not permission to replay a write.
+
+`device.engine.cancel({requestId})` stops only a request currently owned by that
+page/runtime scope. It cannot select another caller identity. A `cancelled`
+receipt confirms request shutdown; `unknown` requires checking device state.
+Shell shutdown uses a private UUID job directory and a dedicated POSIX process
+group. The host checks the supervisor's PID, group and kernel start time before
+signalling it, then verifies that no live group members remain. This is not a
+sandbox against deliberately detached or adversarial shell programs. Previously
+applied writes are not undone. A transport error alone is never an exit proof.
+
+The DSH device transport starts requests in frame order and accepts bounded
+concurrent replies, with reserved capacity for Stop. A long script therefore
+does not block its own cancellation. The model transport keeps its existing
+sequential behavior. The local development DSH adapter exposes
+`skivu_engine_catalog` and `skivu_engine_invoke`; it retains legacy companion
+tools for existing integrations.
 
 ## Register independent assistant tools
 

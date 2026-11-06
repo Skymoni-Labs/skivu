@@ -62,9 +62,40 @@ class CloudAssistantPane extends StatefulWidget {
 
 class _CloudAssistantPaneState extends State<CloudAssistantPane> {
   final input = TextEditingController();
+  final controls = GlobalKey();
+  bool revealQueued = false;
+  int messageCount = -1;
+
+  void revealControls() {
+    if (revealQueued) return;
+    revealQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      revealQueued = false;
+      final target = controls.currentContext;
+      if (!mounted || target == null) return;
+      // Keep this module's controls above the existing floating navigation.
+      unawaited(
+        Scrollable.ensureVisible(
+          target,
+          alignment: .68,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+        ),
+      );
+    });
+  }
+
+  void assistantChanged() {
+    if (messageCount == cloudAssistant.messages.length) return;
+    messageCount = cloudAssistant.messages.length;
+    if (messageCount > 0) revealControls();
+  }
+
   @override
   void initState() {
     super.initState();
+    cloudAssistant.addListener(assistantChanged);
+    input.addListener(revealControls);
     if (!_watching) {
       _watching = true;
       demo.addListener(cloudAssistant.identityChanged);
@@ -75,11 +106,13 @@ class _CloudAssistantPaneState extends State<CloudAssistantPane> {
         }
       });
     }
-    unawaited(cloudAssistant.restore());
+    unawaited(cloudAssistant.restore().then((_) => assistantChanged()));
   }
 
   @override
   void dispose() {
+    cloudAssistant.removeListener(assistantChanged);
+    input.removeListener(revealControls);
     input.dispose();
     super.dispose();
   }
@@ -145,7 +178,11 @@ class _CloudAssistantPaneState extends State<CloudAssistantPane> {
           if (assistant.running) ...[
             const LinearProgressIndicator(),
             Text(
-              assistant.phase == 'thinking' ? '小云正在规划…' : '正在执行并核对回执…',
+              assistant.phase == 'thinking'
+                  ? '小云正在规划…'
+                  : assistant.phase == 'stopping'
+                  ? '正在停止本次任务并核对进程…'
+                  : '正在执行并核对回执…',
               style: TextStyle(color: sceneMuted),
             ),
           ],
@@ -174,6 +211,7 @@ class _CloudAssistantPaneState extends State<CloudAssistantPane> {
             ),
           ),
           Row(
+            key: controls,
             children: [
               Expanded(
                 child: Text(
@@ -184,7 +222,9 @@ class _CloudAssistantPaneState extends State<CloudAssistantPane> {
               ),
               if (assistant.running || assistant.canResume)
                 TextButton.icon(
-                  onPressed: assistant.stop,
+                  onPressed: assistant.phase == 'stopping'
+                      ? null
+                      : assistant.stop,
                   icon: const Icon(Icons.stop),
                   label: const Text('停止'),
                 )

@@ -291,7 +291,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
   }
 
   Future<void> stop() => stopping ??= () async {
-    engineScope.close();
+    final engineStopped = engineScope.closeAndWait();
     closing = true;
     for (final dialog in dialogs.toList()) {
       if (dialog.isActive) dialog.navigator?.removeRoute(dialog, false);
@@ -303,6 +303,13 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
       await _runtimePlatform.invokeMethod<void>('stop', {'sessionId': routeId});
     } finally {
       await closed;
+      final outcomes = await engineStopped;
+      if (outcomes.any((value) => value['outcome'] != 'cancelled')) {
+        throw const PluginApiError(
+          'STOP_UNCONFIRMED',
+          'DSH 已关闭，但手机脚本未能确认全部退出，请核对手机状态。',
+        );
+      }
     }
   }();
 
