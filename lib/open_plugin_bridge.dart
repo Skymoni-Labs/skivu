@@ -42,6 +42,9 @@ const pluginMethodPermissions = <String, String>{
   'clipboard.read': 'clipboard',
   'clipboard.write': 'clipboard',
   'device.discover': 'device.observe',
+  'device.engine.catalog': 'device.observe',
+  'device.engine.invoke':
+      '', // The host checks the selected tool's own permission.
   'device.connect': 'device.control',
   'device.status': 'device.observe',
   'device.disconnect': 'device.control',

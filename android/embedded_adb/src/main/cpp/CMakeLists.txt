@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22)
+project(skivu_adb LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(boringssl REQUIRED CONFIG)
+add_library(skivu_adb SHARED adb_pairing.cpp)
+target_compile_definitions(skivu_adb PRIVATE NO_DEBUG_LOG)
+target_link_libraries(skivu_adb log boringssl::crypto_static)

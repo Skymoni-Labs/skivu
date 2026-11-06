@@ -52,9 +52,12 @@ const openPluginPermissions = <String, String>{
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
   'device.observe': '连接你批准的设备伴侣，并读取任务软件的文字界面',
   'device.control': '在你批准的真实手机任务中点击、输入、滑动和切换所选软件',
+  'device.system': '通过 Skivu 内置接口调用已授权的系统功能，例如手机时钟和系统设置',
+  'device.shell': '通过 Skivu 中已单独启用的 shell/root 后端执行命令；不自动取得或扩大系统权限',
   'device.direct': '持续允许本插件直接操控所选软件并使用当前模型额度；开启后不再逐步弹窗，可通过停用插件或设备伴侣撤销',
   'agent.tasks': '经任务确认运行有次数和时间上限的模型操控任务，可能消耗额度',
   'chat.tools': '为单独绑定的角色提供正常聊天工具；仅聊天时按需执行',
+  'assistant.tools': '向独立小云助手注册模型可调用的工具；按本插件已授权能力执行，不读取角色或原聊天',
 };
 
 bool pluginRelativePath(String value) =>
@@ -116,6 +119,10 @@ class OpenPluginManifest {
       raw['contributes']['roleCompanion'] == null
       ? null
       : Map<String, dynamic>.from(raw['contributes']['roleCompanion']);
+  Map<String, dynamic>? get assistantTools =>
+      raw['contributes']['assistantTools'] == null
+      ? null
+      : Map<String, dynamic>.from(raw['contributes']['assistantTools']);
   List<Map<String, dynamic>> get chatActions =>
       List<Map<String, dynamic>>.from(raw['contributes']['chatActions']);
   bool get compatible =>
@@ -197,6 +204,7 @@ class OpenPluginManifest {
             'chatActions',
             'chatSurface',
             'roleCompanion',
+            'assistantTools',
           }.contains(k),
         ) ||
         (c.containsKey('chatSurface') && c['chatSurface'] is! bool) ||
@@ -221,6 +229,16 @@ class OpenPluginManifest {
           !permissions.contains('chat.tools') ||
           comparePluginVersions(raw['minHostVersion'], '0.2.41') < 0)
         throw const FormatException('角色工具需要新的宿主版本与聊天工具权限。');
+    }
+    if (c['assistantTools'] != null) {
+      validateRoleCompanion(c['assistantTools']);
+      final path = c['assistantTools']['entry'] as String;
+      if (!pluginRelativePath(path) ||
+          !path.endsWith('.html') ||
+          !permissions.contains('assistant.tools') ||
+          comparePluginVersions(raw['minHostVersion'], '0.2.81') < 0) {
+        throw const FormatException('小云工具需要 0.2.81 及 assistant.tools 权限。');
+      }
     }
     return OpenPluginManifest._(raw);
   }
@@ -278,6 +296,9 @@ class OpenPluginPackage {
     final companionEntry = manifest.companion?['entry'];
     if (companionEntry != null && files[companionEntry]?['mime'] != 'text/html')
       throw const FormatException('缺少角色工具运行入口。');
+    final assistantEntry = manifest.assistantTools?['entry'];
+    if (assistantEntry != null && files[assistantEntry]?['mime'] != 'text/html')
+      throw const FormatException('缺少小云工具运行入口。');
     return OpenPluginPackage._(
       manifest,
       files,

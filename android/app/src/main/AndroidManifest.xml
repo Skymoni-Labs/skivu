@@ -2,6 +2,8 @@
     <permission android:name="org.skivu.permission.RUN_RUNTIME" android:protectionLevel="signature" />
     <uses-permission android:name="org.skivu.permission.RUN_RUNTIME" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -44,6 +46,16 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <receiver android:name=".AppUpdateInstallReceiver" android:exported="false" />
+        <service android:name=".SkivuAccessibilityService"
+            android:label="Skivu 手机操控"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/skivu_device_accessibility" />
+        </service>
+        <service android:name=".EmbeddedTaskService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started independent assistant task on explicitly authorized Android apps, with a stop notification" />
+        </service>
         <receiver android:name=".RuntimePackageInstallReceiver" android:exported="false" />
         <service android:name=".DeviceTaskService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started, time-bounded AI assistance on selected local apps through an explicitly paired accessibility companion, with visible task status and stop control" />
@@ -73,6 +85,10 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
+        <intent><action android:name="android.intent.action.SET_ALARM" /></intent>
+        <intent><action android:name="android.intent.action.SET_TIMER" /></intent>
+        <intent><action android:name="android.intent.action.SHOW_ALARMS" /></intent>
         <intent><action android:name="org.skivu.runtime.V1" /></intent>
         <intent><action android:name="org.skivu.devicebridge.V1" /></intent>
         <intent><action android:name="android.speech.RecognitionService" /></intent>

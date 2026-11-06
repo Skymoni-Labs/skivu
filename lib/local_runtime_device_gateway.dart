@@ -24,6 +24,8 @@ class LocalRuntimeDeviceGateway {
   }
 
   static const methods = <String>{
+    'device.engine.catalog',
+    'device.engine.invoke',
     'device.discover',
     'device.connect',
     'device.status',

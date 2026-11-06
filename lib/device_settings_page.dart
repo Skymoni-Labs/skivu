@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'open_plugin_device.dart';
 import 'open_plugin_external.dart';
 import 'widgets.dart';
+import 'embedded_engine_settings.dart';
 
 class DeviceSettingsPage extends StatefulWidget {
   const DeviceSettingsPage({super.key, required this.go});
@@ -87,7 +88,19 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('手机操控由独立设备伴侣提供。首次启用系统无障碍并信任客户端后，可直接执行已授权插件中的任务；可随时停止或撤销。'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.phonelink_setup),
+            title: const Text('内置手机引擎'),
+            subtitle: const Text('小云、插件与 DSH 共用 · 权限和系统接口'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const EmbeddedEngineSettings(),
+              ),
+            ),
+          ),
+          const Text('下方保留原设备伴侣连接，供已有操控插件使用。'),
           const SizedBox(height: 16),
           if (current != null)
             Pane(

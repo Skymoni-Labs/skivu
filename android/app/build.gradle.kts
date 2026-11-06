@@ -20,6 +20,9 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
+    packaging {
+        resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+    }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
@@ -34,7 +37,10 @@ android {
         val runtimeQa = (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
             try { String(Base64.getDecoder().decode(it)) == "SKIVU_RUNTIME_QA=true" } catch (_: Exception) { false }
         }
-        applicationId = when { runtimeQa -> "com.skyjjgw.independent.ski.runtimeqa"; deviceQa -> "com.skyjjgw.independent.ski.deviceqa"; devicePreview -> "com.skyjjgw.independent.ski.devicepreview"; else -> "com.skyjjgw.independent.ski" }
+        val engineQa = (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
+            try { String(Base64.getDecoder().decode(it)) == "SKIVU_ENGINE_QA=true" } catch (_: Exception) { false }
+        }
+        applicationId = when { engineQa -> "com.skyjjgw.independent.ski.engineqa"; runtimeQa -> "com.skyjjgw.independent.ski.runtimeqa"; deviceQa -> "com.skyjjgw.independent.ski.deviceqa"; devicePreview -> "com.skyjjgw.independent.ski.devicepreview"; else -> "com.skyjjgw.independent.ski" }
         manifestPlaceholders["skivuApplicationLabel"] = if(devicePreview) "Skivu 操控预览" else "@string/app_name"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -57,3 +63,4 @@ flutter {
     source = "../.."
 }
 dependencies { implementation(project(":skymoni_glass")) }
+dependencies { implementation(project(":embedded_adb")) }

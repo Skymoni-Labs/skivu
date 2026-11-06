@@ -1,0 +1,24 @@
+{
+  "source": "https://github.com/RikkaApps/Shizuku",
+  "archive": "master snapshot retrieved 2026-11-07",
+  "archiveSha256": "089668457afe18a27ba3e9c7119e95f3e5f92e067be26dea06de27a315d347a9",
+  "license": "Apache-2.0",
+  "filesBeforeAdaptation": {
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbClient.kt": "3a363f265e46734e6be0f7b3e42da5505d14deb380ddcedad02017db2ecdbcff",
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbException.kt": "3500ce3b1470eef8c7715d2d4d67f5bb293c37ce9928d287ee76f5a597ad8f5b",
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbKey.kt": "50046df8350b1809af2cbf58f2df3994bc813600e45d574df00f601b09366c14",
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbMessage.kt": "f86827f1665940f1dc98b08fee6638cc68aeb7f800469f9cb481ce09c0669143",
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbProtocol.kt": "f4dfa4246f60c57cf5506313b6c697a8030cccef56903998c3e244efbd939a3e",
+    "manager/src/main/java/moe/shizuku/manager/adb/AdbPairingClient.kt": "181001fa376af636207448b9201174f489f35a3a97b60cf814da326890f9ca49",
+    "manager/src/main/jni/adb_pairing.cpp": "699139fb2f8aff139e877520f2e199fe4432ece0bf7fb3656ce0084484615baf",
+    "manager/src/main/jni/adb_pairing.h": "04cae0e840147377de8b50fb26a8a6f50a69e769c695f7869aa2e51978ed0ae1",
+    "manager/src/main/jni/logging.h": "599e95771052d808b5efb203cb3e169e706f7e4d6eeb687401505d42d6a4b9bd"
+  },
+  "changes": [
+    "Skivu namespace and library name",
+    "Removed sensitive debug logs",
+    "Socket timeouts and frame-size checks",
+    "App-private encrypted key storage",
+    "Dependency simplification; subsequent audited changes are in Git"
+  ]
+}

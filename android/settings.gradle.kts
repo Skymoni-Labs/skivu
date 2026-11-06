@@ -26,3 +26,4 @@ plugins {
 
 include(":app")
 include(":skymoni_glass")
+include(":embedded_adb")

@@ -140,6 +140,7 @@ internal class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messen
 /** Short-lived role tools reuse the same isolated transport, without a view route. */
 class OpenPluginRuntimePlatform(private val context: Context) {
     private val instances = mutableMapOf<Int, OpenPluginView>()
+    private val backgroundAllowed = mutableSetOf<Int>()
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger,"skivu/open_plugin_runtime").setMethodCallHandler { call,result ->
             val id=call.argument<Int>("id")
@@ -149,13 +150,18 @@ class OpenPluginRuntimePlatform(private val context: Context) {
                     "create" -> {
                         require(instances.size < 4 && !instances.containsKey(id))
                         instances[id]=OpenPluginView(context,id,call.arguments as Map<*, *>,messenger)
+                        if (call.argument<Boolean>("assistant") == true) backgroundAllowed.add(id)
                         result.success(null)
                     }
-                    "dispose" -> { instances.remove(id)?.dispose(); result.success(null) }
+                    "dispose" -> { backgroundAllowed.remove(id); instances.remove(id)?.dispose(); result.success(null) }
                     else -> result.notImplemented()
                 }
             } catch (_: Exception) { result.error("RUNTIME_FAILED","Runtime unavailable",null) }
         }
     }
-    fun close() { instances.values.toList().forEach { it.dispose() };instances.clear() }
+    fun close(transientOnly: Boolean = false) {
+        for (id in instances.keys.toList()) if (!transientOnly || id !in backgroundAllowed) {
+            instances.remove(id)?.dispose(); backgroundAllowed.remove(id)
+        }
+    }
 }

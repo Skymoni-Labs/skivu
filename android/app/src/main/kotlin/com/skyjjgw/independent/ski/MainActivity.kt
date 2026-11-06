@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
     private val pluginExternal by lazy { OpenPluginExternalPlatform(this) }
     private val pluginRuntime by lazy { OpenPluginRuntimePlatform(this) }
     private val localRuntime by lazy { LocalRuntimePlatform(this) }
+    private val embeddedDevice by lazy { EmbeddedDevicePlatform(this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -44,6 +45,7 @@ class MainActivity : FlutterActivity() {
         pluginFiles.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginExternal.register(flutterEngine.dartExecutor.binaryMessenger)
         pluginRuntime.register(flutterEngine.dartExecutor.binaryMessenger)
+        embeddedDevice.register(flutterEngine.dartExecutor.binaryMessenger)
         localRuntime.register(flutterEngine.dartExecutor.binaryMessenger, flutterEngine.platformViewsController.registry)
         flutterEngine.platformViewsController.registry.registerViewFactory("skivu/open-plugin", OpenPluginViewFactory(flutterEngine.dartExecutor.binaryMessenger))
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "skivu/beta_keystore")
@@ -71,8 +73,8 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         voice.permissionResult(requestCode, grantResults)
     }
-    override fun onStop() { pluginRuntime.close(); voice.pause(); super.onStop() }
-    override fun onDestroy() { localRuntime.close(); DeviceTaskService.activityAttached = false; if(DeviceTaskService.currentActivity === this)DeviceTaskService.currentActivity = null; if(DeviceTaskService.taskId == null){deviceBridge?.close();DeviceTaskService.platform=null}; pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
+    override fun onStop() { pluginRuntime.close(transientOnly = true); voice.pause(); super.onStop() }
+    override fun onDestroy() { embeddedDevice.close(); localRuntime.close(); DeviceTaskService.activityAttached = false; if(DeviceTaskService.currentActivity === this)DeviceTaskService.currentActivity = null; if(DeviceTaskService.taskId == null){deviceBridge?.close();DeviceTaskService.platform=null}; pluginRuntime.close(); pluginFiles.close(); chatBackup.close(); chatAttachment.close(); appPlatform.close(); voice.close(); super.onDestroy() }
 
     private fun alias(call: MethodCall): String {
         val value = call.argument<String>("alias") ?: error("missing alias")

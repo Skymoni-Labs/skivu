@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
+import 'device_tool_catalog.dart';
 
 typedef CompanionRunner =
     Future<Object?> Function(
@@ -25,6 +26,8 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     required this.effect,
     required this.checkContext,
     required this.host,
+    this.assistant = false,
+    this.onCancel,
   });
   final OpenPluginRegistry registry;
   final OpenPluginRecord record;
@@ -32,6 +35,8 @@ class OpenPluginRuntime with WidgetsBindingObserver {
   final String effect;
   final void Function() checkContext;
   final PluginHostCall host;
+  final bool assistant;
+  final VoidCallback? onCancel;
   static int _serial = 0;
   static const _platform = MethodChannel('skivu/open_plugin_runtime');
   late final int id = --_serial;
@@ -51,6 +56,7 @@ class OpenPluginRuntime with WidgetsBindingObserver {
   }
 
   void cancel() {
+    onCancel?.call();
     closed = true;
     bridge.close();
     if (!_ready.isCompleted)
@@ -61,8 +67,9 @@ class OpenPluginRuntime with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached)
+    if (!assistant &&
+        (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached))
       cancel();
   }
 
@@ -70,6 +77,8 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     check();
     if (method == 'context.get') return context;
     if (method == 'ui.toast') return true;
+    if (assistant && method.startsWith('device.engine.'))
+      return host(method, params);
     if (method == 'ui.openExternal' && effect == 'external')
       return host(method, params);
     throw const PluginApiError(
@@ -117,7 +126,18 @@ class OpenPluginRuntime with WidgetsBindingObserver {
           'ui.toast',
         };
         const writes = {'storage.compareAndSet', 'fs.write', 'fs.remove'};
+        var allowedDeviceCall = false;
+        if (assistant && method == 'device.engine.invoke') {
+          final params = raw['params'];
+          if (params is Map && params['tool'] is String) {
+            final definition = deviceTool(params['tool'] as String);
+            allowedDeviceCall =
+                definition.effect == 'read' || effect == 'external';
+          }
+        }
         if (!reads.contains(method) &&
+            !(assistant && method == 'device.engine.catalog') &&
+            !allowedDeviceCall &&
             !(effect == 'write' && writes.contains(method)) &&
             !(effect == 'external' && method == 'ui.openExternal'))
           throw const PluginApiError('PERMISSION_DENIED', '该工具未声明这种操作。');
@@ -146,8 +166,11 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     try {
       check();
       await _platform.invokeMethod('create', {
+        'assistant': assistant,
         'id': id,
-        'entry': record.manifest.companion!['entry'],
+        'entry': (assistant
+            ? record.manifest.assistantTools
+            : record.manifest.companion)!['entry'],
         'digest': record.package.digest,
         'files': record.package.files,
       });
@@ -157,10 +180,13 @@ class OpenPluginRuntime with WidgetsBindingObserver {
         'name': 'companion.invoke',
         'detail': {'tool': tool, 'arguments': args},
       });
-      final result = await done.timeout(const Duration(seconds: 45));
+      final result = await done.timeout(
+        assistant ? const Duration(minutes: 12) : const Duration(seconds: 45),
+      );
       check();
       return result;
     } finally {
+      onCancel?.call();
       closed = true;
       bridge.close();
       WidgetsBinding.instance.removeObserver(this);

@@ -10,6 +10,7 @@ import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
 import 'open_plugin_external.dart';
 import 'open_plugin_device.dart';
+import 'device_engine_plugin.dart';
 import 'local_runtime_page.dart';
 import 'state.dart';
 import 'chat_api.dart';
@@ -128,6 +129,7 @@ class OpenPluginPage extends StatefulWidget {
 class _OpenPluginPageState extends State<OpenPluginPage>
     with WidgetsBindingObserver {
   late OpenPluginBridge bridge;
+  final engineScope = DeviceEngineScope();
   MethodChannel? channel;
   String? roleId, chatId;
   String contextSnapshot = '';
@@ -258,6 +260,7 @@ class _OpenPluginPageState extends State<OpenPluginPage>
 
   @override
   void dispose() {
+    engineScope.close();
     unawaited(
       channel?.invokeMethod('event', {'name': 'host.suspend', 'detail': null}),
     );
@@ -523,6 +526,9 @@ class _OpenPluginPageState extends State<OpenPluginPage>
         bridge.text(p, 'text', max: 32768, empty: true),
       );
       return true;
+    }
+    if (method.startsWith('device.engine.')) {
+      return engineScope.call(widget.registry, widget.record, method, p);
     }
     if (method.startsWith('device.') || method.startsWith('agent.tasks.')) {
       return deviceTasks.dispatch(widget.record, method, p, confirm);

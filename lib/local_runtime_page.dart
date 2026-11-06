@@ -7,6 +7,7 @@ import 'local_runtime_sessions.dart';
 import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_device.dart';
+import 'device_engine_plugin.dart';
 import 'open_plugin_network.dart';
 import 'state.dart';
 import 'runtime_install_page.dart';
@@ -101,6 +102,7 @@ class LocalRuntimePage extends StatefulWidget {
 }
 
 class _LocalRuntimePageState extends State<LocalRuntimePage> {
+  final engineScope = DeviceEngineScope();
   final coordinator = LocalRuntimeSessions();
   final routeId = ++_runtimeRouteSerial;
   final dialogs = <DialogRoute<bool>>{};
@@ -235,13 +237,24 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
       final bridge = OpenPluginBridge(
         registry: widget.registry,
         record: widget.record,
-        host: (method, params) => deviceTasks.dispatch(
-          widget.record,
-          method,
-          params,
-          confirm,
-          runtimeActive: () => active,
-        ),
+        host: (method, params) => method.startsWith('device.engine.')
+            ? engineScope.call(
+                widget.registry,
+                widget.record,
+                method,
+                params,
+                checkRuntime: () {
+                  if (!active)
+                    throw const PluginApiError('CLOSED', '本地运行会话已关闭。');
+                },
+              )
+            : deviceTasks.dispatch(
+                widget.record,
+                method,
+                params,
+                confirm,
+                runtimeActive: () => active,
+              ),
       );
       generation = await coordinator.open(
         bridge: bridge,
@@ -278,6 +291,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
   }
 
   Future<void> stop() => stopping ??= () async {
+    engineScope.close();
     closing = true;
     for (final dialog in dialogs.toList()) {
       if (dialog.isActive) dialog.navigator?.removeRoute(dialog, false);

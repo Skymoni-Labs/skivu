@@ -1633,6 +1633,29 @@ class DemoStore extends ChangeNotifier {
 
   /// Device task instructions use an independent system prompt. Transport,
   /// credentials and unpublished-model rejection remain the ordinary path.
+  Future<ChatSession> startAssistantReply(
+    String system,
+    List<Map<String, String>> history,
+  ) async {
+    final active = activeConnection;
+    if (active == null) throw const ChatFailure('请先选择可用模型。');
+    final config = ModelConnection.fromJson({
+      ...active.toJson(),
+      'streaming': false,
+      'maxOutput': active.maxOutput.clamp(512, 4096),
+    });
+    if (useBeta) return beta.startChat(history, system, requestConfig: config);
+    if (useAccount)
+      return account.startChat(history, system, requestConfig: config);
+    final key = await models.keyFor(config.id);
+    if (key.isEmpty &&
+        config.auth != 'none' &&
+        !['Ollama', 'LM Studio'].contains(config.provider)) {
+      throw const ChatFailure('请先配置可用的模型连接。');
+    }
+    return _api.start(config, key, history, system);
+  }
+
   Future<ChatSession> startDeviceReply(
     String instruction,
     int maxOutput,

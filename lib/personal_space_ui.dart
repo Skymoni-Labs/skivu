@@ -7,6 +7,7 @@ import 'personal_space.dart';
 import 'state.dart' show demo, ink, muted, green, sceneInk, sceneMuted;
 import 'widgets.dart';
 import 'skymoni_glass.dart';
+import 'cloud_assistant.dart';
 
 const personalModuleNames = ['对话', '今天', '任务', '记忆', '小云'];
 const _moduleIcons = [
@@ -715,17 +716,7 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
       ),
     ),
     const SizedBox(height: 27),
-    box([
-      Text('想一起做点什么？', style: TextStyle(fontSize: 16, color: ink)),
-      const SizedBox(height: 9),
-      for (final text in ['帮我把一个想法变成计划', '一起整理今天的思路', '给自己安排一个轻松的周末'])
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(text, style: const TextStyle(fontSize: 13)),
-          trailing: const Icon(Icons.north_east, size: 18),
-          onTap: () => widget.onDraft(text),
-        ),
-    ]),
+    const CloudAssistantPane(),
     Row(
       children: [
         for (final i in [2, 3])
