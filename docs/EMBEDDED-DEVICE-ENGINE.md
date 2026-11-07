@@ -67,6 +67,8 @@ The plugin bridge preserves eight normal in-flight calls and a separately
 bounded lane for eight `device.engine.cancel` requests. A full normal queue must
 not block Stop. Admission to that lane does not grant authority: the existing
 runtime scope still matches the exact owned request ID before native cancellation.
+The WebView JavaScript SDK uses the same separate bounded Stop lane, so its
+client-side queue cannot reject Stop before the host receives it.
 
 ## DSH route shutdown
 

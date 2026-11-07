@@ -8,10 +8,12 @@
   function error(code,message){const e=new Error(message);e.code=code;return e;}
   function call(method,params={}){
     if(closed)return Promise.reject(error('CLOSED','插件已关闭。'));
-    if(pending.size>=8)return Promise.reject(error('BUSY','同时运行的请求过多。'));
+    const cancellation=method==='device.engine.cancel';
+    let cancelling=0;for(const request of pending.values())if(request.cancellation)cancelling++;
+    if(cancellation?cancelling>=8:pending.size-cancelling>=8)return Promise.reject(error('BUSY','同时运行的请求过多。'));
     const shellWait=method==='device.engine.invoke'&&params?.tool==='shell.execute'?Math.min(645,Math.max(1,Number(params?.arguments?.timeoutSeconds)||30)+45)*1000:180000;
     return new Promise((resolve,reject)=>{const id=String(++serial),timer=setTimeout(()=>{pending.delete(id);reject(error('TIMEOUT','宿主调用超时。'));},method==='runtime.install'?1800000:shellWait);
-      pending.set(id,{resolve,reject,timer});
+      pending.set(id,{resolve,reject,timer,cancellation});
       try{const raw=JSON.stringify({id,method,params});if(raw.length>18*1024*1024)throw new Error('too large');SkivuNative.postMessage(raw);}catch(_){clearTimeout(timer);pending.delete(id);reject(error('BRIDGE_FAILED','宿主请求无法发送或超过大小上限。'));}
     });
   }

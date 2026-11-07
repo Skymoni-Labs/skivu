@@ -6,3 +6,23 @@ test('call response resolves only its request and removes timer',async()=>{const
 test('host error preserves public code only',async()=>{const {w,sent}=runtime();const p=w.Skivu.call('admin.login');w.__skivuResolve(sent[0].id,{ok:false,error:{code:'METHOD_NOT_FOUND',message:'Not available'}});await assert.rejects(p,e=>e.code==='METHOD_NOT_FOUND');});
 test('pause leaves storage available; suspend rejects pending and future calls',async()=>{const {w,sent}=runtime();let calls=0;const off=w.Skivu.on('host.pause',()=>calls++);w.__skivuEvent('host.pause',{});off();assert.equal(calls,1);const p=w.Skivu.call('storage.get');assert.equal(sent.length,1);w.__skivuEvent('host.suspend',null);await assert.rejects(p,e=>e.code==='CLOSED');await assert.rejects(w.Skivu.call('storage.get'),e=>e.code==='CLOSED');});
 test('SDK bounds concurrency and timeouts without leaking requests',async()=>{const {w,timers}=runtime();const pending=Array.from({length:8},()=>w.Skivu.call('host.info'));await assert.rejects(w.Skivu.call('host.info'),e=>e.code==='BUSY');for(const fn of [...timers.values()])fn();await Promise.all(pending.map(p=>assert.rejects(p,e=>e.code==='TIMEOUT')));});
+test('a saturated normal SDK queue still admits bounded Stop calls',async()=>{
+  const {w,sent}=runtime();
+  const normal=Array.from({length:8},()=>w.Skivu.call('host.info'));
+  await assert.rejects(w.Skivu.call('host.info'),e=>e.code==='BUSY');
+  const stop=w.Skivu.call('device.engine.cancel',{requestId:'owned_request'});
+  const stopResult=stop.then(()=>true,()=>false);
+  assert.equal(sent.length,9,'Stop must reach the existing host ownership checks even when eight normal calls are pending');
+  assert.equal(sent[8].method,'device.engine.cancel');
+  assert.equal(sent[8].params.requestId,'owned_request');
+  w.__skivuResolve(sent[8].id,{ok:true,result:{outcome:'cancelled'}});
+  assert.equal(await stopResult,true);
+  await assert.rejects(w.Skivu.call('host.info'),e=>e.code==='BUSY');
+  const cancelling=Array.from({length:8},()=>w.Skivu.call('device.engine.cancel',{requestId:'owned_request'}));
+  await assert.rejects(w.Skivu.call('device.engine.cancel',{requestId:'owned_request'}),e=>e.code==='BUSY');
+  for(const frame of sent.slice(0,8).concat(sent.slice(9)))w.__skivuResolve(frame.id,{ok:true,result:true});
+  await Promise.all(normal.concat(cancelling));
+  const next=w.Skivu.call('host.info');
+  w.__skivuResolve(sent.at(-1).id,{ok:true,result:true});
+  await next;
+});
