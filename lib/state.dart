@@ -670,13 +670,18 @@ class DemoStore extends ChangeNotifier {
   ];
   final groups = <String>['全部', '日常', '工作', '创作'];
   int persona = 0;
-  String get model =>
-      activeConnection?.model ??
-      (useBeta
-          ? '选择内测模型'
-          : useAccount
-          ? '登录中转站'
-          : '选择模型');
+  String get model {
+    if (useAccount && !useBeta) {
+      if (!account.signedIn) return '登录中转站';
+      // Refresh temporarily removes executable model grants. The composer
+      // displays the saved selection; activeConnection still enforces grants.
+      final selected = account.activeModel;
+      if (selected != null && selected.isNotEmpty) return selected;
+      return account.busy ? '同步模型…' : '选择模型';
+    }
+    return activeConnection?.model ?? (useBeta ? '选择内测模型' : '选择模型');
+  }
+
   bool get dark => appearance.dark;
   set dark(bool v) => appearance.set('mode', v ? 'dark' : 'light');
   bool get compact => appearance.flag('compact');
@@ -1331,9 +1336,13 @@ class DemoStore extends ChangeNotifier {
       lastError = useBeta
           ? '请先检查内测配对状态与可用模型。'
           : useAccount
-          ? (account.signedIn && account.funding == 'beta'
+          ? (!account.signedIn
+                ? '请先登录中转站并同步模型。'
+                : account.funding == 'beta' && !account.canBetaChat
                 ? account.betaMessage
-                : '请先登录中转站并同步模型。')
+                : account.busy
+                ? '模型列表正在同步，请稍后重试。'
+                : '模型列表暂不可用，请刷新并选择当前可用模型。')
           : '请先添加一个模型连接。';
       changed();
       return false;
