@@ -274,9 +274,39 @@ class CloudCompanionPainter extends CustomPainter {
     canvas.clipPath(fixed);
     canvas.drawImageRect(petAtlas!, tile, tile, paint);
     canvas.restore();
-    final origin = pack.frameOrigin(sample.frame);
+    // The raised-hand source exposes a clean, stable desktop beneath the
+    // moving silhouette, without leaving rectangular holes in the desk.
+    for (final region in pack.underlayRegions) {
+      drawPetPose(canvas, pack, pack.underlayFrame, region, paint);
+    }
     for (final region in pack.animatedRegions) {
-      canvas.drawImageRect(petAtlas!, region.shift(origin), region, paint);
+      if (sample.mix <= 0) {
+        drawPetPose(canvas, pack, sample.frame, region, paint);
+      } else {
+        // Brief hand-only blending between the closely spaced drawn poses.
+        // Premultiplied addition keeps opacity stable; head/props never blend.
+        canvas.saveLayer(region, Paint());
+        drawPetPose(
+          canvas,
+          pack,
+          sample.frame,
+          region,
+          Paint()
+            ..filterQuality = FilterQuality.high
+            ..color = Colors.white.withValues(alpha: 1 - sample.mix),
+        );
+        drawPetPose(
+          canvas,
+          pack,
+          sample.nextFrame,
+          region,
+          Paint()
+            ..filterQuality = FilterQuality.high
+            ..color = Colors.white.withValues(alpha: sample.mix)
+            ..blendMode = BlendMode.plus,
+        );
+        canvas.restore();
+      }
     }
     for (final region in pack.fixedRegions) {
       canvas.drawImageRect(petAtlas!, region, region, paint);
@@ -317,6 +347,25 @@ class CloudCompanionPainter extends CustomPainter {
         );
       }
     }
+  }
+
+  void drawPetPose(
+    Canvas canvas,
+    CloudPetPack pack,
+    int frame,
+    Rect region,
+    Paint paint,
+  ) {
+    canvas.save();
+    final path = pack.framePaths?[frame];
+    if (path != null) canvas.clipPath(path);
+    canvas.drawImageRect(
+      petAtlas!,
+      region.shift(pack.frameOrigin(frame)),
+      region,
+      paint,
+    );
+    canvas.restore();
   }
 
   @override

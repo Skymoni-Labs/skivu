@@ -24,9 +24,12 @@ class CloudPetClip {
 }
 
 class CloudPetSample {
-  const CloudPetSample(this.segment, this.frame);
+  const CloudPetSample(this.segment, this.frame, {int? nextFrame, this.mix = 0})
+    : nextFrame = nextFrame ?? frame;
   final CloudPetSegment segment;
   final int frame;
+  final int nextFrame;
+  final double mix;
 }
 
 /// Per-state, data-driven sprite animation. Uses the VPet ABC organization,
@@ -46,7 +49,43 @@ class CloudPetPack {
     tileSize = Size(tile[0].toDouble(), tile[1].toDouble());
     columns = json['columns'] as int;
     frameCount = json['frameCount'] as int;
+    final dimensions = (json['atlasSize'] as List?)?.cast<num>();
+    atlasSize = dimensions == null
+        ? null
+        : Size(dimensions[0].toDouble(), dimensions[1].toDouble());
+    frameOrigins = (json['frameOrigins'] as List?)?.map((raw) {
+      final values = (raw as List).cast<num>();
+      return Offset(values[0].toDouble(), values[1].toDouble());
+    }).toList();
+    frameBlendMs = json['frameBlendMs'] as int? ?? 0;
+    framePaths = (json['framePaths'] as List?)?.map((raw) {
+      if (raw == null) return null;
+      final path = Path();
+      for (final polygon in raw as List) {
+        final points = polygon as List;
+        for (var i = 0; i < points.length; i++) {
+          final point = (points[i] as List).cast<num>();
+          if (i == 0) {
+            path.moveTo(point[0].toDouble(), point[1].toDouble());
+          } else {
+            path.lineTo(point[0].toDouble(), point[1].toDouble());
+          }
+        }
+        path.close();
+      }
+      return path;
+    }).toList();
+    if ((frameOrigins != null && frameOrigins!.length != frameCount) ||
+        frameBlendMs < 0 ||
+        frameBlendMs > 100 ||
+        (framePaths != null && framePaths!.length != frameCount)) {
+      throw const FormatException('Invalid cloud pet frame table');
+    }
     holdFrame = json['holdFrame'] as int;
+    underlayFrame = json['underlayFrame'] as int? ?? 0;
+    underlayRegions = (json['underlayRegions'] as List? ?? [])
+        .map((value) => readRect(value as List))
+        .toList();
     if (tileSize.width <= 0 ||
         tileSize.height <= 0 ||
         columns <= 0 ||
@@ -68,6 +107,7 @@ class CloudPetPack {
       viewport,
       ...animatedRegions,
       ...fixedRegions,
+      ...underlayRegions,
       ...eyes,
     ]) {
       if (rect.isEmpty ||
@@ -113,16 +153,23 @@ class CloudPetPack {
     }
     loop = CloudPetClip([for (final name in order) ...readClip(name).frames]);
     end = readClip('C_End');
-    if (holdFrame < 0 || holdFrame >= frameCount) {
+    if (holdFrame < 0 ||
+        holdFrame >= frameCount ||
+        underlayFrame < 0 ||
+        underlayFrame >= frameCount) {
       throw const FormatException('Invalid cloud pet hold frame');
     }
   }
   late final String id, atlas;
   late final Size tileSize;
-  late final int columns, frameCount, holdFrame;
+  late final Size? atlasSize;
+  late final List<Offset>? frameOrigins;
+  late final List<Path?>? framePaths;
+  late final int frameBlendMs;
+  late final int columns, frameCount, holdFrame, underlayFrame;
   late final Rect viewport;
   late final List<Rect> animatedRegions;
-  late final List<Rect> fixedRegions;
+  late final List<Rect> fixedRegions, underlayRegions;
   late final List<Rect> eyes;
   late final Path foreground;
   late final CloudPetClip start, loop, end;
@@ -133,17 +180,34 @@ class CloudPetPack {
     (values[2] as num).toDouble(),
     (values[3] as num).toDouble(),
   );
-  Offset frameOrigin(int frame) => Offset(
-    (frame % columns) * tileSize.width,
-    (frame ~/ columns) * tileSize.height,
-  );
+  Offset frameOrigin(int frame) =>
+      frameOrigins?[frame] ??
+      Offset(
+        (frame % columns) * tileSize.width,
+        (frame ~/ columns) * tileSize.height,
+      );
   void validateAtlas(Size actual) {
-    if (actual.width != columns * tileSize.width ||
-        actual.height !=
-            ((frameCount + columns - 1) ~/ columns) * tileSize.height) {
+    final expected =
+        atlasSize ??
+        Size(
+          columns * tileSize.width,
+          ((frameCount + columns - 1) ~/ columns) * tileSize.height,
+        );
+    if (actual != expected) {
       throw const FormatException(
         'Cloud pet atlas does not match its manifest',
       );
+    }
+    for (var frame = 0; frame < frameCount; frame++) {
+      for (final region in animatedRegions) {
+        final source = region.shift(frameOrigin(frame));
+        if (source.left < 0 ||
+            source.top < 0 ||
+            source.right > actual.width ||
+            source.bottom > actual.height) {
+          throw const FormatException('Cloud pet frame exceeds the atlas');
+        }
+      }
     }
   }
 
@@ -169,14 +233,53 @@ class CloudPetPack {
     if (segment == CloudPetSegment.end) {
       return elapsed >= end.durationMs
           ? CloudPetSample(CloudPetSegment.hold, holdFrame)
-          : CloudPetSample(CloudPetSegment.end, end.sample(elapsed));
+          : sampleClip(end, elapsed, CloudPetSegment.end, next: holdFrame);
     }
     if (elapsed < start.durationMs) {
-      return CloudPetSample(CloudPetSegment.start, start.sample(elapsed));
+      return sampleClip(
+        start,
+        elapsed,
+        CloudPetSegment.start,
+        next: loop.frames.first.index,
+      );
     }
-    return CloudPetSample(
+    return sampleClip(
+      loop,
+      (elapsed - start.durationMs) % loop.durationMs,
       CloudPetSegment.loop,
-      loop.sample(elapsed - start.durationMs, loop: true),
+      next: loop.frames.first.index,
     );
+  }
+
+  CloudPetSample sampleClip(
+    CloudPetClip clip,
+    int elapsed,
+    CloudPetSegment segment, {
+    required int next,
+  }) {
+    var remaining = elapsed;
+    for (var i = 0; i < clip.frames.length; i++) {
+      final current = clip.frames[i];
+      if (remaining < current.durationMs) {
+        final target = i + 1 < clip.frames.length
+            ? clip.frames[i + 1].index
+            : next;
+        final window = frameBlendMs.clamp(0, current.durationMs);
+        final mix = window == 0 || target == current.index
+            ? 0.0
+            : ((remaining - current.durationMs + window) / window).clamp(
+                0.0,
+                1.0,
+              );
+        return CloudPetSample(
+          segment,
+          current.index,
+          nextFrame: target,
+          mix: mix,
+        );
+      }
+      remaining -= current.durationMs;
+    }
+    return CloudPetSample(segment, next);
   }
 }

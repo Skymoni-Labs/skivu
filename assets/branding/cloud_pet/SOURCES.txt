@@ -16,3 +16,15 @@ https://github.com/LorisYounger/VPet/blob/main/LICENSE
 Playback and asset schema are a Skivu-native Dart implementation. No VPet
 character artwork, BongoCat models, Live2D Core or third-party binaries are
 included. This JSON pack does not claim compatibility with VPet's LPS mods.
+
+Local coding pack v2, 2026-11-07:
+Three new built-in image generation sheets add 72 local in-between poses:
+24 typing, 24 side typing and 24 trackpad poses. The compact v2 atlas retains
+the original static head and props; the v1 PNG remains unchanged for rollback.
+Registration and outline clipping remove camera offsets and crop backgrounds.
+A raised-hand source provides the stable desk beneath the moving silhouette.
+The 5,230 ms work cycle remains unchanged; short 12 ms hand-only blends smooth
+pose boundaries. This is raster pose playback, not a claim of 72 motion-capture
+frames or measured 60 FPS on an Android device.
+Generation prompts and local source receipts:
+E:/zzz/ops/skivu-cloud-pet-inbetweens-20261107/PROMPTS.txt
