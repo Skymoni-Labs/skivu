@@ -72,3 +72,25 @@ class CloudPose {
     permission: lerpDouble(a.permission, b.permission, t)!,
   );
 }
+
+/// Captures an outgoing motion phase so an interrupted fade does not restart it.
+class CloudVisualLayer {
+  const CloudVisualLayer({
+    required this.activity,
+    required this.pose,
+    required this.seconds,
+    required this.opacity,
+    required this.greeting,
+  });
+  final CloudActivity activity;
+  final CloudPose pose;
+  final double seconds, opacity;
+  final bool greeting;
+  CloudVisualLayer withOpacity(double value) => CloudVisualLayer(
+    activity: activity,
+    pose: pose,
+    seconds: seconds,
+    opacity: value,
+    greeting: greeting,
+  );
+}

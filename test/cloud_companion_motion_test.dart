@@ -21,6 +21,59 @@ Future<void> decoded(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'a pose change and an interrupted fade preserve the visible frame',
+    (tester) async {
+      final boundary = GlobalKey();
+      Future<void> show(CloudActivity activity) => tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: boundary,
+            child: Center(child: CloudCompanionPortrait(activity: activity)),
+          ),
+        ),
+      );
+      CloudCompanionPainter painter() => tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((widget) => widget.painter)
+          .whereType<CloudCompanionPainter>()
+          .single;
+      Future<Uint8List> pixels() async => (await tester.runAsync(() async {
+        final renderer =
+            boundary.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final image = await renderer.toImage();
+        try {
+          return (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!.buffer.asUint8List();
+        } finally {
+          image.dispose();
+        }
+      }))!;
+      await show(CloudActivity.idle);
+      await decoded(tester);
+      await tester.pump(const Duration(milliseconds: 350));
+      final idle = await pixels();
+      await show(CloudActivity.coding);
+      expect(await pixels(), orderedEquals(idle));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(painter().layers!.length, 2);
+      final frozenSeconds = painter().layers!.first.seconds;
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(painter().layers!.first.seconds, frozenSeconds);
+      final interrupted = await pixels();
+      await show(CloudActivity.permission);
+      expect(await pixels(), orderedEquals(interrupted));
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(painter().layers!.single.activity, CloudActivity.permission);
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('scrolling the live character off screen stops its ticker', (
     tester,
   ) async {

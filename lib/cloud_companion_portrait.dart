@@ -34,16 +34,17 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   );
   late final transition = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 550),
+    duration: const Duration(milliseconds: 240),
     value: 1,
   );
   ui.Image? image;
   CloudReferenceRig? rig;
   int workspace = 0;
-  bool foreground = true, greeting = true;
+  bool foreground = true, greeting = false;
   bool onScreen = true, visibilityScheduled = false;
   ScrollableState? scrollable;
   late CloudPose from, to;
+  List<CloudVisualLayer> outgoing = [];
   bool get reduced =>
       widget.reduceMotion || MediaQuery.disableAnimationsOf(context);
   bool get enabled =>
@@ -57,6 +58,26 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     to,
     Curves.easeInOutCubic.transform(transition.value),
   );
+
+  List<CloudVisualLayer> layers(CloudActivity activity) {
+    final t = reduced ? 1.0 : Curves.easeInOut.transform(transition.value);
+    return [
+      for (final layer in outgoing)
+        if (layer.opacity * (1 - t) > .001)
+          layer.withOpacity(layer.opacity * (1 - t)),
+      if (t > .001)
+        CloudVisualLayer(
+          activity: activity,
+          pose: pose,
+          seconds: enabled ? clock.value * 8 : 0,
+          opacity: t,
+          greeting:
+              greeting &&
+              (clock.lastElapsedDuration ?? Duration.zero) <
+                  const Duration(seconds: 2),
+        ),
+    ];
+  }
 
   @override
   void initState() {
@@ -176,6 +197,13 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   void didUpdateWidget(covariant CloudCompanionPortrait oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.activity != oldWidget.activity) {
+      outgoing = layers(oldWidget.activity);
+      if (outgoing.length > 4) {
+        outgoing.sort((a, b) => b.opacity.compareTo(a.opacity));
+        outgoing = outgoing.take(4).toList();
+        final sum = outgoing.fold(0.0, (v, e) => v + e.opacity);
+        outgoing = outgoing.map((e) => e.withOpacity(e.opacity / sum)).toList();
+      }
       from = pose;
       if (widget.activity == CloudActivity.idle) workspace = 0;
       if (widget.activity == CloudActivity.coding) workspace = 1;
@@ -190,8 +218,8 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
               CloudActivity.paused,
               CloudActivity.failed,
             }.contains(widget.activity)
-            ? 220
-            : 550,
+            ? 120
+            : 240,
       );
       transition.value = 0;
       syncClock(restart: true);
@@ -255,6 +283,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
                       entry: enabled ? transition.value : 1,
                       motion: enabled,
                       greeting: greeting,
+                      layers: layers(widget.activity),
                     ),
                   ),
           ),

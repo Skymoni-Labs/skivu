@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'cloud_companion_motion.dart';
 import 'cloud_companion_reference.dart';
+import 'cloud_typing_motion.dart';
 
 /// Reference pixels remain intact. A connected weighted mesh moves wrists and
 /// head, so joints never expose holes or require replacement limb artwork.
@@ -17,6 +18,7 @@ class CloudCompanionPainter extends CustomPainter {
     required this.entry,
     required this.motion,
     required this.greeting,
+    this.layers,
   });
   final ui.Image image;
   final CloudReferenceRig rig;
@@ -24,29 +26,32 @@ class CloudCompanionPainter extends CustomPainter {
   final CloudActivity activity;
   final double seconds, entry;
   final bool motion, greeting;
-  String get sceneName => switch (activity) {
-    CloudActivity.coding => 'coding',
-    CloudActivity.phone => 'phone',
-    CloudActivity.thinking =>
-      pose.computer > .5
-          ? 'coding'
-          : pose.phone > .5
-          ? 'phone'
-          : 'thinking',
-    CloudActivity.permission => 'permission',
-    CloudActivity.checking => 'checking',
-    CloudActivity.complete => 'complete',
-    CloudActivity.failed => 'failed',
-    CloudActivity.stopping ||
-    CloudActivity.paused ||
-    CloudActivity.resultReady =>
-      pose.computer > .5
-          ? 'coding'
-          : pose.phone > .5
-          ? 'phone'
-          : 'idle',
-    _ => 'idle',
-  };
+  final List<CloudVisualLayer>? layers;
+  String get sceneName => sceneFor(activity, pose);
+  static String sceneFor(CloudActivity activity, CloudPose pose) =>
+      switch (activity) {
+        CloudActivity.coding => 'coding',
+        CloudActivity.phone => 'phone',
+        CloudActivity.thinking =>
+          pose.computer > .5
+              ? 'coding'
+              : pose.phone > .5
+              ? 'phone'
+              : 'thinking',
+        CloudActivity.permission => 'permission',
+        CloudActivity.checking => 'checking',
+        CloudActivity.complete => 'complete',
+        CloudActivity.failed => 'failed',
+        CloudActivity.stopping ||
+        CloudActivity.paused ||
+        CloudActivity.resultReady =>
+          pose.computer > .5
+              ? 'coding'
+              : pose.phone > .5
+              ? 'phone'
+              : 'idle',
+        _ => 'idle',
+      };
   static final matrix = Float64List.fromList([
     1,
     0,
@@ -68,9 +73,48 @@ class CloudCompanionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final frames =
+        layers ??
+        [
+          CloudVisualLayer(
+            activity: activity,
+            pose: pose,
+            seconds: seconds,
+            opacity: 1,
+            greeting: greeting,
+          ),
+        ];
+    final bounds = Offset.zero & size;
+    if (frames.length == 1 && frames.single.opacity >= .999) {
+      canvas.save();
+      paintLayer(canvas, size, frames.single);
+      canvas.restore();
+      return;
+    }
+    // Premultiplied additive cross-dissolve keeps the shared silhouette opaque.
+    canvas.saveLayer(bounds, Paint());
+    for (final frame in frames) {
+      if (frame.opacity <= .001) continue;
+      canvas.saveLayer(
+        bounds,
+        Paint()
+          ..color = Colors.white.withValues(alpha: frame.opacity)
+          ..blendMode = BlendMode.plus,
+      );
+      canvas.save();
+      paintLayer(canvas, size, frame);
+      canvas.restore();
+      canvas.restore();
+    }
+    canvas.restore();
+  }
+
+  void paintLayer(Canvas canvas, Size size, CloudVisualLayer frame) {
+    final activity = frame.activity, pose = frame.pose;
+    final greeting = frame.greeting, seconds = frame.seconds;
     canvas.clipRect(Offset.zero & size);
     canvas.scale(size.width / 600, size.height / 660);
-    final scene = rig.scenes[sceneName]!;
+    final scene = rig.scenes[sceneFor(activity, pose)]!;
     final texture = scene.texture;
     if (texture == null) return;
     final time = motion ? seconds : 0.0;
@@ -80,7 +124,7 @@ class CloudCompanionPainter extends CustomPainter {
     final rotate = idle && motion
         ? ui.lerpDouble(-1.5, 1, cycle)! * math.pi / 180
         : 0.0;
-    canvas.translate(300, 70 + float + (1 - entry) * 3);
+    canvas.translate(300, 70 + float);
     canvas.rotate(rotate);
     canvas.scale(1.55);
     canvas.translate(
@@ -93,32 +137,38 @@ class CloudCompanionPainter extends CustomPainter {
       scene.bounds.center.dx - scene.offset.dx,
       scene.bounds.bottom - scene.offset.dy,
     );
-    final headTurn = activity == CloudActivity.thinking && motion
+    final headTurn = activity == CloudActivity.coding && motion
+        ? .008 * math.sin(time * math.pi / 0.8)
+        : activity == CloudActivity.thinking && motion
         ? -.012 * math.sin(time * math.pi / 2)
         : activity == CloudActivity.complete && motion && time < 1.15
         ? math.sin(time / 1.15 * math.pi * 4) * .018
         : 0.0;
     final cosine = math.cos(headTurn), sine = math.sin(headTurn);
+    final strokes = [
+      CloudTypingStroke.sample(time, 0),
+      CloudTypingStroke.sample(time, 1),
+    ];
+    final typingDip = activity == CloudActivity.coding && motion
+        ? .75 * math.sin(time * math.pi / 0.8 - .4)
+        : 0.0;
     for (var i = 0; i < CloudReferenceMesh.count; i++) {
       final x = mesh.coordinates[i * 2], y = mesh.coordinates[i * 2 + 1];
       final weight = mesh.head[i];
       final dx = x - pivot.dx, dy = y - pivot.dy;
       points[i * 2] += ((dx * cosine - dy * sine) - dx) * weight;
       points[i * 2 + 1] +=
-          (((dx * sine + dy * cosine) - dy) + cycle * 1.6) * weight;
+          (((dx * sine + dy * cosine) - dy) + cycle * 1.6 + typingDip) * weight;
       for (var a = 0; a < scene.arms.length; a++) {
         final arm = scene.arms[a];
         final armWeight = mesh.armWeights[a][i];
         if (armWeight == 0) continue;
-        var lift = 0.0, angle = 0.0;
+        var lift = 0.0, angle = 0.0, reach = 0.0;
         if (motion && activity == CloudActivity.coding) {
-          final sign = arm.side == 0 ? 1.0 : -1.0;
-          final burst = time % 1.6 < 1.28 ? 1.0 : 0.0;
-          lift =
-              -math.max(0.0, math.sin(time * math.pi / .16) * sign) *
-              2.4 *
-              burst;
-          angle = math.sin(time * math.pi / .16) * .022 * sign * burst;
+          final stroke = strokes[arm.side];
+          lift = -stroke.height;
+          angle = stroke.roll * (arm.side == 0 ? 1 : -1);
+          reach = stroke.reach;
         } else if (motion && activity == CloudActivity.phone) {
           lift = math.sin(time * math.pi * 2) * 1.8;
           angle = math.sin(time * math.pi * 2) * .025;
@@ -136,7 +186,7 @@ class CloudCompanionPainter extends CustomPainter {
             ay = y - p.dy,
             c = math.cos(angle),
             s = math.sin(angle);
-        points[i * 2] += ((ax * c - ay * s) - ax) * armWeight;
+        points[i * 2] += ((ax * c - ay * s) - ax + reach) * armWeight;
         points[i * 2 + 1] += ((ax * s + ay * c) - ay + lift) * armWeight;
       }
     }
@@ -156,10 +206,13 @@ class CloudCompanionPainter extends CustomPainter {
     canvas.drawVertices(vertices, BlendMode.srcOver, Paint()..shader = shader);
     shader.dispose();
     // Website eyelid layer has its own clock and follows the identical mesh.
+    final blinkTimes = activity == CloudActivity.coding
+        ? const [.60, 4.60]
+        : const [3.65, 7.60];
     final blink =
         motion &&
         scene.eyes.isNotEmpty &&
-        ((time >= 3.65 && time < 3.78) || (time >= 7.6 && time < 7.73));
+        blinkTimes.any((start) => time >= start && time < start + .13);
     if (blink && scene.lids != null) {
       final lids = ui.ImageShader(
         scene.lids!,
@@ -183,5 +236,6 @@ class CloudCompanionPainter extends CustomPainter {
       old.seconds != seconds ||
       old.entry != entry ||
       old.motion != motion ||
-      old.greeting != greeting;
+      old.greeting != greeting ||
+      old.layers != layers;
 }

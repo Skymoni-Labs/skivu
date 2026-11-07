@@ -19,6 +19,7 @@ void main() {
         ..addFont(rootBundle.load('assets/fonts/NotoSansSC.ttf'));
       await tester.runAsync(loader.load);
       const loopOnly = bool.fromEnvironment('CLOUD_LOOP_ONLY');
+      const museDemo = bool.fromEnvironment('CLOUD_MUSE_DEMO');
       final activity = ValueNotifier(
         loopOnly ? CloudActivity.coding : CloudActivity.idle,
       );
@@ -78,9 +79,17 @@ void main() {
       expect(find.byIcon(Icons.cloud_outlined), findsNothing);
       final dir = Directory(output);
       await tester.runAsync(() => dir.create(recursive: true));
-      const fps = 20;
+      const fps = int.fromEnvironment('CLOUD_FPS', defaultValue: 20);
       const sequence = loopOnly
           ? [(0, CloudActivity.coding)]
+          : museDemo
+          ? [
+              (0, CloudActivity.idle),
+              (1500, CloudActivity.coding),
+              (7000, CloudActivity.thinking),
+              (8000, CloudActivity.coding),
+              (10500, CloudActivity.idle),
+            ]
           : [
               (0, CloudActivity.idle),
               (18, CloudActivity.thinking),
@@ -99,14 +108,26 @@ void main() {
               (382, CloudActivity.idle),
             ];
       final manifest = <String>[];
-      for (var frame = 0; frame < (loopOnly ? 160 : 402); frame++) {
+      final count = loopOnly
+          ? 8 * fps
+          : museDemo
+          ? 12 * fps
+          : (402 * fps / 20).round();
+      var previousMicros = 0;
+      for (var frame = 0; frame < count; frame++) {
         for (final (start, state) in sequence) {
-          if (start == frame) {
+          final at = (start * fps / (museDemo && !loopOnly ? 1000 : 20))
+              .round();
+          if (at == frame) {
             activity.value = state;
             manifest.add('$frame,${state.name}');
           }
         }
-        await tester.pump(const Duration(milliseconds: 1000 ~/ fps));
+        final targetMicros = ((frame + 1) * 1000000 / fps).round();
+        await tester.pump(
+          Duration(microseconds: targetMicros - previousMicros),
+        );
+        previousMicros = targetMicros;
         final renderer =
             boundary.currentContext!.findRenderObject()!
                 as RenderRepaintBoundary;
@@ -126,6 +147,11 @@ void main() {
         () => File(
           '${dir.path}/states.csv',
         ).writeAsString('frame,state\n${manifest.join('\n')}\n'),
+      );
+      await tester.runAsync(
+        () => File('${dir.path}/video-timing.txt').writeAsString(
+          'fps=$fps\nframes=$count\nduration_seconds=${count / fps}\n',
+        ),
       );
       await tester.pumpWidget(const SizedBox());
       activity.dispose();

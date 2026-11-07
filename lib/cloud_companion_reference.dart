@@ -103,6 +103,18 @@ class CloudReferenceMesh {
     for (final weights in armWeights) {
       soften(weights);
     }
+    if (scene.offset == const Offset(768, 0)) {
+      for (var i = 0; i < count; i++) {
+        final x = coordinates[i * 2], y = coordinates[i * 2 + 1];
+        final hardware = y >= 344 || (y >= 269 && x > 224 - .33 * (y - 269));
+        if (hardware) {
+          head[i] = 0;
+          for (final weights in armWeights) {
+            weights[i] = 0;
+          }
+        }
+      }
+    }
   }
   static const columns = 48, rows = 53, count = (columns + 1) * (rows + 1);
   final coordinates = Float32List(count * 2), head = Float32List(count);
