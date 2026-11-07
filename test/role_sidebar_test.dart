@@ -99,6 +99,17 @@ void main() {
       await tester.pumpWidget(host(store));
       await tester.pumpAndSettle();
       expect(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey('role-folder-skivu-host-cloud-v1')),
+            )
+            .dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(ValueKey('role-folder-${role.id}'))).dy,
+        ),
+      );
+      expect(store.personas.first, same(role));
+      expect(
         tester.getSize(find.byKey(ValueKey('role-folder-${role.id}'))).height,
         48,
       );

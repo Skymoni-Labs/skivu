@@ -73,7 +73,10 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
     builder: (context, _) {
       final store = widget.store, query = widget.query.trim().toLowerCase();
       final folders = [
-        for (final role in store.personas)
+        for (final role in [
+          ...store.personas.where((p) => p.isCloud),
+          ...store.personas.where((p) => !p.isCloud),
+        ])
           if (query.isEmpty ||
               role.name.toLowerCase().contains(query) ||
               store
