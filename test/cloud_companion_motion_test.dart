@@ -188,7 +188,17 @@ void main() {
       ),
     );
     await decoded(tester);
-    await tester.pump(const Duration(milliseconds: 4050));
+    final pack = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((widget) => widget.painter)
+        .whereType<CloudCompanionPainter>()
+        .single
+        .petPack!;
+    await tester.pump(
+      Duration(
+        milliseconds: pack.start.durationMs + pack.loop.durationMs * 2 + 20,
+      ),
+    );
     Future<Uint8List> pixels() async {
       final r =
           boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -205,7 +215,9 @@ void main() {
     }
 
     final a = await pixels();
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(
+      Duration(milliseconds: pack.loop.frames.first.durationMs + 5),
+    );
     final b = await pixels();
     var changed = 0;
     // Compare the actual character's lower half, excluding any status text.
