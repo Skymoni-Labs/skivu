@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'device_engine.dart';
+import 'open_plugin_network.dart' show PluginApiError;
 
 typedef AssistantModel =
     Future<String> Function(String system, List<Map<String, String>> history);
@@ -241,15 +242,16 @@ class AssistantEngine extends ChangeNotifier {
   Future<void> failed(int ticket, Object error) async {
     if (ticket != epoch) return;
     final uncertain = phase == 'executing';
+    final reason = error is PluginApiError ? error.message : '$error';
     phase = uncertain ? 'unknown' : 'failed';
     pending = null;
     messages.add({
       'role': 'assistant',
       'content': uncertain
-          ? '设备回执中断，结果需要核对，不会自动重放：$error'
+          ? '设备回执中断，结果需要核对，不会自动重放：$reason'
           : error is FormatException
           ? '模型没有返回有效动作，未继续执行。请核对上方已完成的步骤后重试。'
-          : '本次未完成：$error',
+          : '本次未完成：$reason',
     });
     notifyListeners();
     try {

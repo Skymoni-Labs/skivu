@@ -82,3 +82,20 @@ native shutdown while a new route opens; its delayed disposal cannot remove the
 new route's handler. Widget regressions cover both this handoff and uncertain
 revocation. These use test platform channels and do not replace real-model,
 emulator-UI acceptance.
+
+## Authorization inspection during execution
+
+Long native scripts keep the serial execution worker occupied. Host status and
+installed-app queries use a separate inspection worker while an invocation is
+pending, including before that invocation begins dispatch. This keeps the
+authorization page usable and does not interrupt the script merely to inspect it.
+Status identifies this path as `shellStatusSource: execution_snapshot`: the UID
+comes from the last real authenticated connection, without a new probe replacing
+the active stream. Ordinary idle status performs a fresh probe, and every code
+invocation authenticates and verifies its own identity again.
+
+The native emulator regression starts a real owned script, reads status/apps
+within two seconds while it remains active, revokes code execution through the
+host API, verifies the owned processes exited without completing, and restores
+the exact original grants and package scope. The first run timed out before the
+fix; API tests do not replace the separate actual authorization-page UI check.

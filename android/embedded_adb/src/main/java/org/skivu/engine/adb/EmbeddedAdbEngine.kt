@@ -23,6 +23,15 @@ class EmbeddedAdbEngine(context: Context) {
     private val host = "127.0.0.1"
     fun isPaired() = prefs.getString("peerPin", null) != null
 
+    /** Last genuinely authenticated identity while an invocation owns the worker.
+     * No extra probe may replace the active connection used by Stop.
+     * Every execute still establishes and verifies its own authenticated stream.
+     */
+    fun executionSnapshot(): Map<String, Any?> {
+        val uid = verifiedUid
+        return mapOf("paired" to isPaired(), "connected" to (uid != null), "uid" to uid)
+    }
+
     private fun supported() {
         require(Build.VERSION.SDK_INT >= 30) { "内嵌无线配对需要 Android 11 或更新系统。" }
         // Only the Conscrypt TLS exporter used by Android's pairing protocol.

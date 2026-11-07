@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ski/assistant_plugin_tools.dart';
+import 'package:ski/assistant_engine.dart';
+import 'package:ski/device_engine.dart';
 import 'package:ski/device_engine_plugin.dart';
 import 'package:ski/open_plugin.dart';
-import 'package:ski/open_plugin_network.dart';
 
 import 'assistant_plugin_tools_test.dart' show toolPackage;
 import 'open_plugin_runtime_test.dart' show fromNative;
@@ -80,16 +82,28 @@ void main() {
         registry.dispose();
       });
 
-      final run = tools.invoke(
-        'plugin:${record.manifest.id}/brightness',
-        {},
-        'assistant_call',
-        () {},
+      var modelPlans = 0;
+      final assistant = AssistantEngine(
+        engine: DeviceEngine(transport: (_, __) async => {'enabled': true}),
+        extensions: tools,
+        identity: () => 'fixture-model',
+        read: () async => null,
+        write: (_) async {},
+        model: (_, __) async {
+          modelPlans++;
+          return jsonEncode({
+            'type': 'call',
+            'tool': 'plugin:${record.manifest.id}/brightness',
+            'arguments': {},
+            'message': 'Read through the authorized plugin',
+          });
+        },
       );
-      final rejected = expectLater(run, throwsA(isA<PluginApiError>()));
+      addTearDown(assistant.dispose);
+      final run = assistant.send('Read the fixture brightness');
       await started.future;
       await registry.setEnabled(record.manifest.id, false);
-      await rejected;
+      await run;
       expect(disposed, 1);
       expect(cancellations, isNotEmpty);
       for (final cancellation in cancellations) {
@@ -108,6 +122,13 @@ void main() {
       expect(await tools.catalog(), isEmpty);
       expect(tools.active, isEmpty);
       expect(tools.activeScopes, isEmpty);
+      expect(assistant.phase, 'unknown');
+      expect(modelPlans, 1);
+      expect(assistant.messages.last['content'], contains('任务已暂停'));
+      expect(
+        assistant.messages.last['content'],
+        isNot(contains('Instance of')),
+      );
     },
   );
 }

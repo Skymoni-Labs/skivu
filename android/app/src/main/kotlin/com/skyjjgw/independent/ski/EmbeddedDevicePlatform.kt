@@ -23,6 +23,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
     private val prefs = activity.getSharedPreferences("skivu.device-engine.v1", 0)
     private val worker = Executors.newSingleThreadExecutor()
     private val cancellationWorker = Executors.newSingleThreadExecutor()
+    private val inspectionWorker = Executors.newSingleThreadExecutor()
+    private val pendingInvocations = java.util.concurrent.atomic.AtomicInteger()
     private val main = Handler(Looper.getMainLooper())
     private val remembered = linkedMapOf<String, Map<String, Any?>>()
     private val receiptStore = lazy {
@@ -56,6 +58,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         worker.execute { if (receiptStore.isInitialized()) receipts.close() }
         worker.shutdown()
         cancellationWorker.shutdown()
+        inspectionWorker.shutdown()
     }
 
     fun register(messenger: BinaryMessenger) {
@@ -75,6 +78,22 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
             }
             @Suppress("UNCHECKED_CAST")
             val p = call.arguments as? Map<String, Any?> ?: emptyMap()
+            // The authorization page must remain usable while a long script
+            // owns the execution worker. Never probe over its active stream.
+            if (call.method in setOf("status", "apps") && pendingInvocations.get() > 0) {
+                inspectionWorker.execute {
+                    try {
+                        check(!closed.get()) { "设备会话已关闭。" }
+                        val answer = if (call.method == "status") status(false) else installedApps()
+                        main.post { result.success(answer) }
+                    } catch (e: Exception) {
+                        main.post { result.error("DEVICE_ENGINE", e.message ?: "设备状态未能读取。", null) }
+                    } catch (_: LinkageError) {
+                        main.post { result.error("DEVICE_ENGINE_UNSUPPORTED", "此系统暂不支持当前设备状态查询。", null) }
+                    }
+                }
+                return@setMethodCallHandler
+            }
             if (call.method == "cancelRequest") {
                 if (p["owner"] !is String || p["requestId"] !is String) {
                     result.error("DEVICE_ENGINE", "缺少本次请求身份。", null)
@@ -106,6 +125,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                 return@setMethodCallHandler
             }
             val epoch = cancellationEpoch.get()
+            val invocation = call.method == "invoke"
+            if (invocation) pendingInvocations.incrementAndGet()
             worker.execute {
                 try {
                     check(epoch == cancellationEpoch.get()) { "这次设备请求已经取消。" }
@@ -169,6 +190,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     main.post { result.error("DEVICE_ENGINE", e.message ?: "设备操作未完成。", null) }
                 } catch (_: LinkageError) {
                     main.post { result.error("DEVICE_ENGINE_UNSUPPORTED", "此系统暂不支持当前内置执行后端，请保留回执并核对已执行操作。", null) }
+                } finally {
+                    if (invocation) pendingInvocations.decrementAndGet()
                 }
             }
         }
@@ -192,8 +215,10 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     "allowed" to (it.activityInfo.packageName in packages()))
             }
     }
-    private fun status(): Map<String, Any?> {
-        val backend = if (enabled("enabled") && enabled("shell")) adb.probe() else emptyMap()
+    private fun status(probeBackend: Boolean = true): Map<String, Any?> {
+        val backend = if (enabled("enabled") && enabled("shell")) {
+            if (probeBackend) adb.probe() else adb.executionSnapshot()
+        } else emptyMap()
         return mapOf(
         "version" to 1, "androidSdk" to Build.VERSION.SDK_INT,
         "developerOptions" to (Settings.Global.getInt(activity.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1),
@@ -203,6 +228,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         "writeSettings" to Settings.System.canWrite(activity),
         "notifications" to activity.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled(),
         "shellConnected" to (backend["connected"] == true), "shellUid" to backend["uid"],
+        "shellStatusSource" to if (probeBackend) "probe" else "execution_snapshot",
         "shellPaired" to adb.isPaired(),
         "packages" to packages().toList()
         )
