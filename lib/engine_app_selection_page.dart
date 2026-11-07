@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'app_alphabet_ruler.dart';
@@ -52,6 +54,9 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
     with SingleTickerProviderStateMixin {
   final search = TextEditingController();
   final scroll = ScrollController();
+  final currentLetter = ValueNotifier<String>('');
+  Map<String, double> sectionOffsets = {};
+  Drag? browsing;
   late final motion = DrawerMotion(vsync: this);
   late final List<EngineSelectableApp> apps;
   late Set<String> selected;
@@ -62,6 +67,7 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
   @override
   void initState() {
     super.initState();
+    scroll.addListener(syncCurrentLetter);
     selected = Set.of(widget.selected);
     selectedOnly = widget.selectedOnly;
     apps = widget.apps.map(EngineSelectableApp.new).toList()
@@ -76,10 +82,22 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
 
   @override
   void dispose() {
+    browsing?.cancel();
     search.dispose();
     scroll.dispose();
+    currentLetter.dispose();
     motion.dispose();
     super.dispose();
+  }
+
+  void syncCurrentLetter() {
+    if (!mounted || sectionOffsets.isEmpty || !scroll.hasClients) return;
+    var letter = sectionOffsets.keys.first;
+    for (final entry in sectionOffsets.entries) {
+      if (entry.value > scroll.offset + .5) break;
+      letter = entry.key;
+    }
+    if (currentLetter.value != letter) currentLetter.value = letter;
   }
 
   void filterChanged(VoidCallback action) {
@@ -166,6 +184,10 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
       rows.add(app);
       offset += rowHeight;
     }
+    if (!mapEquals(sectionOffsets, groupOffsets)) {
+      sectionOffsets = groupOffsets;
+      WidgetsBinding.instance.addPostFrameCallback((_) => syncCurrentLetter());
+    }
 
     final colors = theme.colorScheme;
     return SkiGlassScene(
@@ -174,9 +196,9 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: const Text('选择软件'),
-            systemOverlayStyle: theme.brightness == Brightness.dark
-                ? SystemUiOverlayStyle.light
-                : SystemUiOverlayStyle.dark,
+          systemOverlayStyle: theme.brightness == Brightness.dark
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
@@ -456,16 +478,37 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                                 top: 12,
                                 bottom: 12,
                                 width: 34,
-                                child: AppAlphabetRuler(
-                                  letters: groupOffsets.keys.toList(),
-                                  onJump: (letter) {
-                                    if (scroll.hasClients) {
-                                      // A lazy variable-extent list can still have
-                                      // an estimated max extent before this group
-                                      // is built. Its exact prefix offset is known.
-                                      scroll.jumpTo(groupOffsets[letter]!);
-                                    }
-                                  },
+                                child: ValueListenableBuilder<String>(
+                                  valueListenable: currentLetter,
+                                  builder: (context, letter, _) => AppAlphabetRuler(
+                                    letters: groupOffsets.keys.toList(),
+                                    currentLetter: letter,
+                                    onBrowseStart: (details) {
+                                      browsing?.cancel();
+                                      browsing = scroll.position.drag(
+                                        details,
+                                        () => browsing = null,
+                                      );
+                                    },
+                                    onBrowseUpdate: (details) =>
+                                        browsing?.update(details),
+                                    onBrowseEnd: (details) {
+                                      browsing?.end(details);
+                                      browsing = null;
+                                    },
+                                    onBrowseCancel: () {
+                                      browsing?.cancel();
+                                      browsing = null;
+                                    },
+                                    onJump: (letter) {
+                                      if (scroll.hasClients) {
+                                        // A lazy variable-extent list can still have
+                                        // an estimated max extent before this group
+                                        // is built. Its exact prefix offset is known.
+                                        scroll.jumpTo(groupOffsets[letter]!);
+                                      }
+                                    },
+                                  ),
                                 ),
                               ),
                           ],

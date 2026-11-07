@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'appearance.dart';
-import 'brand.dart';
+import 'cloud_companion_portrait.dart';
 import 'glass.dart';
 import 'personal_space.dart';
 import 'state.dart' show demo, ink, muted, green, sceneInk, sceneMuted;
@@ -704,7 +704,7 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
     Center(
       child: Column(
         children: [
-          const BrandMark(size: 70),
+          CloudCompanionPortrait(reduceMotion: appearance.flag('reduceMotion')),
           const SizedBox(height: 16),
           Text('小云', style: TextStyle(fontSize: 27, color: sceneInk)),
           const SizedBox(height: 8),

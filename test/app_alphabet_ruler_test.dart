@@ -117,6 +117,23 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Zebra'), findsNothing);
+      final list = tester.widget<ListView>(
+        find.byKey(const ValueKey('engine-app-results')),
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('engine-app-alphabet-ruler')),
+        const Offset(0, -75),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        list.controller!.offset,
+        greaterThan(0),
+        reason: 'A normal left-edge swipe must scroll, not become a dead zone',
+      );
+      expect(
+        find.byKey(const ValueKey('engine-app-letter-preview')),
+        findsNothing,
+      );
       final bounds = tester.getRect(
         find.byKey(const ValueKey('engine-app-alphabet-ruler')),
       );
@@ -139,6 +156,22 @@ void main() {
       await hold.up();
       await tester.pumpAndSettle();
       expect(saves, 0);
+      await tester.fling(
+        find.byKey(const ValueKey('engine-app-results')),
+        const Offset(0, -2000),
+        20000,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<AppAlphabetRuler>(find.byType(AppAlphabetRuler))
+            .currentLetter,
+        'Z',
+      );
+      expect(
+        find.byKey(const ValueKey('engine-app-letter-preview')),
+        findsNothing,
+      );
       await tester.enterText(
         find.byKey(const ValueKey('engine-app-search')),
         'Zebra',
@@ -153,6 +186,54 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'holding current letter does not jump and small boundary jitter does not oscillate',
+    (tester) async {
+      final jumps = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 34,
+              height: 400,
+              child: AppAlphabetRuler(
+                letters: const ['A', 'B'],
+                currentLetter: 'A',
+                onJump: jumps.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      final rect = tester.getRect(
+        find.byKey(const ValueKey('engine-app-alphabet-ruler')),
+      );
+      final hold = await tester.startGesture(
+        Offset(rect.center.dx, rect.top + 20),
+      );
+      await tester.pump(const Duration(milliseconds: 650));
+      expect(jumps, isEmpty);
+      await hold.moveTo(Offset(rect.center.dx, rect.top + 27));
+      await tester.pump();
+      expect(jumps, isEmpty);
+      await hold.moveTo(Offset(rect.center.dx, rect.top + 30));
+      await tester.pump();
+      expect(jumps, ['B']);
+      await hold.moveTo(Offset(rect.center.dx, rect.top + 25));
+      await tester.pump();
+      expect(jumps, ['B']);
+      await hold.moveTo(Offset(rect.center.dx, rect.top + 22));
+      await tester.pump();
+      expect(jumps, ['B', 'A']);
+      await hold.cancel();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('engine-app-letter-preview')),
+        findsNothing,
+      );
     },
   );
 }
