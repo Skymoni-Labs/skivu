@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
+import 'app_alphabet_ruler.dart';
+import 'drawer_motion.dart';
+import 'glass.dart';
 
 class EngineSelectableApp {
   EngineSelectableApp(Map<String, dynamic> value)
@@ -44,8 +48,11 @@ class EngineAppSelectionPage extends StatefulWidget {
   State<EngineAppSelectionPage> createState() => _EngineAppSelectionPageState();
 }
 
-class _EngineAppSelectionPageState extends State<EngineAppSelectionPage> {
+class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
+    with SingleTickerProviderStateMixin {
   final search = TextEditingController();
+  final scroll = ScrollController();
+  late final motion = DrawerMotion(vsync: this);
   late final List<EngineSelectableApp> apps;
   late Set<String> selected;
   late bool selectedOnly;
@@ -70,7 +77,36 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage> {
   @override
   void dispose() {
     search.dispose();
+    scroll.dispose();
+    motion.dispose();
     super.dispose();
+  }
+
+  void filterChanged(VoidCallback action) {
+    setState(action);
+    if (scroll.hasClients) scroll.jumpTo(0);
+  }
+
+  void showAppInfo(EngineSelectableApp app) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(app.name, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            SelectableText(app.package),
+            const SizedBox(height: 16),
+            Text(selected.contains(app.package) ? '已加入允许操作的范围' : '尚未加入允许操作的范围'),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> toggle(EngineSelectableApp app, bool value) async {
@@ -110,149 +146,331 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage> {
         .where((app) => query.isEmpty || app.matches(query))
         .toList();
     final rows = <Object>[];
+    final groupOffsets = <String, double>{};
+    final rowHeight = math.max(
+      76.0,
+      MediaQuery.textScalerOf(context).scale(16) * 2.6 + 20,
+    );
+    final groupHeight = math.max(
+      36.0,
+      MediaQuery.textScalerOf(context).scale(13) + 18,
+    );
+    var offset = 8.0;
     String? previous;
     for (final app in filtered) {
-      if (app.letter != previous) rows.add(previous = app.letter);
+      if (app.letter != previous) {
+        groupOffsets[app.letter] = offset;
+        rows.add(previous = app.letter);
+        offset += groupHeight;
+      }
       rows.add(app);
+      offset += rowHeight;
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('选择软件')),
-      body: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                key: const ValueKey('engine-app-search'),
-                controller: search,
-                onChanged: (_) => setState(() {}),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  hintText: '搜索名称、拼音或包名',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: search.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: '清除搜索',
-                          onPressed: () => setState(search.clear),
-                          icon: const Icon(Icons.close),
+    final colors = theme.colorScheme;
+    return SkiGlassScene(
+      motion: motion,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('选择软件'),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+        ),
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: .84),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: .4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '选择你允许操作的应用',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('engine-app-search'),
+                        controller: search,
+                        onChanged: (_) => filterChanged(() {}),
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: '搜索应用名称或拼音',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: search.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: '清除搜索',
+                                  onPressed: () => filterChanged(search.clear),
+                                  icon: const Icon(Icons.close),
+                                ),
+                          filled: true,
+                          fillColor: colors.onSurface.withValues(alpha: .045),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          ChoiceChip(
+                            label: Text('全部 ${apps.length}'),
+                            selected: !selectedOnly,
+                            showCheckmark: false,
+                            shape: const StadiumBorder(),
+                            side: BorderSide.none,
+                            selectedColor: colors.primary.withValues(
+                              alpha: .15,
+                            ),
+                            onSelected: (_) =>
+                                filterChanged(() => selectedOnly = false),
+                          ),
+                          ChoiceChip(
+                            label: Text('已选 ${selected.length}'),
+                            selected: selectedOnly,
+                            showCheckmark: false,
+                            shape: const StadiumBorder(),
+                            side: BorderSide.none,
+                            selectedColor: colors.primary.withValues(
+                              alpha: .15,
+                            ),
+                            onSelected: (_) =>
+                                filterChanged(() => selectedOnly = true),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
                   children: [
-                    ChoiceChip(
-                      label: Text('全部 ${apps.length}'),
-                      selected: !selectedOnly,
-                      onSelected: (_) => setState(() => selectedOnly = false),
+                    Icon(
+                      Icons.sort_by_alpha,
+                      size: 16,
+                      color: colors.onSurfaceVariant,
                     ),
-                    ChoiceChip(
-                      label: Text('已选 ${selected.length}'),
-                      selected: selectedOnly,
-                      onSelected: (_) => setState(() => selectedOnly = true),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '长按左侧刻度，滑动定位字母',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                    Text(
+                      '${filtered.length} 个',
+                      style: theme.textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.sort_by_alpha, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '名称 A–Z · 中文按拼音',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                  Text(
-                    '${filtered.length} 个',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
+              SizedBox(
+                height: 3,
+                child: saving ? const LinearProgressIndicator() : null,
               ),
-            ),
-            SizedBox(
-              height: 3,
-              child: saving ? const LinearProgressIndicator() : null,
-            ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  error!,
-                  style: TextStyle(color: theme.colorScheme.error),
+              if (error != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Text(
+                    error!,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
                 ),
-              ),
-            Expanded(
-              child: filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        query.isNotEmpty
-                            ? '没有找到匹配的软件'
-                            : selectedOnly
-                            ? '还没有选择软件'
-                            : '暂无可选择的软件',
-                      ),
-                    )
-                  : ListView.builder(
-                      key: const ValueKey('engine-app-results'),
-                      padding: const EdgeInsets.only(bottom: 16),
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      itemCount: rows.length,
-                      itemBuilder: (context, index) {
-                        final row = rows[index];
-                        if (row is String) {
-                          return Container(
-                            key: ValueKey('engine-app-letter-$row'),
-                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-                            color: theme.colorScheme.surfaceContainerLow,
-                            child: Text(
-                              row,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: theme.colorScheme.primary,
+              Expanded(
+                child: filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          query.isNotEmpty
+                              ? '没有找到匹配的软件'
+                              : selectedOnly
+                              ? '还没有选择软件'
+                              : '暂无可选择的软件',
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) => Stack(
+                          children: [
+                            ListView.builder(
+                              key: const ValueKey('engine-app-results'),
+                              controller: scroll,
+                              padding: EdgeInsets.fromLTRB(
+                                40,
+                                8,
+                                8,
+                                math.max(
+                                  24,
+                                  constraints.maxHeight -
+                                      rowHeight -
+                                      groupHeight,
+                                ),
                               ),
+                              keyboardDismissBehavior:
+                                  ScrollViewKeyboardDismissBehavior.onDrag,
+                              itemCount: rows.length,
+                              itemExtentBuilder: (index, _) =>
+                                  rows[index] is String
+                                  ? groupHeight
+                                  : rowHeight,
+                              itemBuilder: (context, index) {
+                                final row = rows[index];
+                                if (row is String) {
+                                  return Padding(
+                                    key: ValueKey('engine-app-letter-$row'),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      4,
+                                      12,
+                                      4,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          row,
+                                          style: theme.textTheme.labelLarge
+                                              ?.copyWith(
+                                                color: colors.primary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Divider(
+                                            color: colors.outlineVariant
+                                                .withValues(alpha: .35),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                final app = row as EngineSelectableApp;
+                                final allowed = selected.contains(app.package);
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 3,
+                                    horizontal: 4,
+                                  ),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: allowed
+                                          ? colors.primaryContainer.withValues(
+                                              alpha: .8,
+                                            )
+                                          : colors.surface.withValues(
+                                              alpha: .8,
+                                            ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: allowed
+                                            ? colors.primary.withValues(
+                                                alpha: .22,
+                                              )
+                                            : colors.outlineVariant.withValues(
+                                                alpha: .24,
+                                              ),
+                                      ),
+                                    ),
+                                    child: GestureDetector(
+                                      onLongPress: () => showAppInfo(app),
+                                      child: CheckboxListTile(
+                                        key: ValueKey(
+                                          'engine-app-${app.package}',
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
+                                        secondary: Container(
+                                          width: 40,
+                                          height: 40,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: colors.primary.withValues(
+                                              alpha: .1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            app.name.isEmpty
+                                                ? '?'
+                                                : app.name.characters.first,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w600,
+                                              color: colors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        title: Text(
+                                          app.name,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        checkboxShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        value: allowed,
+                                        onChanged: saving
+                                            ? null
+                                            : (v) => toggle(app, v == true),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        }
-                        final app = row as EngineSelectableApp;
-                        return CheckboxListTile(
-                          key: ValueKey('engine-app-${app.package}'),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                          ),
-                          title: Text(app.name),
-                          subtitle: Text(
-                            app.package,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          value: selected.contains(app.package),
-                          onChanged: saving
-                              ? null
-                              : (v) => toggle(app, v == true),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                            if (groupOffsets.length > 1)
+                              Positioned(
+                                left: 2,
+                                top: 12,
+                                bottom: 12,
+                                width: 34,
+                                child: AppAlphabetRuler(
+                                  letters: groupOffsets.keys.toList(),
+                                  onJump: (letter) {
+                                    if (scroll.hasClients) {
+                                      // A lazy variable-extent list can still have
+                                      // an estimated max extent before this group
+                                      // is built. Its exact prefix offset is known.
+                                      scroll.jumpTo(groupOffsets[letter]!);
+                                    }
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
