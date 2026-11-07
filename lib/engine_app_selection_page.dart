@@ -174,6 +174,9 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: const Text('选择软件'),
+            systemOverlayStyle: theme.brightness == Brightness.dark
+                ? SystemUiOverlayStyle.light
+                : SystemUiOverlayStyle.dark,
           backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0,
