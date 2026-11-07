@@ -21,6 +21,77 @@ Future<void> decoded(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('whole-scene playback matches the exact source frame', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CloudCompanionPortrait(activity: CloudActivity.coding),
+      ),
+    );
+    await decoded(tester);
+    final loaded = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((widget) => widget.painter)
+        .whereType<CloudCompanionPainter>()
+        .single;
+    final pack = loaded.petPack!;
+    expect(pack.wholeFrames, true);
+    const size = Size(300, 330);
+    Future<Uint8List> capture(
+      double seconds, {
+      required bool sourceOnly,
+    }) async {
+      return (await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        if (sourceOnly) {
+          final frame = pack.sample(seconds).frame;
+          final fit = applyBoxFit(BoxFit.contain, pack.tileSize, size);
+          canvas.drawImageRect(
+            loaded.petAtlas!,
+            (Offset.zero & pack.tileSize).shift(pack.frameOrigin(frame)),
+            Alignment.center.inscribe(fit.destination, Offset.zero & size),
+            Paint()..filterQuality = FilterQuality.high,
+          );
+        } else {
+          CloudCompanionPainter(
+            image: loaded.image,
+            rig: loaded.rig,
+            pose: loaded.pose,
+            activity: CloudActivity.coding,
+            seconds: seconds,
+            entry: 1,
+            motion: true,
+            greeting: false,
+            petPack: pack,
+            petAtlas: loaded.petAtlas,
+          ).paint(canvas, size);
+        }
+        final picture = recorder.endRecording();
+        final image = await picture.toImage(300, 330);
+        try {
+          return (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!.buffer.asUint8List();
+        } finally {
+          image.dispose();
+          picture.dispose();
+        }
+      }))!;
+    }
+
+    // Raised hand, deepest head nod, and integrated blink all remain in the
+    // same source drawing; an overlaid fixed head or crop fails this check.
+    for (final seconds in [.36, .60, 1.02]) {
+      expect(
+        await capture(seconds, sourceOnly: false),
+        orderedEquals(await capture(seconds, sourceOnly: true)),
+      );
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'desktop pet uses its atlas and urgent requests interrupt an exit',
     (tester) async {

@@ -263,6 +263,17 @@ class CloudCompanionPainter extends CustomPainter {
     canvas.translate(-pack.viewport.left, -pack.viewport.top);
     final tile = Offset.zero & pack.tileSize;
     final paint = Paint()..filterQuality = FilterQuality.high;
+    if (pack.wholeFrames) {
+      // One coherent source drawing owns the head, eyes, body, hands and desk.
+      // Never place a fixed head, crop mask or blended arm over this frame.
+      canvas.drawImageRect(
+        petAtlas!,
+        tile.shift(pack.frameOrigin(sample.frame)),
+        tile,
+        paint,
+      );
+      return;
+    }
     // The head and props are registered once, independent of the hand frames.
     final fixed = Path()
       ..fillType = PathFillType.evenOdd

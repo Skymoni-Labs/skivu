@@ -17,7 +17,7 @@ Playback and asset schema are a Skivu-native Dart implementation. No VPet
 character artwork, BongoCat models, Live2D Core or third-party binaries are
 included. This JSON pack does not claim compatibility with VPet's LPS mods.
 
-Local coding pack v2, 2026-11-07:
+Superseded local coding pack v2 prototype, 2026-11-07:
 Three new built-in image generation sheets add 72 local in-between poses:
 24 typing, 24 side typing and 24 trackpad poses. The compact v2 atlas retains
 the original static head and props; the v1 PNG remains unchanged for rollback.
@@ -28,3 +28,16 @@ pose boundaries. This is raster pose playback, not a claim of 72 motion-capture
 frames or measured 60 FPS on an Android device.
 Generation prompts and local source receipts:
 E:/zzz/ops/skivu-cloud-pet-inbetweens-20261107/PROMPTS.txt
+
+Current coding pack v3 whole scenes, 2026-11-08:
+The user rejected v2's cropped-body compositing and static head. Three new
+built-in image-generation sheets contain 72 complete 256x256 character scenes.
+Each whole scene includes its own head, facial expression, body, arms, laptop
+and desk. Atlas packing copies each source cell byte-for-byte with original
+alpha. The active renderer draws exactly one complete source frame with no
+fixed head, local crop masks, replacement eyelids or between-frame blending.
+Head nods and blinks are part of the source artwork. The slow 5,230 ms cycle
+is retained; one blink sequence is selected per work cycle.
+Prompts and source-cell integrity receipts:
+E:/zzz/ops/skivu-cloud-pet-whole-frames-20261108/PROMPTS.txt
+E:/zzz/ops/skivu-cloud-pet-whole-frames-20261108/source-receipts.json

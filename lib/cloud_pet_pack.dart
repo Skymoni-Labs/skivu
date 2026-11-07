@@ -40,6 +40,7 @@ class CloudPetPack {
       throw const FormatException('Unsupported cloud pet pack');
     }
     id = json['id'] as String;
+    wholeFrames = json['wholeFrames'] as bool? ?? false;
     atlas = json['atlas'] as String;
     if (!atlas.startsWith('assets/branding/cloud_pet/') ||
         atlas.contains('..')) {
@@ -119,6 +120,18 @@ class CloudPetPack {
     }
     foreground = Path();
     final polygon = json['foreground'] as List;
+    if (wholeFrames &&
+        (viewport != tileRect ||
+            frameBlendMs != 0 ||
+            framePaths != null ||
+            fixedRegions.isNotEmpty ||
+            underlayRegions.isNotEmpty ||
+            eyes.isNotEmpty ||
+            polygon.isNotEmpty)) {
+      throw const FormatException(
+        'Whole cloud frames cannot have partial crops or overlaid body parts',
+      );
+    }
     for (var i = 0; i < polygon.length; i++) {
       final point = (polygon[i] as List).cast<num>();
       if (i == 0) {
@@ -161,6 +174,7 @@ class CloudPetPack {
     }
   }
   late final String id, atlas;
+  late final bool wholeFrames;
   late final Size tileSize;
   late final Size? atlasSize;
   late final List<Offset>? frameOrigins;
