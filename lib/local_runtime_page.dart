@@ -18,6 +18,7 @@ const _runtimePlatform = MethodChannel('skivu/local_runtime');
 bool _runtimePageOpen = false;
 bool _runtimeInstallerOpen = false;
 int _runtimeRouteSerial = 0;
+int? _runtimeHandlerOwner;
 
 Future<Object?> localRuntimeCall(
   BuildContext context,
@@ -129,6 +130,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
     demo.account.addListener(modelAuthorizationChanged);
     demo.models.addListener(modelAuthorizationChanged);
     widget.registry.addListener(revoked);
+    _runtimeHandlerOwner = routeId;
     _runtimePlatform.setMethodCallHandler((call) async {
       final args = call.arguments;
       if (args is! Map || args['sessionId'] != routeId) return null;
@@ -150,11 +152,11 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
             ready = false;
             failure = args['message'] as String? ?? '本地运行引擎已退出。';
           });
-        unawaited(stop());
+        unawaited(stopAndReport());
         return null;
       }
       if (call.method == 'closed') {
-        unawaited(stop());
+        unawaited(stopAndReport());
         if (mounted)
           setState(() {
             ready = false;
@@ -176,7 +178,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
   void revoked() {
     if (widget.registry.records[widget.record.manifest.id] != widget.record ||
         !widget.record.authorized) {
-      unawaited(stop());
+      unawaited(stopAndReport());
       if (mounted)
         setState(() {
           ready = false;
@@ -191,7 +193,7 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
       ready = false;
       failure = '账号或模型配置已变化，请重新打开 DSH 以同步授权。';
     });
-    unawaited(stop());
+    unawaited(stopAndReport());
   }
 
   Future<bool> confirm(String title, String text) async {
@@ -283,10 +285,25 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
       if (mounted && !closing) setState(() => ready = true);
     } on PlatformException catch (e) {
       if (mounted) setState(() => failure = e.message ?? '本地运行组件启动失败。');
-      await stop().catchError((Object _) {});
+      await stopAndReport();
     } catch (_) {
       if (mounted) setState(() => failure = '本地运行组件启动失败，请核对组件安装及插件授权。');
-      await stop().catchError((Object _) {});
+      await stopAndReport();
+    }
+  }
+
+  Future<void> stopAndReport() async {
+    try {
+      await stop();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          ready = false;
+          failure = error is PluginApiError
+              ? error.message
+              : '本地运行环境已关闭，但停止回执未完成，请核对手机实际状态。';
+        });
+      }
     }
   }
 
@@ -320,7 +337,11 @@ class _LocalRuntimePageState extends State<LocalRuntimePage> {
     widget.registry.removeListener(revoked);
     unawaited(
       stop().catchError((Object _) {}).whenComplete(() {
-        _runtimePlatform.setMethodCallHandler(null);
+        // A previous route may finish stopping after the next one has opened.
+        if (_runtimeHandlerOwner == routeId) {
+          _runtimeHandlerOwner = null;
+          _runtimePlatform.setMethodCallHandler(null);
+        }
         return coordinator.dispose();
       }),
     );

@@ -67,3 +67,16 @@ The plugin bridge preserves eight normal in-flight calls and a separately
 bounded lane for eight `device.engine.cancel` requests. A full normal queue must
 not block Stop. Admission to that lane does not grant authority: the existing
 runtime scope still matches the exact owned request ID before native cancellation.
+
+## DSH route shutdown
+
+Model configuration changes and plugin revocation close the DSH model/device
+brokers and cancel the exact active native request. A missing or uncertain Stop
+receipt is displayed in the DSH page rather than escaping as an unhandled
+asynchronous error. It does not mean that earlier device effects were reversed.
+
+The shared runtime channel belongs to the latest route. An older route may await
+native shutdown while a new route opens; its delayed disposal cannot remove the
+new route's handler. Widget regressions cover both this handoff and uncertain
+revocation. These use test platform channels and do not replace real-model,
+emulator-UI acceptance.

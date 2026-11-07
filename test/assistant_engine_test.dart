@@ -302,4 +302,116 @@ void main() {
       expect(calls, 1);
     },
   );
+  test(
+    'restart from the actual before-dispatch journal never replays and allows a new ordinary conversation',
+    () async {
+      String? durable;
+      final dispatched = Completer<void>();
+      final delayed = Completer<Map<String, dynamic>>();
+      var originalCalls = 0, restoredCalls = 0, restoredPlans = 0;
+      late String requestId;
+      final original = assistant(
+        native((args) {
+          originalCalls++;
+          requestId = args['requestId'] as String;
+          final journal = jsonDecode(durable!) as Map;
+          expect(journal['phase'], 'executing');
+          expect(journal['pending']['requestId'], requestId);
+          dispatched.complete();
+          return delayed.future;
+        }),
+        (_, __) async =>
+            '{"type":"call","tool":"shell.execute","arguments":{"command":"sleep 500"},"message":"Run once"}',
+        write: (value) async => durable = value,
+      );
+      final firstRun = original.send('Run the controlled test once');
+      await dispatched.future;
+      final interruptedJournal = durable!;
+      final restored = assistant(
+        native((_) async {
+          restoredCalls++;
+          throw StateError('A restored write must never dispatch');
+        }),
+        (_, history) async {
+          restoredPlans++;
+          expect(history.last['content'], 'Just say hello without tools');
+          return '{"type":"final","message":"Hello"}';
+        },
+        read: () async => interruptedJournal,
+        write: (value) async => durable = value,
+      );
+      await restored.restore();
+      await restored.resume();
+      expect(restored.phase, 'unknown');
+      expect(restored.pending, isNull);
+      expect(restoredCalls, 0);
+      expect(restoredPlans, 0);
+      expect(restored.messages.last['content'], contains('不会自动重放'));
+      await restored.send('Just say hello without tools');
+      expect(restored.phase, 'done');
+      expect(restored.messages.last['content'], 'Hello');
+      expect(restoredCalls, 0);
+      expect(restoredPlans, 1);
+      expect(originalCalls, 1);
+      delayed.complete({'requestId': requestId, 'outcome': 'unknown'});
+      await firstRun;
+      original.dispose();
+      restored.dispose();
+    },
+  );
+  test(
+    'changing models during native execution cancels the original owner and rejects the late result',
+    () async {
+      var identity = 'first-model', plans = 0;
+      Map<String, dynamic>? invocation, cancellation;
+      final started = Completer<void>();
+      final result = Completer<Map<String, dynamic>>();
+      final cancelled = Completer<void>();
+      final a = assistant(
+        DeviceEngine(
+          transport: (method, args) async {
+            if (method == 'status') return state;
+            if (method == 'invoke') {
+              invocation = args;
+              started.complete();
+              return result.future;
+            }
+            expect(method, 'cancelRequest');
+            cancellation = args;
+            cancelled.complete();
+            return {'outcome': 'cancelled'};
+          },
+        ),
+        (_, __) async {
+          plans++;
+          return '{"type":"call","tool":"clock.alarms.show","arguments":{},"message":"Show clock"}';
+        },
+        identity: () => identity,
+      );
+      final run = a.send('Show my alarms');
+      await started.future;
+      identity = 'second-model';
+      a.identityChanged();
+      await cancelled.future;
+      await a.stop();
+      expect(cancellation?['owner'], invocation?['owner']);
+      expect(cancellation?['requestId'], invocation?['requestId']);
+      result.complete({
+        'requestId': invocation!['requestId'],
+        'outcome': 'verified',
+        'summary': 'Late result must be discarded',
+      });
+      await run;
+      expect(a.phase, 'stopped');
+      expect(plans, 1);
+      expect(a.pending, isNull);
+      expect(
+        a.messages.any(
+          (message) => message['content']!.contains('Late result'),
+        ),
+        false,
+      );
+      a.dispose();
+    },
+  );
 }
