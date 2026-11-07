@@ -6,6 +6,7 @@ import 'cloud_companion_motion.dart';
 import 'cloud_companion_reference.dart';
 import 'cloud_typing_motion.dart';
 import 'cloud_pet_pack.dart';
+import 'cloud_pet_catalog.dart';
 
 /// Reference pixels remain intact. A connected weighted mesh moves wrists and
 /// head, so joints never expose holes or require replacement limb artwork.
@@ -22,6 +23,8 @@ class CloudCompanionPainter extends CustomPainter {
     this.layers,
     this.petPack,
     this.petAtlas,
+    this.petCatalog,
+    this.petAtlases = const {},
   });
   final ui.Image image;
   final CloudReferenceRig rig;
@@ -32,6 +35,8 @@ class CloudCompanionPainter extends CustomPainter {
   final List<CloudVisualLayer>? layers;
   final CloudPetPack? petPack;
   final ui.Image? petAtlas;
+  final CloudPetCatalog? petCatalog;
+  final Map<String, ui.Image> petAtlases;
   String get sceneName => sceneFor(activity, pose);
   static String sceneFor(CloudActivity activity, CloudPose pose) =>
       switch (activity) {
@@ -117,6 +122,20 @@ class CloudCompanionPainter extends CustomPainter {
   void paintLayer(Canvas canvas, Size size, CloudVisualLayer frame) {
     final activity = frame.activity, pose = frame.pose;
     final greeting = frame.greeting, seconds = frame.seconds;
+    final primary = petCatalog?.packs[activity];
+    if (primary != null) {
+      final selected =
+          frame.petAtlasAsset == petCatalog!.fallbacks[activity]!.atlas
+          ? petCatalog!.fallbacks[activity]!
+          : petAtlases.containsKey(primary.atlas)
+          ? primary
+          : petCatalog!.fallbacks[activity]!;
+      final atlas = petAtlases[selected.atlas];
+      if (atlas != null) {
+        paintPet(canvas, size, selected, frame, atlas: atlas);
+        return;
+      }
+    }
     final pack = petPack;
     if (pack != null && petAtlas != null && pack.supports(activity, pose)) {
       paintPet(canvas, size, pack, frame);
@@ -241,16 +260,18 @@ class CloudCompanionPainter extends CustomPainter {
     Canvas canvas,
     Size size,
     CloudPetPack pack,
-    CloudVisualLayer frame,
-  ) {
+    CloudVisualLayer frame, {
+    ui.Image? atlas,
+  }) {
     final sample = pack.sample(
       frame.seconds,
       segment:
           frame.petSegment ??
-          (frame.activity == CloudActivity.coding
+          (frame.activity.name == pack.activityName
               ? null
               : CloudPetSegment.hold),
       moving: motion,
+      greeting: frame.greeting,
     );
     final fit = applyBoxFit(BoxFit.contain, pack.viewport.size, size);
     final destination = Alignment.center.inscribe(
@@ -267,7 +288,7 @@ class CloudCompanionPainter extends CustomPainter {
       // One coherent source drawing owns the head, eyes, body, hands and desk.
       // Never place a fixed head, crop mask or blended arm over this frame.
       canvas.drawImageRect(
-        petAtlas!,
+        atlas ?? petAtlas!,
         tile.shift(pack.frameOrigin(sample.frame)),
         tile,
         paint,
@@ -391,5 +412,7 @@ class CloudCompanionPainter extends CustomPainter {
       old.greeting != greeting ||
       old.layers != layers ||
       old.petPack != petPack ||
+      old.petCatalog != petCatalog ||
+      old.petAtlases != petAtlases ||
       old.petAtlas != petAtlas;
 }

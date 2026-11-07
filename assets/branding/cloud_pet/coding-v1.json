@@ -1,9 +1,10 @@
 {
   "version": 1,
-  "id": "cloud-coding-v3-whole",
+  "id": "cloud-workflow-coding-v1",
   "activity": "coding",
   "wholeFrames": true,
-  "atlas": "assets/branding/cloud_pet/coding-v3-whole.png",
+  "repeat": true,
+  "atlas": "assets/branding/cloud_pet/workflow-coding-v1.png",
   "tile": [
     256,
     256
@@ -29,10 +30,10 @@
     ]
   ],
   "fixedRegions": [],
-  "foreground": [],
   "eyes": [],
-  "holdFrame": 23,
+  "foreground": [],
   "frameBlendMs": 0,
+  "holdFrame": 23,
   "clips": {
     "A_Start": [
       [
@@ -208,19 +209,19 @@
         41
       ],
       [
-        21,
+        22,
         40
       ],
       [
-        21,
+        22,
         40
       ],
       [
-        21,
+        22,
         40
       ],
       [
-        21,
+        22,
         41
       ],
       [
@@ -306,23 +307,23 @@
         19
       ],
       [
-        45,
+        46,
         19
       ],
       [
-        45,
+        46,
         19
       ],
       [
-        45,
+        46,
         20
       ],
       [
-        45,
+        46,
         19
       ],
       [
-        45,
+        46,
         19
       ],
       [
@@ -400,27 +401,27 @@
         38
       ],
       [
-        69,
+        64,
         38
       ],
       [
-        69,
+        70,
         38
       ],
       [
-        69,
+        70,
         38
       ],
       [
-        69,
+        70,
         38
       ],
       [
-        69,
+        70,
         38
       ],
       [
-        69,
+        70,
         38
       ],
       [
@@ -449,10 +450,10 @@
   },
   "loopOrder": [
     "B_LoopNoBlink",
-    "B_LoopNoBlink",
     "B_SideTyping",
-    "B_Loop",
+    "B_LoopNoBlink",
     "B_Touchpad",
+    "B_Loop",
     "B_SideTyping"
   ]
 }

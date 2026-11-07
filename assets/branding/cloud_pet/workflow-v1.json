@@ -1,0 +1,2756 @@
+{
+  "version": 1,
+  "packs": {
+    "coding": {
+      "version": 1,
+      "id": "cloud-workflow-coding-v1",
+      "activity": "coding",
+      "wholeFrames": true,
+      "repeat": true,
+      "atlas": "assets/branding/cloud_pet/workflow-coding-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        2048,
+        2304
+      ],
+      "columns": 8,
+      "frameCount": 72,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            240
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            40
+          ],
+          [
+            1,
+            40
+          ],
+          [
+            2,
+            41
+          ],
+          [
+            3,
+            40
+          ],
+          [
+            4,
+            40
+          ],
+          [
+            5,
+            40
+          ],
+          [
+            6,
+            41
+          ],
+          [
+            7,
+            40
+          ],
+          [
+            8,
+            40
+          ],
+          [
+            9,
+            40
+          ],
+          [
+            10,
+            40
+          ],
+          [
+            11,
+            41
+          ],
+          [
+            12,
+            40
+          ],
+          [
+            13,
+            40
+          ],
+          [
+            14,
+            40
+          ],
+          [
+            15,
+            40
+          ],
+          [
+            16,
+            41
+          ],
+          [
+            17,
+            40
+          ],
+          [
+            18,
+            40
+          ],
+          [
+            19,
+            40
+          ],
+          [
+            20,
+            41
+          ],
+          [
+            21,
+            40
+          ],
+          [
+            22,
+            40
+          ],
+          [
+            23,
+            100
+          ]
+        ],
+        "B_LoopNoBlink": [
+          [
+            0,
+            40
+          ],
+          [
+            1,
+            40
+          ],
+          [
+            2,
+            41
+          ],
+          [
+            3,
+            40
+          ],
+          [
+            4,
+            40
+          ],
+          [
+            5,
+            40
+          ],
+          [
+            6,
+            41
+          ],
+          [
+            7,
+            40
+          ],
+          [
+            8,
+            40
+          ],
+          [
+            9,
+            40
+          ],
+          [
+            10,
+            40
+          ],
+          [
+            11,
+            41
+          ],
+          [
+            12,
+            40
+          ],
+          [
+            13,
+            40
+          ],
+          [
+            14,
+            40
+          ],
+          [
+            15,
+            40
+          ],
+          [
+            16,
+            41
+          ],
+          [
+            22,
+            40
+          ],
+          [
+            22,
+            40
+          ],
+          [
+            22,
+            40
+          ],
+          [
+            22,
+            41
+          ],
+          [
+            21,
+            40
+          ],
+          [
+            22,
+            40
+          ],
+          [
+            23,
+            100
+          ]
+        ],
+        "B_SideTyping": [
+          [
+            24,
+            19
+          ],
+          [
+            25,
+            19
+          ],
+          [
+            26,
+            19
+          ],
+          [
+            27,
+            20
+          ],
+          [
+            28,
+            19
+          ],
+          [
+            29,
+            19
+          ],
+          [
+            30,
+            19
+          ],
+          [
+            31,
+            19
+          ],
+          [
+            32,
+            19
+          ],
+          [
+            33,
+            19
+          ],
+          [
+            34,
+            19
+          ],
+          [
+            35,
+            20
+          ],
+          [
+            36,
+            19
+          ],
+          [
+            37,
+            19
+          ],
+          [
+            38,
+            19
+          ],
+          [
+            39,
+            19
+          ],
+          [
+            40,
+            19
+          ],
+          [
+            46,
+            19
+          ],
+          [
+            46,
+            19
+          ],
+          [
+            46,
+            20
+          ],
+          [
+            46,
+            19
+          ],
+          [
+            46,
+            19
+          ],
+          [
+            46,
+            19
+          ],
+          [
+            47,
+            100
+          ]
+        ],
+        "B_Touchpad": [
+          [
+            48,
+            38
+          ],
+          [
+            49,
+            38
+          ],
+          [
+            50,
+            38
+          ],
+          [
+            51,
+            38
+          ],
+          [
+            52,
+            38
+          ],
+          [
+            53,
+            38
+          ],
+          [
+            54,
+            38
+          ],
+          [
+            55,
+            38
+          ],
+          [
+            56,
+            38
+          ],
+          [
+            57,
+            38
+          ],
+          [
+            58,
+            38
+          ],
+          [
+            59,
+            39
+          ],
+          [
+            60,
+            38
+          ],
+          [
+            61,
+            38
+          ],
+          [
+            62,
+            38
+          ],
+          [
+            63,
+            38
+          ],
+          [
+            64,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            70,
+            38
+          ],
+          [
+            71,
+            200
+          ]
+        ],
+        "C_End": [
+          [
+            21,
+            45
+          ],
+          [
+            22,
+            45
+          ],
+          [
+            23,
+            210
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_LoopNoBlink",
+        "B_SideTyping",
+        "B_LoopNoBlink",
+        "B_Touchpad",
+        "B_Loop",
+        "B_SideTyping"
+      ]
+    },
+    "idle": {
+      "version": 1,
+      "id": "cloud-workflow-idle-v1",
+      "activity": "idle",
+      "wholeFrames": true,
+      "repeat": true,
+      "atlas": "assets/branding/cloud_pet/workflow-idle-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            15,
+            160
+          ],
+          [
+            16,
+            240
+          ],
+          [
+            17,
+            60
+          ],
+          [
+            18,
+            60
+          ],
+          [
+            19,
+            60
+          ],
+          [
+            20,
+            180
+          ],
+          [
+            21,
+            200
+          ],
+          [
+            22,
+            260
+          ],
+          [
+            23,
+            650
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ],
+        "A_Greeting": [
+          [
+            0,
+            83
+          ],
+          [
+            1,
+            84
+          ],
+          [
+            2,
+            83
+          ],
+          [
+            3,
+            83
+          ],
+          [
+            4,
+            84
+          ],
+          [
+            5,
+            83
+          ],
+          [
+            6,
+            83
+          ],
+          [
+            7,
+            84
+          ],
+          [
+            8,
+            83
+          ],
+          [
+            9,
+            83
+          ],
+          [
+            10,
+            84
+          ],
+          [
+            11,
+            83
+          ],
+          [
+            12,
+            83
+          ],
+          [
+            13,
+            84
+          ],
+          [
+            14,
+            83
+          ],
+          [
+            15,
+            83
+          ],
+          [
+            16,
+            84
+          ],
+          [
+            17,
+            83
+          ],
+          [
+            18,
+            83
+          ],
+          [
+            19,
+            84
+          ],
+          [
+            20,
+            83
+          ],
+          [
+            21,
+            83
+          ],
+          [
+            22,
+            84
+          ],
+          [
+            23,
+            83
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "thinking": {
+      "version": 1,
+      "id": "cloud-workflow-thinking-v1",
+      "activity": "thinking",
+      "wholeFrames": true,
+      "repeat": true,
+      "atlas": "assets/branding/cloud_pet/workflow-thinking-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            75
+          ],
+          [
+            1,
+            75
+          ],
+          [
+            2,
+            75
+          ],
+          [
+            3,
+            75
+          ],
+          [
+            4,
+            75
+          ],
+          [
+            5,
+            75
+          ],
+          [
+            6,
+            75
+          ],
+          [
+            7,
+            75
+          ],
+          [
+            8,
+            75
+          ],
+          [
+            9,
+            75
+          ],
+          [
+            10,
+            75
+          ],
+          [
+            11,
+            75
+          ],
+          [
+            12,
+            75
+          ],
+          [
+            13,
+            75
+          ],
+          [
+            14,
+            75
+          ],
+          [
+            15,
+            75
+          ],
+          [
+            16,
+            75
+          ],
+          [
+            17,
+            75
+          ],
+          [
+            18,
+            75
+          ],
+          [
+            19,
+            75
+          ],
+          [
+            20,
+            75
+          ],
+          [
+            21,
+            75
+          ],
+          [
+            22,
+            75
+          ],
+          [
+            23,
+            75
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "phone": {
+      "version": 1,
+      "id": "cloud-workflow-phone-v1",
+      "activity": "phone",
+      "wholeFrames": true,
+      "repeat": true,
+      "atlas": "assets/branding/cloud_pet/workflow-phone-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            62
+          ],
+          [
+            1,
+            63
+          ],
+          [
+            2,
+            63
+          ],
+          [
+            3,
+            62
+          ],
+          [
+            4,
+            62
+          ],
+          [
+            5,
+            63
+          ],
+          [
+            6,
+            63
+          ],
+          [
+            7,
+            62
+          ],
+          [
+            8,
+            62
+          ],
+          [
+            9,
+            63
+          ],
+          [
+            10,
+            63
+          ],
+          [
+            11,
+            62
+          ],
+          [
+            12,
+            62
+          ],
+          [
+            13,
+            63
+          ],
+          [
+            14,
+            63
+          ],
+          [
+            15,
+            62
+          ],
+          [
+            16,
+            62
+          ],
+          [
+            17,
+            63
+          ],
+          [
+            18,
+            63
+          ],
+          [
+            19,
+            62
+          ],
+          [
+            20,
+            62
+          ],
+          [
+            21,
+            63
+          ],
+          [
+            22,
+            63
+          ],
+          [
+            23,
+            62
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "permission": {
+      "version": 1,
+      "id": "cloud-workflow-permission-v1",
+      "activity": "permission",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-permission-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            83
+          ],
+          [
+            1,
+            84
+          ],
+          [
+            2,
+            83
+          ],
+          [
+            3,
+            83
+          ],
+          [
+            4,
+            84
+          ],
+          [
+            5,
+            83
+          ],
+          [
+            6,
+            83
+          ],
+          [
+            7,
+            84
+          ],
+          [
+            8,
+            83
+          ],
+          [
+            9,
+            83
+          ],
+          [
+            10,
+            84
+          ],
+          [
+            11,
+            83
+          ],
+          [
+            12,
+            83
+          ],
+          [
+            13,
+            84
+          ],
+          [
+            14,
+            83
+          ],
+          [
+            15,
+            83
+          ],
+          [
+            16,
+            84
+          ],
+          [
+            17,
+            83
+          ],
+          [
+            18,
+            83
+          ],
+          [
+            19,
+            84
+          ],
+          [
+            20,
+            83
+          ],
+          [
+            21,
+            83
+          ],
+          [
+            22,
+            84
+          ],
+          [
+            23,
+            83
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "checking": {
+      "version": 1,
+      "id": "cloud-workflow-checking-v1",
+      "activity": "checking",
+      "wholeFrames": true,
+      "repeat": true,
+      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            88
+          ],
+          [
+            1,
+            87
+          ],
+          [
+            2,
+            87
+          ],
+          [
+            3,
+            88
+          ],
+          [
+            4,
+            88
+          ],
+          [
+            5,
+            87
+          ],
+          [
+            6,
+            87
+          ],
+          [
+            7,
+            88
+          ],
+          [
+            8,
+            88
+          ],
+          [
+            9,
+            87
+          ],
+          [
+            10,
+            87
+          ],
+          [
+            11,
+            88
+          ],
+          [
+            12,
+            88
+          ],
+          [
+            13,
+            87
+          ],
+          [
+            14,
+            87
+          ],
+          [
+            15,
+            88
+          ],
+          [
+            16,
+            88
+          ],
+          [
+            17,
+            87
+          ],
+          [
+            18,
+            87
+          ],
+          [
+            19,
+            88
+          ],
+          [
+            20,
+            88
+          ],
+          [
+            21,
+            87
+          ],
+          [
+            22,
+            87
+          ],
+          [
+            23,
+            88
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "resultReady": {
+      "version": 1,
+      "id": "cloud-workflow-resultReady-v1",
+      "activity": "resultReady",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            88
+          ],
+          [
+            1,
+            87
+          ],
+          [
+            2,
+            87
+          ],
+          [
+            3,
+            88
+          ],
+          [
+            4,
+            88
+          ],
+          [
+            5,
+            87
+          ],
+          [
+            6,
+            87
+          ],
+          [
+            7,
+            88
+          ],
+          [
+            8,
+            88
+          ],
+          [
+            9,
+            87
+          ],
+          [
+            10,
+            87
+          ],
+          [
+            11,
+            88
+          ],
+          [
+            12,
+            88
+          ],
+          [
+            13,
+            87
+          ],
+          [
+            14,
+            87
+          ],
+          [
+            15,
+            88
+          ],
+          [
+            16,
+            88
+          ],
+          [
+            17,
+            87
+          ],
+          [
+            18,
+            87
+          ],
+          [
+            19,
+            88
+          ],
+          [
+            20,
+            88
+          ],
+          [
+            21,
+            87
+          ],
+          [
+            22,
+            87
+          ],
+          [
+            23,
+            88
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "complete": {
+      "version": 1,
+      "id": "cloud-workflow-complete-v1",
+      "activity": "complete",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-complete-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            71
+          ],
+          [
+            1,
+            71
+          ],
+          [
+            2,
+            70
+          ],
+          [
+            3,
+            71
+          ],
+          [
+            4,
+            71
+          ],
+          [
+            5,
+            71
+          ],
+          [
+            6,
+            71
+          ],
+          [
+            7,
+            71
+          ],
+          [
+            8,
+            71
+          ],
+          [
+            9,
+            70
+          ],
+          [
+            10,
+            71
+          ],
+          [
+            11,
+            71
+          ],
+          [
+            12,
+            71
+          ],
+          [
+            13,
+            71
+          ],
+          [
+            14,
+            70
+          ],
+          [
+            15,
+            71
+          ],
+          [
+            16,
+            71
+          ],
+          [
+            17,
+            71
+          ],
+          [
+            18,
+            71
+          ],
+          [
+            19,
+            71
+          ],
+          [
+            20,
+            71
+          ],
+          [
+            21,
+            70
+          ],
+          [
+            22,
+            71
+          ],
+          [
+            23,
+            71
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "stopping": {
+      "version": 1,
+      "id": "cloud-workflow-stopping-v1",
+      "activity": "stopping",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-paused-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            62
+          ],
+          [
+            1,
+            63
+          ],
+          [
+            2,
+            63
+          ],
+          [
+            3,
+            62
+          ],
+          [
+            4,
+            62
+          ],
+          [
+            5,
+            63
+          ],
+          [
+            6,
+            63
+          ],
+          [
+            7,
+            62
+          ],
+          [
+            8,
+            62
+          ],
+          [
+            9,
+            63
+          ],
+          [
+            10,
+            63
+          ],
+          [
+            11,
+            62
+          ],
+          [
+            12,
+            62
+          ],
+          [
+            13,
+            63
+          ],
+          [
+            14,
+            63
+          ],
+          [
+            15,
+            62
+          ],
+          [
+            16,
+            62
+          ],
+          [
+            17,
+            63
+          ],
+          [
+            18,
+            63
+          ],
+          [
+            19,
+            62
+          ],
+          [
+            20,
+            62
+          ],
+          [
+            21,
+            63
+          ],
+          [
+            22,
+            63
+          ],
+          [
+            23,
+            62
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "paused": {
+      "version": 1,
+      "id": "cloud-workflow-paused-v1",
+      "activity": "paused",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-paused-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            12,
+            60
+          ],
+          [
+            13,
+            60
+          ],
+          [
+            14,
+            60
+          ]
+        ],
+        "B_Loop": [
+          [
+            14,
+            160
+          ],
+          [
+            15,
+            160
+          ],
+          [
+            16,
+            160
+          ],
+          [
+            17,
+            160
+          ],
+          [
+            18,
+            160
+          ],
+          [
+            19,
+            160
+          ],
+          [
+            20,
+            160
+          ],
+          [
+            21,
+            160
+          ],
+          [
+            22,
+            160
+          ],
+          [
+            23,
+            160
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "failed": {
+      "version": 1,
+      "id": "cloud-workflow-failed-v1",
+      "activity": "failed",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-failed-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        1536
+      ],
+      "columns": 4,
+      "frameCount": 24,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 23,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            79
+          ],
+          [
+            1,
+            79
+          ],
+          [
+            2,
+            80
+          ],
+          [
+            3,
+            79
+          ],
+          [
+            4,
+            79
+          ],
+          [
+            5,
+            79
+          ],
+          [
+            6,
+            79
+          ],
+          [
+            7,
+            79
+          ],
+          [
+            8,
+            79
+          ],
+          [
+            9,
+            80
+          ],
+          [
+            10,
+            79
+          ],
+          [
+            11,
+            79
+          ],
+          [
+            12,
+            79
+          ],
+          [
+            13,
+            79
+          ],
+          [
+            14,
+            80
+          ],
+          [
+            15,
+            79
+          ],
+          [
+            16,
+            79
+          ],
+          [
+            17,
+            79
+          ],
+          [
+            18,
+            79
+          ],
+          [
+            19,
+            79
+          ],
+          [
+            20,
+            79
+          ],
+          [
+            21,
+            80
+          ],
+          [
+            22,
+            79
+          ],
+          [
+            23,
+            79
+          ]
+        ],
+        "C_End": [
+          [
+            20,
+            60
+          ],
+          [
+            21,
+            60
+          ],
+          [
+            22,
+            60
+          ],
+          [
+            23,
+            60
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    }
+  },
+  "fallbacks": {
+    "idle": {
+      "version": 1,
+      "id": "cloud-workflow-idle-v1",
+      "activity": "idle",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 0,
+      "clips": {
+        "A_Start": [
+          [
+            0,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            0,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            0,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "thinking": {
+      "version": 1,
+      "id": "cloud-workflow-thinking-v1",
+      "activity": "thinking",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 1,
+      "clips": {
+        "A_Start": [
+          [
+            1,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            1,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            1,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "coding": {
+      "version": 1,
+      "id": "cloud-workflow-coding-v1",
+      "activity": "coding",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 2,
+      "clips": {
+        "A_Start": [
+          [
+            2,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            2,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            2,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "phone": {
+      "version": 1,
+      "id": "cloud-workflow-phone-v1",
+      "activity": "phone",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 3,
+      "clips": {
+        "A_Start": [
+          [
+            3,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            3,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            3,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "permission": {
+      "version": 1,
+      "id": "cloud-workflow-permission-v1",
+      "activity": "permission",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 4,
+      "clips": {
+        "A_Start": [
+          [
+            4,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            4,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            4,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "checking": {
+      "version": 1,
+      "id": "cloud-workflow-checking-v1",
+      "activity": "checking",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 5,
+      "clips": {
+        "A_Start": [
+          [
+            5,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            5,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            5,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "resultReady": {
+      "version": 1,
+      "id": "cloud-workflow-resultReady-v1",
+      "activity": "resultReady",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 6,
+      "clips": {
+        "A_Start": [
+          [
+            6,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            6,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            6,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "complete": {
+      "version": 1,
+      "id": "cloud-workflow-complete-v1",
+      "activity": "complete",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 7,
+      "clips": {
+        "A_Start": [
+          [
+            7,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            7,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            7,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "stopping": {
+      "version": 1,
+      "id": "cloud-workflow-stopping-v1",
+      "activity": "stopping",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 8,
+      "clips": {
+        "A_Start": [
+          [
+            8,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            8,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            8,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "paused": {
+      "version": 1,
+      "id": "cloud-workflow-paused-v1",
+      "activity": "paused",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 9,
+      "clips": {
+        "A_Start": [
+          [
+            9,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            9,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            9,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    },
+    "failed": {
+      "version": 1,
+      "id": "cloud-workflow-failed-v1",
+      "activity": "failed",
+      "wholeFrames": true,
+      "repeat": false,
+      "atlas": "assets/branding/cloud_pet/workflow-loading-v1.png",
+      "tile": [
+        256,
+        256
+      ],
+      "atlasSize": [
+        1024,
+        768
+      ],
+      "columns": 4,
+      "frameCount": 11,
+      "viewport": [
+        0,
+        0,
+        256,
+        256
+      ],
+      "animatedRegions": [
+        [
+          0,
+          0,
+          256,
+          256
+        ]
+      ],
+      "fixedRegions": [],
+      "eyes": [],
+      "foreground": [],
+      "frameBlendMs": 0,
+      "holdFrame": 10,
+      "clips": {
+        "A_Start": [
+          [
+            10,
+            180
+          ]
+        ],
+        "B_Loop": [
+          [
+            10,
+            1000
+          ]
+        ],
+        "C_End": [
+          [
+            10,
+            240
+          ]
+        ]
+      },
+      "loopOrder": [
+        "B_Loop"
+      ]
+    }
+  }
+}

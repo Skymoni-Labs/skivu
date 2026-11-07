@@ -41,3 +41,24 @@ is retained; one blink sequence is selected per work cycle.
 Prompts and source-cell integrity receipts:
 E:/zzz/ops/skivu-cloud-pet-whole-frames-20261108/PROMPTS.txt
 E:/zzz/ops/skivu-cloud-pet-whole-frames-20261108/source-receipts.json
+
+Current complete workflow, 2026-11-08:
+workflow-v1.json covers all eleven CloudActivity values with complete-scene
+sprite packs and complete loading frames. Standing states, phone operation,
+permission, inspection, celebration, stopping, resting and exceptions now use
+the same whole-frame renderer. Coding restores low alternating hands and a
+horizontal trackpad reach, retaining its 5,230 ms cycle. Idle also has a tap-
+triggered greeting. One-shot outcomes settle rather than repeatedly celebrate.
+Textures load per scene; inactive textures are evicted after transitions.
+
+Generated candidates were reviewed before selection. The initial completion
+dot-eye sheet and thin-desk trackpad sheet were rejected and regenerated.
+An asymmetric-eye paused cell 15 was rejected after an attempted repair; its
+complete symmetric half-blink source cell 18 is selected there instead.
+Every selected native cell retains its source RGBA pixels, with no local eye
+patch or detached-limb composition. The original approved reference remains.
+Prompts, selected source receipts and exclusions:
+E:/zzz/ops/skivu-cloud-full-workflow-20261108/PROMPTS.txt
+E:/zzz/ops/skivu-cloud-full-workflow-20261108/PROMPTS-REPAIRS.txt
+E:/zzz/ops/skivu-cloud-full-workflow-20261108/selection.json
+E:/zzz/ops/skivu-cloud-full-workflow-20261108/source-receipts.json

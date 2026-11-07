@@ -20,6 +20,7 @@ void main() {
       await tester.runAsync(loader.load);
       const loopOnly = bool.fromEnvironment('CLOUD_LOOP_ONLY');
       const museDemo = bool.fromEnvironment('CLOUD_MUSE_DEMO');
+      const fullWorkflow = bool.fromEnvironment('CLOUD_FULL_WORKFLOW');
       final activity = ValueNotifier(
         loopOnly ? CloudActivity.coding : CloudActivity.idle,
       );
@@ -82,6 +83,21 @@ void main() {
       const fps = int.fromEnvironment('CLOUD_FPS', defaultValue: 20);
       const sequence = loopOnly
           ? [(0, CloudActivity.coding)]
+          : fullWorkflow
+          ? [
+              (0, CloudActivity.idle),
+              (3000, CloudActivity.thinking),
+              (6000, CloudActivity.coding),
+              (12000, CloudActivity.phone),
+              (15500, CloudActivity.permission),
+              (18500, CloudActivity.checking),
+              (22000, CloudActivity.resultReady),
+              (24500, CloudActivity.complete),
+              (27500, CloudActivity.stopping),
+              (30000, CloudActivity.paused),
+              (32500, CloudActivity.failed),
+              (35500, CloudActivity.idle),
+            ]
           : museDemo
           ? [
               (0, CloudActivity.idle),
@@ -110,17 +126,28 @@ void main() {
       final manifest = <String>[];
       final count = loopOnly
           ? 8 * fps
+          : fullWorkflow
+          ? 38 * fps
           : museDemo
           ? 12 * fps
           : (402 * fps / 20).round();
       var previousMicros = 0;
       for (var frame = 0; frame < count; frame++) {
         for (final (start, state) in sequence) {
-          final at = (start * fps / (museDemo && !loopOnly ? 1000 : 20))
-              .round();
+          final at =
+              (start *
+                      fps /
+                      ((museDemo || fullWorkflow) && !loopOnly ? 1000 : 20))
+                  .round();
           if (at == frame) {
             activity.value = state;
             manifest.add('$frame,${state.name}');
+            if (fullWorkflow && state == CloudActivity.idle) {
+              await tester.pump();
+              await tester.tap(
+                find.byKey(const ValueKey('cloud-companion-portrait')),
+              );
+            }
           }
         }
         final targetMicros = ((frame + 1) * 1000000 / fps).round();

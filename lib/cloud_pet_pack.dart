@@ -36,10 +36,13 @@ class CloudPetSample {
 /// with a local Skivu schema; never loads scripts or third-party pet binaries.
 class CloudPetPack {
   CloudPetPack.fromJson(Map<String, dynamic> json) {
-    if (json['version'] != 1 || json['activity'] != 'coding') {
+    if (json['version'] != 1 ||
+        !CloudActivity.values.any((value) => value.name == json['activity'])) {
       throw const FormatException('Unsupported cloud pet pack');
     }
     id = json['id'] as String;
+    activityName = json['activity'] as String;
+    repeats = json['repeat'] as bool? ?? true;
     wholeFrames = json['wholeFrames'] as bool? ?? false;
     atlas = json['atlas'] as String;
     if (!atlas.startsWith('assets/branding/cloud_pet/') ||
@@ -160,6 +163,9 @@ class CloudPetPack {
     }
 
     start = readClip('A_Start');
+    greetingClip = (json['clips'] as Map).containsKey('A_Greeting')
+        ? readClip('A_Greeting')
+        : null;
     final order = (json['loopOrder'] as List?)?.cast<String>() ?? ['B_Loop'];
     if (order.isEmpty || order.any((name) => !name.startsWith('B_'))) {
       throw const FormatException('Invalid cloud pet loop sequence');
@@ -173,7 +179,8 @@ class CloudPetPack {
       throw const FormatException('Invalid cloud pet hold frame');
     }
   }
-  late final String id, atlas;
+  late final String id, atlas, activityName;
+  late final bool repeats;
   late final bool wholeFrames;
   late final Size tileSize;
   late final Size? atlasSize;
@@ -187,6 +194,7 @@ class CloudPetPack {
   late final List<Rect> eyes;
   late final Path foreground;
   late final CloudPetClip start, loop, end;
+  late final CloudPetClip? greetingClip;
 
   static Rect readRect(List values) => Rect.fromLTWH(
     (values[0] as num).toDouble(),
@@ -226,8 +234,9 @@ class CloudPetPack {
   }
 
   bool supports(CloudActivity activity, CloudPose pose) =>
-      activity == CloudActivity.coding ||
-      (pose.computer > .5 &&
+      activity.name == activityName ||
+      (activityName == 'coding' &&
+          pose.computer > .5 &&
           {
             CloudActivity.thinking,
             CloudActivity.resultReady,
@@ -239,11 +248,22 @@ class CloudPetPack {
     double seconds, {
     CloudPetSegment? segment,
     bool moving = true,
+    bool greeting = false,
   }) {
     if (!moving || segment == CloudPetSegment.hold) {
       return CloudPetSample(CloudPetSegment.hold, holdFrame);
     }
     final elapsed = (seconds.clamp(0, double.infinity) * 1000).floor();
+    if (greeting &&
+        greetingClip != null &&
+        elapsed < greetingClip!.durationMs) {
+      return sampleClip(
+        greetingClip!,
+        elapsed,
+        CloudPetSegment.start,
+        next: holdFrame,
+      );
+    }
     if (segment == CloudPetSegment.end) {
       return elapsed >= end.durationMs
           ? CloudPetSample(CloudPetSegment.hold, holdFrame)
@@ -257,9 +277,13 @@ class CloudPetPack {
         next: loop.frames.first.index,
       );
     }
+    final loopElapsed = elapsed - start.durationMs;
+    if (!repeats && loopElapsed >= loop.durationMs) {
+      return CloudPetSample(CloudPetSegment.hold, holdFrame);
+    }
     return sampleClip(
       loop,
-      (elapsed - start.durationMs) % loop.durationMs,
+      loopElapsed % loop.durationMs,
       CloudPetSegment.loop,
       next: loop.frames.first.index,
     );

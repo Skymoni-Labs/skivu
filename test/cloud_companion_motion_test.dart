@@ -21,6 +21,51 @@ Future<void> decoded(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+    'all workflow phases use whole scenes and bounded atlas retention',
+    (tester) async {
+      Future<void> show(CloudActivity activity) => tester.pumpWidget(
+        MaterialApp(home: CloudCompanionPortrait(activity: activity)),
+      );
+      CloudCompanionPainter painter() => tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((widget) => widget.painter)
+          .whereType<CloudCompanionPainter>()
+          .single;
+      await show(CloudActivity.idle);
+      await decoded(tester);
+      expect(painter().petCatalog, isNotNull);
+      for (final activity in CloudActivity.values) {
+        await show(activity);
+        final pack = painter().petCatalog!.packs[activity]!;
+        for (
+          var i = 0;
+          i < 200 && !painter().petAtlases.containsKey(pack.atlas);
+          i++
+        ) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+        }
+        await tester.pump(const Duration(milliseconds: 800));
+        expect(painter().activity, activity);
+        expect(
+          painter().petAtlases.containsKey(pack.atlas),
+          true,
+          reason: '${activity.name} must load its own complete animation',
+        );
+        expect(pack.supports(activity, painter().pose), true);
+        expect(painter().petAtlases.length, lessThanOrEqualTo(4));
+      }
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('whole-scene playback matches the exact source frame', (
     tester,
   ) async {
