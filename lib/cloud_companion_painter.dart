@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'cloud_companion_motion.dart';
 import 'cloud_companion_reference.dart';
-import 'cloud_typing_motion.dart';
+import 'cloud_coding_actor.dart';
 
-/// Reference pixels remain intact. A connected weighted mesh moves wrists and
-/// head, so joints never expose holes or require replacement limb artwork.
+/// Coding uses separate articulated parts. Other illustrated scenes retain
+/// their source artwork and the existing lightweight rig.
 class CloudCompanionPainter extends CustomPainter {
   const CloudCompanionPainter({
     required this.image,
@@ -131,45 +131,40 @@ class CloudCompanionPainter extends CustomPainter {
       -(scene.bounds.center.dx - scene.offset.dx),
       -(scene.bounds.top - scene.offset.dy),
     );
+    if (sceneFor(activity, pose) == 'coding') {
+      CloudCodingActor.paint(
+        canvas,
+        scene,
+        time,
+        motion && activity == CloudActivity.coding,
+      );
+      return;
+    }
     final mesh = scene.mesh;
     final points = Float32List.fromList(mesh.coordinates);
     final pivot = Offset(
       scene.bounds.center.dx - scene.offset.dx,
       scene.bounds.bottom - scene.offset.dy,
     );
-    final headTurn = activity == CloudActivity.coding && motion
-        ? .008 * math.sin(time * math.pi / 0.8)
-        : activity == CloudActivity.thinking && motion
+    final headTurn = activity == CloudActivity.thinking && motion
         ? -.012 * math.sin(time * math.pi / 2)
         : activity == CloudActivity.complete && motion && time < 1.15
         ? math.sin(time / 1.15 * math.pi * 4) * .018
         : 0.0;
     final cosine = math.cos(headTurn), sine = math.sin(headTurn);
-    final strokes = [
-      CloudTypingStroke.sample(time, 0),
-      CloudTypingStroke.sample(time, 1),
-    ];
-    final typingDip = activity == CloudActivity.coding && motion
-        ? .75 * math.sin(time * math.pi / 0.8 - .4)
-        : 0.0;
     for (var i = 0; i < CloudReferenceMesh.count; i++) {
       final x = mesh.coordinates[i * 2], y = mesh.coordinates[i * 2 + 1];
       final weight = mesh.head[i];
       final dx = x - pivot.dx, dy = y - pivot.dy;
       points[i * 2] += ((dx * cosine - dy * sine) - dx) * weight;
       points[i * 2 + 1] +=
-          (((dx * sine + dy * cosine) - dy) + cycle * 1.6 + typingDip) * weight;
+          (((dx * sine + dy * cosine) - dy) + cycle * 1.6) * weight;
       for (var a = 0; a < scene.arms.length; a++) {
         final arm = scene.arms[a];
         final armWeight = mesh.armWeights[a][i];
         if (armWeight == 0) continue;
-        var lift = 0.0, angle = 0.0, reach = 0.0;
-        if (motion && activity == CloudActivity.coding) {
-          final stroke = strokes[arm.side];
-          lift = -stroke.height;
-          angle = stroke.roll * (arm.side == 0 ? 1 : -1);
-          reach = stroke.reach;
-        } else if (motion && activity == CloudActivity.phone) {
+        var lift = 0.0, angle = 0.0;
+        if (motion && activity == CloudActivity.phone) {
           lift = math.sin(time * math.pi * 2) * 1.8;
           angle = math.sin(time * math.pi * 2) * .025;
         } else if (motion && idle && greeting && time < 2 && arm.side == 1) {
@@ -186,7 +181,7 @@ class CloudCompanionPainter extends CustomPainter {
             ay = y - p.dy,
             c = math.cos(angle),
             s = math.sin(angle);
-        points[i * 2] += ((ax * c - ay * s) - ax + reach) * armWeight;
+        points[i * 2] += ((ax * c - ay * s) - ax) * armWeight;
         points[i * 2 + 1] += ((ax * s + ay * c) - ay + lift) * armWeight;
       }
     }

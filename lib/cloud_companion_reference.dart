@@ -42,7 +42,7 @@ class CloudReferenceScene {
   late final Rect bounds;
   late final List<CloudReferenceArm> arms;
   late final List<Rect> eyes;
-  Image? texture, lids;
+  Image? texture, lids, headTexture;
   late final mesh = CloudReferenceMesh(this);
   Offset get offset => Offset(
     (bounds.left / 384).floor() * 384,
@@ -166,6 +166,19 @@ class CloudReferenceRig {
       }
       // Build joint weights during preparation, never on the first work frame.
       scene.mesh;
+      if (scene.offset == const Offset(768, 0)) {
+        final recorder = PictureRecorder();
+        final headCanvas = Canvas(recorder)
+          ..translate(-scene.offset.dx, -scene.offset.dy)
+          ..clipPath(scene.head);
+        headCanvas.drawImage(source, Offset.zero, Paint());
+        final picture = recorder.endRecording();
+        try {
+          scene.headTexture = await picture.toImage(384, 420);
+        } finally {
+          picture.dispose();
+        }
+      }
       final eyelids = PictureRecorder();
       final eyeCanvas = Canvas(eyelids)
         ..translate(-scene.offset.dx, -scene.offset.dy);
@@ -208,6 +221,7 @@ class CloudReferenceRig {
     for (final scene in scenes.values) {
       scene.texture?.dispose();
       scene.lids?.dispose();
+      scene.headTexture?.dispose();
     }
   }
 }
