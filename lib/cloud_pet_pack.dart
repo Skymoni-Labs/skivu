@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'cloud_companion_motion.dart';
+import 'cloud_pet_flow.dart';
 
 class CloudPetFrame {
   const CloudPetFrame(this.index, this.durationMs);
@@ -24,12 +25,18 @@ class CloudPetClip {
 }
 
 class CloudPetSample {
-  const CloudPetSample(this.segment, this.frame, {int? nextFrame, this.mix = 0})
-    : nextFrame = nextFrame ?? frame;
+  const CloudPetSample(
+    this.segment,
+    this.frame, {
+    int? nextFrame,
+    this.mix = 0,
+    this.progress = 0,
+  }) : nextFrame = nextFrame ?? frame;
   final CloudPetSegment segment;
   final int frame;
   final int nextFrame;
   final double mix;
+  final double progress;
 }
 
 /// Per-state, data-driven sprite animation. Uses the VPet ABC organization,
@@ -53,6 +60,12 @@ class CloudPetPack {
     tileSize = Size(tile[0].toDouble(), tile[1].toDouble());
     columns = json['columns'] as int;
     frameCount = json['frameCount'] as int;
+    flow = json['motionFlow'] == null
+        ? null
+        : CloudPetFlow.fromJson(
+            Map<String, dynamic>.from(json['motionFlow'] as Map),
+            frameCount,
+          );
     final dimensions = (json['atlasSize'] as List?)?.cast<num>();
     atlasSize = dimensions == null
         ? null
@@ -182,6 +195,7 @@ class CloudPetPack {
   late final String id, atlas, activityName;
   late final bool repeats;
   late final bool wholeFrames;
+  late final CloudPetFlow? flow;
   late final Size tileSize;
   late final Size? atlasSize;
   late final List<Offset>? frameOrigins;
@@ -309,11 +323,18 @@ class CloudPetPack {
                 0.0,
                 1.0,
               );
+        final smoothWindow = current.durationMs > 180
+            ? 120
+            : current.durationMs;
         return CloudPetSample(
           segment,
           current.index,
           nextFrame: target,
           mix: mix,
+          progress: target == current.index
+              ? 0
+              : ((remaining - current.durationMs + smoothWindow) / smoothWindow)
+                    .clamp(0.0, 1.0),
         );
       }
       remaining -= current.durationMs;

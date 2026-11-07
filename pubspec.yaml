@@ -33,6 +33,7 @@ flutter:
   shaders:
     - shaders/voice_drop.frag
     - shaders/skymoni_glass.frag
+    - shaders/cloud_motion.frag
   assets:
     # Empty document at the historical origin; one-time localStorage import only.
     - assets/social_ui/index.html

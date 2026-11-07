@@ -12,6 +12,15 @@ import 'cloud_pet_catalog.dart';
 export 'cloud_companion_motion.dart';
 
 const cloudCompanionAsset = 'assets/branding/skivu-cloud-motion-reference.png';
+Future<ui.FragmentProgram?>? _motionProgram;
+Future<ui.FragmentProgram?>
+_loadMotionProgram() => _motionProgram ??= (() async {
+  try {
+    return await ui.FragmentProgram.fromAsset('shaders/cloud_motion.frag');
+  } catch (_) {
+    return null; // The approved original frames remain usable on unsupported renderers.
+  }
+})();
 
 /// Reference-matched illustrated artwork plus one animated body/arm/prop rig.
 class CloudCompanionPortrait extends StatefulWidget {
@@ -22,9 +31,11 @@ class CloudCompanionPortrait extends StatefulWidget {
     this.activity = CloudActivity.idle,
     this.active = true,
     this.previewEnabled = true,
+    this.smoothMotion = true,
   });
   final double size;
   final bool reduceMotion, active, previewEnabled;
+  final bool smoothMotion;
   final CloudActivity activity;
   @override
   State<CloudCompanionPortrait> createState() => _CloudCompanionPortraitState();
@@ -70,6 +81,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
       });
   ui.Image? image;
   ui.Image? petAtlas;
+  ui.FragmentShader? motionShader;
   CloudReferenceRig? rig;
   CloudPetPack? petPack;
   CloudPetCatalog? petCatalog;
@@ -126,6 +138,10 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
               (clock.lastElapsedDuration ?? Duration.zero) <
                   const Duration(seconds: 2),
           petSegment: exitTarget != null ? CloudPetSegment.end : null,
+          smoothFrame:
+              widget.smoothMotion &&
+              motionShader != null &&
+              petAtlases.containsKey(petCatalog?.packs[activity]?.flow?.atlas),
           petAtlasAsset: petCatalog == null
               ? null
               : petAtlases.containsKey(petCatalog!.packs[activity]!.atlas)
@@ -184,6 +200,13 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     };
     from = to = CloudPose.forActivity(widget.activity, workspace);
     load();
+    if (widget.smoothMotion) unawaited(loadShader());
+  }
+
+  Future<void> loadShader() async {
+    final program = await _loadMotionProgram();
+    if (mounted && program != null)
+      setState(() => motionShader = program.fragmentShader());
   }
 
   Future<void> load() async {
@@ -295,22 +318,53 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
 
   void ensurePetScene(CloudActivity activity) {
     final pack = petCatalog?.packs[activity];
+    final flow = widget.smoothMotion && !reduced ? pack?.flow : null;
     if (pack == null ||
-        petAtlases.containsKey(pack.atlas) ||
+        (petAtlases.containsKey(pack.atlas) &&
+            (flow == null || petAtlases.containsKey(flow.atlas))) ||
         pendingAtlases.containsKey(pack.atlas))
       return;
     pendingAtlases[pack.atlas] = (() async {
+      ui.Image? ownedArt, ownedField;
       try {
-        final image = await decodePetAtlas(pack);
+        final existing = petAtlases[pack.atlas];
+        final image = existing ?? (ownedArt = await decodePetAtlas(pack));
+        ui.Image? field;
+        if (flow != null && !petAtlases.containsKey(flow.atlas)) {
+          final data = await rootBundle.load(flow.atlas);
+          final codec = await ui.instantiateImageCodec(
+            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          );
+          try {
+            field = ownedField = (await codec.getNextFrame()).image;
+            if (field.width != flow.size.width ||
+                field.height != flow.size.height) {
+              throw const FormatException(
+                'Cloud motion field dimensions do not match',
+              );
+            }
+          } finally {
+            codec.dispose();
+          }
+        }
         if (!mounted) {
-          image.dispose();
+          ownedArt?.dispose();
+          ownedField?.dispose();
           return;
         }
         setState(() {
-          petAtlases = {...petAtlases, pack.atlas: image};
+          petAtlases = {
+            ...petAtlases,
+            pack.atlas: image,
+            if (field != null) flow!.atlas: field,
+          };
           trimPetAtlases();
         });
+        ownedArt = null;
+        ownedField = null;
       } catch (error) {
+        ownedArt?.dispose();
+        ownedField?.dispose();
         assert(() {
           debugPrint('Cloud scene unavailable: $error');
           return true;
@@ -336,10 +390,34 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
         if (layer.petAtlasAsset != null) layer.petAtlasAsset!,
     };
     final next = {...petAtlases};
+    final active = {
+      displayedActivity,
+      widget.activity,
+      if (exitTarget != null) exitTarget!,
+      for (final layer in outgoing) layer.activity,
+    };
+    for (final state in active) {
+      final flow = catalog.packs[state]?.flow;
+      if (flow != null) required.add(flow.atlas);
+    }
+    final flowPaths = {
+      for (final pack in catalog.packs.values)
+        if (pack.flow != null) pack.flow!.atlas,
+    };
+    for (final path in flowPaths) {
+      if (!required.contains(path)) {
+        final removed = next.remove(path);
+        if (removed != null)
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => removed.dispose(),
+          );
+      }
+    }
     for (final path in petAtlases.keys) {
-      if (next.length <= 4) break;
+      if (next.keys.where((p) => !flowPaths.contains(p)).length <= 4) break;
       if (required.contains(path)) continue;
-      final removed = next.remove(path)!;
+      final removed = next.remove(path);
+      if (removed == null) continue;
       WidgetsBinding.instance.addPostFrameCallback((_) => removed.dispose());
     }
     petAtlases = Map.unmodifiable(next);
@@ -558,6 +636,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     clock.dispose();
     transition.dispose();
     petExit.dispose();
+    motionShader?.dispose();
     image?.dispose();
     if (petCatalog == null) {
       petAtlas?.dispose();
@@ -615,6 +694,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
                         petAtlas: petAtlas,
                         petCatalog: petCatalog,
                         petAtlases: petAtlases,
+                        motionShader: widget.smoothMotion ? motionShader : null,
                       ),
                     );
             },

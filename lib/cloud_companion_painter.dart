@@ -25,6 +25,7 @@ class CloudCompanionPainter extends CustomPainter {
     this.petAtlas,
     this.petCatalog,
     this.petAtlases = const {},
+    this.motionShader,
   });
   final ui.Image image;
   final CloudReferenceRig rig;
@@ -37,6 +38,7 @@ class CloudCompanionPainter extends CustomPainter {
   final ui.Image? petAtlas;
   final CloudPetCatalog? petCatalog;
   final Map<String, ui.Image> petAtlases;
+  final ui.FragmentShader? motionShader;
   String get sceneName => sceneFor(activity, pose);
   static String sceneFor(CloudActivity activity, CloudPose pose) =>
       switch (activity) {
@@ -285,6 +287,44 @@ class CloudCompanionPainter extends CustomPainter {
     final tile = Offset.zero & pack.tileSize;
     final paint = Paint()..filterQuality = FilterQuality.high;
     if (pack.wholeFrames) {
+      final flow = pack.flow;
+      final origin = flow?.origin(sample.frame, sample.nextFrame);
+      final field = petAtlases[flow?.atlas];
+      final shader = motionShader;
+      final art = atlas ?? petAtlas;
+      if (motion &&
+          frame.smoothFrame &&
+          shader != null &&
+          art != null &&
+          field != null &&
+          flow != null &&
+          origin != null &&
+          sample.progress > 0) {
+        final a = pack.frameOrigin(sample.frame),
+            b = pack.frameOrigin(sample.nextFrame);
+        final values = <double>[
+          art.width.toDouble(),
+          art.height.toDouble(),
+          a.dx,
+          a.dy,
+          b.dx,
+          b.dy,
+          flow.size.width,
+          flow.size.height,
+          origin.dx,
+          origin.dy,
+          pack.tileSize.width,
+          pack.tileSize.height,
+          flow.cell.toDouble(),
+          flow.range,
+          sample.progress,
+        ];
+        for (var i = 0; i < values.length; i++) shader.setFloat(i, values[i]);
+        shader.setImageSampler(0, art, filterQuality: FilterQuality.low);
+        shader.setImageSampler(1, field, filterQuality: FilterQuality.low);
+        canvas.drawRect(tile, Paint()..shader = shader);
+        return;
+      }
       // One coherent source drawing owns the head, eyes, body, hands and desk.
       // Never place a fixed head, crop mask or blended arm over this frame.
       canvas.drawImageRect(
@@ -414,5 +454,6 @@ class CloudCompanionPainter extends CustomPainter {
       old.petPack != petPack ||
       old.petCatalog != petCatalog ||
       old.petAtlases != petAtlases ||
-      old.petAtlas != petAtlas;
+      old.petAtlas != petAtlas ||
+      old.motionShader != motionShader;
 }

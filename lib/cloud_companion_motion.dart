@@ -85,6 +85,7 @@ class CloudVisualLayer {
     required this.greeting,
     this.petSegment,
     this.petAtlasAsset,
+    this.smoothFrame = false,
   });
   final CloudActivity activity;
   final CloudPose pose;
@@ -92,6 +93,7 @@ class CloudVisualLayer {
   final bool greeting;
   final CloudPetSegment? petSegment;
   final String? petAtlasAsset;
+  final bool smoothFrame;
   CloudVisualLayer withOpacity(double value) => CloudVisualLayer(
     activity: activity,
     pose: pose,
@@ -100,5 +102,6 @@ class CloudVisualLayer {
     greeting: greeting,
     petSegment: petSegment,
     petAtlasAsset: petAtlasAsset,
+    smoothFrame: smoothFrame,
   );
 }

@@ -56,7 +56,16 @@ void main() {
           reason: '${activity.name} must load its own complete animation',
         );
         expect(pack.supports(activity, painter().pose), true);
-        expect(painter().petAtlases.length, lessThanOrEqualTo(4));
+        final fields = painter().petCatalog!.packs.values
+            .map((p) => p.flow?.atlas)
+            .toSet();
+        expect(
+          painter().petAtlases.keys
+              .where((path) => !fields.contains(path))
+              .length,
+          lessThanOrEqualTo(4),
+        );
+        expect(painter().petAtlases.length, lessThanOrEqualTo(8));
       }
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(

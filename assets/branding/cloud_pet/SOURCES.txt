@@ -62,3 +62,12 @@ E:/zzz/ops/skivu-cloud-full-workflow-20261108/PROMPTS.txt
 E:/zzz/ops/skivu-cloud-full-workflow-20261108/PROMPTS-REPAIRS.txt
 E:/zzz/ops/skivu-cloud-full-workflow-20261108/selection.json
 E:/zzz/ops/skivu-cloud-full-workflow-20261108/source-receipts.json
+
+2026-11-08 continuous playback:
+motion-*-flow-v1.png contain opaque numeric bidirectional displacement and
+confidence fields, derived locally with OpenCV DIS from the approved complete
+drawings. They are not replacement artwork. All original workflow PNG bytes
+remain unchanged. The GPU aligns adjacent whole drawings before interpolating
+premultiplied color; the original action timing, rests and state gates remain.
+Motion-field generation, checks and render-profile evidence:
+E:/zzz/ops/skivu-cloud-motion-smooth-20261108/
