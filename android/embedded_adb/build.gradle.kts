@@ -7,7 +7,10 @@ android {
     namespace = "org.skivu.engine.adb"
     compileSdk = 36
     ndkVersion = "28.2.13676358"
-    defaultConfig { minSdk = 21 }
+    defaultConfig {
+        minSdk = 21
+        consumerProguardFiles("consumer-rules.pro")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
