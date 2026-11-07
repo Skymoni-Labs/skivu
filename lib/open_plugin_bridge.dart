@@ -90,6 +90,7 @@ class OpenPluginBridge {
   final void Function()? guard;
   bool closed = false;
   int pending = 0;
+  int _cancelling = 0;
   String get id => record.manifest.id;
   void check() {
     guard?.call();
@@ -117,7 +118,6 @@ class OpenPluginBridge {
   Future<Map<String, dynamic>> dispatch(Object? raw) async {
     try {
       check();
-      if (pending >= 8) throw const PluginApiError('BUSY', '同时运行的宿主请求过多。');
       if (raw is! Map ||
           raw.length != 3 ||
           raw['id'] is! String ||
@@ -132,7 +132,14 @@ class OpenPluginBridge {
       if (permission.isNotEmpty &&
           !record.manifest.permissions.contains(permission))
         throw const PluginApiError('PERMISSION_DENIED', '插件未获准使用此能力。');
+      // Keep a bounded Stop lane even when all normal calls are waiting.
+      // The device scope still checks the exact owned request before stopping.
+      final cancellation = method == 'device.engine.cancel';
+      if (cancellation ? _cancelling >= 8 : pending - _cancelling >= 8) {
+        throw const PluginApiError('BUSY', '同时运行的宿主请求过多。');
+      }
       pending++;
+      if (cancellation) _cancelling++;
       try {
         final result = await _call(
           method,
@@ -141,6 +148,7 @@ class OpenPluginBridge {
         check();
         return {'ok': true, 'result': result};
       } finally {
+        if (cancellation) _cancelling--;
         pending--;
       }
     } on PluginApiError catch (e) {

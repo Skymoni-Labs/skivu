@@ -24,6 +24,75 @@ void main() {
   }
 
   test(
+    'a full normal broker queue still admits an owned Stop request',
+    () async {
+      final (registry, record) = setup(['device.observe']);
+      final replies = <String, Completer<Map<String, dynamic>>>{};
+      var nativeCalls = 0;
+      final scope = DeviceEngineScope(
+        engine: DeviceEngine(
+          transport: (method, args) async {
+            if (method == 'cancelRequest') {
+              expect(args['owner'], devicePluginOwner(record));
+              expect(args['requestId'], 'busy_0');
+              replies['busy_0']!.complete({
+                'requestId': 'busy_0',
+                'outcome': 'unknown',
+              });
+              return {'outcome': 'cancelled', 'groupStopped': true};
+            }
+            expect(method, 'invoke');
+            nativeCalls++;
+            final id = args['requestId'] as String;
+            return (replies[id] = Completer<Map<String, dynamic>>()).future;
+          },
+        ),
+      );
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (method, args) => scope.call(registry, record, method, args),
+      );
+      final requests = [
+        for (var i = 0; i < 8; i++)
+          bridge.dispatch({
+            'id': '${i + 1}',
+            'method': 'device.engine.invoke',
+            'params': {
+              'tool': 'settings.brightness.read',
+              'arguments': <String, dynamic>{},
+              'requestId': 'busy_$i',
+            },
+          }),
+      ];
+      await Future<void>.delayed(Duration.zero);
+      expect(bridge.pending, 8);
+      final extra = await bridge.dispatch({
+        'id': '9',
+        'method': 'device.engine.catalog',
+        'params': <String, dynamic>{},
+      });
+      expect((extra['error'] as Map)['code'], 'BUSY');
+      final stop = await bridge.dispatch({
+        'id': '10',
+        'method': 'device.engine.cancel',
+        'params': {'requestId': 'busy_0'},
+      });
+      expect(stop['ok'], true);
+      expect((stop['result'] as Map)['outcome'], 'cancelled');
+      expect(nativeCalls, 8);
+      for (var i = 1; i < 8; i++)
+        replies['busy_$i']!.complete({
+          'requestId': 'busy_$i',
+          'outcome': 'verified',
+        });
+      await Future.wait(requests);
+      expect(bridge.pending, 0);
+      bridge.close();
+    },
+  );
+
+  test(
     'a cancel frame bypasses a running DSH call and cannot target another scope',
     () async {
       final (registry, record) = setup(['device.observe']);

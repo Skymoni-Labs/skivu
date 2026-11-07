@@ -54,3 +54,16 @@ the same request returned persisted unknown without replay. Suspending the host
 while retaining its socket also expired the lease and returned unknown after
 resuming. Main Dart assistant restart recovery and plugin/DSH UI acceptance are
 separate gates and are not proven by these native tests.
+
+## Tool envelope and Stop admission
+
+The DSH wrapper accepts `{tool: "shell.execute", arguments: {command: "id -u"}}`.
+`tool` is the native catalog ID, not the wrapper name `skivu_engine_invoke`.
+Malformed envelopes and wrapper IDs are rejected before dispatch with a concrete
+example. The host also returns `INVALID_ARGUMENT` for unknown IDs or arguments
+that fail the catalog schema, without exposing an exception or changing the call.
+
+The plugin bridge preserves eight normal in-flight calls and a separately
+bounded lane for eight `device.engine.cancel` requests. A full normal queue must
+not block Stop. Admission to that lane does not grant authority: the existing
+runtime scope still matches the exact owned request ID before native cancellation.
