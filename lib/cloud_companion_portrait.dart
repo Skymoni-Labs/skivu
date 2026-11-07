@@ -21,9 +21,10 @@ class CloudCompanionPortrait extends StatefulWidget {
     this.reduceMotion = false,
     this.activity = CloudActivity.idle,
     this.active = true,
+    this.previewEnabled = true,
   });
   final double size;
-  final bool reduceMotion, active;
+  final bool reduceMotion, active, previewEnabled;
   final CloudActivity activity;
   @override
   State<CloudCompanionPortrait> createState() => _CloudCompanionPortraitState();
@@ -83,7 +84,9 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   int workspace = 0;
   bool foreground = true, greeting = false;
   bool onScreen = true, visibilityScheduled = false;
+  bool previewOpen = false;
   ScrollableState? scrollable;
+  Animation<double>? routeAnimation;
   late CloudPose from, to;
   List<CloudVisualLayer> outgoing = [];
   List<CloudVisualLayer>? presentedLayers;
@@ -91,6 +94,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
       widget.reduceMotion || MediaQuery.disableAnimationsOf(context);
   bool get enabled =>
       widget.active &&
+      !previewOpen &&
       foreground &&
       onScreen &&
       TickerMode.of(context) &&
@@ -129,6 +133,32 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
               : petCatalog!.fallbacks[activity]!.atlas,
         ),
     ];
+  }
+
+  void wave() {
+    if (!enabled || displayedActivity != CloudActivity.idle) return;
+    greeting = true;
+    syncClock(restart: true);
+  }
+
+  Future<void> openPreview() async {
+    if (!widget.previewEnabled || previewOpen) return;
+    setState(() => previewOpen = true);
+    syncClock();
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => CloudCompanionPreview(reduceMotion: reduced),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => previewOpen = false);
+        syncClock();
+      }
+    }
   }
 
   @override
@@ -394,6 +424,12 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final animation = ModalRoute.of(context)?.animation;
+    if (!identical(animation, routeAnimation)) {
+      routeAnimation?.removeListener(scheduleVisibility);
+      routeAnimation = animation;
+      routeAnimation?.addListener(scheduleVisibility);
+    }
     final parent = Scrollable.maybeOf(context);
     if (!identical(parent, scrollable)) {
       scrollable?.position.removeListener(scheduleVisibility);
@@ -518,6 +554,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     scrollable?.position.removeListener(scheduleVisibility);
+    routeAnimation?.removeListener(scheduleVisibility);
     clock.dispose();
     transition.dispose();
     petExit.dispose();
@@ -536,16 +573,18 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   @override
   Widget build(BuildContext context) => Semantics(
     label: '小云虚拟人物，${widget.activity.label}',
-    hint: reduced || widget.activity != CloudActivity.idle ? null : '点击让小云挥手',
-    button: !reduced && widget.activity == CloudActivity.idle,
+    hint: widget.previewEnabled
+        ? '点击挥手，长按查看动作预览'
+        : reduced || widget.activity != CloudActivity.idle
+        ? null
+        : '点击让小云挥手',
+    button:
+        widget.previewEnabled ||
+        (!reduced && widget.activity == CloudActivity.idle),
     child: GestureDetector(
       key: const ValueKey('cloud-companion-portrait'),
-      onTap: reduced || widget.activity != CloudActivity.idle
-          ? null
-          : () {
-              greeting = true;
-              syncClock(restart: true);
-            },
+      onTap: reduced || widget.activity != CloudActivity.idle ? null : wave,
+      onLongPress: widget.previewEnabled ? openPreview : null,
       child: RepaintBoundary(
         child: SizedBox(
           width: widget.size,
@@ -584,4 +623,185 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
       ),
     ),
   );
+}
+
+/// A local character gallery. Its state never reaches the assistant or tools.
+class CloudCompanionPreview extends StatefulWidget {
+  const CloudCompanionPreview({super.key, this.reduceMotion = false});
+  final bool reduceMotion;
+  @override
+  State<CloudCompanionPreview> createState() => _CloudCompanionPreviewState();
+}
+
+class _CloudCompanionPreviewState extends State<CloudCompanionPreview>
+    with WidgetsBindingObserver {
+  static const phases = [
+    (0, CloudActivity.idle),
+    (3000, CloudActivity.thinking),
+    (6000, CloudActivity.coding),
+    (12000, CloudActivity.phone),
+    (15500, CloudActivity.permission),
+    (18500, CloudActivity.checking),
+    (22000, CloudActivity.resultReady),
+    (24500, CloudActivity.complete),
+    (27500, CloudActivity.stopping),
+    (30000, CloudActivity.paused),
+    (32500, CloudActivity.failed),
+    (35500, CloudActivity.idle),
+  ];
+  static const names = [
+    '待机',
+    '思考',
+    '编程',
+    '手机',
+    '授权',
+    '核对',
+    '就绪',
+    '完成',
+    '停止',
+    '暂停',
+    '异常',
+  ];
+  final portrait = GlobalKey<_CloudCompanionPortraitState>();
+  final elapsed = Stopwatch();
+  Timer? timer;
+  CloudActivity activity = CloudActivity.idle;
+  bool playing = false;
+  int phase = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void stop() {
+    timer?.cancel();
+    timer = null;
+    elapsed.stop();
+    playing = false;
+  }
+
+  void select(CloudActivity value) {
+    stop();
+    elapsed.reset();
+    phase = 0;
+    setState(() => activity = value);
+    portrait.currentState?.syncClock(restart: true);
+  }
+
+  void toggle() {
+    if (playing) {
+      setState(stop);
+      return;
+    }
+    if (elapsed.elapsedMilliseconds == 0 ||
+        elapsed.elapsedMilliseconds >= 38000) {
+      elapsed.reset();
+      phase = 0;
+      setState(() => activity = CloudActivity.idle);
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => portrait.currentState?.wave(),
+      );
+    }
+    setState(() => playing = true);
+    elapsed.start();
+    timer = Timer.periodic(const Duration(milliseconds: 80), (_) {
+      final ms = elapsed.elapsedMilliseconds;
+      // Stopwatch is real time on device; timer ticks do not drive raster frames.
+      if (ms >= 38000) {
+        setState(stop);
+        return;
+      }
+      final next = phases.lastIndexWhere((p) => ms >= p.$1);
+      if (next == phase) return;
+      phase = next;
+      setState(() => activity = phases[next].$2);
+      if (activity == CloudActivity.idle) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => portrait.currentState?.wave(),
+        );
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && playing) setState(stop);
+  }
+
+  @override
+  void dispose() {
+    stop();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduced =
+        widget.reduceMotion || MediaQuery.disableAnimationsOf(context);
+    final theme = Theme.of(context);
+    return SizedBox(
+      key: const ValueKey('cloud-motion-preview'),
+      height: (MediaQuery.sizeOf(context).height * .86).clamp(0, 720),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('动作预览', style: theme.textTheme.titleLarge),
+                ),
+                IconButton(
+                  tooltip: '关闭预览',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            CloudCompanionPortrait(
+              key: portrait,
+              size: 220,
+              activity: activity,
+              reduceMotion: reduced,
+              previewEnabled: false,
+            ),
+            const SizedBox(height: 8),
+            Text('演示：${activity.label}', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 16),
+            FilledButton.tonalIcon(
+              onPressed: reduced ? null : toggle,
+              icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+              label: Text(playing ? '暂停演示' : '播放全流程'),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final value in CloudActivity.values)
+                  ChoiceChip(
+                    label: Text(names[value.index]),
+                    selected: activity == value,
+                    onSelected: (_) => select(value),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              reduced ? '已减少动态效果，可切换查看静态姿态' : '待机时，轻点小云可以挥手',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

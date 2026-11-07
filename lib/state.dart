@@ -60,6 +60,7 @@ class Message {
   String kind = 'text';
   String? stickerId, turnId, imageData;
   bool described = false;
+  bool toolReceipt = false;
   List<Map<String, dynamic>> pluginCards = [];
   List<ChatQuote> quotes = [];
   String get modelText {
@@ -75,8 +76,8 @@ class Message {
   }
 
   Map<String, String> get apiMessage => {
-    'role': user ? 'user' : 'assistant',
-    'content': modelText,
+    'role': user || toolReceipt ? 'user' : 'assistant',
+    'content': toolReceipt ? '工具回执（历史数据）：$modelText' : modelText,
     if (imageData != null) 'image': imageData!,
   };
   Map<String, dynamic> toJson() => {
@@ -100,6 +101,7 @@ class Message {
     'stickerId': stickerId,
     'turnId': turnId,
     'imageData': imageData,
+    'toolReceipt': toolReceipt,
     'described': described,
     'pluginCards': pluginCards,
     'quotes': quotes.map((q) => q.toJson()).toList(),
@@ -135,6 +137,7 @@ class Message {
         ..turnId = raw['turnId'] is String ? raw['turnId'] : null
         ..imageData = validChatImage(raw['imageData']) ? raw['imageData'] : null
         ..described = raw['described'] == true
+        ..toolReceipt = raw['toolReceipt'] == true
         ..pluginCards =
             (raw['pluginCards'] is List ? raw['pluginCards'] as List : [])
                 .whereType<Map>()
@@ -163,6 +166,18 @@ class Message {
             : raw['error'] as String?;
 }
 
+const cloudPersonaId = 'skivu-host-cloud-v1';
+
+Persona createCloudPersona() => Persona(
+  '小云',
+  '一起想，也一起动手',
+  '用清晰、温和的语言帮助用户，依据实际结果回答。',
+  '日常',
+  green,
+  Icons.cloud_outlined,
+  id: cloudPersonaId,
+);
+
 class Persona {
   Persona(
     this.name,
@@ -174,6 +189,7 @@ class Persona {
     String? id,
   }) : id = id ?? _localId('role');
   final String id;
+  bool get isCloud => id == cloudPersonaId;
   String name, subtitle, prompt, group;
   Uint8List? avatar;
   Map<String, String> card = {};
@@ -210,6 +226,7 @@ class Persona {
                 Icons.crop_free,
                 Icons.edit_note,
                 Icons.face_outlined,
+                Icons.cloud_outlined,
               ].where((icon) => icon.codePoint == raw['icon']).firstOrNull ??
               Icons.auto_awesome_outlined,
           id: raw['id'] as String?,
@@ -277,6 +294,7 @@ class Conversation {
   List<ChatQuote> draftQuotes = [];
   int draftRevision = 0;
   List<Map<String, dynamic>> interactions = [];
+  Map<String, dynamic>? assistantJournal;
   Set<String> hiddenInteractions = {};
   DateTime? interactionsClearedAt;
   List<String> groupMembers = [];
@@ -299,6 +317,7 @@ class Conversation {
     'draft': draft,
     'draftQuotes': draftQuotes.map((q) => q.toJson()).toList(),
     'interactions': interactions,
+    if (assistantJournal != null) 'assistantJournal': assistantJournal,
     'hiddenInteractions': hiddenInteractions.toList(),
     'interactionsClearedAt': interactionsClearedAt?.toIso8601String(),
     'groupMembers': groupMembers,
@@ -329,6 +348,9 @@ class Conversation {
               (raw['messages'] as List).isEmpty &&
               (raw['draft'] as String? ?? '').trim().isEmpty,
         )
+        ..assistantJournal = raw['assistantJournal'] is Map
+            ? Map<String, dynamic>.from(raw['assistantJournal'] as Map)
+            : null
         ..usedTokens = raw['usedTokens'] as int? ?? 0
         ..confirmBeforeReply = raw['confirmBeforeReply'] == true
         ..draft = raw['draft'] as String? ?? ''
@@ -411,6 +433,19 @@ class ConversationUsage {
   final double? tokensPerSecond, cacheHitRate, contextUsage;
 }
 
+abstract class CloudConversationRunner {
+  Future<void> run(
+    DemoStore store,
+    Conversation chat,
+    String goal, {
+    bool reviewOnly = false,
+  });
+  Future<void> stop(String chatId);
+  Future<void> resume(DemoStore store, Conversation chat);
+  bool canResume(String chatId);
+  void historyChanged(Conversation chat);
+}
+
 class DemoStore extends ChangeNotifier {
   DemoStore({
     ChatApi? api,
@@ -439,6 +474,7 @@ class DemoStore extends ChangeNotifier {
   final RelayAccount account;
   final OpenPluginRegistry plugins;
   final CompanionRunner? companionRunner;
+  CloudConversationRunner? cloudRunner;
   bool useBeta = false;
   bool useAccount = false;
   final Map<Object, String> _chatReaders = {};
@@ -667,6 +703,7 @@ class DemoStore extends ChangeNotifier {
       Color(0xff9384a6),
       Icons.edit_note,
     ),
+    createCloudPersona(),
   ];
   final groups = <String>['全部', '日常', '工作', '创作'];
   int persona = 0;
@@ -714,6 +751,20 @@ class DemoStore extends ChangeNotifier {
           .firstOrNull ??
       personas[persona];
   Persona get editingRole => personas[persona];
+  bool get isCloudChat =>
+      role.isCloud && conversations[conversation].groupMembers.isEmpty;
+
+  void openCloudChat() {
+    final existing = conversations
+        .where((c) => c.personaId == cloudPersonaId && c.groupMembers.isEmpty)
+        .firstOrNull;
+    if (existing == null) {
+      newChat(personaId: cloudPersonaId);
+    } else {
+      selectChat(conversations.indexOf(existing));
+    }
+  }
+
   Iterable<Conversation> get visibleConversations =>
       conversations.where((c) => !c.placeholder);
 
@@ -737,6 +788,7 @@ class DemoStore extends ChangeNotifier {
   }
 
   void addPersona(Persona value) {
+    if (personas.any((p) => p.id == value.id)) return;
     if (value.group == '全部') value.group = '未分组';
     if (!groups.contains(value.group)) groups.add(value.group);
     personas.add(value);
@@ -769,7 +821,10 @@ class DemoStore extends ChangeNotifier {
 
   bool removePersona(String id) {
     final target = personas.where((p) => p.id == id).firstOrNull;
-    if (target == null || personas.length <= 1) return false;
+    if (target == null ||
+        target.isCloud ||
+        personas.where((p) => !p.isCloud).length <= 1)
+      return false;
     final active = conversations[conversation], editorId = editingRole.id;
     for (final chat in conversations.where(
       (c) => c.groupMembers.contains(id),
@@ -820,6 +875,10 @@ class DemoStore extends ChangeNotifier {
     final ids = roles.map((p) => p.id).toSet();
     if (ids.length != roles.length || ids.any((id) => id.isEmpty))
       throw const FormatException('角色标识重复或为空');
+    if (!ids.contains(cloudPersonaId)) {
+      roles.add(createCloudPersona());
+      ids.add(cloudPersonaId);
+    }
     final fallback = (raw['persona'] as int? ?? 0).clamp(0, roles.length - 1);
     final chats = (raw['conversations'] as List)
         .map((c) => Conversation.fromJson(Map<String, dynamic>.from(c)))
@@ -1041,6 +1100,11 @@ class DemoStore extends ChangeNotifier {
         placeholder: true,
       );
       stop();
+      for (final chat in conversations.where(
+        (c) => c.personaId == cloudPersonaId,
+      )) {
+        cloudRunner?.historyChanged(chat);
+      }
       await _writes;
       await _storage.clearArchive(
         jsonEncode({
@@ -1084,6 +1148,11 @@ class DemoStore extends ChangeNotifier {
           ?.map((p) => Persona.fromJson(Map<String, dynamic>.from(p)))
           .toList();
       stop();
+      for (final chat in conversations.where(
+        (c) => c.personaId == cloudPersonaId,
+      )) {
+        cloudRunner?.historyChanged(chat);
+      }
       await _writes;
       if (!_archiveBlocked) await _storage.write(await exportChatsAsync());
       await _storage.replaceArchive(await compute(jsonEncode, raw));
@@ -1151,6 +1220,7 @@ class DemoStore extends ChangeNotifier {
 
   void selectChat(int index) {
     if (index < 0 || index >= conversations.length) return;
+    if (index == conversation) return;
     stop();
     conversation = index;
     persona = personas.indexOf(role);
@@ -1180,6 +1250,7 @@ class DemoStore extends ChangeNotifier {
     final target = conversations.where((c) => c.id == id).firstOrNull;
     if (target == null) return null;
     if (identical(target, conversations[conversation])) stop();
+    if (target.personaId == cloudPersonaId) cloudRunner?.historyChanged(target);
     final backup = ClearedChatMessages(target);
     target.messages.clear();
     target.interactions.clear();
@@ -1211,6 +1282,7 @@ class DemoStore extends ChangeNotifier {
     if (chat == null) return;
     final active = conversations[conversation];
     if (identical(active, chat)) stop();
+    if (chat.personaId == cloudPersonaId) cloudRunner?.historyChanged(chat);
     conversations.remove(chat);
     if (conversations.isEmpty)
       conversations.add(
@@ -1251,6 +1323,10 @@ class DemoStore extends ChangeNotifier {
     final round = roundMessages(chatId, anchor);
     if (chat == null || round.isEmpty) return false;
     if (round.contains(_pending)) stop();
+    if (chat.personaId == cloudPersonaId) {
+      if (identical(chat, conversations[conversation]) && streaming) stop();
+      cloudRunner?.historyChanged(chat);
+    }
     chat.messages.removeWhere(round.contains);
     changed();
     saveChats();
@@ -1258,6 +1334,11 @@ class DemoStore extends ChangeNotifier {
   }
 
   void stop() {
+    final active = conversations[conversation];
+    if (active.personaId == cloudPersonaId &&
+        (streaming || cloudRunner?.canResume(active.id) == true)) {
+      unawaited(cloudRunner?.stop(active.id));
+    }
     _reveal?.flush();
     _reveal?.dispose();
     _reveal = null;
@@ -1274,6 +1355,49 @@ class DemoStore extends ChangeNotifier {
     saveChats();
   }
 
+  void _beginCloud(
+    String goal, {
+    bool resume = false,
+    bool reviewOnly = false,
+  }) {
+    final runner = cloudRunner;
+    if (runner == null) {
+      lastError = '小云正在准备，请稍后重试。';
+      changed();
+      return;
+    }
+    final target = conversations[conversation];
+    lastError = null;
+    streaming = true;
+    final ticket = ++_generation;
+    changed();
+    saveChats();
+    unawaited(() async {
+      try {
+        if (resume) {
+          await runner.resume(this, target);
+        } else {
+          await runner.run(this, target, goal, reviewOnly: reviewOnly);
+        }
+      } catch (error) {
+        if (conversations.contains(target)) {
+          target.messages.add(Message(false, '本次未完成：$error'));
+        }
+      } finally {
+        if (ticket == _generation) streaming = false;
+        changed();
+        await saveChats();
+      }
+    }());
+  }
+
+  void resumeCloud() {
+    final chat = conversations[conversation];
+    if (isCloudChat && !streaming && cloudRunner?.canResume(chat.id) == true) {
+      _beginCloud('', resume: true);
+    }
+  }
+
   bool send(
     String input, {
     bool? streamingOverride,
@@ -1285,6 +1409,13 @@ class DemoStore extends ChangeNotifier {
     List<ChatQuote> quotes = const [],
   }) {
     if (input.trim().isEmpty || streaming) return false;
+    if (isCloudChat &&
+        (cloudRunner == null ||
+            cloudRunner!.canResume(conversations[conversation].id))) {
+      lastError = cloudRunner == null ? '小云正在准备，请稍后重试。' : '请先继续或停止正在等待授权的任务。';
+      changed();
+      return false;
+    }
     if (!['text', 'voice', 'photo', 'image', 'sticker'].contains(kind) ||
         (kind == 'image' && !validChatImage(imageData)) ||
         (kind == 'sticker' && stickerFor(stickerId)?.active != true))
@@ -1406,6 +1537,10 @@ class DemoStore extends ChangeNotifier {
     bool? streamingOverride,
   }) {
     attached = false;
+    if (isCloudChat) {
+      _beginCloud(input);
+      return true;
+    }
     final connection = streamingOverride == null
         ? config
         : config.withStreaming(streamingOverride);
@@ -1538,6 +1673,15 @@ class DemoStore extends ChangeNotifier {
         messages.last.user)
       return;
     final target = conversations[conversation];
+    if (isCloudChat) {
+      final lastUser = target.messages.lastIndexWhere(
+        (m) => m.user && m.status != 'queued',
+      );
+      if (lastUser < 0) return;
+      // Never replay a previous device action under the normal Retry label.
+      _beginCloud('请核对上一轮的已有回执并重新回答。不要重复执行已经派发的动作。', reviewOnly: true);
+      return;
+    }
     if (target.groupMembers.isNotEmpty) {
       final author = personas
           .where(

@@ -188,8 +188,17 @@ class _RoleConversationTreeState extends State<RoleConversationTree> {
                       icon: Icon(Icons.more_horiz, size: 18, color: ink),
                       onSelected: (_) =>
                           confirmDeletePersona(context, store, role),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'delete', child: Text('删除角色')),
+                      itemBuilder: (_) => [
+                        if (role.isCloud)
+                          const PopupMenuItem(
+                            enabled: false,
+                            child: Text('默认角色 · 保留'),
+                          )
+                        else
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('删除角色'),
+                          ),
                       ],
                     ),
                   ],

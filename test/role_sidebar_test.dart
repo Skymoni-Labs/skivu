@@ -270,10 +270,20 @@ void main() {
         newChatLabel,
         find.text('搜索角色或对话'),
         find.text('角色'),
-        find.text('插件市场'),
       ]) {
         expect(tester.getTopLeft(item).dx, closeTo(columnX, .01));
       }
+      await tester.drag(
+        find.byKey(const ValueKey('sidebar-scroll')),
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('插件市场')).dx, closeTo(columnX, .01));
+      await tester.drag(
+        find.byKey(const ValueKey('sidebar-scroll')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('新建对话'));
       await tester.pumpAndSettle();
       expect(find.text('选择对话角色'), findsOneWidget);

@@ -76,8 +76,14 @@ void main() {
           await tester.pumpAndSettle();
         }
         expect(tester.takeException(), isNull);
-        expect(demo.conversations[demo.conversation], same(conversation));
-        expect(demo.role, same(role));
+        if (index == 4) {
+          expect(demo.isCloudChat, isTrue);
+          expect(field, findsOneWidget);
+          expect(conversation.draft, '原来的未发送草稿');
+        } else {
+          expect(demo.conversations[demo.conversation], same(conversation));
+          expect(demo.role, same(role));
+        }
       }
       expect(tester.widget<TextField>(field).controller!.text, '原来的未发送草稿');
       expect(demo.messages, orderedEquals(messages));
@@ -141,7 +147,7 @@ void main() {
         } else {
           await tester.pumpAndSettle();
         }
-        expect(input, findsNothing);
+        expect(input, i == 4 ? findsOneWidget : findsNothing);
         expect(dock, findsOneWidget);
         expect(tester.takeException(), isNull);
       }
@@ -267,6 +273,7 @@ void main() {
       await tester.pumpWidget(const SkiApp());
       await tester.pumpAndSettle();
       final field = find.byKey(const ValueKey('chat-composer-field'));
+      final originalChat = demo.conversations[demo.conversation];
       await tester.enterText(field, '动效切换时保留草稿');
       tester.testTextInput.hide();
       await tester.pumpAndSettle();
@@ -294,7 +301,7 @@ void main() {
         ),
       );
       expect(field, findsNothing);
-      expect(demo.conversations[demo.conversation].draft, '动效切换时保留草稿');
+      expect(originalChat.draft, '动效切换时保留草稿');
       await tester.tap(find.byKey(const ValueKey('main-module-0')));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(field).controller!.text, '动效切换时保留草稿');

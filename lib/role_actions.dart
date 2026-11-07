@@ -6,7 +6,8 @@ Future<bool> confirmDeletePersona(
   DemoStore store,
   Persona role,
 ) async {
-  if (store.personas.length <= 1) {
+  if (role.isCloud) return false;
+  if (store.personas.where((p) => !p.isCloud).length <= 1) {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('至少保留一个角色，请先创建其他角色。')));

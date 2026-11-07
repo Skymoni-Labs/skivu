@@ -24,6 +24,9 @@ import 'personal_space_ui.dart';
 import 'chat_quote.dart';
 import 'scroll_glass_activity.dart';
 import 'scroll_benchmark.dart';
+import 'cloud_conversations.dart';
+import 'cloud_companion_portrait.dart';
+import 'embedded_engine_settings.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -43,6 +46,8 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage>
     with SingleTickerProviderStateMixin {
   int _module = 0;
+  String? _ordinaryChatId;
+  bool get _chatVisible => _module == 0 || _module == 4;
   late final AnimationController _moduleFade;
   late final Animation<double> _moduleProgress;
   late final Animation<Offset> _moduleSlide;
@@ -66,6 +71,8 @@ class _ChatPageState extends State<ChatPage>
   @override
   void initState() {
     super.initState();
+    cloudChats.attach();
+    _module = demo.isCloudChat ? 4 : 0;
     _moduleFade = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -94,6 +101,25 @@ class _ChatPageState extends State<ChatPage>
 
   void _selectModule(int value) {
     if (_module == value) return;
+    if (value == 4 && !demo.isCloudChat) {
+      _ordinaryChatId = _conversation.id;
+      demo.openCloudChat();
+    } else if (value == 0 && demo.isCloudChat) {
+      final normal =
+          demo.conversations
+              .where(
+                (c) => c.id == _ordinaryChatId && c.personaId != cloudPersonaId,
+              )
+              .firstOrNull ??
+          demo.conversations
+              .where((c) => c.personaId != cloudPersonaId)
+              .firstOrNull;
+      if (normal != null) {
+        demo.selectChat(demo.conversations.indexOf(normal));
+      } else {
+        demo.newChat(personaId: demo.personas.firstWhere((p) => !p.isCloud).id);
+      }
+    }
     focus.unfocus();
     navTimer?.cancel();
     setState(() {
@@ -120,7 +146,7 @@ class _ChatPageState extends State<ChatPage>
     // The existing conversation keeps its draft; personal-page suggestions
     // append to it and never send or create a separate plugin conversation.
     final previous = input.text;
-    _selectModule(0);
+    _selectModule(demo.isCloudChat ? 4 : 0);
     input.text = previous.trim().isEmpty ? text : '$previous\n\n$text';
     input.selection = TextSelection.collapsed(offset: input.text.length);
     focus.requestFocus();
@@ -150,22 +176,22 @@ class _ChatPageState extends State<ChatPage>
   void update() {
     if (!mounted) return;
     final current = demo.conversations[demo.conversation];
-    if (_draftRevision != current.draftRevision) {
-      _draftRevision = current.draftRevision;
-      if (input.text != current.draft) input.text = current.draft;
-    }
     if (!identical(current, _conversation)) {
-      _module = 0;
+      _module = demo.isCloudChat ? 4 : 0;
       _moduleFade.stop();
       _moduleFade.value = 1;
       _bottomSeek++;
       _messageSeek++;
       _conversation = current;
+      _draftRevision = current.draftRevision;
       _queueChatReader();
       input.text = current.draft;
       keys.clear();
       follow = true;
       showNav = false;
+    } else if (_draftRevision != current.draftRevision) {
+      _draftRevision = current.draftRevision;
+      if (input.text != current.draft) input.text = current.draft;
     }
     if (demo.messages.length != oldCount || (demo.streaming && follow)) {
       oldCount = demo.messages.length;
@@ -207,7 +233,7 @@ class _ChatPageState extends State<ChatPage>
   void _queueChatReader() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted)
-        demo.setChatReader(this, _module == 0 ? _conversation.id : null);
+        demo.setChatReader(this, _chatVisible ? _conversation.id : null);
     });
   }
 
@@ -332,7 +358,7 @@ class _ChatPageState extends State<ChatPage>
   void send() {
     final value = input.text;
     if (value.trim().isEmpty || demo.streaming) return;
-    if (_module != 0) _selectModule(0);
+    if (!_chatVisible) _selectModule(demo.isCloudChat ? 4 : 0);
     hideNavigation();
     follow = true;
     if (!demo.send(value, quotes: List.of(_conversation.draftQuotes))) {
@@ -516,7 +542,7 @@ class _ChatPageState extends State<ChatPage>
           part: LaunchPart.content,
           child: _moduleContent(
             Visibility(
-              visible: _module == 0,
+              visible: _chatVisible,
               maintainState: true,
               child: NotificationListener<ScrollMetricsNotification>(
                 onNotification: (n) {
@@ -573,6 +599,8 @@ class _ChatPageState extends State<ChatPage>
                                     : 0),
                       itemBuilder: (context, index) {
                         if (demo.messages.isEmpty) return emptyState();
+                        if (index == 0 && demo.isCloudChat)
+                          return cloudHeader();
                         if (index == 0)
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 25),
@@ -610,7 +638,7 @@ class _ChatPageState extends State<ChatPage>
             ),
           ),
         ),
-        if (_module != 0)
+        if (!_chatVisible)
           Positioned.fill(
             child: _moduleContent(
               PersonalModulePage(
@@ -623,7 +651,7 @@ class _ChatPageState extends State<ChatPage>
               ),
             ),
           ),
-        if (ScrollBenchmark.enabled && _module == 0)
+        if (ScrollBenchmark.enabled && _chatVisible)
           Positioned(
             top: appToolbarHeight + 12 + MediaQuery.paddingOf(context).top,
             right: 16,
@@ -632,7 +660,7 @@ class _ChatPageState extends State<ChatPage>
               onStart: () => follow = false,
             ),
           ),
-        if (_module == 0 && demo.messages.isNotEmpty)
+        if (_chatVisible && demo.messages.isNotEmpty)
           Positioned.fill(
             bottom: _composerExtent,
             child: LayoutBuilder(
@@ -744,7 +772,7 @@ class _ChatPageState extends State<ChatPage>
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_module == 0) ...[
+        if (_chatVisible) ...[
           LaunchReveal(
             part: LaunchPart.composer,
             radius: 26,
@@ -753,6 +781,7 @@ class _ChatPageState extends State<ChatPage>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (demo.isCloudChat) cloudTaskStatus(),
                   QueuedSendBar(
                     input: input,
                     beforeConfirm: () => follow = true,
@@ -934,6 +963,99 @@ class _ChatPageState extends State<ChatPage>
         : '发送消息',
   );
 
+  Widget cloudTaskStatus() {
+    final assistant = cloudChats.engineFor(_conversation);
+    if (!assistant.running &&
+        !assistant.canResume &&
+        assistant.phase != 'unknown')
+      return const SizedBox.shrink();
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            cloudActivityForTask(
+              assistant.phase,
+              tool: assistant.pending?['tool'] as String?,
+            ).label,
+            style: TextStyle(fontSize: 12, color: _composerControlInk),
+          ),
+        ),
+        if (assistant.canResume)
+          TextButton(onPressed: demo.resumeCloud, child: const Text('核对授权并继续')),
+        if (assistant.canResume)
+          IconButton(
+            tooltip: '停止任务',
+            onPressed: demo.stop,
+            icon: const Icon(Icons.stop_rounded),
+          ),
+        IconButton(
+          tooltip: '手机能力与授权',
+          onPressed: openCloudCapabilities,
+          icon: const Icon(Icons.phonelink_setup, size: 20),
+        ),
+      ],
+    );
+  }
+
+  void openCloudCapabilities() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => const EmbeddedEngineSettings()),
+  );
+
+  Widget cloudHeader({bool empty = false}) {
+    final assistant = cloudChats.engineFor(_conversation);
+    unawaited(cloudChats.restoreChat(_conversation));
+    return Padding(
+      key: const ValueKey('cloud-chat-header'),
+      padding: EdgeInsets.symmetric(vertical: empty ? 30 : 10),
+      child: Column(
+        children: [
+          AnimatedBuilder(
+            animation: assistant,
+            builder: (_, _) => CloudCompanionPortrait(
+              size: empty ? 112 : 76,
+              reduceMotion: appearance.flag('reduceMotion'),
+              activity: cloudActivityForTask(
+                assistant.phase,
+                tool: assistant.pending?['tool'] as String?,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            demo.role.name,
+            style: TextStyle(fontSize: empty ? 25 : 18, color: sceneInk),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            empty ? '把想法放在这里，我们一起动手完成。' : '一起想，也一起动手',
+            style: TextStyle(fontSize: 12, color: sceneMuted),
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            children: [
+              TextButton.icon(
+                onPressed: openCloudCapabilities,
+                icon: const Icon(Icons.phonelink_setup, size: 17),
+                label: const Text('手机能力与授权'),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  demo.editCurrentRole();
+                  Navigator.of(
+                    context,
+                  ).pushReplacementNamed('/characters/edit');
+                },
+                icon: const Icon(Icons.edit_outlined, size: 17),
+                label: const Text('角色设置'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Color get _composerControlInk => appearance.flag('skymoniGlass')
       ? appearance.textColor('inputText').withValues(alpha: .92)
       : muted;
@@ -1069,7 +1191,7 @@ class _ChatPageState extends State<ChatPage>
                                     )
                                 ? () {
                                     Navigator.pop(sheetContext);
-                                    _selectModule(0);
+                                    _selectModule(demo.isCloudChat ? 4 : 0);
                                     locate(
                                       target.messages.indexWhere(
                                         (m) => m.id == q.messageId,
@@ -1131,6 +1253,7 @@ class _ChatPageState extends State<ChatPage>
   }
 
   Widget emptyState() {
+    if (demo.isCloudChat) return cloudHeader(empty: true);
     final compact = MediaQuery.sizeOf(context).height - _composerExtent < 500;
     return Padding(
       padding: EdgeInsets.fromLTRB(

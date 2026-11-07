@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'chat.dart';
+import 'cloud_conversations.dart';
 import 'drawer_motion.dart';
 import 'glass.dart';
 import 'pages.dart';
@@ -118,6 +119,7 @@ Future<void> main() async {
   await pluginMarket.restore();
   await extensionLibrary.restore();
   await openPlugins.restore();
+  await cloudChats.initialize();
   if (uiPlugins.mode != ChatUiMode.classic &&
       pluginMarket.installedFor(uiPlugins.mode) == null)
     await uiPlugins.apply(ChatUiMode.classic);

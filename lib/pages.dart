@@ -216,9 +216,15 @@ class _CharactersPageState extends State<CharactersPage> {
                     setState(() {});
                   }
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('编辑角色卡')),
-                  PopupMenuItem(value: 'delete', child: Text('删除角色')),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('编辑角色卡')),
+                  if (p.isCloud)
+                    const PopupMenuItem(
+                      enabled: false,
+                      child: Text('默认角色 · 保留'),
+                    )
+                  else
+                    const PopupMenuItem(value: 'delete', child: Text('删除角色')),
                 ],
               ),
             ],

@@ -32,8 +32,10 @@ void main() {
       expect(restored.role.id, a.id);
       for (final p in restored.personas.toList().skip(1))
         restored.removePersona(p.id);
-      expect(restored.removePersona(restored.personas.single.id), isFalse);
-      expect(restored.role.id, restored.personas.single.id);
+      final remaining = restored.personas.where((p) => !p.isCloud).single;
+      expect(restored.removePersona(remaining.id), isFalse);
+      expect(restored.removePersona(cloudPersonaId), isFalse);
+      expect(restored.role.id, remaining.id);
       store.dispose();
       restored.dispose();
     },
@@ -191,7 +193,8 @@ void main() {
     () async {
       final seed = DemoStore();
       final oldRoles = [
-        for (final p in seed.personas) p.toJson()..remove('id'),
+        for (final p in seed.personas.where((p) => !p.isCloud))
+          p.toJson()..remove('id'),
       ];
       final disk = MemoryChats()
         ..data = jsonEncode({
@@ -215,7 +218,8 @@ void main() {
       expect(store.conversations[store.conversation].title, '旧记录二');
       expect(store.conversations.first.messages.single.text, '保留消息');
       expect(store.conversations.first.draft, '保留草稿');
-      expect(store.personas, hasLength(oldRoles.length));
+      expect(store.personas, hasLength(oldRoles.length + 1));
+      expect(store.personas.where((p) => p.isCloud), hasLength(1));
       expect(
         store.conversations.every((c) => c.personaId == store.personas[1].id),
         isTrue,
