@@ -212,13 +212,16 @@ final builtinDeviceTools = <DeviceToolDefinition>[
   DeviceToolDefinition(
     id: 'shell.execute',
     description:
-        '在用户单独授权的 shell/root 后端执行代码或命令，返回实际 uid、退出码和输出；无后端或未授权时不得退回普通 app 进程假装成功。',
+        '在单独授权的 Android /system/bin/sh 后端执行代码，返回实际 uid、退出码和输出。等待后台子进程须在同一调用内 wait；无后端或未授权时不得用普通 app 进程假装成功。',
     permission: 'device.shell',
     effect: 'external',
     parameters: _object(
       {
         'command': _text(12000),
-        'timeoutSeconds': {'type': 'integer'},
+        'timeoutSeconds': {
+          'type': 'integer',
+          'description': '执行超时，1 至 600 秒；省略时为 30 秒。',
+        },
       },
       ['command'],
     ),

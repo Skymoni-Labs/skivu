@@ -112,6 +112,52 @@ void main() {
     },
   );
 
+  test(
+    'invalid native tool IDs and arguments return actionable bridge errors without dispatch',
+    () async {
+      final (registry, record) = setup(['device.shell']);
+      var dispatched = 0;
+      final engine = DeviceEngine(
+        transport: (_, args) async {
+          dispatched++;
+          return {'requestId': args['requestId'], 'outcome': 'verified'};
+        },
+      );
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (method, params) => deviceEnginePluginCall(
+          registry,
+          record,
+          method,
+          params,
+          engine: engine,
+        ),
+      );
+      for (final params in [
+        {
+          'tool': 'skivu_engine_invoke',
+          'arguments': {'command': 'sleep 500', 'timeoutSeconds': 600},
+        },
+        {
+          'tool': 'shell.execute',
+          'arguments': {'command': 'id -u', 'timeout': 600},
+        },
+      ]) {
+        final response = await bridge.dispatch({
+          'id': '1',
+          'method': 'device.engine.invoke',
+          'params': params,
+        });
+        expect(response['ok'], false);
+        expect((response['error'] as Map)['code'], 'INVALID_ARGUMENT');
+        expect((response['error'] as Map)['message'], isNot('插件的宿主操作未完成。'));
+      }
+      expect(dispatched, 0);
+      bridge.close();
+    },
+  );
+
   test('catalog exposes only the requesting plugin permissions', () async {
     final (registry, record) = setup(['device.observe', 'device.system']);
     final engine = DeviceEngine(

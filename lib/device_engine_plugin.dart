@@ -127,9 +127,25 @@ Future<Object?> deviceEnginePluginCall(
       (params.containsKey('requestId') && params['requestId'] is! String)) {
     throw const PluginApiError('INVALID_ARGUMENT', '设备调用参数无效。');
   }
-  final definition = deviceTool(params['tool']);
+  DeviceToolDefinition definition;
+  try {
+    definition = deviceTool(params['tool']);
+  } on FormatException {
+    throw const PluginApiError(
+      'INVALID_ARGUMENT',
+      '设备接口不存在。请从 device.engine.catalog 使用如 shell.execute 的接口 ID，不要填写 DSH 包装工具名。',
+    );
+  }
   if (!record.manifest.permissions.contains(definition.permission)) {
     throw const PluginApiError('PERMISSION_DENIED', '插件没有此设备能力的授权。');
+  }
+  try {
+    definition.validate(Map<String, dynamic>.from(params['arguments']));
+  } on FormatException {
+    throw const PluginApiError(
+      'INVALID_ARGUMENT',
+      '参数不符合设备接口定义。请按目录中该接口的 parameters 填写 arguments 对象。',
+    );
   }
   final owner = devicePluginOwner(record);
   final requestId =
