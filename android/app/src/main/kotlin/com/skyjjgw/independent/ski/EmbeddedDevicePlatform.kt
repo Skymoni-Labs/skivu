@@ -207,12 +207,15 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
     private fun packages() = prefs.getStringSet("packages", emptySet()).orEmpty().toSet()
     private fun installedApps(): List<Map<String, Any?>> {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val alphabet = AppAlphabet()
+        val allowed = packages()
         return activity.packageManager.queryIntentActivities(intent, 0)
             .filter { it.activityInfo.packageName != activity.packageName }
             .distinctBy { it.activityInfo.packageName }.map {
+                val name = it.loadLabel(activity.packageManager).toString()
                 mapOf("package" to it.activityInfo.packageName,
-                    "name" to it.loadLabel(activity.packageManager).toString(),
-                    "allowed" to (it.activityInfo.packageName in packages()))
+                    "name" to name,
+                    "allowed" to (it.activityInfo.packageName in allowed)) + alphabet.fields(name)
             }
     }
     private fun status(probeBackend: Boolean = true): Map<String, Any?> {

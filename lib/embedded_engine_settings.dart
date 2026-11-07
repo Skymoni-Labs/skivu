@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'device_engine.dart';
+import 'engine_app_selection_page.dart';
 
 /// Authorization belongs to the host. Models/plugins never operate this form.
 class EmbeddedEngineSettings extends StatefulWidget {
@@ -68,17 +69,45 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
         apps = installed;
       });
   });
-  Future<void> update(String field, dynamic value) => run(() async {
-    final next = {...state, field: value};
-    final result = await deviceEngine.configure(
-      enabled: next['enabled'] == true,
-      system: next['system'] == true,
-      control: next['control'] == true,
-      shell: next['shell'] == true,
-      packages: List<String>.from(next['packages'] as List? ?? []),
+  Future<bool> update(String field, dynamic value) async {
+    var saved = false;
+    await run(() async {
+      final next = {...state, field: value};
+      final result = await deviceEngine.configure(
+        enabled: next['enabled'] == true,
+        system: next['system'] == true,
+        control: next['control'] == true,
+        shell: next['shell'] == true,
+        packages: List<String>.from(next['packages'] as List? ?? []),
+      );
+      if (mounted) setState(() => state = result);
+      saved = true;
+    });
+    return saved;
+  }
+
+  Future<void> chooseApps({bool selectedOnly = false}) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => EngineAppSelectionPage(
+          apps: apps,
+          selected: Set<String>.from(state['packages'] as List? ?? []),
+          selectedOnly: selectedOnly,
+          save: (selected) async {
+            final saved = await update('packages', selected.toList());
+            if (!saved) {
+              throw PlatformException(
+                code: 'APP_SCOPE_SAVE',
+                message: message ?? '保存未完成，请重试。',
+              );
+            }
+            return Set<String>.from(state['packages'] as List? ?? []);
+          },
+        ),
+      ),
     );
-    if (mounted) setState(() => state = result);
-  });
+  }
+
   Widget toggle(String field, String title, String description) =>
       SwitchListTile(
         title: Text(title),
@@ -269,30 +298,37 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
           ],
         ),
         const Divider(),
-        const ListTile(
-          title: Text('允许操作的软件'),
-          subtitle: Text('界面观察、点击和系统接口只在所选范围内工作。代码执行单独授予 shell 权限，不受此界面列表限制。'),
-        ),
-        for (final app in apps)
-          CheckboxListTile(
-            dense: true,
-            title: Text('${app['name']}'),
-            subtitle: Text('${app['package']}'),
-            value: (state['packages'] as List? ?? []).contains(app['package']),
-            onChanged: busy
-                ? null
-                : (v) {
-                    final selected = List<String>.from(
-                      state['packages'] as List? ?? [],
-                    );
-                    if (v == true) {
-                      selected.add(app['package'] as String);
-                    } else {
-                      selected.remove(app['package']);
-                    }
-                    update('packages', selected);
-                  },
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('允许操作的软件', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text(
+                  '已选 ${(state['packages'] as List? ?? []).length} 个 · 共 ${apps.length} 个软件',
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const ValueKey('engine-choose-apps'),
+                  onPressed: busy ? null : chooseApps,
+                  icon: const Icon(Icons.search),
+                  label: const Text('搜索并选择软件'),
+                ),
+                TextButton(
+                  onPressed: busy ? null : () => chooseApps(selectedOnly: true),
+                  child: const Text('查看已选软件'),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '界面观察、点击和系统接口只在所选范围内工作。代码执行单独授予 shell 权限，不受此列表限制。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
+        ),
         TextButton.icon(
           onPressed: () async {
             final result = await deviceEngine.stop();
