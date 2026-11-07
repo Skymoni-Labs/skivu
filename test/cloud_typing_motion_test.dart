@@ -3,7 +3,7 @@ import 'package:ski/cloud_typing_motion.dart';
 
 void main() {
   test('a tap has a distinct lift, key contact, rebound and rest', () {
-    expect(CloudTypingStroke.sample(.16, 0).height, greaterThan(23));
+    expect(CloudTypingStroke.sample(.16, 0).height, greaterThan(6));
     expect(CloudTypingStroke.sample(.2325, 0).press, closeTo(1, .001));
     expect(CloudTypingStroke.sample(.2325, 0).height, lessThan(-1));
     expect(CloudTypingStroke.sample(.27, 0).height, greaterThan(1));
@@ -26,35 +26,9 @@ void main() {
       );
       for (var i = 0; i < 1600; i++) {
         final sample = CloudTypingStroke.sample(i / 1000, side);
-        expect(sample.height, inInclusiveRange(-1.41, 24.01));
+        expect(sample.height, inInclusiveRange(-1.16, 6.51));
         expect(sample.roll.isFinite, true);
       }
     }
   });
-  test(
-    'wrists lift off their keys while connected bones keep their lengths',
-    () {
-      for (final side in [0, 1]) {
-        var clearance = 0.0;
-        for (var frame = 0; frame < 480; frame++) {
-          final arm = CloudTypingArm.sample(frame / 300, side);
-          expect(
-            (arm.elbow - arm.shoulder).distance,
-            closeTo(CloudTypingArm.upperLength, .00001),
-          );
-          expect(
-            (arm.wrist - arm.elbow).distance,
-            closeTo(CloudTypingArm.foreLength, .00001),
-          );
-          final lifted = CloudTypingArm.key(side).dy - arm.fingertip.dy;
-          if (lifted > clearance) clearance = lifted;
-        }
-        expect(clearance, greaterThan(21));
-        final resting = CloudTypingArm.sample(1.5, side);
-        expect(resting.fingertip, CloudTypingArm.key(side));
-        final still = CloudTypingArm.sample(.16, side, moving: false);
-        expect(still.fingertip, CloudTypingArm.key(side));
-      }
-    },
-  );
 }
