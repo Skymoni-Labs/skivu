@@ -1,0 +1,18 @@
+Skivu cloud mascot coding pack v1
+
+Original brand artwork reference:
+assets/branding/skivu-cloud-motion-reference.png
+Two eight-pose transparent sheets created with the built-in image generation tool,
+2026-11-07, packed as one sixteen-frame atlas with original alpha preserved.
+Added near-hand typing, far-hand occlusion, trackpad movement and resting poses.
+Existing source artwork is unchanged.
+
+Animation organization reference, not a bundled Windows runtime:
+LorisYounger/VPet — A_Start / B_Loop / C_End
+https://github.com/LorisYounger/VPet/blob/main/Secondary%20Development%20Support%20Documentation.md
+Document Git blob: 967c72150512c28577e39f7d34b7e094ccad1bdc
+https://github.com/LorisYounger/VPet/blob/main/LICENSE
+
+Playback and asset schema are a Skivu-native Dart implementation. No VPet
+character artwork, BongoCat models, Live2D Core or third-party binaries are
+included. This JSON pack does not claim compatibility with VPet's LPS mods.

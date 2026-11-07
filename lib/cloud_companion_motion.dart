@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+enum CloudPetSegment { start, loop, end, hold }
+
 /// Visual states follow task receipts; they never dispatch tools or replay work.
 enum CloudActivity {
   idle,
@@ -81,16 +83,19 @@ class CloudVisualLayer {
     required this.seconds,
     required this.opacity,
     required this.greeting,
+    this.petSegment,
   });
   final CloudActivity activity;
   final CloudPose pose;
   final double seconds, opacity;
   final bool greeting;
+  final CloudPetSegment? petSegment;
   CloudVisualLayer withOpacity(double value) => CloudVisualLayer(
     activity: activity,
     pose: pose,
     seconds: seconds,
     opacity: value,
     greeting: greeting,
+    petSegment: petSegment,
   );
 }

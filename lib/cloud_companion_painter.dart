@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'cloud_companion_motion.dart';
 import 'cloud_companion_reference.dart';
 import 'cloud_typing_motion.dart';
+import 'cloud_pet_pack.dart';
 
 /// Reference pixels remain intact. A connected weighted mesh moves wrists and
 /// head, so joints never expose holes or require replacement limb artwork.
@@ -19,6 +20,8 @@ class CloudCompanionPainter extends CustomPainter {
     required this.motion,
     required this.greeting,
     this.layers,
+    this.petPack,
+    this.petAtlas,
   });
   final ui.Image image;
   final CloudReferenceRig rig;
@@ -27,6 +30,8 @@ class CloudCompanionPainter extends CustomPainter {
   final double seconds, entry;
   final bool motion, greeting;
   final List<CloudVisualLayer>? layers;
+  final CloudPetPack? petPack;
+  final ui.Image? petAtlas;
   String get sceneName => sceneFor(activity, pose);
   static String sceneFor(CloudActivity activity, CloudPose pose) =>
       switch (activity) {
@@ -112,12 +117,17 @@ class CloudCompanionPainter extends CustomPainter {
   void paintLayer(Canvas canvas, Size size, CloudVisualLayer frame) {
     final activity = frame.activity, pose = frame.pose;
     final greeting = frame.greeting, seconds = frame.seconds;
+    final pack = petPack;
+    if (pack != null && petAtlas != null && pack.supports(activity, pose)) {
+      paintPet(canvas, size, pack, frame);
+      return;
+    }
     canvas.clipRect(Offset.zero & size);
     canvas.scale(size.width / 600, size.height / 660);
     final scene = rig.scenes[sceneFor(activity, pose)]!;
     final texture = scene.texture;
     if (texture == null) return;
-    final time = motion ? seconds : 0.0;
+    final time = motion ? seconds % 8 : 0.0;
     final cycle = motion ? (1 - math.cos(time * math.pi / 2)) / 2 : 0.0;
     final idle = activity == CloudActivity.idle;
     final float = idle ? -7 * cycle : 0.0;
@@ -227,6 +237,88 @@ class CloudCompanionPainter extends CustomPainter {
     vertices.dispose();
   }
 
+  void paintPet(
+    Canvas canvas,
+    Size size,
+    CloudPetPack pack,
+    CloudVisualLayer frame,
+  ) {
+    final sample = pack.sample(
+      frame.seconds,
+      segment:
+          frame.petSegment ??
+          (frame.activity == CloudActivity.coding
+              ? null
+              : CloudPetSegment.hold),
+      moving: motion,
+    );
+    final fit = applyBoxFit(BoxFit.contain, pack.viewport.size, size);
+    final destination = Alignment.center.inscribe(
+      fit.destination,
+      Offset.zero & size,
+    );
+    canvas.clipRect(Offset.zero & size);
+    canvas.translate(destination.left, destination.top);
+    canvas.scale(destination.width / pack.viewport.width);
+    canvas.translate(-pack.viewport.left, -pack.viewport.top);
+    final tile = Offset.zero & pack.tileSize;
+    final paint = Paint()..filterQuality = FilterQuality.high;
+    // The head and props are registered once, independent of the hand frames.
+    final fixed = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(pack.viewport);
+    for (final region in pack.animatedRegions) {
+      fixed.addRect(region);
+    }
+    canvas.save();
+    canvas.clipPath(fixed);
+    canvas.drawImageRect(petAtlas!, tile, tile, paint);
+    canvas.restore();
+    final origin = pack.frameOrigin(sample.frame);
+    for (final region in pack.animatedRegions) {
+      canvas.drawImageRect(petAtlas!, region.shift(origin), region, paint);
+    }
+    for (final region in pack.fixedRegions) {
+      canvas.drawImageRect(petAtlas!, region, region, paint);
+    }
+    // Foreground laptop always covers the hands where their regions overlap.
+    canvas.save();
+    canvas.clipPath(pack.foreground);
+    canvas.drawImageRect(petAtlas!, tile, tile, paint);
+    canvas.restore();
+    final blinkTime = frame.seconds % 4.2;
+    if (motion && blinkTime >= 1.7 && blinkTime < 1.84) {
+      for (var i = 0; i < pack.eyes.length; i++) {
+        final eye = pack.eyes[i];
+        final cover = eye.inflate(3);
+        canvas.drawOval(
+          cover,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              Offset(i == 0 ? eye.left - 12 : eye.right + 12, eye.bottom + 10),
+              40,
+              const [Color(0xfffee4d6), Color(0xfffefefe)],
+            ),
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(eye.left + 3, eye.center.dy)
+            ..quadraticBezierTo(
+              eye.center.dx,
+              eye.center.dy + 7,
+              eye.right - 3,
+              eye.center.dy,
+            ),
+          Paint()
+            ..color = const Color(0xff249fdc)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.8
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
+  }
+
   @override
   bool shouldRepaint(covariant CloudCompanionPainter old) =>
       old.image != image ||
@@ -237,5 +329,7 @@ class CloudCompanionPainter extends CustomPainter {
       old.entry != entry ||
       old.motion != motion ||
       old.greeting != greeting ||
-      old.layers != layers;
+      old.layers != layers ||
+      old.petPack != petPack ||
+      old.petAtlas != petAtlas;
 }

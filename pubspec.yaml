@@ -48,6 +48,7 @@ flutter:
     - assets/branding/skivu-cloud-companion.png
     - assets/branding/skivu-cloud-motion-reference.png
     - assets/branding/skivu-cloud-reference-masks.json
+    - assets/branding/cloud_pet/
     - assets/branding/skivu-cloud-particles.json
     - assets/branding/skivu-update-night-20261028.png
     - LICENSE

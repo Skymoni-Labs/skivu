@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "cloud-coding-v1",
+  "activity": "coding",
+  "atlas": "assets/branding/cloud_pet/coding-v1.png",
+  "tile": [384, 512],
+  "columns": 4,
+  "frameCount": 16,
+  "viewport": [0, 20, 384, 472],
+  "animatedRegions": [[70, 316, 190, 89]],
+  "fixedRegions": [[0, 0, 384, 318], [0, 400, 384, 112], [0, 380, 90, 20], [260, 380, 124, 20]],
+  "eyes": [[144, 225, 40, 44], [231, 225, 39, 44]],
+  "foreground": [[257, 300], [347, 297], [356, 305], [331, 398], [223, 401], [245, 317]],
+  "holdFrame": 15,
+  "loopOrder": ["B_Loop", "B_Loop", "B_SideTyping", "B_Loop", "B_Touchpad", "B_SideTyping"],
+  "clips": {
+    "A_Start": [[15, 120], [9, 120]],
+    "B_Loop": [[1, 95], [2, 55], [0, 70], [3, 95], [4, 55], [7, 70], [5, 90], [6, 55], [0, 130]],
+    "B_SideTyping": [[8, 95], [9, 70], [10, 100], [11, 110]],
+    "B_Touchpad": [[12, 130], [13, 200], [12, 100], [14, 100], [15, 220]],
+    "C_End": [[6, 90], [2, 90], [15, 120]]
+  }
+}

@@ -22,6 +22,48 @@ Future<void> decoded(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+    'desktop pet uses its atlas and urgent requests interrupt an exit',
+    (tester) async {
+      Future<void> show(CloudActivity activity, {bool active = true}) =>
+          tester.pumpWidget(
+            MaterialApp(
+              home: CloudCompanionPortrait(activity: activity, active: active),
+            ),
+          );
+      CloudCompanionPainter painter() => tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((widget) => widget.painter)
+          .whereType<CloudCompanionPainter>()
+          .single;
+      await show(CloudActivity.coding);
+      await decoded(tester);
+      expect(painter().petAtlas, isNotNull);
+      final pack = painter().petPack!;
+      await tester.pump(const Duration(milliseconds: 8001));
+      expect(painter().seconds, greaterThan(8));
+      expect(pack.sample(painter().seconds).segment, CloudPetSegment.loop);
+      await show(CloudActivity.idle);
+      expect(painter().activity, CloudActivity.coding);
+      expect(painter().layers!.last.petSegment, CloudPetSegment.end);
+      await tester.pump(const Duration(milliseconds: 100));
+      await show(CloudActivity.permission);
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(painter().activity, CloudActivity.permission);
+      await show(CloudActivity.coding);
+      await tester.pump(const Duration(milliseconds: 350));
+      await show(CloudActivity.idle);
+      await tester.pump(const Duration(milliseconds: 310));
+      expect(painter().activity, CloudActivity.idle);
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(painter().layers!.single.activity, CloudActivity.idle);
+      await show(CloudActivity.coding, active: false);
+      await tester.pump();
+      expect(tester.binding.transientCallbackCount, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'a pose change and an interrupted fade preserve the visible frame',
     (tester) async {
       final boundary = GlobalKey();

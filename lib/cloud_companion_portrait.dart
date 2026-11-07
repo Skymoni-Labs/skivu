@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'cloud_companion_motion.dart';
 import 'cloud_companion_painter.dart';
 import 'cloud_companion_reference.dart';
+import 'cloud_pet_pack.dart';
 
 export 'cloud_companion_motion.dart';
 
@@ -37,8 +38,43 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     duration: const Duration(milliseconds: 240),
     value: 1,
   );
+  late final AnimationController petExit =
+      AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 300),
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.completed &&
+            exitTarget != null &&
+            mounted) {
+          final target = exitTarget!;
+          final overflow =
+              Duration(
+                microseconds: ((motionSeconds - exitBeganAtSeconds) * 1000000)
+                    .round(),
+              ) -
+              petExit.duration!;
+          setState(() {
+            applyActivity(target);
+            if (overflow > Duration.zero) {
+              transition.value =
+                  (overflow.inMicroseconds /
+                          transition.duration!.inMicroseconds)
+                      .clamp(0, 1);
+              if (transition.value < 1 && enabled) transition.forward();
+            }
+          });
+        }
+      });
   ui.Image? image;
+  ui.Image? petAtlas;
   CloudReferenceRig? rig;
+  CloudPetPack? petPack;
+  late CloudActivity displayedActivity;
+  CloudActivity? exitTarget;
+  double motionSeconds = 0;
+  double exitBeganAtSeconds = 0;
+  Duration lastClockElapsed = Duration.zero;
+  bool resettingClock = false;
   int workspace = 0;
   bool foreground = true, greeting = false;
   bool onScreen = true, visibilityScheduled = false;
@@ -69,12 +105,17 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
         CloudVisualLayer(
           activity: activity,
           pose: pose,
-          seconds: enabled ? clock.value * 8 : 0,
+          seconds: enabled
+              ? exitTarget != null
+                    ? petExit.value * petExit.duration!.inMicroseconds / 1000000
+                    : motionSeconds
+              : 0,
           opacity: t,
           greeting:
               greeting &&
               (clock.lastElapsedDuration ?? Duration.zero) <
                   const Duration(seconds: 2),
+          petSegment: exitTarget != null ? CloudPetSegment.end : null,
         ),
     ];
   }
@@ -83,6 +124,8 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    displayedActivity = widget.activity;
+    clock.addListener(advanceMotion);
     workspace = switch (widget.activity) {
       CloudActivity.coding => 1,
       CloudActivity.phone => 2,
@@ -117,14 +160,18 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
           frame.image.dispose();
           rethrow;
         }
+        final pet = await loadPetPack();
         if (!mounted) {
           frame.image.dispose();
           reference.dispose();
+          pet?.$2.dispose();
           return;
         }
         setState(() {
           image = frame.image;
           rig = reference;
+          petPack = pet?.$1;
+          petAtlas = pet?.$2;
         });
       } finally {
         codec.dispose();
@@ -138,19 +185,77 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     }
   }
 
+  Future<(CloudPetPack, ui.Image)?> loadPetPack() async {
+    ui.Image? atlas;
+    try {
+      final pack = CloudPetPack.fromJson(
+        jsonDecode(
+              await rootBundle.loadString(
+                'assets/branding/cloud_pet/coding-v1.json',
+                cache: false,
+              ),
+            )
+            as Map<String, dynamic>,
+      );
+      final data = await rootBundle.load(pack.atlas);
+      final codec = await ui.instantiateImageCodec(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      );
+      try {
+        atlas = (await codec.getNextFrame()).image;
+        pack.validateAtlas(
+          Size(atlas.width.toDouble(), atlas.height.toDouble()),
+        );
+        return (pack, atlas);
+      } finally {
+        codec.dispose();
+      }
+    } catch (error) {
+      atlas?.dispose();
+      assert(() {
+        debugPrint('Cloud pet pack unavailable: $error');
+        return true;
+      }());
+      return null; // Keep the existing illustration usable if the pack fails.
+    }
+  }
+
+  void advanceMotion() {
+    if (resettingClock) return;
+    final elapsed = clock.lastElapsedDuration ?? Duration.zero;
+    final delta = elapsed - lastClockElapsed;
+    if (!delta.isNegative) motionSeconds += delta.inMicroseconds / 1000000;
+    lastClockElapsed = elapsed;
+  }
+
   void syncClock({bool restart = false}) {
+    if (restart) {
+      resettingClock = true;
+      motionSeconds = 0;
+      lastClockElapsed = Duration.zero;
+      clock.value = 0;
+      resettingClock = false;
+    }
     if (!enabled) {
       clock.stop();
       transition.stop();
-      if (reduced) transition.value = 1;
+      petExit.stop();
+      if (reduced) {
+        transition.value = 1;
+        if (exitTarget != null) applyActivity(exitTarget!);
+      }
       return;
     }
     if (transition.value < 1 && !transition.isAnimating) transition.forward();
-    if (restart) clock.value = 0;
-    if (widget.activity.continuous) {
-      if (restart || !clock.isAnimating) clock.repeat();
+    if (exitTarget != null && !petExit.isAnimating) petExit.forward();
+    if (displayedActivity.continuous) {
+      if (restart || !clock.isAnimating) {
+        lastClockElapsed = Duration.zero;
+        clock.repeat();
+      }
     } else if (restart || clock.value < 1) {
       clock.stop();
+      lastClockElapsed = Duration.zero;
       clock.forward();
     }
   }
@@ -197,35 +302,65 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
   void didUpdateWidget(covariant CloudCompanionPortrait oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.activity != oldWidget.activity) {
-      outgoing = layers(oldWidget.activity);
-      if (outgoing.length > 4) {
-        outgoing.sort((a, b) => b.opacity.compareTo(a.opacity));
-        outgoing = outgoing.take(4).toList();
-        final sum = outgoing.fold(0.0, (v, e) => v + e.opacity);
-        outgoing = outgoing.map((e) => e.withOpacity(e.opacity / sum)).toList();
+      final target = widget.activity;
+      final urgent = {
+        CloudActivity.permission,
+        CloudActivity.stopping,
+        CloudActivity.paused,
+        CloudActivity.failed,
+      }.contains(target);
+      if (petPack != null &&
+          displayedActivity == CloudActivity.coding &&
+          target != CloudActivity.coding &&
+          !urgent &&
+          oldWidget.active &&
+          !oldWidget.reduceMotion &&
+          enabled) {
+        if (exitTarget == null) {
+          exitBeganAtSeconds = motionSeconds;
+          petExit.duration = Duration(milliseconds: petPack!.end.durationMs);
+          petExit.value = 0;
+        }
+        exitTarget = target;
+        syncClock();
+      } else {
+        applyActivity(target);
       }
-      from = pose;
-      if (widget.activity == CloudActivity.idle) workspace = 0;
-      if (widget.activity == CloudActivity.coding) workspace = 1;
-      if (widget.activity == CloudActivity.phone) workspace = 2;
-      to = CloudPose.forActivity(widget.activity, workspace);
-      greeting = false;
-      transition.duration = Duration(
-        milliseconds:
-            {
-              CloudActivity.permission,
-              CloudActivity.stopping,
-              CloudActivity.paused,
-              CloudActivity.failed,
-            }.contains(widget.activity)
-            ? 120
-            : 240,
-      );
-      transition.value = 0;
-      syncClock(restart: true);
     } else {
       syncClock();
     }
+  }
+
+  void applyActivity(CloudActivity target) {
+    outgoing = layers(displayedActivity);
+    petExit.stop();
+    exitTarget = null;
+    if (outgoing.length > 4) {
+      outgoing.sort((a, b) => b.opacity.compareTo(a.opacity));
+      outgoing = outgoing.take(4).toList();
+      final sum = outgoing.fold(0.0, (v, e) => v + e.opacity);
+      outgoing = outgoing.map((e) => e.withOpacity(e.opacity / sum)).toList();
+    }
+    from = pose;
+    displayedActivity = target;
+    if (target == CloudActivity.idle) workspace = 0;
+    if (target == CloudActivity.coding) workspace = 1;
+    if (target == CloudActivity.phone) workspace = 2;
+    to = CloudPose.forActivity(target, workspace);
+    greeting = false;
+    transition.duration = Duration(
+      milliseconds:
+          {
+            CloudActivity.permission,
+            CloudActivity.stopping,
+            CloudActivity.paused,
+            CloudActivity.failed,
+          }.contains(target)
+          ? 120
+          : 240,
+    );
+    transition.value = 0;
+    syncClock(restart: true);
   }
 
   @override
@@ -243,7 +378,9 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     scrollable?.position.removeListener(scheduleVisibility);
     clock.dispose();
     transition.dispose();
+    petExit.dispose();
     image?.dispose();
+    petAtlas?.dispose();
     rig?.dispose();
     super.dispose();
   }
@@ -266,7 +403,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
           width: widget.size,
           height: widget.size * 1.1,
           child: AnimatedBuilder(
-            animation: Listenable.merge([clock, transition]),
+            animation: Listenable.merge([clock, transition, petExit]),
             builder: (context, _) => image == null || rig == null
                 ? Icon(
                     Icons.cloud_outlined,
@@ -278,12 +415,14 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
                       image: image!,
                       rig: rig!,
                       pose: pose,
-                      activity: widget.activity,
-                      seconds: enabled ? clock.value * 8 : 0,
+                      activity: displayedActivity,
+                      seconds: enabled ? motionSeconds : 0,
                       entry: enabled ? transition.value : 1,
                       motion: enabled,
                       greeting: greeting,
-                      layers: layers(widget.activity),
+                      layers: layers(displayedActivity),
+                      petPack: petPack,
+                      petAtlas: petAtlas,
                     ),
                   ),
           ),
