@@ -69,7 +69,12 @@ void main() {
       await tester.pumpAndSettle();
       for (final index in [1, 2, 3, 4, 0]) {
         await tester.tap(find.byKey(ValueKey('main-module-$index')));
-        await tester.pumpAndSettle();
+        if (index == 4) {
+          // The visible mascot has a continuous idle/breathing animation.
+          await tester.pump(const Duration(milliseconds: 800));
+        } else {
+          await tester.pumpAndSettle();
+        }
         expect(tester.takeException(), isNull);
         expect(demo.conversations[demo.conversation], same(conversation));
         expect(demo.role, same(role));
@@ -131,7 +136,11 @@ void main() {
       );
       for (final i in [1, 2, 3, 4]) {
         await tester.tap(find.byKey(ValueKey('main-module-$i')));
-        await tester.pumpAndSettle();
+        if (i == 4) {
+          await tester.pump(const Duration(milliseconds: 800));
+        } else {
+          await tester.pumpAndSettle();
+        }
         expect(input, findsNothing);
         expect(dock, findsOneWidget);
         expect(tester.takeException(), isNull);

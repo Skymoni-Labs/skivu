@@ -4,7 +4,7 @@ import 'package:ski/cloud_companion_portrait.dart';
 
 void main() {
   testWidgets(
-    'original character asset decodes, greeting settles and reduced motion remains still',
+    'approved artwork decodes, idle stays alive and reduced motion remains still',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: CloudCompanionPortrait())),
@@ -12,15 +12,15 @@ void main() {
       final portrait = find.byKey(const ValueKey('cloud-companion-portrait'));
       for (
         var i = 0;
-        i < 100 && find.byIcon(Icons.cloud_outlined).evaluate().isNotEmpty;
+        i < 300 && find.byIcon(Icons.cloud_outlined).evaluate().isNotEmpty;
         i++
       ) {
         await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
         );
         await tester.pump();
       }
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 4200));
       expect(
         find.byIcon(Icons.cloud_outlined),
         findsNothing,
@@ -33,8 +33,8 @@ void main() {
       await tester.tap(portrait);
       await tester.pump(const Duration(milliseconds: 250));
       expect(tester.binding.transientCallbackCount, greaterThan(0));
-      await tester.pumpAndSettle();
-      expect(tester.binding.transientCallbackCount, 0);
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.binding.transientCallbackCount, greaterThan(0));
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(body: CloudCompanionPortrait(reduceMotion: true)),

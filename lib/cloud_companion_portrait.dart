@@ -1,197 +1,265 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'cloud_companion_motion.dart';
+import 'cloud_companion_painter.dart';
+import 'cloud_companion_reference.dart';
 
-const cloudCompanionAsset = 'assets/branding/skivu-cloud-companion.png';
+export 'cloud_companion_motion.dart';
 
-/// Reuses the website's original transparent character sheet and front pose.
-/// The finite greeting never sends a message or starts a model request.
+const cloudCompanionAsset = 'assets/branding/skivu-cloud-motion-reference.png';
+
+/// Reference-matched illustrated artwork plus one animated body/arm/prop rig.
 class CloudCompanionPortrait extends StatefulWidget {
   const CloudCompanionPortrait({
     super.key,
     this.size = 104,
     this.reduceMotion = false,
+    this.activity = CloudActivity.idle,
+    this.active = true,
   });
   final double size;
-  final bool reduceMotion;
-
+  final bool reduceMotion, active;
+  final CloudActivity activity;
   @override
   State<CloudCompanionPortrait> createState() => _CloudCompanionPortraitState();
 }
 
 class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
-    with SingleTickerProviderStateMixin {
-  late final greeting = AnimationController(
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final clock = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1600),
+    duration: const Duration(seconds: 8),
+  );
+  late final transition = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 550),
+    value: 1,
   );
   ui.Image? image;
-  bool greeted = false;
+  CloudReferenceRig? rig;
+  int workspace = 0;
+  bool foreground = true, greeting = true;
+  bool onScreen = true, visibilityScheduled = false;
+  ScrollableState? scrollable;
+  late CloudPose from, to;
   bool get reduced =>
       widget.reduceMotion || MediaQuery.disableAnimationsOf(context);
+  bool get enabled =>
+      widget.active &&
+      foreground &&
+      onScreen &&
+      TickerMode.of(context) &&
+      !reduced;
+  CloudPose get pose => CloudPose.lerp(
+    from,
+    to,
+    Curves.easeInOutCubic.transform(transition.value),
+  );
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    workspace = switch (widget.activity) {
+      CloudActivity.coding => 1,
+      CloudActivity.phone => 2,
+      _ => 0,
+    };
+    from = to = CloudPose.forActivity(widget.activity, workspace);
     load();
   }
 
   Future<void> load() async {
     try {
       final data = await rootBundle.load(cloudCompanionAsset);
+      final reference = CloudReferenceRig(
+        jsonDecode(
+              await rootBundle.loadString(
+                'assets/branding/skivu-cloud-reference-masks.json',
+                cache: false,
+              ),
+            )
+            as Map<String, dynamic>,
+      );
       final codec = await ui.instantiateImageCodec(
         data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        targetWidth: 1086,
+        targetWidth: 1536,
       );
       try {
         final frame = await codec.getNextFrame();
+        try {
+          await reference.prepare(frame.image);
+        } catch (_) {
+          reference.dispose();
+          frame.image.dispose();
+          rethrow;
+        }
         if (!mounted) {
           frame.image.dispose();
+          reference.dispose();
           return;
         }
-        setState(() => image = frame.image);
+        setState(() {
+          image = frame.image;
+          rig = reference;
+        });
       } finally {
         codec.dispose();
       }
-    } catch (_) {
-      // Keep the offline surface usable even when an asset cannot be decoded.
+    } catch (error, stack) {
+      assert(() {
+        debugPrint('Cloud animation asset failed: $error');
+        debugPrintStack(stackTrace: stack);
+        return true;
+      }());
+    }
+  }
+
+  void syncClock({bool restart = false}) {
+    if (!enabled) {
+      clock.stop();
+      transition.stop();
+      if (reduced) transition.value = 1;
+      return;
+    }
+    if (transition.value < 1 && !transition.isAnimating) transition.forward();
+    if (restart) clock.value = 0;
+    if (widget.activity.continuous) {
+      if (restart || !clock.isAnimating) clock.repeat();
+    } else if (restart || clock.value < 1) {
+      clock.stop();
+      clock.forward();
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!greeted) {
-      greeted = true;
-      if (!reduced) greeting.forward();
+    final parent = Scrollable.maybeOf(context);
+    if (!identical(parent, scrollable)) {
+      scrollable?.position.removeListener(scheduleVisibility);
+      scrollable = parent;
+      scrollable?.position.addListener(scheduleVisibility);
     }
-    if (reduced) {
-      greeting.stop();
-      greeting.value = 1;
-    }
+    scheduleVisibility();
+    syncClock();
+  }
+
+  void scheduleVisibility() {
+    if (visibilityScheduled) return;
+    visibilityScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      visibilityScheduled = false;
+      if (!mounted) return;
+      final object = context.findRenderObject();
+      final viewport = scrollable?.context.findRenderObject();
+      if (object is! RenderBox || !object.hasSize) return;
+      final rect = object.localToGlobal(Offset.zero) & object.size;
+      final screen = Offset.zero & MediaQuery.sizeOf(context);
+      final visible =
+          rect.overlaps(screen) &&
+          (viewport is! RenderBox ||
+              !viewport.hasSize ||
+              rect.overlaps(
+                viewport.localToGlobal(Offset.zero) & viewport.size,
+              ));
+      if (visible != onScreen) {
+        setState(() => onScreen = visible);
+        syncClock();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(covariant CloudCompanionPortrait oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.reduceMotion) {
-      greeting.stop();
-      greeting.value = 1;
+    if (widget.activity != oldWidget.activity) {
+      from = pose;
+      if (widget.activity == CloudActivity.idle) workspace = 0;
+      if (widget.activity == CloudActivity.coding) workspace = 1;
+      if (widget.activity == CloudActivity.phone) workspace = 2;
+      to = CloudPose.forActivity(widget.activity, workspace);
+      greeting = false;
+      transition.duration = Duration(
+        milliseconds:
+            {
+              CloudActivity.permission,
+              CloudActivity.stopping,
+              CloudActivity.paused,
+              CloudActivity.failed,
+            }.contains(widget.activity)
+            ? 220
+            : 550,
+      );
+      transition.value = 0;
+      syncClock(restart: true);
+    } else {
+      syncClock();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (mounted) {
+      syncClock();
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
-    greeting.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    scrollable?.position.removeListener(scheduleVisibility);
+    clock.dispose();
+    transition.dispose();
     image?.dispose();
+    rig?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: '小云虚拟人物',
-    hint: reduced ? null : '点击让小云挥手',
-    button: !reduced,
+    label: '小云虚拟人物，${widget.activity.label}',
+    hint: reduced || widget.activity != CloudActivity.idle ? null : '点击让小云挥手',
+    button: !reduced && widget.activity == CloudActivity.idle,
     child: GestureDetector(
       key: const ValueKey('cloud-companion-portrait'),
-      onTap: reduced ? null : () => greeting.forward(from: 0),
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size * 1.1,
-        child: AnimatedBuilder(
-          animation: greeting,
-          builder: (context, _) => image == null
-              ? Icon(
-                  Icons.cloud_outlined,
-                  size: widget.size * .65,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-              : CustomPaint(painter: _CompanionPainter(image!, greeting.value)),
+      onTap: reduced || widget.activity != CloudActivity.idle
+          ? null
+          : () {
+              greeting = true;
+              syncClock(restart: true);
+            },
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: widget.size,
+          height: widget.size * 1.1,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([clock, transition]),
+            builder: (context, _) => image == null || rig == null
+                ? Icon(
+                    Icons.cloud_outlined,
+                    size: widget.size * .65,
+                    color: Theme.of(context).colorScheme.primary,
+                  )
+                : CustomPaint(
+                    painter: CloudCompanionPainter(
+                      image: image!,
+                      rig: rig!,
+                      pose: pose,
+                      activity: widget.activity,
+                      seconds: enabled ? clock.value * 8 : 0,
+                      entry: enabled ? transition.value : 1,
+                      motion: enabled,
+                      greeting: greeting,
+                    ),
+                  ),
+          ),
         ),
       ),
     ),
   );
-}
-
-class _CompanionPainter extends CustomPainter {
-  const _CompanionPainter(this.image, this.progress);
-  final ui.Image image;
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.clipRect(Offset.zero & size);
-    canvas.scale(size.width / 600, size.height / 660);
-    canvas.translate(-140, -30);
-    final paint = Paint()..filterQuality = FilterQuality.high;
-    void drawSheet() => canvas.drawImageRect(
-      image,
-      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-      const Rect.fromLTWH(0, 0, 2172, 724),
-      paint,
-    );
-    final shoulder = Path()
-      ..moveTo(514, 461)
-      ..cubicTo(542, 477, 551, 515, 549, 554)
-      ..lineTo(545, 606)
-      ..lineTo(514, 610)
-      ..close();
-    canvas.drawPath(
-      shoulder,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          const Offset(0, 461),
-          const Offset(0, 610),
-          const [Color(0xfffffefa), Color(0xffe8f8ff)],
-        ),
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(534, 501)
-        ..cubicTo(547, 529, 551, 563, 544, 602),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xff35b4ee),
-    );
-    final body = Path()..addRect(const Rect.fromLTWH(140, 437, 600, 250));
-    final armCutout = Path()
-      ..moveTo(530, 462)
-      ..lineTo(650, 462)
-      ..lineTo(650, 604)
-      ..lineTo(543, 604)
-      ..lineTo(548, 554)
-      ..lineTo(532, 511)
-      ..close();
-    canvas.save();
-    canvas.clipPath(Path.combine(PathOperation.difference, body, armCutout));
-    drawSheet();
-    canvas.restore();
-    canvas.save();
-    canvas.clipRect(const Rect.fromLTWH(140, 20, 600, 442));
-    drawSheet();
-    canvas.restore();
-    final arm = Path()
-      ..moveTo(533, 465)
-      ..cubicTo(566, 478, 594, 504, 608, 532)
-      ..cubicTo(623, 562, 605, 585, 580, 580)
-      ..cubicTo(559, 578, 548, 559, 544, 541)
-      ..lineTo(529, 495)
-      ..close();
-    final envelope = math.sin(progress * math.pi);
-    final angle = envelope * (-1.5 + math.sin(progress * math.pi * 10) * .25);
-    canvas.save();
-    canvas.translate(535, 486);
-    canvas.rotate(angle);
-    canvas.translate(-535, -486);
-    canvas.clipPath(arm);
-    drawSheet();
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _CompanionPainter old) =>
-      old.image != image || old.progress != progress;
 }

@@ -704,7 +704,16 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
     Center(
       child: Column(
         children: [
-          CloudCompanionPortrait(reduceMotion: appearance.flag('reduceMotion')),
+          AnimatedBuilder(
+            animation: cloudAssistant,
+            builder: (context, _) => CloudCompanionPortrait(
+              reduceMotion: appearance.flag('reduceMotion'),
+              activity: cloudActivityForTask(
+                cloudAssistant.phase,
+                tool: cloudAssistant.pending?['tool'] as String?,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           Text('小云', style: TextStyle(fontSize: 27, color: sceneInk)),
           const SizedBox(height: 8),
