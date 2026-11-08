@@ -148,3 +148,19 @@ so confidence blending cannot expose the paper edge through a second lens
 silhouette. Transitions involving these scenes use the same sequential
 fade as coding. No character artwork was regenerated or repainted.
 Evidence: E:/zzz/ops/skivu-cloud-magnifier-front-20261108/
+
+2026-11-08 owner clarifies paper is the foreground occluder:
+The prior foreground-lens interpretation was reversed and its uninstalled
+art revision has been reverted. workflow-checking-paper-occlusion-v3.png
+places the magnifier behind the OPAQUE paper: partially hidden at 6/7,
+completely invisible at 8-15, visible again only outside the paper edge.
+The original head tilts, integrated blink and full-scene body are retained.
+Built-in image_gen.imagegen edited the original whole atlas, preserving
+transparent margins. No programmatic painting or separated limb overlays.
+Both checking/resultReady use this corrected source and 128px numeric
+motion data, with original timing and coherent single-source transitions.
+Coding remains its approved 3640ms continuous hidden-hand loop unchanged.
+Original atlas is preserved; unaccepted foreground-lens files are absent.
+Prompt, owner rule, source hashes, frame bounds and selected source:
+E:/zzz/ops/skivu-cloud-paper-occlusion-20261108/PROMPT.txt
+E:/zzz/ops/skivu-cloud-paper-occlusion-20261108/asset-selection.json

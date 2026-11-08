@@ -2496,11 +2496,11 @@
     },
     "checking": {
       "version": 1,
-      "id": "cloud-workflow-checking-occlusion-v2",
+      "id": "cloud-workflow-checking-paper-occlusion-v3",
       "activity": "checking",
       "wholeFrames": true,
       "repeat": true,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-paper-occlusion-v3.png",
       "tile": [
         256,
         256
@@ -2716,12 +2716,12 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-checking-flow-v1.png",
+        "atlas": "assets/branding/cloud_pet/motion-checking-paper-occlusion-flow-v3.png",
         "size": [
-          1024,
-          192
+          2048,
+          384
         ],
-        "cell": 64,
+        "cell": 128,
         "columns": 8,
         "range": 32.0,
         "pairs": [
@@ -2827,11 +2827,11 @@
     },
     "resultReady": {
       "version": 1,
-      "id": "cloud-workflow-resultReady-occlusion-v2",
+      "id": "cloud-workflow-resultReady-paper-occlusion-v3",
       "activity": "resultReady",
       "wholeFrames": true,
       "repeat": false,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-paper-occlusion-v3.png",
       "tile": [
         256,
         256
@@ -3047,12 +3047,12 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-resultReady-flow-v1.png",
+        "atlas": "assets/branding/cloud_pet/motion-checking-paper-occlusion-flow-v3.png",
         "size": [
-          1024,
-          192
+          2048,
+          384
         ],
-        "cell": 64,
+        "cell": 128,
         "columns": 8,
         "range": 32.0,
         "pairs": [
