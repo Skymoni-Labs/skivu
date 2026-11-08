@@ -97,3 +97,14 @@ its entry/exit also uses non-overlapping fades to avoid an extra set of arms.
 Other activities retain their original artwork and choreography.
 Evidence and rejected-material quarantine:
 E:/zzz/ops/skivu-cloud-coding-intentions-20261108/
+
+2026-11-08 source-pose correction after the owner's 16-second report:
+The preceding statement that all 72 poses are used is superseded. Original
+far-hand source drawings 28/29/30/33/34 visibly contain an additional baked
+hand behind the laptop while both hands remain on the keyboard. Those frames
+and adjacent ambiguous occlusion frames 27/31/32/35 are excluded from every
+clip and endpoint, leaving 63 reviewed whole drawings. The original atlas is
+preserved byte-for-byte; only selection, safe transitions and numeric fields
+change. The loader rejects a manifest that references an excluded frame.
+Source frame contacts, exclusion review and checks:
+E:/zzz/ops/skivu-cloud-second-16-fix-20261108/

@@ -14,6 +14,41 @@ Map<String, dynamic> manifest() =>
 
 void main() {
   test(
+    'bad source poses never appear on either side of interpolation or an exit',
+    () {
+      final pack = CloudPetPack.fromJson(manifest());
+      final rejected = {for (var i = 27; i <= 35; i++) i};
+      expect(pack.excludedFrames, rejected);
+      for (final clip in [pack.start, pack.loop, pack.end]) {
+        for (var ms = 0; ms < clip.durationMs; ms += 4) {
+          final sample = pack.sampleClip(
+            clip,
+            ms,
+            CloudPetSegment.loop,
+            next: pack.holdFrame,
+          );
+          expect(rejected.contains(sample.frame), false);
+          expect(rejected.contains(sample.nextFrame), false);
+        }
+      }
+      for (final pair in pack.flow!.edges.keys) {
+        expect(pair.split(':').map(int.parse).any(rejected.contains), false);
+      }
+    },
+  );
+  test(
+    'asset selection refuses accidentally reintroducing a known third-hand frame',
+    () {
+      final invalid = manifest();
+      (invalid['clips'] as Map)['A_Start'] = [
+        [29, 100],
+      ];
+      expect(() => CloudPetPack.fromJson(invalid), throwsFormatException);
+      final invalidHold = manifest()..['holdFrame'] = 30;
+      expect(() => CloudPetPack.fromJson(invalidHold), throwsFormatException);
+    },
+  );
+  test(
     'coding keeps the exact approved original artwork and rests only at low hand poses',
     () {
       final data = manifest();
@@ -165,7 +200,7 @@ void main() {
       }
       expect(pack.loop.frames.where((f) => f.holdMs >= 1400).length, 3);
       expect(pack.singleSourceMotion, true);
-      expect(pack.loop.frames.map((f) => f.index).toSet().length, 72);
+      expect(pack.loop.frames.map((f) => f.index).toSet().length, 63);
       expect(pack.wholeFrames, true);
       expect(pack.viewport, const Rect.fromLTWH(0, 0, 256, 256));
       expect(pack.frameBlendMs, 0);

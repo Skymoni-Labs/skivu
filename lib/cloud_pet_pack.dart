@@ -79,6 +79,12 @@ class CloudPetPack {
     tileSize = Size(tile[0].toDouble(), tile[1].toDouble());
     columns = json['columns'] as int;
     frameCount = json['frameCount'] as int;
+    final excluded = (json['excludedFrames'] as List? ?? const []).cast<int>();
+    if (excluded.toSet().length != excluded.length ||
+        excluded.any((frame) => frame < 0 || frame >= frameCount)) {
+      throw const FormatException('Invalid excluded cloud frame selection');
+    }
+    excludedFrames = Set.unmodifiable(excluded);
     frameTransforms = (json['frameTransforms'] as List?)?.map((raw) {
       final values = raw as List;
       if (values.length != 3 || values.any((v) => v is! num)) {
@@ -212,6 +218,7 @@ class CloudPetPack {
           final ease = pair.length > 3 ? pair[3] as int : 0;
           if (frame < 0 ||
               frame >= frameCount ||
+              excludedFrames.contains(frame) ||
               duration <= 0 ||
               duration > 10000 ||
               hold < 0 ||
@@ -236,8 +243,10 @@ class CloudPetPack {
     end = readClip('C_End');
     if (holdFrame < 0 ||
         holdFrame >= frameCount ||
+        excludedFrames.contains(holdFrame) ||
         underlayFrame < 0 ||
-        underlayFrame >= frameCount) {
+        underlayFrame >= frameCount ||
+        excludedFrames.contains(underlayFrame)) {
       throw const FormatException('Invalid cloud pet hold frame');
     }
   }
@@ -253,6 +262,7 @@ class CloudPetPack {
   late final List<Path?>? framePaths;
   late final int frameBlendMs;
   late final int columns, frameCount, holdFrame, underlayFrame;
+  late final Set<int> excludedFrames;
   late final Rect viewport;
   late final List<Rect> animatedRegions;
   late final List<Rect> fixedRegions, underlayRegions;
