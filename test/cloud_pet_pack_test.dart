@@ -13,6 +13,54 @@ Map<String, dynamic> manifest() =>
         as Map<String, dynamic>;
 
 void main() {
+  test('sixteen new hidden-hand scenes occupy most of the coding loop', () {
+    final data = manifest(), pack = CloudPetPack.fromJson(manifest());
+    final hidden = (data['occludedLeftFrames'] as List).cast<int>().toSet();
+    expect(hidden.where((f) => f >= 72).toSet(), {
+      for (var i = 72; i < 88; i++) i,
+    });
+    final hiddenMs = pack.loop.frames
+        .where((f) => hidden.contains(f.index))
+        .fold<int>(0, (n, f) => n + f.durationMs);
+    expect(hiddenMs / pack.loop.durationMs, greaterThan(.55));
+    expect(hidden.intersection(pack.excludedFrames), isEmpty);
+    expect(pack.start.frames.first.index, 87);
+    expect(pack.end.frames.every((f) => hidden.contains(f.index)), true);
+  });
+
+  testWidgets('the added atlas retains every original RGBA pixel', (
+    tester,
+  ) async {
+    final data = manifest(), pack = CloudPetPack.fromJson(manifest());
+    await tester.runAsync(() async {
+      final oldCodec = await instantiateImageCodec(
+        await File(data['originalAtlas'] as String).readAsBytes(),
+      );
+      final newCodec = await instantiateImageCodec(
+        await File(pack.atlas).readAsBytes(),
+      );
+      final oldImage = (await oldCodec.getNextFrame()).image;
+      final newImage = (await newCodec.getNextFrame()).image;
+      try {
+        final original = (await oldImage.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        final combined = (await newImage.toByteData(
+          format: ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        expect(oldImage.width, newImage.width);
+        expect(
+          sha256.convert(combined.sublist(0, original.length)).toString(),
+          sha256.convert(original).toString(),
+        );
+      } finally {
+        oldImage.dispose();
+        newImage.dispose();
+        oldCodec.dispose();
+        newCodec.dispose();
+      }
+    });
+  });
   test(
     'bad source poses never appear on either side of interpolation or an exit',
     () {
@@ -54,15 +102,17 @@ void main() {
       final data = manifest();
       final pack = CloudPetPack.fromJson(data);
       expect(
-        sha256.convert(File(pack.atlas).readAsBytesSync()).toString(),
+        sha256
+            .convert(File(data['originalAtlas'] as String).readAsBytesSync())
+            .toString(),
         'a5531a4f0f13d2ccfe292112a547b5f5cbaa473932bd09c94a696361271d8e1e',
       );
       expect(pack.singleSourceMotion, true);
       final rests = pack.loop.frames.where((f) => f.holdMs >= 1000);
-      expect(rests.map((f) => f.index), orderedEquals([23, 71, 47]));
+      expect(rests.map((f) => f.index), orderedEquals([87, 87, 23]));
       for (final name in [
         'B_TypePhraseNear',
-        'B_TypePhraseFar',
+        'B_TypeWithLeftHidden',
         'B_UseTouchpad',
       ]) {
         final frames = (data['clips'] as Map)[name] as List;
@@ -74,67 +124,70 @@ void main() {
       }
     },
   );
-  testWidgets('all 72 full coding drawings share one desk baseline and width', (
-    tester,
-  ) async {
-    final pack = CloudPetPack.fromJson(manifest());
-    await tester.runAsync(() async {
-      final codec = await instantiateImageCodec(
-        await File(pack.atlas).readAsBytes(),
-      );
-      final image = (await codec.getNextFrame()).image;
-      try {
-        final bytes = (await image.toByteData(
-          format: ImageByteFormat.rawRgba,
-        ))!.buffer.asUint8List();
-        Offset? reference;
-        double? referenceWidth;
-        for (var i = 0; i < pack.frameCount; i++) {
-          final origin = pack.frameOrigin(i),
-              registration = pack.frameTransform(i);
-          var left = 256, right = 0, bottom = 0;
-          for (var y = 0; y < 256; y++) {
-            for (var x = 0; x < 256; x++) {
-              final alpha =
-                  bytes[((origin.dy.toInt() + y) * image.width +
-                              origin.dx.toInt() +
-                              x) *
-                          4 +
-                      3];
-              if (alpha > 8) {
-                final p = registration.map(Offset(x.toDouble(), y.toDouble()));
-                expect(
-                  p.dx >= 2 && p.dx <= 254 && p.dy >= 2 && p.dy <= 254,
-                  true,
-                  reason: 'Complete source art must remain inside frame $i',
-                );
-              }
-              if (y >= 180 && alpha > 150) {
-                if (x < left) left = x;
-                if (x > right) right = x;
-                if (y > bottom) bottom = y;
+  testWidgets(
+    'all complete coding drawings share one desk baseline and width',
+    (tester) async {
+      final pack = CloudPetPack.fromJson(manifest());
+      await tester.runAsync(() async {
+        final codec = await instantiateImageCodec(
+          await File(pack.atlas).readAsBytes(),
+        );
+        final image = (await codec.getNextFrame()).image;
+        try {
+          final bytes = (await image.toByteData(
+            format: ImageByteFormat.rawRgba,
+          ))!.buffer.asUint8List();
+          Offset? reference;
+          double? referenceWidth;
+          for (var i = 0; i < pack.frameCount; i++) {
+            final origin = pack.frameOrigin(i),
+                registration = pack.frameTransform(i);
+            var left = 256, right = 0, bottom = 0;
+            for (var y = 0; y < 256; y++) {
+              for (var x = 0; x < 256; x++) {
+                final alpha =
+                    bytes[((origin.dy.toInt() + y) * image.width +
+                                origin.dx.toInt() +
+                                x) *
+                            4 +
+                        3];
+                if (alpha > 8) {
+                  final p = registration.map(
+                    Offset(x.toDouble(), y.toDouble()),
+                  );
+                  expect(
+                    p.dx >= 2 && p.dx <= 254 && p.dy >= 2 && p.dy <= 254,
+                    true,
+                    reason: 'Complete source art must remain inside frame $i',
+                  );
+                }
+                if (y >= 180 && alpha > 150) {
+                  if (x < left) left = x;
+                  if (x > right) right = x;
+                  if (y > bottom) bottom = y;
+                }
               }
             }
+            final anchor = registration.map(
+              Offset((left + right) / 2, bottom.toDouble()),
+            );
+            final width = (right - left + 1) * registration.scale;
+            reference ??= anchor;
+            referenceWidth ??= width;
+            expect(
+              (anchor - reference).distance,
+              lessThan(.001),
+              reason: 'Desk in frame $i must not shake',
+            );
+            expect(width, closeTo(referenceWidth, .001));
           }
-          final anchor = registration.map(
-            Offset((left + right) / 2, bottom.toDouble()),
-          );
-          final width = (right - left + 1) * registration.scale;
-          reference ??= anchor;
-          referenceWidth ??= width;
-          expect(
-            (anchor - reference).distance,
-            lessThan(.001),
-            reason: 'Desk in frame $i must not shake',
-          );
-          expect(width, closeTo(referenceWidth, .001));
+        } finally {
+          image.dispose();
+          codec.dispose();
         }
-      } finally {
-        image.dispose();
-        codec.dispose();
-      }
-    });
-  });
+      });
+    },
+  );
 
   test('a state pack plays entry once, repeats the loop, and ends at rest', () {
     final pack = CloudPetPack.fromJson(manifest());
@@ -150,7 +203,7 @@ void main() {
     expect(pack.sample(8.01).segment, CloudPetSegment.loop);
     expect(
       pack.loop.frames.map((frame) => frame.index).toSet(),
-      containsAll([0, 23, 24, 47, 48, 71]),
+      containsAll([0, 23, 48, 71, 72, 87]),
     );
     expect(
       pack.sample(0, segment: CloudPetSegment.end).segment,
@@ -161,7 +214,7 @@ void main() {
   });
   test('pack dimensions, durations, indices and local assets are checked', () {
     final pack = CloudPetPack.fromJson(manifest());
-    pack.validateAtlas(const Size(2048, 2304));
+    pack.validateAtlas(pack.atlasSize!);
     expect(
       () => pack.validateAtlas(const Size(384, 512)),
       throwsFormatException,
@@ -188,7 +241,7 @@ void main() {
       expect(pack.end.durationMs, greaterThanOrEqualTo(600));
       for (final name in [
         'B_TypePhraseNear',
-        'B_TypePhraseFar',
+        'B_TypeWithLeftHidden',
         'B_UseTouchpad',
       ]) {
         final frames = (data['clips'] as Map)[name] as List;
@@ -200,7 +253,7 @@ void main() {
       }
       expect(pack.loop.frames.where((f) => f.holdMs >= 1400).length, 3);
       expect(pack.singleSourceMotion, true);
-      expect(pack.loop.frames.map((f) => f.index).toSet().length, 63);
+      expect(pack.loop.frames.map((f) => f.index).toSet().length, 64);
       expect(pack.wholeFrames, true);
       expect(pack.viewport, const Rect.fromLTWH(0, 0, 256, 256));
       expect(pack.frameBlendMs, 0);

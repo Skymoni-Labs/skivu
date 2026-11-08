@@ -108,3 +108,19 @@ preserved byte-for-byte; only selection, safe transitions and numeric fields
 change. The loader rejects a manifest that references an excluded frame.
 Source frame contacts, exclusion review and checks:
 E:/zzz/ops/skivu-cloud-second-16-fix-20261108/
+
+2026-11-08 more naturally occluded left-hand scenes:
+Sixteen reviewed complete scenes were generated with the built-in image tool,
+using the approved original hidden-hand pose and coding reference. They keep
+large glossy eyes, the original cloud silhouette and connected near-hand
+motion. The far/anatomical left hand remains entirely behind the laptop in
+all sixteen. No separated head/limb rig is used. Source sheet is normalized
+per full cell; existing 72 cells remain pixel-identical in the sibling atlas
+workflow-coding-hidden-v2.png. The original workflow-coding-v1.png is unchanged.
+The computer loop now begins with hidden-hand typing, reading and trackpad
+movements, then returns to the original keyboard phrase. About 58% of the
+loop uses fully occluded left-hand drawings. Original third-hand frames 27-35
+remain excluded. Desk center/baseline/width are registered for all 88 cells.
+Generation prompt, input references, full-cell hashes and review receipts:
+E:/zzz/ops/skivu-cloud-hidden-left-20261108/PROMPT.txt
+E:/zzz/ops/skivu-cloud-hidden-left-20261108/asset-selection.json

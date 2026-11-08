@@ -1,20 +1,20 @@
 {
   "version": 1,
-  "id": "cloud-workflow-coding-v1",
+  "id": "cloud-workflow-coding-hidden-v2",
   "activity": "coding",
   "wholeFrames": true,
   "repeat": true,
-  "atlas": "assets/branding/cloud_pet/workflow-coding-v1.png",
+  "atlas": "assets/branding/cloud_pet/workflow-coding-hidden-v2.png",
   "tile": [
     256,
     256
   ],
   "atlasSize": [
     2048,
-    2304
+    2816
   ],
   "columns": 8,
-  "frameCount": 72,
+  "frameCount": 88,
   "viewport": [
     0,
     0,
@@ -33,14 +33,234 @@
   "eyes": [],
   "foreground": [],
   "frameBlendMs": 0,
-  "holdFrame": 23,
+  "holdFrame": 87,
   "clips": {
     "A_Start": [
       [
-        23,
+        87,
         700,
         0,
         0
+      ]
+    ],
+    "B_TypeWithLeftHidden": [
+      [
+        72,
+        140,
+        0,
+        0
+      ],
+      [
+        73,
+        140,
+        0,
+        0
+      ],
+      [
+        74,
+        140,
+        0,
+        0
+      ],
+      [
+        75,
+        140,
+        0,
+        0
+      ],
+      [
+        76,
+        140,
+        0,
+        0
+      ],
+      [
+        77,
+        140,
+        0,
+        0
+      ],
+      [
+        78,
+        140,
+        0,
+        0
+      ],
+      [
+        79,
+        140,
+        0,
+        0
+      ],
+      [
+        72,
+        140,
+        0,
+        0
+      ],
+      [
+        73,
+        140,
+        0,
+        0
+      ],
+      [
+        74,
+        140,
+        0,
+        0
+      ],
+      [
+        75,
+        140,
+        0,
+        0
+      ],
+      [
+        76,
+        140,
+        0,
+        0
+      ],
+      [
+        77,
+        140,
+        0,
+        0
+      ],
+      [
+        78,
+        140,
+        0,
+        0
+      ],
+      [
+        79,
+        140,
+        0,
+        0
+      ],
+      [
+        80,
+        220,
+        0,
+        0
+      ],
+      [
+        81,
+        220,
+        0,
+        0
+      ],
+      [
+        82,
+        220,
+        0,
+        0
+      ],
+      [
+        83,
+        220,
+        0,
+        0
+      ],
+      [
+        84,
+        180,
+        0,
+        0
+      ],
+      [
+        85,
+        70,
+        0,
+        0
+      ],
+      [
+        86,
+        90,
+        0,
+        0
+      ],
+      [
+        87,
+        180,
+        0,
+        0
+      ]
+    ],
+    "B_ReadResult": [
+      [
+        87,
+        2800,
+        2400,
+        1
+      ]
+    ],
+    "B_ScrollHidden": [
+      [
+        80,
+        220,
+        0,
+        0
+      ],
+      [
+        81,
+        220,
+        0,
+        0
+      ],
+      [
+        82,
+        220,
+        0,
+        0
+      ],
+      [
+        83,
+        220,
+        0,
+        0
+      ],
+      [
+        82,
+        220,
+        0,
+        0
+      ],
+      [
+        81,
+        220,
+        0,
+        0
+      ],
+      [
+        80,
+        220,
+        0,
+        0
+      ],
+      [
+        87,
+        200,
+        0,
+        0
+      ]
+    ],
+    "B_WaitOutput": [
+      [
+        87,
+        3300,
+        2800,
+        1
+      ]
+    ],
+    "B_ReturnNear": [
+      [
+        87,
+        850,
+        0,
+        1
       ]
     ],
     "B_TypePhraseNear": [
@@ -453,221 +673,40 @@
         0
       ]
     ],
-    "B_WaitOutput": [
+    "B_EnterLeftHidden": [
       [
         71,
-        2500,
-        2400,
-        0
-      ]
-    ],
-    "B_ReturnKeyboard": [
-      [
-        71,
-        800,
-        0,
-        0
-      ]
-    ],
-    "B_TypePhraseFar": [
-      [
-        24,
-        160,
-        0,
-        0
-      ],
-      [
-        25,
-        160,
-        0,
-        0
-      ],
-      [
-        26,
-        260,
-        0,
-        0
-      ],
-      [
-        36,
-        190,
-        0,
-        0
-      ],
-      [
-        37,
-        150,
-        0,
-        0
-      ],
-      [
-        38,
-        150,
-        0,
-        0
-      ],
-      [
-        39,
-        150,
-        0,
-        0
-      ],
-      [
-        40,
-        150,
-        0,
-        0
-      ],
-      [
-        41,
-        150,
-        0,
-        0
-      ],
-      [
-        42,
-        260,
-        0,
-        0
-      ],
-      [
-        24,
-        160,
-        0,
-        0
-      ],
-      [
-        25,
-        160,
-        0,
-        0
-      ],
-      [
-        26,
-        260,
-        0,
-        0
-      ],
-      [
-        36,
-        190,
-        0,
-        0
-      ],
-      [
-        37,
-        150,
-        0,
-        0
-      ],
-      [
-        38,
-        150,
-        0,
-        0
-      ],
-      [
-        39,
-        150,
-        0,
-        0
-      ],
-      [
-        40,
-        150,
-        0,
-        0
-      ],
-      [
-        41,
-        150,
-        0,
-        0
-      ],
-      [
-        42,
-        260,
-        0,
-        0
-      ],
-      [
-        43,
-        60,
-        0,
-        0
-      ],
-      [
-        44,
-        60,
-        0,
-        0
-      ],
-      [
-        45,
-        60,
-        0,
-        0
-      ],
-      [
-        46,
-        140,
-        0,
-        0
-      ],
-      [
-        47,
-        140,
-        0,
-        0
-      ]
-    ],
-    "B_ReadResult": [
-      [
-        47,
-        2500,
-        2400,
-        0
-      ]
-    ],
-    "B_ReturnNear": [
-      [
-        47,
         850,
-        0,
-        0
+        150,
+        1
       ]
     ],
     "C_End": [
       [
-        21,
-        180,
-        0,
-        0
-      ],
-      [
-        22,
+        86,
         200,
         0,
         0
       ],
       [
-        23,
-        240,
+        87,
+        420,
         0,
-        0
+        1
       ]
     ]
   },
   "loopOrder": [
+    "B_TypeWithLeftHidden",
+    "B_ReadResult",
+    "B_ScrollHidden",
+    "B_WaitOutput",
+    "B_ReturnNear",
     "B_TypePhraseNear",
     "B_ReadScreen",
     "B_ReachTouchpad",
     "B_UseTouchpad",
-    "B_WaitOutput",
-    "B_ReturnKeyboard",
-    "B_TypePhraseFar",
-    "B_ReadResult",
-    "B_ReturnNear"
+    "B_EnterLeftHidden"
   ],
   "motionFlow": {
     "atlas": "assets/branding/cloud_pet/motion-coding-flow-v1.png",
@@ -777,75 +816,7 @@
       ],
       [
         23,
-        0
-      ],
-      [
-        23,
         48
-      ],
-      [
-        24,
-        25
-      ],
-      [
-        25,
-        26
-      ],
-      [
-        26,
-        36
-      ],
-      [
-        36,
-        37
-      ],
-      [
-        37,
-        38
-      ],
-      [
-        38,
-        39
-      ],
-      [
-        39,
-        40
-      ],
-      [
-        40,
-        41
-      ],
-      [
-        41,
-        42
-      ],
-      [
-        42,
-        24
-      ],
-      [
-        42,
-        43
-      ],
-      [
-        43,
-        44
-      ],
-      [
-        44,
-        45
-      ],
-      [
-        45,
-        46
-      ],
-      [
-        46,
-        47
-      ],
-      [
-        47,
-        0
       ],
       [
         48,
@@ -941,7 +912,99 @@
       ],
       [
         71,
-        24
+        72
+      ],
+      [
+        72,
+        73
+      ],
+      [
+        73,
+        74
+      ],
+      [
+        74,
+        75
+      ],
+      [
+        75,
+        76
+      ],
+      [
+        76,
+        77
+      ],
+      [
+        77,
+        78
+      ],
+      [
+        78,
+        79
+      ],
+      [
+        79,
+        72
+      ],
+      [
+        79,
+        80
+      ],
+      [
+        80,
+        81
+      ],
+      [
+        80,
+        87
+      ],
+      [
+        81,
+        80
+      ],
+      [
+        81,
+        82
+      ],
+      [
+        82,
+        81
+      ],
+      [
+        82,
+        83
+      ],
+      [
+        83,
+        82
+      ],
+      [
+        83,
+        84
+      ],
+      [
+        84,
+        85
+      ],
+      [
+        85,
+        86
+      ],
+      [
+        86,
+        87
+      ],
+      [
+        87,
+        0
+      ],
+      [
+        87,
+        72
+      ],
+      [
+        87,
+        80
       ]
     ]
   },
@@ -1305,19 +1368,100 @@
       1.037914692,
       -4.853080569,
       -11.55450237
+    ],
+    [
+      1.106060606,
+      -8.598484848,
+      -11.03030303
+    ],
+    [
+      1.111675127,
+      -14.294416244,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -20.964467005,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -27.634517766,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -8.736040609,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -14.294416244,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -20.964467005,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -27.634517766,
+      -12.355329949
+    ],
+    [
+      1.106060606,
+      -8.598484848,
+      -11.03030303
+    ],
+    [
+      1.111675127,
+      -14.294416244,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -20.964467005,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -27.634517766,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -8.736040609,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -14.294416244,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -20.964467005,
+      -12.355329949
+    ],
+    [
+      1.111675127,
+      -27.634517766,
+      -12.355329949
     ]
   ],
   "singleSourceMotion": true,
   "choreography": {
-    "B_TypePhraseNear": "type a short phrase with alternating contacts",
-    "B_ReadScreen": "hands low on keyboard; read the output",
-    "B_ReachTouchpad": "move to the trackpad after reading",
-    "B_UseTouchpad": "deliberate pointer movement",
-    "B_WaitOutput": "hand stationary; wait for the result",
-    "B_ReturnKeyboard": "return to the keyboard slowly",
-    "B_TypePhraseFar": "type with reviewed low-hand poses; original frames 27-35 contain an extra baked hand and are never played",
-    "B_ReadResult": "stop both hands and inspect the screen",
-    "B_ReturnNear": "return to the first resting pose"
+    "B_TypeWithLeftHidden": "far left hand fully behind screen; near hand types lightly",
+    "B_ReadResult": "left hidden; near hand low; read the screen",
+    "B_ScrollHidden": "small near-hand trackpad movement; far hand remains occluded",
+    "B_WaitOutput": "wait quietly with the far hand hidden",
+    "B_ReturnNear": "slowly return to the original low keyboard pose",
+    "B_TypePhraseNear": "a short original typing phrase with both hands visible",
+    "B_ReadScreen": "hands low; read output",
+    "B_ReachTouchpad": "move to original trackpad pose",
+    "B_UseTouchpad": "original coherent hand movement",
+    "B_EnterLeftHidden": "slowly return to the fully occluded left-hand scene"
   },
   "excludedFrames": [
     27,
@@ -1329,5 +1473,33 @@
     33,
     34,
     35
+  ],
+  "originalAtlas": "assets/branding/cloud_pet/workflow-coding-v1.png",
+  "originalFrameCount": 72,
+  "occludedLeftFrames": [
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87
   ]
 }
