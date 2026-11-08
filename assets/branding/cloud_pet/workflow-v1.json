@@ -2496,11 +2496,11 @@
     },
     "checking": {
       "version": 1,
-      "id": "cloud-workflow-checking-front-art-v3",
+      "id": "cloud-workflow-checking-occlusion-v2",
       "activity": "checking",
       "wholeFrames": true,
       "repeat": true,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-front-v2.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
       "tile": [
         256,
         256
@@ -2716,12 +2716,12 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-checking-front-flow-v2.png",
+        "atlas": "assets/branding/cloud_pet/motion-checking-flow-v1.png",
         "size": [
-          2048,
-          384
+          1024,
+          192
         ],
-        "cell": 128,
+        "cell": 64,
         "columns": 8,
         "range": 32.0,
         "pairs": [
@@ -2827,11 +2827,11 @@
     },
     "resultReady": {
       "version": 1,
-      "id": "cloud-workflow-resultReady-front-art-v3",
+      "id": "cloud-workflow-resultReady-occlusion-v2",
       "activity": "resultReady",
       "wholeFrames": true,
       "repeat": false,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-front-v2.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-v1.png",
       "tile": [
         256,
         256
@@ -3047,12 +3047,12 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-checking-front-flow-v2.png",
+        "atlas": "assets/branding/cloud_pet/motion-resultReady-flow-v1.png",
         "size": [
-          2048,
-          384
+          1024,
+          192
         ],
-        "cell": 128,
+        "cell": 64,
         "columns": 8,
         "range": 32.0,
         "pairs": [
