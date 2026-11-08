@@ -13,20 +13,31 @@ Map<String, dynamic> manifest() =>
         as Map<String, dynamic>;
 
 void main() {
-  test('sixteen new hidden-hand scenes occupy most of the coding loop', () {
-    final data = manifest(), pack = CloudPetPack.fromJson(manifest());
-    final hidden = (data['occludedLeftFrames'] as List).cast<int>().toSet();
-    expect(hidden.where((f) => f >= 72).toSet(), {
-      for (var i = 72; i < 88; i++) i,
-    });
-    final hiddenMs = pack.loop.frames
-        .where((f) => hidden.contains(f.index))
-        .fold<int>(0, (n, f) => n + f.durationMs);
-    expect(hiddenMs / pack.loop.durationMs, greaterThan(.55));
-    expect(hidden.intersection(pack.excludedFrames), isEmpty);
-    expect(pack.start.frames.first.index, 87);
-    expect(pack.end.frames.every((f) => hidden.contains(f.index)), true);
-  });
+  test(
+    'only the selected first five seconds repeat with the left hand hidden',
+    () {
+      final data = manifest(), pack = CloudPetPack.fromJson(manifest());
+      final hidden = (data['occludedLeftFrames'] as List).cast<int>().toSet();
+      expect(hidden.where((f) => f >= 72).toSet(), {
+        for (var i = 72; i < 88; i++) i,
+      });
+      final hiddenMs = pack.loop.frames
+          .where((f) => hidden.contains(f.index))
+          .fold<int>(0, (n, f) => n + f.durationMs);
+      expect(pack.loop.durationMs, 5000);
+      expect(hiddenMs, pack.loop.durationMs);
+      expect(pack.loop.frames.every((f) => f.index >= 72), true);
+      for (var ms = 0; ms < 15000; ms += 4) {
+        final sample = pack.sample(pack.start.durationMs / 1000 + ms / 1000);
+        expect(sample.frame, inInclusiveRange(72, 87));
+        expect(sample.nextFrame, inInclusiveRange(72, 87));
+        expect(sample.progress.isFinite, true);
+      }
+      expect(hidden.intersection(pack.excludedFrames), isEmpty);
+      expect(pack.start.frames.first.index, 87);
+      expect(pack.end.frames.every((f) => hidden.contains(f.index)), true);
+    },
+  );
 
   testWidgets('the added atlas retains every original RGBA pixel', (
     tester,
@@ -109,12 +120,8 @@ void main() {
       );
       expect(pack.singleSourceMotion, true);
       final rests = pack.loop.frames.where((f) => f.holdMs >= 1000);
-      expect(rests.map((f) => f.index), orderedEquals([87, 87, 23]));
-      for (final name in [
-        'B_TypePhraseNear',
-        'B_TypeWithLeftHidden',
-        'B_UseTouchpad',
-      ]) {
+      expect(rests.map((f) => f.index), orderedEquals([87]));
+      for (final name in ['B_TypeWithLeftHidden']) {
         final frames = (data['clips'] as Map)[name] as List;
         expect(
           frames.every((row) => (row as List)[2] == 0),
@@ -203,7 +210,7 @@ void main() {
     expect(pack.sample(8.01).segment, CloudPetSegment.loop);
     expect(
       pack.loop.frames.map((frame) => frame.index).toSet(),
-      containsAll([0, 23, 48, 71, 72, 87]),
+      equals({for (var i = 72; i < 88; i++) i}),
     );
     expect(
       pack.sample(0, segment: CloudPetSegment.end).segment,
@@ -237,13 +244,9 @@ void main() {
       final data = manifest();
       final pack = CloudPetPack.fromJson(data);
       expect(pack.start.durationMs, 700);
-      expect(pack.loop.durationMs, greaterThanOrEqualTo(20000));
+      expect(pack.loop.durationMs, 5000);
       expect(pack.end.durationMs, greaterThanOrEqualTo(600));
-      for (final name in [
-        'B_TypePhraseNear',
-        'B_TypeWithLeftHidden',
-        'B_UseTouchpad',
-      ]) {
+      for (final name in ['B_TypeWithLeftHidden']) {
         final frames = (data['clips'] as Map)[name] as List;
         expect(frames.length, greaterThanOrEqualTo(24));
         expect(
@@ -251,9 +254,9 @@ void main() {
           true,
         );
       }
-      expect(pack.loop.frames.where((f) => f.holdMs >= 1400).length, 3);
+      expect(pack.loop.frames.where((f) => f.holdMs >= 1000).length, 1);
       expect(pack.singleSourceMotion, true);
-      expect(pack.loop.frames.map((f) => f.index).toSet().length, 64);
+      expect(pack.loop.frames.map((f) => f.index).toSet().length, 16);
       expect(pack.wholeFrames, true);
       expect(pack.viewport, const Rect.fromLTWH(0, 0, 256, 256));
       expect(pack.frameBlendMs, 0);

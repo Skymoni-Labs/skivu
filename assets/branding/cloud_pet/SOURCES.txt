@@ -124,3 +124,12 @@ remain excluded. Desk center/baseline/width are registered for all 88 cells.
 Generation prompt, input references, full-cell hashes and review receipts:
 E:/zzz/ops/skivu-cloud-hidden-left-20261108/PROMPT.txt
 E:/zzz/ops/skivu-cloud-hidden-left-20261108/asset-selection.json
+
+2026-11-08 owner selects only the first five seconds:
+The coding loop now uses only the first hidden-left typing phrase (3640 ms)
+and a settled reading pause (1360 ms), total 5000 ms at the same speed.
+The final 160 ms eases back into typing. Every active coding pose, including
+entry and exit, is one of the sixteen reviewed hidden-left scenes 72-87.
+The later near-hand/old trackpad phrases remain in original source artwork
+but are no longer in this activity timeline. Other activities are unchanged.
+Evidence: E:/zzz/ops/skivu-cloud-coding-first-five-20261108/
