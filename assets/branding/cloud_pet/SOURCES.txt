@@ -148,3 +148,20 @@ so confidence blending cannot expose the paper edge through a second lens
 silhouette. Transitions involving these scenes use the same sequential
 fade as coding. No character artwork was regenerated or repainted.
 Evidence: E:/zzz/ops/skivu-cloud-magnifier-front-20261108/
+
+2026-11-08 actual magnifier/document artwork correction after owner review:
+The previous runtime-only fix removed ghosting but did not resolve the
+owner-reported depth in the original drawing. The reviewed second edit
+workflow-checking-front-v2.png now places the lens over the document in
+all 24 complete poses. Its uninterrupted rim is in front of the paper;
+the white paper and enlarged document strokes are visible inside glass.
+The approved cloud identity, head lean and integrated blink are retained.
+Exactly two hands remain, with one connected grip per prop. First edit
+was rejected because its lens stayed beside the paper with floating bars.
+Built-in image_gen.imagegen edited the full original atlas; no limb/head
+compositing or programmatic painting. Original atlas remains unchanged.
+Checking/resultReady share regenerated 128px numeric motion fields and
+retain their exact clip durations, plus the coherent single-source path.
+Prompt, source/selected files, full-frame bounds and receipt:
+E:/zzz/ops/skivu-cloud-magnifier-art-fix-20261108/PROMPT-v2.txt
+E:/zzz/ops/skivu-cloud-magnifier-art-fix-20261108/asset-selection.json
