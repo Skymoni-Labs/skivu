@@ -11,10 +11,8 @@ String devicePluginOwner(OpenPluginRecord record) =>
 
 /// Binds outstanding native requests to the actual page/runtime lifetime.
 class DeviceEngineScope {
-  DeviceEngineScope({DeviceEngine? engine, this.backgroundOnly = false})
-    : engine = engine ?? deviceEngine;
+  DeviceEngineScope({DeviceEngine? engine}) : engine = engine ?? deviceEngine;
   final DeviceEngine engine;
-  final bool backgroundOnly;
   final calls = <Object, (String, String)>{};
   bool closed = false;
   Future<List<Map<String, dynamic>>>? _shutdown;
@@ -75,7 +73,6 @@ class DeviceEngineScope {
         normalized,
         engine: engine,
         checkRuntime: check,
-        backgroundOnly: backgroundOnly,
       );
     } finally {
       calls.remove(ticket);
@@ -92,7 +89,6 @@ Future<Object?> deviceEnginePluginCall(
   Map<String, dynamic> params, {
   DeviceEngine? engine,
   void Function()? checkRuntime,
-  bool backgroundOnly = false,
 }) async {
   void check() {
     checkRuntime?.call();
@@ -117,7 +113,6 @@ Future<Object?> deviceEnginePluginCall(
             (entry) =>
                 record.manifest.permissions.contains(entry['permission']),
           )
-          .where((entry) => !backgroundOnly || entry['uiImpact'] == 'none')
           .toList(),
     };
   }
@@ -144,11 +139,6 @@ Future<Object?> deviceEnginePluginCall(
   if (!record.manifest.permissions.contains(definition.permission)) {
     throw const PluginApiError('PERMISSION_DENIED', '插件没有此设备能力的授权。');
   }
-  if (backgroundOnly && !definition.backgroundSafe)
-    throw const PluginApiError(
-      'BACKGROUND_UNSUPPORTED',
-      '严格后台模式禁止此设备调用，未打开软件或执行脚本。',
-    );
   try {
     definition.validate(Map<String, dynamic>.from(params['arguments']));
   } on FormatException {
@@ -180,7 +170,6 @@ Future<Object?> deviceEnginePluginCall(
       Map<String, dynamic>.from(params['arguments']),
       owner: owner,
       requestId: requestId,
-      backgroundOnly: backgroundOnly,
     );
     check();
     return receipt.data;

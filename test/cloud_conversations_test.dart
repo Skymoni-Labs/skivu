@@ -19,8 +19,6 @@ CloudChatCoordinator bind(
   final coordinator = CloudChatCoordinator(
     store,
     engineFactory: (chat) => AssistantEngine(
-      strictBackground:
-          false, // Legacy journal fixtures; strict policy has dedicated coverage.
       identity: () => 'qa-model',
       model: model,
       toolSubmissions: chat.toolSubmissions,
@@ -272,8 +270,6 @@ void main() {
       expect(plans, 0);
       final loading = Completer<String?>();
       final engine = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         model: (_, __) async {
           plans++;
           return '{"type":"final","message":"late"}';

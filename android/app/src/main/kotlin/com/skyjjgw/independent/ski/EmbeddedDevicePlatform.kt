@@ -20,11 +20,6 @@ import org.skivu.engine.adb.EmbeddedAdbEngine
 
 /** Native, in-APK capability host. All Android authority is checked here again. */
 class EmbeddedDevicePlatform(private val activity: Activity) {
-    fun reconcileBackgroundAlarms() {
-        if (closed.get()) return
-        try { worker.execute { try { BackgroundAlarms(activity).use { it.recover("capabilities") } } catch (_: Exception) {} } }
-        catch (_: java.util.concurrent.RejectedExecutionException) {}
-    }
     private val prefs = activity.getSharedPreferences("skivu.device-engine.v1", 0)
     private val worker = Executors.newSingleThreadExecutor()
     private val cancellationWorker = Executors.newSingleThreadExecutor()
@@ -67,7 +62,6 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
     }
 
     fun register(messenger: BinaryMessenger) {
-        worker.execute { try { BackgroundAlarms(activity).use { it.recover("app_start") } } catch (_: Exception) {} }
         val channel = MethodChannel(messenger, "skivu/device_engine")
         EmbeddedTaskService.stopTask = { id ->
             if (activeOwner == "assistant:$id") {
@@ -151,8 +145,6 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                                 "summary" to prior.getString("summary"))
                         }
                         "apps" -> installedApps()
-                        "alarms.list" -> BackgroundAlarms(activity).use { it.list() }
-                        "alarms.cancel" -> BackgroundAlarms(activity).use { it.cancel(text(p, "id", 100)) }
                         "pairing.start" -> {
                             require(Build.VERSION.SDK_INT >= 30) { "无线配对需要 Android 11 或更新系统。" }
                             require(enabled("enabled") && enabled("shell")) { "请先启用代码执行能力。" }
@@ -166,10 +158,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                         "session.start" -> {
                             val id = text(p,"taskId",100)
                             EmbeddedTaskService.taskId = id
-                            ui {
-                                val service = Intent(activity, EmbeddedTaskService::class.java).putExtra("taskId",id)
-                                if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(service) else activity.startService(service)
-                            }
+                            ui { activity.startForegroundService(Intent(activity, EmbeddedTaskService::class.java).putExtra("taskId",id)) }
                             mapOf("active" to true)
                         }
                         "session.end" -> {
@@ -256,8 +245,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         "shellConnected" to (backend["connected"] == true), "shellUid" to backend["uid"],
         "shellStatusSource" to if (probeBackend) "probe" else "execution_snapshot",
         "shellPaired" to adb.isPaired(),
-        "packages" to packages().toList(), "strictBackground" to true
-        ) + BackgroundAlarms(activity).use { it.capability() }
+        "packages" to packages().toList()
+        )
     }
 
     private fun configure(p: Map<String, Any?>): Map<String, Any?> {
@@ -288,8 +277,6 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
             "notifications" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName)
             "accessibility" -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             "writeSettings" -> Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${activity.packageName}"))
-            "exactAlarms" -> if (Build.VERSION.SDK_INT >= 31) Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${activity.packageName}")) else error("此系统不需要精确闹钟特殊授权。")
-            "alarmNotifications" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,activity.packageName)
             "wirelessDebugging" -> Intent(if (Settings.Global.getInt(activity.contentResolver,
                 Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1)
                 Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS else Settings.ACTION_DEVICE_INFO_SETTINGS)
@@ -300,7 +287,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
     }
 
     private fun invoke(p: Map<String, Any?>): Map<String, Any?> {
-        require(p.keys.all { it in setOf("version", "owner", "requestId", "tool", "arguments", "executionPolicy") } && p["version"] == 1)
+        require(p.keys == setOf("version", "owner", "requestId", "tool", "arguments") && p["version"] == 1)
         val id = p["requestId"] as? String ?: error("缺少请求编号。")
         val owner = p["owner"] as? String ?: error("缺少调用身份。")
         require(Regex("^[a-zA-Z0-9_-]{1,100}$").matches(id))
@@ -314,16 +301,11 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         fun receipt(outcome: String, summary: String, value: Any? = null): Map<String, Any?> =
             mapOf("requestId" to id, "tool" to tool, "outcome" to outcome,
                 "summary" to summary, "value" to value)
-        require(p["executionPolicy"] == null || p["executionPolicy"] in setOf("background", "interactive"))
-        // The assistant cannot downgrade its policy. Interactive calls exist
-        // only for the host-owned manual coding runtime, never model arguments.
-        if ((owner.startsWith("assistant:") || p["executionPolicy"] != "interactive") && !BackgroundExecutionPolicy.permits(tool))
-            return receipt("failed", "严格后台模式：此接口可能打开或操作软件界面，已在执行前拒绝。请使用已支持的后台能力。")
         if (tool == "device.status") return receipt("verified", "设备状态已读取。", status())
         val permission = when {
-            tool == "apps.list" || tool == "ui.observe" || tool == "settings.brightness.read" || tool in setOf("assistant.alarm.list", "assistant.alarm.get") -> "observe"
+            tool == "apps.list" || tool == "ui.observe" || tool == "settings.brightness.read" -> "observe"
             tool == "apps.launch" || tool.startsWith("ui.") -> "control"
-            tool.startsWith("clock.") || tool.startsWith("settings.") || tool.startsWith("assistant.") -> "system"
+            tool.startsWith("clock.") || tool.startsWith("settings.") -> "system"
             tool == "shell.execute" -> "shell"
             else -> error("设备工具不存在。")
         }
@@ -332,9 +314,9 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         val cached = receipts.read(key)
         if (cached != null) {
             require(cached.getString("fingerprint") == fingerprint) { "同一请求编号不能用于不同操作。" }
-            if (!tool.startsWith("assistant.")) return remembered[key] ?: receipt(cached.getString("outcome"), cached.getString("summary"))
+            return remembered[key] ?: receipt(cached.getString("outcome"), cached.getString("summary"))
         }
-        val writing = tool !in setOf("apps.list", "ui.observe", "settings.brightness.read", "assistant.alarm.list", "assistant.alarm.get")
+        val writing = tool != "apps.list" && tool != "ui.observe" && tool != "settings.brightness.read"
         fun persist(outcome: String, summary: String) {
             // No goals, arguments, screens or command output are persisted here.
             val item = JSONObject(mapOf("fingerprint" to fingerprint, "outcome" to outcome, "summary" to summary))
@@ -354,23 +336,6 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         }
         val answer = try {
             when (tool) {
-                "assistant.alarm.create", "assistant.alarm.update", "assistant.alarm.cancel", "assistant.alarm.list", "assistant.alarm.get", "assistant.timer.start" -> {
-                    BackgroundAlarms(activity).use { alarms ->
-                        val needsSchedule = tool in setOf("assistant.alarm.create", "assistant.timer.start") ||
-                            (tool == "assistant.alarm.update" && args["enabled"] != false)
-                        if (needsSchedule && !alarms.ready()) receipt("permission_required", "小云原生闹钟需要通知及精确闹钟授权。请在手机能力设置中一次配置；本次没有打开时钟或授权页面。")
-                        else {
-                            val value = alarms.execute(tool, args, key, ::beforeAction)
-                            val summary = when (tool) {
-                                "assistant.alarm.list" -> "已读取小云管理的闹钟与倒计时。"
-                                "assistant.alarm.get" -> "已核对小云闹钟当前状态。"
-                                "assistant.alarm.cancel" -> "小云闹钟已取消，并撤销对应调度。"
-                                else -> if (value["enabled"] == false) "小云闹钟当前已停用，未重复启动。" else "小云${if (value["kind"] == "timer") "倒计时" else "闹钟"}已登记：${value["nextLocal"]}。原生调度已接受，到点由小云提醒，无需打开系统时钟。"
-                            }
-                            receipt("verified", summary, value)
-                        }
-                    }
-                }
                 "apps.list" -> {
                     require(args.isEmpty())
                     receipt("verified", "已读取可启动软件。", installedApps())

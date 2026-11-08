@@ -149,7 +149,6 @@ class CloudExecutionDisclosure extends StatelessWidget {
       'awaiting_verification' => '已提交 · 待核对',
       'unknown' => '待核对',
       'failed' => '未完成',
-      'partial' => '部分完成',
       'stopped' => '已停止',
       _ =>
         uncertain

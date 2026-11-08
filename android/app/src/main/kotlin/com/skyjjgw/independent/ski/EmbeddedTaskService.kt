@@ -3,7 +3,6 @@ package com.skyjjgw.independent.ski
 import android.app.*
 import android.content.Intent
 import android.os.IBinder
-import android.os.Build
 
 /** Visible lifetime for a user-started main assistant task, with an OS stop action. */
 class EmbeddedTaskService : Service() {
@@ -14,7 +13,7 @@ class EmbeddedTaskService : Service() {
     }
     override fun onCreate() {
         super.onCreate()
-        if (Build.VERSION.SDK_INT >= 26) getSystemService(NotificationManager::class.java).createNotificationChannel(
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel("skivu-embedded-tasks", "小云手机任务", NotificationManager.IMPORTANCE_LOW))
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -29,8 +28,7 @@ class EmbeddedTaskService : Service() {
             .setAction("stop").putExtra("taskId", id), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val open = PendingIntent.getActivity(this, 83, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, "skivu-embedded-tasks") else Notification.Builder(this)
-        startForeground(82, builder
+        startForeground(82, Notification.Builder(this, "skivu-embedded-tasks")
             .setSmallIcon(android.R.drawable.ic_menu_view).setContentTitle("小云正在执行手机任务")
             .setContentText("点停止可终止后续操作").setContentIntent(open).setOngoing(true)
             .addAction(Notification.Action.Builder(null, "停止", stop).build()).build())

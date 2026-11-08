@@ -64,8 +64,6 @@ void main() {
         final release = Completer<void>();
         var effects = 0;
         final a = AssistantEngine(
-          strictBackground:
-              false, // Legacy journal fixtures; strict policy has dedicated coverage.
           identity: () => 'qa',
           read: () async => null,
           write: (_) async {},
@@ -118,8 +116,6 @@ void main() {
           'message': 'fixture operation',
         });
         final a = AssistantEngine(
-          strictBackground:
-              false, // Legacy journal fixtures; strict policy has dedicated coverage.
           identity: () => 'qa',
           read: () async => null,
           write: (_) async {},
@@ -156,8 +152,6 @@ void main() {
         const command =
             '{"type":"call","tool":"plugin:qa/work","arguments":{},"message":"plugin fixture"}';
         final a = AssistantEngine(
-          strictBackground:
-              false, // Legacy journal fixtures; strict policy has dedicated coverage.
           identity: () => 'qa',
           extensions: tools,
           read: () async => null,
@@ -173,36 +167,37 @@ void main() {
     },
   );
 
-  test('process exit cannot be promoted to verified business completion', () async {
-    var plans = 0;
-    final a = AssistantEngine(
-      strictBackground:
-          false, // Legacy journal fixtures; strict policy has dedicated coverage.
-      identity: () => 'qa',
-      read: () async => null,
-      write: (_) async {},
-      model: (_, __) async => ++plans == 1
-          ? '{"type":"call","tool":"shell.execute","arguments":{"command":"fixture-only"},"message":"run"}'
-          : hello,
-      engine: DeviceEngine(
-        transport: (method, args) async => method == 'status'
-            ? {'enabled': true}
-            : {
-                'requestId': args['requestId'],
-                'outcome': 'verified',
-                'summary': 'process ended',
-                'value': {
-                  'verification': 'process_exit',
-                  'businessVerified': false,
+  test(
+    'process exit cannot be promoted to verified business completion',
+    () async {
+      var plans = 0;
+      final a = AssistantEngine(
+        identity: () => 'qa',
+        read: () async => null,
+        write: (_) async {},
+        model: (_, __) async => ++plans == 1
+            ? '{"type":"call","tool":"shell.execute","arguments":{"command":"fixture-only"},"message":"run"}'
+            : hello,
+        engine: DeviceEngine(
+          transport: (method, args) async => method == 'status'
+              ? {'enabled': true}
+              : {
+                  'requestId': args['requestId'],
+                  'outcome': 'verified',
+                  'summary': 'process ended',
+                  'value': {
+                    'verification': 'process_exit',
+                    'businessVerified': false,
+                  },
                 },
-              },
-      ),
-    );
-    await a.send('完成目标');
-    expect(a.phase, 'awaiting_verification');
-    expect(a.toolSubmissions.single.outcome, 'dispatched');
-    expect(a.canConfirmResult, true);
-  });
+        ),
+      );
+      await a.send('完成目标');
+      expect(a.phase, 'awaiting_verification');
+      expect(a.toolSubmissions.single.outcome, 'dispatched');
+      expect(a.canConfirmResult, true);
+    },
+  );
 
   test(
     'a durable prepared effect survives interruption before its receipt',
@@ -225,8 +220,6 @@ void main() {
       const command =
           '{"type":"call","tool":"settings.brightness.write","arguments":{"level":45},"message":"change"}';
       final a = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         engine: device,
         read: () async => null,
@@ -245,8 +238,6 @@ void main() {
       });
       await run;
       final b = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         engine: device,
         read: () async => interrupted,
@@ -263,8 +254,6 @@ void main() {
     () async {
       var plans = 0, writes = 0;
       final a = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         read: () async => null,
         write: (_) async {},
@@ -326,8 +315,6 @@ void main() {
         },
       );
       AssistantEngine create() => AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         engine: device(),
         model: (_, __) async => alarm,
@@ -358,8 +345,6 @@ void main() {
     () async {
       var writes = 0, round = 0;
       final a = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         read: () async => null,
         write: (_) async {},
@@ -396,8 +381,6 @@ void main() {
     () async {
       var writes = 0, lookups = 0;
       final a = AssistantEngine(
-        strictBackground:
-            false, // Legacy journal fixtures; strict policy has dedicated coverage.
         identity: () => 'qa',
         read: () async => null,
         write: (_) async {},

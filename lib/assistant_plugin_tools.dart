@@ -58,11 +58,6 @@ class AssistantPluginTools implements AssistantExtensions {
           'id': 'plugin:${record.manifest.id}/${tool['id']}',
           'source': record.manifest.name,
           'available': true,
-          // The host runtime constrains read/local-write tools. Arbitrary
-          // external plugins are not accepted as headless on their own claim.
-          'uiImpact': {'read', 'write'}.contains(tool['effect'])
-              ? 'none'
-              : 'unknown',
         },
   ];
   @override
@@ -81,11 +76,6 @@ class AssistantPluginTools implements AssistantExtensions {
         .where((t) => t['id'] == parts[1])
         .firstOrNull;
     if (tool == null) throw const PluginApiError('NOT_FOUND', '插件没有声明此工具。');
-    if (!{'read', 'write'}.contains(tool['effect']))
-      throw const PluginApiError(
-        'BACKGROUND_UNSUPPORTED',
-        '该插件尚未接入受支持的后台适配器，未打开其他软件。',
-      );
     validatePluginArguments(args, tool['parameters'] as Map);
     void guard() {
       check();
@@ -96,7 +86,7 @@ class AssistantPluginTools implements AssistantExtensions {
     }
 
     late final OpenPluginRuntime runtime;
-    final scope = DeviceEngineScope(backgroundOnly: true);
+    final scope = DeviceEngineScope();
     runtime = OpenPluginRuntime(
       registry: registry,
       record: record,
