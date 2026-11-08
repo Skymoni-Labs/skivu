@@ -22,6 +22,53 @@ Future<void> decoded(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+    'parent updates do not restart a finite action; pause keeps the visible pose',
+    (tester) async {
+      Future<void> show({bool active = true}) => tester.pumpWidget(
+        MaterialApp(
+          home: CloudCompanionPortrait(
+            activity: CloudActivity.resultReady,
+            active: active,
+          ),
+        ),
+      );
+      CloudCompanionPainter painter() => tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((w) => w.painter)
+          .whereType<CloudCompanionPainter>()
+          .single;
+      await show();
+      await decoded(tester);
+      await tester.pump(const Duration(milliseconds: 200));
+      final start = painter().seconds;
+      for (var i = 0; i < 20; i++) {
+        await show();
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(painter().seconds - start, closeTo(2, .02));
+      final before = painter().layers!.last.seconds;
+      await show(active: false);
+      await tester.pump(const Duration(seconds: 3));
+      expect(painter().layers!.last.seconds, before);
+      expect(painter().layers!.last.freezeMotion, true);
+      expect(painter().motion, false);
+      expect(tester.binding.transientCallbackCount, 0);
+      await show();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(painter().seconds, closeTo(before + .1, .03));
+      await tester.pump(const Duration(seconds: 7));
+      expect(
+        painter().petCatalog!.packs[CloudActivity.resultReady]!
+            .sample(painter().seconds)
+            .segment,
+        CloudPetSegment.hold,
+      );
+      expect(tester.binding.transientCallbackCount, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'all workflow phases use whole scenes and bounded atlas retention',
     (tester) async {
       Future<void> show(CloudActivity activity) => tester.pumpWidget(
@@ -102,10 +149,19 @@ void main() {
         if (sourceOnly) {
           final frame = pack.sample(seconds).frame;
           final fit = applyBoxFit(BoxFit.contain, pack.tileSize, size);
+          final destination = Alignment.center.inscribe(
+            fit.destination,
+            Offset.zero & size,
+          );
+          canvas.translate(destination.left, destination.top);
+          canvas.scale(destination.width / pack.tileSize.width);
+          final registration = pack.frameTransform(frame);
+          canvas.translate(registration.offset.dx, registration.offset.dy);
+          canvas.scale(registration.scale);
           canvas.drawImageRect(
             loaded.petAtlas!,
             (Offset.zero & pack.tileSize).shift(pack.frameOrigin(frame)),
-            Alignment.center.inscribe(fit.destination, Offset.zero & size),
+            Offset.zero & pack.tileSize,
             Paint()..filterQuality = FilterQuality.high,
           );
         } else {
@@ -137,7 +193,7 @@ void main() {
 
     // Raised hand, deepest head nod, and integrated blink all remain in the
     // same source drawing; an overlaid fixed head or crop fails this check.
-    for (final seconds in [.36, .60, 1.02]) {
+    for (final seconds in [1.03, 2.68, 6.22, 17.30]) {
       expect(
         await capture(seconds, sourceOnly: false),
         orderedEquals(await capture(seconds, sourceOnly: true)),
@@ -177,7 +233,7 @@ void main() {
       await show(CloudActivity.coding);
       await tester.pump(const Duration(milliseconds: 350));
       await show(CloudActivity.idle);
-      await tester.pump(const Duration(milliseconds: 310));
+      await tester.pump(const Duration(milliseconds: 650));
       expect(painter().activity, CloudActivity.idle);
       await tester.pump(const Duration(milliseconds: 250));
       expect(painter().layers!.single.activity, CloudActivity.idle);
@@ -384,7 +440,7 @@ void main() {
       await decoded(tester);
       await tester.pump(const Duration(seconds: 1));
       await show(CloudActivity.thinking);
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 900));
       expect(painter().pose.computer, 1);
       await show(CloudActivity.permission);
       await tester.pump(const Duration(milliseconds: 250));
@@ -400,7 +456,7 @@ void main() {
       expect(painter().motion, false);
       expect(tester.binding.transientCallbackCount, 0);
       await show(CloudActivity.idle);
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 900));
       expect(painter().pose.computer, 0);
       await tester.pumpWidget(const SizedBox());
       expect(tester.takeException(), isNull);

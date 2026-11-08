@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/cloud_companion_motion.dart';
 import 'package:ski/cloud_pet_catalog.dart';
 import 'package:ski/cloud_pet_flow.dart';
+import 'package:ski/cloud_pet_pack.dart';
 
 void main() {
   final raw =
@@ -14,6 +15,63 @@ void main() {
           )
           as Map<String, dynamic>;
   final catalog = CloudPetCatalog.fromJson(raw);
+  test('a held inspection really stops before a full length transition', () {
+    final pack = catalog.packs[CloudActivity.checking]!;
+    final clip = pack.loop;
+    final i = clip.frames.indexWhere((f) => f.index == 4);
+    final beginning = clip.frames
+        .take(i)
+        .fold<int>(0, (n, f) => n + f.durationMs);
+    final pose = clip.frames[i];
+    expect(pose.holdMs, greaterThanOrEqualTo(1500));
+    for (final delta in [0, 400, 1000, 1500]) {
+      final sample = pack.sampleClip(
+        clip,
+        beginning + delta,
+        CloudPetSegment.loop,
+        next: 0,
+      );
+      expect(sample.frame, 4);
+      expect(sample.progress, 0);
+    }
+    final halfway =
+        beginning + pose.holdMs + (pose.durationMs - pose.holdMs) ~/ 2;
+    expect(
+      pack.sampleClip(clip, halfway, CloudPetSegment.loop, next: 0).progress,
+      closeTo(.5, .001),
+    );
+    final bridge = CloudPetClip([const CloudPetFrame(0, 2100, holdMs: 1500)]);
+    expect(
+      pack.sampleClip(bridge, 1500, CloudPetSegment.loop, next: 1).progress,
+      0,
+    );
+    expect(
+      pack.sampleClip(bridge, 1800, CloudPetSegment.loop, next: 1).progress,
+      .5,
+    );
+    expect(
+      pack.sampleClip(bridge, 1980, CloudPetSegment.loop, next: 1).progress,
+      .8,
+    );
+    expect(clip.durationMs, greaterThanOrEqualTo(10000));
+  });
+
+  test(
+    'timing cannot hide negative rests, zero transitions or unknown easing',
+    () {
+      for (final timing in [
+        [0, 500, -1],
+        [0, 500, 500],
+        [0, 500, 0, 2],
+      ]) {
+        final invalid =
+            jsonDecode(jsonEncode(raw['packs']['coding']))
+                as Map<String, dynamic>;
+        invalid['clips']['A_Start'] = [timing];
+        expect(() => CloudPetPack.fromJson(invalid), throwsFormatException);
+      }
+    },
+  );
   test(
     'every distinct entry, loop, greeting and exit edge has a bounded numeric field',
     () {
@@ -63,9 +121,9 @@ void main() {
       );
       expect(pack.sample(start + .025, moving: false).progress, 0);
       final coding = catalog.packs[CloudActivity.coding]!;
-      expect(coding.loop.durationMs, 5230);
+      expect(coding.loop.durationMs, greaterThanOrEqualTo(25000));
       final idle = catalog.packs[CloudActivity.idle]!;
-      final longRest = idle.loop.frames.indexWhere((f) => f.durationMs > 180);
+      final longRest = idle.loop.frames.indexWhere((f) => f.holdMs > 0);
       final holdStart =
           (idle.start.durationMs +
               idle.loop.frames

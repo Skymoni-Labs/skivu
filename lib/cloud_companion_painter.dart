@@ -272,7 +272,7 @@ class CloudCompanionPainter extends CustomPainter {
           (frame.activity.name == pack.activityName
               ? null
               : CloudPetSegment.hold),
-      moving: motion,
+      moving: motion || frame.freezeMotion,
       greeting: frame.greeting,
     );
     final fit = applyBoxFit(BoxFit.contain, pack.viewport.size, size);
@@ -292,7 +292,7 @@ class CloudCompanionPainter extends CustomPainter {
       final field = petAtlases[flow?.atlas];
       final shader = motionShader;
       final art = atlas ?? petAtlas;
-      if (motion &&
+      if ((motion || frame.freezeMotion) &&
           frame.smoothFrame &&
           shader != null &&
           art != null &&
@@ -302,6 +302,8 @@ class CloudCompanionPainter extends CustomPainter {
           sample.progress > 0) {
         final a = pack.frameOrigin(sample.frame),
             b = pack.frameOrigin(sample.nextFrame);
+        final registrationA = pack.frameTransform(sample.frame),
+            registrationB = pack.frameTransform(sample.nextFrame);
         final values = <double>[
           art.width.toDouble(),
           art.height.toDouble(),
@@ -318,6 +320,12 @@ class CloudCompanionPainter extends CustomPainter {
           flow.cell.toDouble(),
           flow.range,
           sample.progress,
+          registrationA.scale,
+          registrationB.scale,
+          registrationA.offset.dx,
+          registrationA.offset.dy,
+          registrationB.offset.dx,
+          registrationB.offset.dy,
         ];
         for (var i = 0; i < values.length; i++) shader.setFloat(i, values[i]);
         shader.setImageSampler(0, art, filterQuality: FilterQuality.low);
@@ -327,6 +335,9 @@ class CloudCompanionPainter extends CustomPainter {
       }
       // One coherent source drawing owns the head, eyes, body, hands and desk.
       // Never place a fixed head, crop mask or blended arm over this frame.
+      final registration = pack.frameTransform(sample.frame);
+      canvas.translate(registration.offset.dx, registration.offset.dy);
+      canvas.scale(registration.scale);
       canvas.drawImageRect(
         atlas ?? petAtlas!,
         tile.shift(pack.frameOrigin(sample.frame)),

@@ -127,16 +127,14 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
         CloudVisualLayer(
           activity: activity,
           pose: pose,
-          seconds: enabled
+          seconds: !reduced
               ? exitTarget != null
                     ? petExit.value * petExit.duration!.inMicroseconds / 1000000
                     : motionSeconds
               : 0,
           opacity: t,
-          greeting:
-              greeting &&
-              (clock.lastElapsedDuration ?? Duration.zero) <
-                  const Duration(seconds: 2),
+          greeting: greeting,
+          freezeMotion: !reduced,
           petSegment: exitTarget != null ? CloudPetSegment.end : null,
           smoothFrame:
               widget.smoothMotion &&
@@ -252,6 +250,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
           petAtlases = workflow?.$2 ?? {};
           petPack = petCatalog?.packs[CloudActivity.coding] ?? pet?.$1;
           petAtlas = petAtlases[petPack?.atlas] ?? pet?.$2;
+          syncClock(restart: true);
         });
         ensurePetScene(displayedActivity);
       } finally {
@@ -353,11 +352,20 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
           return;
         }
         setState(() {
+          final enteringScene =
+              existing == null && displayedActivity == activity;
+          if (enteringScene) outgoing = presentedLayers ?? layers(activity);
           petAtlases = {
             ...petAtlases,
             pack.atlas: image,
             if (field != null) flow!.atlas: field,
           };
+          // A newly decoded scene starts at its first pose. It never catches
+          // up at high speed to time spent showing the loading illustration.
+          if (enteringScene) {
+            transition.value = 0;
+            syncClock(restart: true);
+          }
           trimPetAtlases();
         });
         ownedArt = null;
@@ -461,6 +469,16 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
 
   void advanceMotion() {
     if (resettingClock) return;
+    if (!displayedActivity.continuous &&
+        clock.status == AnimationStatus.completed) {
+      // AnimationController clears lastElapsedDuration when it stops. The
+      // final notification must still reach the authored resting pose.
+      final pack = petCatalog?.packs[displayedActivity];
+      if (pack != null)
+        motionSeconds = (pack.start.durationMs + pack.loop.durationMs) / 1000;
+      lastClockElapsed = Duration.zero;
+      return;
+    }
     final elapsed = clock.lastElapsedDuration ?? Duration.zero;
     final delta = elapsed - lastClockElapsed;
     if (!delta.isNegative) motionSeconds += delta.inMicroseconds / 1000000;
@@ -474,6 +492,12 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
       lastClockElapsed = Duration.zero;
       clock.value = 0;
       resettingClock = false;
+    }
+    final pack = petCatalog?.packs[displayedActivity];
+    if (!displayedActivity.continuous && pack != null) {
+      clock.duration = Duration(
+        milliseconds: pack.start.durationMs + pack.loop.durationMs,
+      );
     }
     if (!enabled) {
       clock.stop();
@@ -492,7 +516,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
         lastClockElapsed = Duration.zero;
         clock.repeat();
       }
-    } else if (restart || clock.value < 1) {
+    } else if (restart || (!clock.isAnimating && clock.value < 1)) {
       clock.stop();
       lastClockElapsed = Duration.zero;
       clock.forward();
@@ -548,6 +572,18 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
     super.didUpdateWidget(oldWidget);
     if (widget.activity != oldWidget.activity) {
       final target = widget.activity;
+      if (target == displayedActivity) {
+        // A short intermediate task phase can be superseded during an exit.
+        // Continue the current action rather than restart its typing burst.
+        if (exitTarget != null) {
+          outgoing = presentedLayers ?? layers(displayedActivity);
+          transition.value = 0;
+        }
+        petExit.stop();
+        exitTarget = null;
+        syncClock();
+        return;
+      }
       ensurePetScene(target);
       final urgent = {
         CloudActivity.permission,
@@ -685,7 +721,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
                         rig: rig!,
                         pose: pose,
                         activity: displayedActivity,
-                        seconds: enabled ? motionSeconds : 0,
+                        seconds: reduced ? 0 : motionSeconds,
                         entry: enabled ? transition.value : 1,
                         motion: enabled,
                         greeting: greeting,
@@ -717,18 +753,19 @@ class _CloudCompanionPreviewState extends State<CloudCompanionPreview>
     with WidgetsBindingObserver {
   static const phases = [
     (0, CloudActivity.idle),
-    (3000, CloudActivity.thinking),
-    (6000, CloudActivity.coding),
-    (12000, CloudActivity.phone),
-    (15500, CloudActivity.permission),
-    (18500, CloudActivity.checking),
-    (22000, CloudActivity.resultReady),
-    (24500, CloudActivity.complete),
-    (27500, CloudActivity.stopping),
-    (30000, CloudActivity.paused),
-    (32500, CloudActivity.failed),
-    (35500, CloudActivity.idle),
+    (5000, CloudActivity.thinking),
+    (14000, CloudActivity.coding),
+    (48000, CloudActivity.phone),
+    (58000, CloudActivity.permission),
+    (66000, CloudActivity.checking),
+    (80000, CloudActivity.resultReady),
+    (90000, CloudActivity.complete),
+    (98000, CloudActivity.stopping),
+    (106000, CloudActivity.paused),
+    (112000, CloudActivity.failed),
+    (122000, CloudActivity.idle),
   ];
+  static const demoDurationMs = 128000;
   static const names = [
     '待机',
     '思考',
@@ -766,8 +803,9 @@ class _CloudCompanionPreviewState extends State<CloudCompanionPreview>
     stop();
     elapsed.reset();
     phase = 0;
+    final repeat = activity == value;
     setState(() => activity = value);
-    portrait.currentState?.syncClock(restart: true);
+    if (repeat) portrait.currentState?.syncClock(restart: true);
   }
 
   void toggle() {
@@ -776,7 +814,7 @@ class _CloudCompanionPreviewState extends State<CloudCompanionPreview>
       return;
     }
     if (elapsed.elapsedMilliseconds == 0 ||
-        elapsed.elapsedMilliseconds >= 38000) {
+        elapsed.elapsedMilliseconds >= demoDurationMs) {
       elapsed.reset();
       phase = 0;
       setState(() => activity = CloudActivity.idle);
@@ -789,7 +827,7 @@ class _CloudCompanionPreviewState extends State<CloudCompanionPreview>
     timer = Timer.periodic(const Duration(milliseconds: 80), (_) {
       final ms = elapsed.elapsedMilliseconds;
       // Stopwatch is real time on device; timer ticks do not drive raster frames.
-      if (ms >= 38000) {
+      if (ms >= demoDurationMs) {
         setState(stop);
         return;
       }

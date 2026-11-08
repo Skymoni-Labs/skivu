@@ -8,6 +8,9 @@ uniform vec2 uTileSize;
 uniform float uCell;
 uniform float uRange;
 uniform float uMix;
+uniform vec2 uScale;
+uniform vec2 uOffsetA;
+uniform vec2 uOffsetB;
 uniform sampler2D uArt;
 uniform sampler2D uFlow;
 out vec4 fragColor;
@@ -23,10 +26,14 @@ vec4 art(vec2 p,vec2 origin) {
 }
 void main() {
   vec2 p=FlutterFragCoord().xy;
-  vec2 a=p-uMix*field(p,0.).xy;
-  vec2 b=p-(1.-uMix)*field(p,1.).xy;
-  a=p-uMix*field(a,0.).xy;
-  b=p-(1.-uMix)*field(b,1.).xy;
+  float scale=mix(uScale.x,uScale.y,uMix);
+  vec2 q=p-mix(uOffsetA,uOffsetB,uMix);
+  vec2 a=q/scale;
+  vec2 b=a;
+  a=(q-uMix*uScale.y*field(a,0.).xy)/scale;
+  b=(q-(1.-uMix)*uScale.x*field(b,1.).xy)/scale;
+  a=(q-uMix*uScale.y*field(a,0.).xy)/scale;
+  b=(q-(1.-uMix)*uScale.x*field(b,1.).xy)/scale;
   float wa=(1.-uMix)*max(.15,field(a,0.).z);
   float wb=uMix*max(.15,field(b,1.).z);
   // Warp both whole drawings into correspondence before combining their

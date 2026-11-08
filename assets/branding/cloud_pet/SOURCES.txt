@@ -71,3 +71,17 @@ remain unchanged. The GPU aligns adjacent whole drawings before interpolating
 premultiplied color; the original action timing, rests and state gates remain.
 Motion-field generation, checks and render-profile evidence:
 E:/zzz/ops/skivu-cloud-motion-smooth-20261108/
+
+2026-11-08 natural cadence correction (supersedes the 5,230 ms timings above):
+The approved Muse recording was reviewed again. Explicit hold/transition times
+replace the heuristic that compressed every long transition into 120 ms.
+Coding retains all 72 whole poses, with near/far-hand typing at comparable
+speeds, 1.45-1.9 s reading rests and 600 ms position changes. Its six-gesture
+cycle is 29.32 s. Inspection now lifts, holds, scans, holds and lowers the lens,
+with a 2.2 s rest before repeating. Idle blinks remain brief, separated by rest.
+Desk scenes declare one full-frame scale/translation per original cell so the
+same tabletop baseline, center and width stay registered across gesture sets.
+No original PNG, eye, arm or head was repainted, cropped or independently fixed.
+Fields regenerated only for active complete-frame edges; all art hashes kept.
+Timing, registration, reference and validation receipts:
+E:/zzz/ops/skivu-cloud-natural-cadence-20261108/

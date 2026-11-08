@@ -3,8 +3,26 @@ import 'cloud_companion_motion.dart';
 import 'cloud_pet_flow.dart';
 
 class CloudPetFrame {
-  const CloudPetFrame(this.index, this.durationMs);
+  const CloudPetFrame(
+    this.index,
+    this.durationMs, {
+    this.holdMs = 0,
+    this.ease = false,
+  });
   final int index, durationMs;
+  final int holdMs;
+  final bool ease;
+}
+
+/// Registers an entire source drawing to a stable scene, including its head,
+/// hands and props. Never crops or independently pins a body part.
+class CloudFrameTransform {
+  const CloudFrameTransform(this.scale, this.offset);
+  static const identity = CloudFrameTransform(1, Offset.zero);
+  final double scale;
+  final Offset offset;
+
+  Offset map(Offset point) => point * scale + offset;
 }
 
 class CloudPetClip {
@@ -60,6 +78,28 @@ class CloudPetPack {
     tileSize = Size(tile[0].toDouble(), tile[1].toDouble());
     columns = json['columns'] as int;
     frameCount = json['frameCount'] as int;
+    frameTransforms = (json['frameTransforms'] as List?)?.map((raw) {
+      final values = raw as List;
+      if (values.length != 3 || values.any((v) => v is! num)) {
+        throw const FormatException('Invalid cloud scene registration');
+      }
+      final scale = (values[0] as num).toDouble();
+      final dx = (values[1] as num).toDouble();
+      final dy = (values[2] as num).toDouble();
+      if (!scale.isFinite ||
+          scale < .8 ||
+          scale > 1.2 ||
+          !dx.isFinite ||
+          !dy.isFinite ||
+          dx.abs() > 32 ||
+          dy.abs() > 32) {
+        throw const FormatException('Invalid cloud scene registration');
+      }
+      return CloudFrameTransform(scale, Offset(dx, dy));
+    }).toList();
+    if (frameTransforms != null && frameTransforms!.length != frameCount) {
+      throw const FormatException('Incomplete cloud scene registration');
+    }
     flow = json['motionFlow'] == null
         ? null
         : CloudPetFlow.fromJson(
@@ -163,14 +203,22 @@ class CloudPetPack {
       return CloudPetClip(
         values.map((value) {
           final pair = value as List;
+          if (pair.length < 2 || pair.length > 4) {
+            throw FormatException('Invalid cloud pet timing in $name');
+          }
           final frame = pair[0] as int, duration = pair[1] as int;
+          final hold = pair.length > 2 ? pair[2] as int : 0;
+          final ease = pair.length > 3 ? pair[3] as int : 0;
           if (frame < 0 ||
               frame >= frameCount ||
               duration <= 0 ||
-              duration > 10000) {
+              duration > 10000 ||
+              hold < 0 ||
+              hold >= duration ||
+              (ease != 0 && ease != 1)) {
             throw FormatException('Invalid cloud pet frame in $name');
           }
-          return CloudPetFrame(frame, duration);
+          return CloudPetFrame(frame, duration, holdMs: hold, ease: ease == 1);
         }).toList(),
       );
     }
@@ -199,6 +247,7 @@ class CloudPetPack {
   late final Size tileSize;
   late final Size? atlasSize;
   late final List<Offset>? frameOrigins;
+  late final List<CloudFrameTransform>? frameTransforms;
   late final List<Path?>? framePaths;
   late final int frameBlendMs;
   late final int columns, frameCount, holdFrame, underlayFrame;
@@ -222,6 +271,8 @@ class CloudPetPack {
         (frame % columns) * tileSize.width,
         (frame ~/ columns) * tileSize.height,
       );
+  CloudFrameTransform frameTransform(int frame) =>
+      frameTransforms?[frame] ?? CloudFrameTransform.identity;
   void validateAtlas(Size actual) {
     final expected =
         atlasSize ??
@@ -267,7 +318,7 @@ class CloudPetPack {
     if (!moving || segment == CloudPetSegment.hold) {
       return CloudPetSample(CloudPetSegment.hold, holdFrame);
     }
-    final elapsed = (seconds.clamp(0, double.infinity) * 1000).floor();
+    final elapsed = (seconds.clamp(0, double.infinity) * 1000 + 1e-6).floor();
     if (greeting &&
         greetingClip != null &&
         elapsed < greetingClip!.durationMs) {
@@ -323,18 +374,19 @@ class CloudPetPack {
                 0.0,
                 1.0,
               );
-        final smoothWindow = current.durationMs > 180
-            ? 120
-            : current.durationMs;
+        // A rest and a transition are separate authored intervals. Long
+        // movements must not be squeezed into a final 120 ms burst.
+        var progress =
+            ((remaining - current.holdMs) /
+                    (current.durationMs - current.holdMs))
+                .clamp(0.0, 1.0);
+        if (current.ease) progress = progress * progress * (3 - 2 * progress);
         return CloudPetSample(
           segment,
           current.index,
           nextFrame: target,
           mix: mix,
-          progress: target == current.index
-              ? 0
-              : ((remaining - current.durationMs + smoothWindow) / smoothWindow)
-                    .clamp(0.0, 1.0),
+          progress: target == current.index ? 0 : progress,
         );
       }
       remaining -= current.durationMs;

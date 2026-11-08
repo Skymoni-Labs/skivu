@@ -86,6 +86,7 @@ class CloudVisualLayer {
     this.petSegment,
     this.petAtlasAsset,
     this.smoothFrame = false,
+    this.freezeMotion = false,
   });
   final CloudActivity activity;
   final CloudPose pose;
@@ -94,6 +95,7 @@ class CloudVisualLayer {
   final CloudPetSegment? petSegment;
   final String? petAtlasAsset;
   final bool smoothFrame;
+  final bool freezeMotion;
   CloudVisualLayer withOpacity(double value) => CloudVisualLayer(
     activity: activity,
     pose: pose,
@@ -103,5 +105,6 @@ class CloudVisualLayer {
     petSegment: petSegment,
     petAtlasAsset: petAtlasAsset,
     smoothFrame: smoothFrame,
+    freezeMotion: freezeMotion,
   );
 }
