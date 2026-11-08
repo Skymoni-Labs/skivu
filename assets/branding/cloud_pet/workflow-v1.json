@@ -2496,11 +2496,11 @@
     },
     "checking": {
       "version": 1,
-      "id": "cloud-workflow-checking-smooth-v4",
+      "id": "cloud-workflow-checking-smooth-v5",
       "activity": "checking",
       "wholeFrames": true,
       "repeat": true,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-smooth-v4.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-smooth-v5.png",
       "tile": [
         256,
         256
@@ -2566,9 +2566,33 @@
           ],
           [
             4,
-            1900,
+            1780,
             1700,
             1
+          ],
+          [
+            36,
+            70,
+            0,
+            0
+          ],
+          [
+            37,
+            70,
+            0,
+            0
+          ],
+          [
+            38,
+            70,
+            0,
+            0
+          ],
+          [
+            39,
+            70,
+            0,
+            0
           ],
           [
             24,
@@ -2674,25 +2698,19 @@
           ],
           [
             33,
-            100,
+            150,
             0,
             0
           ],
           [
             34,
-            100,
-            0,
-            0
-          ],
-          [
-            35,
             200,
             0,
             0
           ],
           [
             16,
-            100,
+            150,
             0,
             0
           ],
@@ -2770,14 +2788,14 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-checking-smooth-flow-v4.png",
+        "atlas": "assets/branding/cloud_pet/motion-checking-smooth-flow-v5.png",
         "size": [
           2048,
           640
         ],
         "cell": 128,
         "columns": 8,
-        "range": 48.0,
+        "range": 32.0,
         "pairs": [
           [
             0,
@@ -2797,7 +2815,7 @@
           ],
           [
             4,
-            24
+            36
           ],
           [
             8,
@@ -2905,11 +2923,23 @@
           ],
           [
             34,
-            35
+            16
           ],
           [
-            35,
-            16
+            36,
+            37
+          ],
+          [
+            37,
+            38
+          ],
+          [
+            38,
+            39
+          ],
+          [
+            39,
+            24
           ]
         ]
       },
@@ -3096,24 +3126,24 @@
           5.09634544
         ],
         [
-          1.016611296,
-          -6.126245888,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -6.126245888,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -5.61794024,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -6.634551536,
-          5.09634544
+          0.981900452,
+          2.735294118,
+          13.253393665
         ]
       ],
       "occlusionEntryFrames": [
@@ -3130,10 +3160,12 @@
         32,
         33,
         34,
-        35,
         16
       ],
       "excludedFrames": [
+        35
+      ],
+      "lowerLensFrames": [
         36,
         37,
         38,
@@ -3142,11 +3174,11 @@
     },
     "resultReady": {
       "version": 1,
-      "id": "cloud-workflow-resultReady-smooth-v4",
+      "id": "cloud-workflow-resultReady-smooth-v5",
       "activity": "resultReady",
       "wholeFrames": true,
       "repeat": false,
-      "atlas": "assets/branding/cloud_pet/workflow-checking-smooth-v4.png",
+      "atlas": "assets/branding/cloud_pet/workflow-checking-smooth-v5.png",
       "tile": [
         256,
         256
@@ -3212,7 +3244,31 @@
           ],
           [
             4,
-            175,
+            70,
+            0,
+            0
+          ],
+          [
+            36,
+            65,
+            0,
+            0
+          ],
+          [
+            37,
+            65,
+            0,
+            0
+          ],
+          [
+            38,
+            65,
+            0,
+            0
+          ],
+          [
+            39,
+            65,
             0,
             0
           ],
@@ -3320,25 +3376,19 @@
           ],
           [
             33,
-            100,
+            150,
             0,
             0
           ],
           [
             34,
-            100,
-            0,
-            0
-          ],
-          [
-            35,
             200,
             0,
             0
           ],
           [
             16,
-            100,
+            150,
             0,
             0
           ],
@@ -3416,14 +3466,14 @@
         "B_Loop"
       ],
       "motionFlow": {
-        "atlas": "assets/branding/cloud_pet/motion-checking-smooth-flow-v4.png",
+        "atlas": "assets/branding/cloud_pet/motion-checking-smooth-flow-v5.png",
         "size": [
           2048,
           640
         ],
         "cell": 128,
         "columns": 8,
-        "range": 48.0,
+        "range": 32.0,
         "pairs": [
           [
             0,
@@ -3443,7 +3493,7 @@
           ],
           [
             4,
-            24
+            36
           ],
           [
             8,
@@ -3551,11 +3601,23 @@
           ],
           [
             34,
-            35
+            16
           ],
           [
-            35,
-            16
+            36,
+            37
+          ],
+          [
+            37,
+            38
+          ],
+          [
+            38,
+            39
+          ],
+          [
+            39,
+            24
           ]
         ]
       },
@@ -3742,24 +3804,24 @@
           5.09634544
         ],
         [
-          1.016611296,
-          -6.126245888,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -6.126245888,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -5.61794024,
-          5.09634544
+          0.977477477,
+          3.77027027,
+          14.292792793
         ],
         [
-          1.016611296,
-          -6.634551536,
-          5.09634544
+          0.981900452,
+          2.735294118,
+          13.253393665
         ]
       ],
       "occlusionEntryFrames": [
@@ -3776,10 +3838,12 @@
         32,
         33,
         34,
-        35,
         16
       ],
       "excludedFrames": [
+        35
+      ],
+      "lowerLensFrames": [
         36,
         37,
         38,

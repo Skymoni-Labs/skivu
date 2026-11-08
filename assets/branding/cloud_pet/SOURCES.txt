@@ -193,3 +193,14 @@ and reject inconsistent flow; integrated blink edges keep the authored
 expression rather than warping eyes. No source RGBA artwork changed.
 Phone review and corrected timestamp-window measurements in the same ops
 directory retain the first sample with a stale ready-hold gap separately.
+
+2026-11-08 final short-step motion revision:
+Local rigid-vector overrides were rejected after native review because
+they folded the inverse warp. They are not used. Four additional complete
+lowering poses now bridge the largest motion gap; each step is small.
+The incompatible exit35 is excluded; original16 completes withdrawal.
+The final v5 atlas uses 15 selected new poses (8 entry,3 exit,4 lowering),
+with whole-foot registration and original24 source drawings unchanged.
+Generic numeric fields use32px range and consistency gating; blink changes
+remain authored. No lens/paper image is repainted by code. Superseded v4
+atlas/field are removed from the app bundle. Final preview uses v5 only.
