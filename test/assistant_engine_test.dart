@@ -77,7 +77,7 @@ void main() {
       expect(plans, 1);
       granted = true;
       await a.resume();
-      expect(a.phase, 'done');
+      expect(a.phase, 'awaiting_verification');
       expect(ids.length, 2);
       expect(ids[0], ids[1]);
     },

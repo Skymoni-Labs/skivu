@@ -114,6 +114,7 @@ class CloudExecutionDisclosure extends StatelessWidget {
     this.pendingRequestId,
     this.onResume,
     this.onCapabilities,
+    this.onConfirmResult,
   });
 
   final List<Message> messages;
@@ -121,12 +122,14 @@ class CloudExecutionDisclosure extends StatelessWidget {
   final VoidCallback onToggle;
   final String? phase, pendingRequestId;
   final VoidCallback? onResume, onCapabilities;
+  final VoidCallback? onConfirmResult;
 
   @override
   Widget build(BuildContext context) {
     final steps = cloudExecutionSteps(messages);
     final active = const {'thinking', 'executing', 'stopping'}.contains(phase);
     final permission = phase == 'permission';
+    final confirmation = phase == 'confirmation';
     final failed = steps.where((s) => s.outcome == 'failed').lastOrNull;
     final uncertain =
         phase == 'unknown' ||
@@ -142,6 +145,8 @@ class CloudExecutionDisclosure extends StatelessWidget {
       'executing' => '正在执行',
       'stopping' => '正在停止',
       'permission' => '等待授权',
+      'confirmation' => '等待确认重提',
+      'awaiting_verification' => '已提交 · 待核对',
       'unknown' => '待核对',
       'failed' => '未完成',
       'stopped' => '已停止',
@@ -152,7 +157,19 @@ class CloudExecutionDisclosure extends StatelessWidget {
             ? '有失败步骤'
             : legacy
             ? '历史记录'
-            : steps.every((s) => s.outcome == 'verified')
+            : dispatched ||
+                  steps.any(
+                    (s) =>
+                        s.result?.toolExecution?.verification ==
+                            'process_exit' &&
+                        s.outcome != 'user_confirmed',
+                  )
+            ? '已提交 · 待核对'
+            : steps.every((s) => s.outcome == 'user_confirmed')
+            ? '用户已确认成功'
+            : steps.every(
+                (s) => s.outcome == 'verified' || s.outcome == 'user_confirmed',
+              )
             ? '已完成'
             : '已结束',
     };
@@ -163,7 +180,9 @@ class CloudExecutionDisclosure extends StatelessWidget {
     final action = active || permission
         ? current?.purpose ?? steps.lastOrNull?.purpose
         : null;
-    final alert = permission
+    final alert = confirmation
+        ? '相同操作已有执行记录，本次没有重复执行。确认需要重做时，再点击下方按钮；也可直接聊新的话题。'
+        : permission
         ? current?.summary.isNotEmpty == true
               ? current!.summary
               : '需要授权，任务已暂停。'
@@ -249,11 +268,11 @@ class CloudExecutionDisclosure extends StatelessWidget {
                         : sceneInk,
                   ),
                 ),
-                if (permission)
+                if (permission || confirmation)
                   Wrap(
                     spacing: 8,
                     children: [
-                      if (onCapabilities != null)
+                      if (permission && onCapabilities != null)
                         TextButton(
                           onPressed: onCapabilities,
                           child: const Text('查看授权'),
@@ -261,11 +280,19 @@ class CloudExecutionDisclosure extends StatelessWidget {
                       if (onResume != null)
                         TextButton(
                           onPressed: onResume,
-                          child: const Text('核对授权并继续'),
+                          child: Text(confirmation ? '确认再次执行此操作' : '核对授权并继续'),
                         ),
                     ],
                   ),
               ],
+            ),
+          ),
+        if (onConfirmResult != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: onConfirmResult,
+              child: const Text('已确认任务完成'),
             ),
           ),
         if (expanded)
@@ -299,10 +326,16 @@ class CloudExecutionDisclosure extends StatelessWidget {
   ) {
     final executing =
         phase == 'executing' && step.requestId == pendingRequestId;
-    final status = executing
+    final status =
+        step.result?.toolExecution?.verification == 'process_exit' &&
+            step.outcome != 'user_confirmed'
+        ? '进程已结束 · 业务结果待核对'
+        : executing
         ? '执行中'
         : switch (step.outcome) {
             'verified' => '已验证',
+            'user_confirmed' => '用户已确认成功',
+            'confirmation_required' => '等待确认重提 · 未重复执行',
             'dispatched' => '已派发',
             'permission_required' => '需要授权',
             'failed' => '未完成',
@@ -319,6 +352,8 @@ class CloudExecutionDisclosure extends StatelessWidget {
           };
     final icon = switch (step.outcome) {
       'verified' => Icons.check_circle_outline,
+      'user_confirmed' => Icons.check_circle_outline,
+      'confirmation_required' => Icons.pause_circle_outline,
       'dispatched' => Icons.north_east,
       'permission_required' => Icons.lock_outline,
       'failed' => Icons.error_outline,

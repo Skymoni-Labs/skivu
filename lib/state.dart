@@ -20,6 +20,7 @@ import 'open_plugin_runtime.dart';
 import 'open_plugin_network.dart';
 import 'chat_quote.dart';
 import 'tool_execution.dart';
+import 'tool_submission.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -299,6 +300,7 @@ class Conversation {
   int draftRevision = 0;
   List<Map<String, dynamic>> interactions = [];
   Map<String, dynamic>? assistantJournal;
+  List<ToolSubmission> toolSubmissions = [];
   Set<String> hiddenInteractions = {};
   DateTime? interactionsClearedAt;
   List<String> groupMembers = [];
@@ -322,6 +324,8 @@ class Conversation {
     'draftQuotes': draftQuotes.map((q) => q.toJson()).toList(),
     'interactions': interactions,
     if (assistantJournal != null) 'assistantJournal': assistantJournal,
+    if (toolSubmissions.isNotEmpty)
+      'toolSubmissions': toolSubmissions.map((v) => v.toJson()).toList(),
     'hiddenInteractions': hiddenInteractions.toList(),
     'interactionsClearedAt': interactionsClearedAt?.toIso8601String(),
     'groupMembers': groupMembers,
@@ -355,6 +359,7 @@ class Conversation {
         ..assistantJournal = raw['assistantJournal'] is Map
             ? Map<String, dynamic>.from(raw['assistantJournal'] as Map)
             : null
+        ..toolSubmissions = ToolSubmission.parseList(raw['toolSubmissions'])
         ..usedTokens = raw['usedTokens'] as int? ?? 0
         ..confirmBeforeReply = raw['confirmBeforeReply'] == true
         ..draft = raw['draft'] as String? ?? ''
@@ -1413,10 +1418,8 @@ class DemoStore extends ChangeNotifier {
     List<ChatQuote> quotes = const [],
   }) {
     if (input.trim().isEmpty || streaming) return false;
-    if (isCloudChat &&
-        (cloudRunner == null ||
-            cloudRunner!.canResume(conversations[conversation].id))) {
-      lastError = cloudRunner == null ? '小云正在准备，请稍后重试。' : '请先继续或停止正在等待授权的任务。';
+    if (isCloudChat && cloudRunner == null) {
+      lastError = '小云正在准备，请稍后重试。';
       changed();
       return false;
     }

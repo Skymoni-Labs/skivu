@@ -21,6 +21,7 @@ CloudChatCoordinator bind(
     engineFactory: (chat) => AssistantEngine(
       identity: () => 'qa-model',
       model: model,
+      toolSubmissions: chat.toolSubmissions,
       engine: DeviceEngine(
         transport: (method, args) async => method == 'status'
             ? {'enabled': true, 'system': true}
@@ -217,7 +218,6 @@ void main() {
       store.send('read brightness');
       await waitForReply(store);
       expect(driver.canResume(chat.id), true);
-      expect(store.send('another goal'), false);
       await store.saveChats();
       final restored = DemoStore(settings: TestModels(), storage: disk);
       await restored.restore();

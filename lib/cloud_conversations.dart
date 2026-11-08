@@ -76,6 +76,13 @@ class CloudChatCoordinator implements CloudConversationRunner {
             beginTask: deviceEngine.beginTask,
             endTask: deviceEngine.endTask,
             extensions: AssistantPluginTools(store.plugins),
+            toolSubmissions: chat.toolSubmissions,
+            persistToolSubmissions: () async {
+              await store.saveChats();
+              if (store.storageError != null)
+                throw StateError(store.storageError!);
+            },
+            findPreviousEffect: deviceEngine.previousEffect,
             read: () async => chat.assistantJournal == null
                 ? null
                 : jsonEncode(chat.assistantJournal),
@@ -157,7 +164,12 @@ class CloudChatCoordinator implements CloudConversationRunner {
   bool canResume(String chatId) =>
       _engines.entries.any((e) => e.key.id == chatId && e.value.canResume) ||
       store.conversations.any(
-        (c) => c.id == chatId && c.assistantJournal?['phase'] == 'permission',
+        (c) =>
+            c.id == chatId &&
+            const {
+              'permission',
+              'confirmation',
+            }.contains(c.assistantJournal?['phase']),
       );
 
   @override
@@ -174,21 +186,25 @@ class CloudChatCoordinator implements CloudConversationRunner {
     final engine = engineFor(chat);
     await engine.restore();
     if (!store.conversations.contains(chat) || _epochs[chat] != ticket) return;
+    await engine.abandonPending();
+    if (!store.conversations.contains(chat) || _epochs[chat] != ticket) return;
     // Only the active task is journalled here. Edited/deleted chat history is
     // rebuilt from canonical messages below, never from an older journal.
     engine.messages.clear();
     final role = store.personas.firstWhere((p) => p.id == cloudPersonaId);
+    final current = !reviewOnly && chat.messages.lastOrNull?.user == true
+        ? chat.messages.last
+        : null;
     final history = chat.messages
+        .where((m) => !identical(m, current))
         .where((m) => m.status != 'queued')
         .map((m) => m.apiMessage)
         .toList();
-    if (goal != chat.messages.where((m) => m.user).lastOrNull?.text) {
-      history.add({'role': 'user', 'content': goal});
-    }
     await engine.send(
       goal,
       recordUser: false,
       allowActions: !reviewOnly,
+      currentMessage: current?.apiMessage,
       history: [
         {
           'role': 'user',
@@ -207,6 +223,37 @@ class CloudChatCoordinator implements CloudConversationRunner {
     await _stops;
     if (!store.conversations.contains(chat) || _epochs[chat] != ticket) return;
     await engineFor(chat).resume();
+  }
+
+  Future<void> confirmResult(Conversation chat) async {
+    final engine = engineFor(chat);
+    if (!engine.canConfirmResult) return;
+    final task = engine.taskId;
+    final oldText = engine.messages.lastOrNull?['content'];
+    await engine.confirmResult();
+    for (final source in engine.messages.where(
+      (m) => m['taskId'] == task && m['outcome'] == 'user_confirmed',
+    )) {
+      final message = chat.messages
+          .where(
+            (m) =>
+                m.toolExecution?.taskId == task &&
+                m.toolExecution?.requestId == source['requestId'],
+          )
+          .lastOrNull;
+      if (message != null) {
+        message.text = source['content']!;
+        message.toolExecution = ToolExecutionEvent.parse(source);
+      }
+    }
+    if (oldText != null) {
+      final answer = chat.messages
+          .where((m) => !m.user && !m.toolReceipt && m.text == oldText)
+          .lastOrNull;
+      if (answer != null) answer.text = '本轮操作已按你的确认标记为完成，不会自动重做。';
+    }
+    store.changed();
+    await store.saveChats();
   }
 
   @override

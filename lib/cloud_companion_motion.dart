@@ -48,6 +48,8 @@ CloudActivity cloudActivityForTask(String phase, {String? tool}) =>
             ? CloudActivity.phone
             : CloudActivity.checking,
       'permission' => CloudActivity.permission,
+      'confirmation' => CloudActivity.paused,
+      'awaiting_verification' => CloudActivity.checking,
       'unknown' => CloudActivity.checking,
       // A final model answer is not proof of a successful device operation.
       'done' => CloudActivity.resultReady,

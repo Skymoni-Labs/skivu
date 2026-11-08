@@ -132,6 +132,18 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     check(epoch == cancellationEpoch.get()) { "这次设备请求已经取消。" }
                     val answer = when (call.method) {
                         "status" -> status()
+                        "effect.lookup" -> {
+                            require(p.keys == setOf("tool", "arguments"))
+                            val tool = text(p, "tool", 120)
+                            @Suppress("UNCHECKED_CAST")
+                            val args = p["arguments"] as? Map<String, Any?> ?: error("操作参数无效。")
+                            require(JSONObject(args).toString().length <= 32768)
+                            // Read-only lookup also covers requests from older app versions.
+                            val prior = receipts.submitted(digest("$tool:${JSONObject(args)}"))
+                            if (prior == null) mapOf("found" to false) else mapOf(
+                                "found" to true, "outcome" to prior.getString("outcome"),
+                                "summary" to prior.getString("summary"))
+                        }
                         "apps" -> installedApps()
                         "pairing.start" -> {
                             require(Build.VERSION.SDK_INT >= 30) { "无线配对需要 Android 11 或更新系统。" }

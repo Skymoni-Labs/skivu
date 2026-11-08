@@ -25,5 +25,12 @@ class DeviceReceiptStore(context: Context) : SQLiteOpenHelper(context, "skivu-de
         }
         check(writableDatabase.insertWithOnConflict("receipts", null, values, SQLiteDatabase.CONFLICT_REPLACE) >= 0)
     }
+    fun submitted(fingerprint: String): JSONObject? = readableDatabase.query(
+        "receipts", arrayOf("outcome", "summary"),
+        "fingerprint=? AND outcome IN ('verified','dispatched','unknown')",
+        arrayOf(fingerprint), null, null, null, "1").use { row ->
+        if (!row.moveToFirst()) null else JSONObject(mapOf(
+            "outcome" to row.getString(0), "summary" to row.getString(1)))
+    }
     fun remove(id: String) { writableDatabase.delete("receipts", "id=?", arrayOf(id)) }
 }

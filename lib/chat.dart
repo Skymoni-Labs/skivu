@@ -1030,7 +1030,12 @@ class _ChatPageState extends State<ChatPage>
           ),
         ),
         if (assistant.canResume)
-          TextButton(onPressed: demo.resumeCloud, child: const Text('核对授权并继续')),
+          TextButton(
+            onPressed: demo.resumeCloud,
+            child: Text(
+              assistant.phase == 'confirmation' ? '确认再次执行此操作' : '核对授权并继续',
+            ),
+          ),
         if (assistant.canResume)
           IconButton(
             tooltip: '停止任务',
@@ -1467,9 +1472,14 @@ class _ChatPageState extends State<ChatPage>
                   }
                 });
               },
-              onResume: phase == 'permission' ? demo.resumeCloud : null,
+              onResume: phase == 'permission' || phase == 'confirmation'
+                  ? demo.resumeCloud
+                  : null,
               onCapabilities: phase == 'permission'
                   ? openCloudCapabilities
+                  : null,
+              onConfirmResult: current && assistant.canConfirmResult
+                  ? () => unawaited(cloudChats.confirmResult(_conversation))
                   : null,
             ),
             if (row.reply != null) ...[

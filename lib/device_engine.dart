@@ -51,6 +51,15 @@ class DeviceEngine {
   }
 
   Future<Map<String, dynamic>> status() => _transport('status', {});
+  Future<Map<String, dynamic>> previousEffect(
+    String tool,
+    Map<String, dynamic> arguments,
+  ) {
+    if (tool.startsWith('plugin:')) return Future.value({'found': false});
+    deviceTool(tool).validate(arguments);
+    return _transport('effect.lookup', {'tool': tool, 'arguments': arguments});
+  }
+
   Future<void> beginTask(String taskId) async {
     await _transport('session.start', {'taskId': taskId});
   }

@@ -7,10 +7,12 @@ class ToolExecutionEvent {
     required this.tool,
     required this.purpose,
     this.outcome,
+    this.verification,
   });
 
   final String taskId, requestId, tool, purpose;
   final String? outcome;
+  final String? verification;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -18,6 +20,7 @@ class ToolExecutionEvent {
     'tool': tool,
     'purpose': purpose,
     if (outcome != null) 'outcome': outcome!,
+    if (verification != null) 'verification': verification!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -38,6 +41,8 @@ class ToolExecutionEvent {
           'failed',
           'unknown',
           'cancelled',
+          'user_confirmed',
+          'confirmation_required',
         }.contains(outcome))
       return null;
     return ToolExecutionEvent(
@@ -46,6 +51,9 @@ class ToolExecutionEvent {
       tool: raw['tool'],
       purpose: raw['purpose'],
       outcome: outcome as String?,
+      verification: raw['verification'] == 'process_exit'
+          ? 'process_exit'
+          : null,
     );
   }
 }
