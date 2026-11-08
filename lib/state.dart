@@ -19,6 +19,7 @@ import 'open_plugin_companion.dart';
 import 'open_plugin_runtime.dart';
 import 'open_plugin_network.dart';
 import 'chat_quote.dart';
+import 'tool_execution.dart';
 
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
@@ -61,6 +62,7 @@ class Message {
   String? stickerId, turnId, imageData;
   bool described = false;
   bool toolReceipt = false;
+  ToolExecutionEvent? toolExecution;
   List<Map<String, dynamic>> pluginCards = [];
   List<ChatQuote> quotes = [];
   String get modelText {
@@ -102,6 +104,7 @@ class Message {
     'turnId': turnId,
     'imageData': imageData,
     'toolReceipt': toolReceipt,
+    if (toolExecution != null) 'toolExecution': toolExecution!.toJson(),
     'described': described,
     'pluginCards': pluginCards,
     'quotes': quotes.map((q) => q.toJson()).toList(),
@@ -138,6 +141,7 @@ class Message {
         ..imageData = validChatImage(raw['imageData']) ? raw['imageData'] : null
         ..described = raw['described'] == true
         ..toolReceipt = raw['toolReceipt'] == true
+        ..toolExecution = ToolExecutionEvent.parse(raw['toolExecution'])
         ..pluginCards =
             (raw['pluginCards'] is List ? raw['pluginCards'] as List : [])
                 .whereType<Map>()

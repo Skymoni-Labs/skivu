@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 import 'package:ski/assistant_engine.dart';
 import 'package:ski/chat_api.dart';
 import 'package:ski/cloud_conversations.dart';
+import 'package:ski/cloud_execution_disclosure.dart';
 import 'package:ski/device_engine.dart';
 import 'package:ski/state.dart';
 import 'real_chat_store_test.dart' show MemoryChats, TestModels, waitForReply;
@@ -230,6 +231,14 @@ void main() {
       expect(ids.length, 2);
       expect(ids.toSet(), hasLength(1));
       expect(current.messages.where((m) => m.toolReceipt), hasLength(3));
+      final process = cloudTranscriptRows(
+        current.messages,
+        cloud: true,
+      ).where((row) => row.execution).single;
+      final step = cloudExecutionSteps(process.messages).single;
+      expect(step.requestId, ids.first);
+      expect(step.outcome, 'verified');
+      expect(process.messages.every((m) => m.toolExecution != null), true);
       expect(current.messages.last.text, 'brightness 80');
       restored.regenerate();
       await waitForReply(restored);

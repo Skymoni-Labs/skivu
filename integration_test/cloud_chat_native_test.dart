@@ -8,10 +8,20 @@ import 'package:ski/main.dart' as app;
 import 'package:ski/state.dart';
 import 'package:ski/model_connection.dart';
 import 'package:ski/cloud_conversations.dart';
+import 'package:ski/cloud_execution_disclosure.dart';
 import 'package:ski/device_engine.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  Future<void> reviewFrame(WidgetTester tester, String name) async {
+    if (!const bool.fromEnvironment('SKIVU_EXECUTION_REVIEW')) return;
+    debugPrint('EXECUTION_REVIEW_FRAME $name');
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(seconds: 2)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+
   testWidgets(
     'cloud shared chat UI reaches real Android and preserves host configuration',
     (tester) async {
@@ -51,13 +61,17 @@ void main() {
               {
                 'message': {
                   'content': jsonEncode(
-                    hasReceipt
+                    requests > 2
                         ? {'type': 'final', 'message': 'QA：已读取安卓实际亮度，未更改设置。'}
                         : {
                             'type': 'call',
-                            'tool': 'settings.brightness.read',
+                            'tool': requests == 1
+                                ? 'device.status'
+                                : 'settings.brightness.read',
                             'arguments': {},
-                            'message': '只读核对安卓实际亮度',
+                            'message': requests == 1
+                                ? '查看手机能力状态'
+                                : '只读核对安卓实际亮度',
                           },
                   ),
                 },
@@ -105,12 +119,36 @@ void main() {
         final chat = demo.conversations[demo.conversation];
         expect(demo.streaming, false);
         expect(cloudChats.engineFor(chat).phase, 'done');
-        expect(requests, 2);
-        expect(returnedReceipts, hasLength(1));
-        expect(returnedReceipts.single, contains('verified'));
+        expect(requests, 3);
+        expect(returnedReceipts, hasLength(2));
+        expect(returnedReceipts.last, contains('verified'));
         expect(chat.messages.where((m) => m.user), hasLength(1));
-        expect(chat.messages.where((m) => m.toolReceipt), hasLength(2));
+        expect(chat.messages.where((m) => m.toolReceipt), hasLength(4));
         expect(chat.messages.last.text, contains('已读取安卓实际亮度'));
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.byType(CloudExecutionDisclosure), findsOneWidget);
+        expect(find.text('执行过程 · 已完成 · 2 个步骤'), findsOneWidget);
+        expect(find.text('1. 查看手机能力状态'), findsNothing);
+        final toggle = find.byKey(
+          ValueKey('execution-toggle-${chat.messages[1].id}'),
+        );
+        await tester.ensureVisible(toggle);
+        await tester.pump(const Duration(milliseconds: 350));
+        await reviewFrame(tester, 'collapsed');
+        await tester.tap(toggle);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('1. 查看手机能力状态'), findsOneWidget);
+        expect(find.text('2. 只读核对安卓实际亮度'), findsOneWidget);
+        await reviewFrame(tester, 'expanded');
+        await tester.tap(toggle);
+        await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('1. 查看手机能力状态'), findsNothing);
+        await reviewFrame(tester, 'recollapsed');
+        expect(
+          requests,
+          3,
+          reason: 'Disclosure does not dispatch tools or models',
+        );
         demo.quoteMessage(chat, chat.messages.last);
         await tester.pump();
         await tester.tap(field);
@@ -157,11 +195,13 @@ void main() {
         expect(tester.widget<TextField>(field).controller!.text, '保留的小云草稿');
         expect(chat.draftQuotes, hasLength(1));
         expect(tester.takeException(), isNull);
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump(const Duration(milliseconds: 350));
         final receipt = {
           'passed': true,
           'transport': 'loopback controlled response, no paid model',
           'requests': requests,
-          'nativeTool': 'settings.brightness.read',
+          'nativeTools': ['device.status', 'settings.brightness.read'],
           'nativeReceiptVerified': true,
           'writesToSettings': 0,
           'composerAndQuotes': true,
@@ -169,15 +209,21 @@ void main() {
           'protectedRole': true,
           'temporaryReadOnlyAuthorization': 'isolated engineqa package only',
           'modelConfigSaved': false,
+          'oneFoldedProcess': true,
+          'twoStepsNotFourMessages': true,
+          'toggleDoesNotReplay': true,
         };
-        binding.reportData = receipt;
+        binding.reportData = {...?binding.reportData, ...receipt};
         final directory = await getApplicationSupportDirectory();
         await File(
           '${directory.path}/cloud-chat-native-acceptance.json',
         ).writeAsString(jsonEncode(receipt));
         debugPrint('CLOUD_NATIVE_ACCEPTANCE ${jsonEncode(receipt)}');
       } finally {
-        demo.stop();
+        final active = cloudChats.engineFor(
+          demo.conversations[demo.conversation],
+        );
+        if (active.running || active.canResume) demo.stop();
         demo.models.connections.removeWhere((c) => c.id == connection.id);
         demo.models.activeId = oldConnection;
         demo.useAccount = oldAccount;

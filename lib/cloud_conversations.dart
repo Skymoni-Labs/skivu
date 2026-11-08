@@ -8,6 +8,7 @@ import 'chat_api.dart';
 import 'cloud_assistant.dart' show cloudAssistant;
 import 'device_engine.dart';
 import 'state.dart';
+import 'tool_execution.dart';
 
 final cloudChats = CloudChatCoordinator(demo);
 
@@ -127,6 +128,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
           chat.messages.add(
             Message(false, value['content'] ?? '')
               ..toolReceipt = tool
+              ..toolExecution = tool ? ToolExecutionEvent.parse(value) : null
               ..contextNotice = tool ? '工具回执' : null
               ..authorId = cloudPersonaId
               ..modelName = store.model
@@ -247,6 +249,9 @@ class CloudChatCoordinator implements CloudConversationRunner {
               for (final m in cloudAssistant.messages)
                 Message(m['role'] == 'user', m['content'] ?? '')
                   ..toolReceipt = m['role'] == 'tool'
+                  ..toolExecution = m['role'] == 'tool'
+                      ? ToolExecutionEvent.parse(m)
+                      : null
                   ..authorId = m['role'] == 'user' ? null : cloudPersonaId,
             ],
             id: 'cloud-legacy-v1',

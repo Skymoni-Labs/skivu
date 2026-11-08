@@ -334,10 +334,15 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
         'tool': tool,
         'arguments': args,
         'requestId': '${taskId}_${++serial}',
+        'purpose': response['message'] as String,
       };
       messages.add({
         'role': 'tool',
         'content': '${response['message']} · $tool',
+        'taskId': taskId,
+        'requestId': pending!['requestId'] as String,
+        'tool': tool,
+        'purpose': response['message'] as String,
       });
       context.add({'role': 'assistant', 'content': jsonEncode(response)});
       if (!await execute(ticket)) return;
@@ -392,6 +397,11 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
     messages.add({
       'role': 'tool',
       'content': '${call['tool']} · ${receipt.outcome}\n${receipt.summary}',
+      'taskId': taskId,
+      'requestId': call['requestId'] as String,
+      'tool': call['tool'] as String,
+      'purpose': call['purpose'] as String? ?? call['tool'] as String,
+      'outcome': receipt.outcome,
     });
     // Screens, command output and tool arguments stay in this run's RAM only.
     context.add({

@@ -25,6 +25,7 @@ import 'chat_quote.dart';
 import 'scroll_glass_activity.dart';
 import 'scroll_benchmark.dart';
 import 'cloud_conversations.dart';
+import 'cloud_execution_disclosure.dart';
 import 'cloud_companion_motion.dart';
 import 'embedded_engine_settings.dart';
 
@@ -57,6 +58,7 @@ class _ChatPageState extends State<ChatPage>
   final focus = FocusNode();
   final scroll = ScrollController();
   final keys = <Message, GlobalKey>{};
+  final _expandedExecutionIds = <String>{};
   final _composerMeasureKey = GlobalKey();
   double _composerExtent = 0;
   double? _viewportExtent;
@@ -200,6 +202,7 @@ class _ChatPageState extends State<ChatPage>
       _queueChatReader();
       input.text = current.draft;
       keys.clear();
+      _expandedExecutionIds.clear();
       follow = true;
       showNav = false;
     } else if (_draftRevision != current.draftRevision) {
@@ -281,6 +284,13 @@ class _ChatPageState extends State<ChatPage>
     setState(() {
       showNav = false;
       follow = false;
+      if (demo.isCloudChat && target.toolReceipt) {
+        final row = cloudTranscriptRows(
+          demo.messages,
+          cloud: true,
+        ).firstWhere((row) => row.messages.contains(target));
+        _expandedExecutionIds.add(row.first.id);
+      }
     });
     _seekMessage(target, ++_messageSeek);
   }
@@ -290,8 +300,17 @@ class _ChatPageState extends State<ChatPage>
   void _seekMessage(Message target, int token, {int attempt = 0}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || token != _messageSeek || !scroll.hasClients) return;
-      final targetIndex = demo.messages.indexOf(target);
-      if (targetIndex < 0) return;
+      // Folded tool records share one visible row. Estimate distances using
+      // displayed rows, otherwise a long tool run can make the seek overshoot.
+      final indexes = <Message, int>{
+        for (final (index, row) in cloudTranscriptRows(
+          demo.messages,
+          cloud: demo.isCloudChat,
+        ).indexed)
+          for (final message in row.messages) message: index,
+      };
+      final targetIndex = indexes[target];
+      if (targetIndex == null) return;
       final context = keys[target]?.currentContext;
       if (context != null) {
         unawaited(
@@ -305,11 +324,13 @@ class _ChatPageState extends State<ChatPage>
         return;
       }
       final visible = <(int, double)>[];
+      final anchors = <GlobalKey>{};
       for (final entry in keys.entries) {
+        if (!anchors.add(entry.value)) continue;
         final box = entry.value.currentContext?.findRenderObject();
         if (box is RenderBox && box.hasSize && box.attached) {
-          final index = demo.messages.indexOf(entry.key);
-          if (index >= 0) visible.add((index, box.size.height));
+          final index = indexes[entry.key];
+          if (index != null) visible.add((index, box.size.height));
         }
       }
       visible.sort((a, b) => a.$1.compareTo(b.$1));
@@ -545,203 +566,217 @@ class _ChatPageState extends State<ChatPage>
     ),
   );
   @override
-  Widget build(BuildContext context) => ClipRect(
-    child: Stack(
-      fit: StackFit.expand,
-      children: [
-        // Messages continue underneath the floating composer. Their scroll
-        // padding reserves its measured height without cutting a dark seam.
-        LaunchReveal(
-          part: LaunchPart.content,
-          child: _moduleContent(
-            Visibility(
-              visible: _chatVisible,
-              maintainState: true,
-              child: NotificationListener<ScrollMetricsNotification>(
-                onNotification: (n) {
-                  if (n.depth != 0 || n.metrics.axis != Axis.vertical)
-                    return false;
-                  final previous = _viewportExtent;
-                  _viewportExtent = n.metrics.viewportDimension;
-                  if (previous != null &&
-                      (previous - _viewportExtent!).abs() > .5 &&
-                      follow) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && follow && scroll.hasClients)
-                        scroll.jumpTo(scroll.position.maxScrollExtent);
-                    });
-                  }
-                  return false;
-                },
-                child: NotificationListener<ScrollNotification>(
+  Widget build(BuildContext context) {
+    final transcript = cloudTranscriptRows(
+      demo.messages,
+      cloud: demo.isCloudChat,
+    );
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Messages continue underneath the floating composer. Their scroll
+          // padding reserves its measured height without cutting a dark seam.
+          LaunchReveal(
+            part: LaunchPart.content,
+            child: _moduleContent(
+              Visibility(
+                visible: _chatVisible,
+                maintainState: true,
+                child: NotificationListener<ScrollMetricsNotification>(
                   onNotification: (n) {
                     if (n.depth != 0 || n.metrics.axis != Axis.vertical)
                       return false;
-                    if ((n is ScrollStartNotification &&
-                            n.dragDetails != null) ||
-                        (n is ScrollUpdateNotification &&
-                            n.dragDetails != null) ||
-                        (n is UserScrollNotification &&
-                            n.direction != ScrollDirection.idle)) {
-                      revealNavigation(scrolling: true);
-                    } else if (n is ScrollEndNotification && showNav && !follow)
-                      revealNavigation();
+                    final previous = _viewportExtent;
+                    _viewportExtent = n.metrics.viewportDimension;
+                    if (previous != null &&
+                        (previous - _viewportExtent!).abs() > .5 &&
+                        follow) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && follow && scroll.hasClients)
+                          scroll.jumpTo(scroll.position.maxScrollExtent);
+                      });
+                    }
                     return false;
                   },
-                  child: ScrollGlassSurface(
-                    child: ListView.builder(
-                      controller: scroll,
-                      // The frost must follow scene coordinates as rows move.
-                      // ChatBubbleSurface retains text/media separately, leaving
-                      // the wallpaper plane live instead of caching the whole row.
-                      addRepaintBoundaries: false,
-                      padding: EdgeInsets.fromLTRB(
-                        appearance.flag('wideChat') ? 8 : 14,
-                        appToolbarHeight +
-                            20 +
-                            MediaQuery.paddingOf(context).top,
-                        appearance.flag('wideChat') ? 8 : 14,
-                        24 + _composerExtent,
-                      ),
-                      itemCount: demo.messages.isEmpty
-                          ? 1
-                          : demo.messages.length +
-                                1 +
-                                (demo.streaming && appearance.flag('showStatus')
-                                    ? 1
-                                    : 0),
-                      itemBuilder: (context, index) {
-                        if (demo.messages.isEmpty) return emptyState();
-                        if (index == 0 && demo.isCloudChat)
-                          return cloudHeader();
-                        if (index == 0)
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 25),
-                            child: Center(
-                              child: label(
-                                '与 ${demo.role.name} 的对话',
-                                size: 10,
-                                color: sceneMuted,
-                              ),
-                            ),
-                          );
-                        if (index <= demo.messages.length)
-                          return message(demo.messages[index - 1], index - 1);
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 44),
-                          child: Row(
-                            children: [
-                              const SizedBox(
-                                width: 9,
-                                height: 9,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      if (n.depth != 0 || n.metrics.axis != Axis.vertical)
+                        return false;
+                      if ((n is ScrollStartNotification &&
+                              n.dragDetails != null) ||
+                          (n is ScrollUpdateNotification &&
+                              n.dragDetails != null) ||
+                          (n is UserScrollNotification &&
+                              n.direction != ScrollDirection.idle)) {
+                        revealNavigation(scrolling: true);
+                      } else if (n is ScrollEndNotification &&
+                          showNav &&
+                          !follow)
+                        revealNavigation();
+                      return false;
+                    },
+                    child: ScrollGlassSurface(
+                      child: ListView.builder(
+                        controller: scroll,
+                        // The frost must follow scene coordinates as rows move.
+                        // ChatBubbleSurface retains text/media separately, leaving
+                        // the wallpaper plane live instead of caching the whole row.
+                        addRepaintBoundaries: false,
+                        padding: EdgeInsets.fromLTRB(
+                          appearance.flag('wideChat') ? 8 : 14,
+                          appToolbarHeight +
+                              20 +
+                              MediaQuery.paddingOf(context).top,
+                          appearance.flag('wideChat') ? 8 : 14,
+                          24 + _composerExtent,
+                        ),
+                        itemCount: demo.messages.isEmpty
+                            ? 1
+                            : transcript.length +
+                                  1 +
+                                  (!demo.isCloudChat &&
+                                          demo.streaming &&
+                                          appearance.flag('showStatus')
+                                      ? 1
+                                      : 0),
+                        itemBuilder: (context, index) {
+                          if (demo.messages.isEmpty) return emptyState();
+                          if (index == 0 && demo.isCloudChat)
+                            return cloudHeader();
+                          if (index == 0)
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 25),
+                              child: Center(
+                                child: label(
+                                  '与 ${demo.role.name} 的对话',
+                                  size: 10,
+                                  color: sceneMuted,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              label('正在回复…', size: 10, color: sceneMuted),
-                            ],
-                          ),
-                        );
-                      },
+                            );
+                          if (index <= transcript.length) {
+                            final row = transcript[index - 1];
+                            return row.execution
+                                ? executionRow(row)
+                                : message(row.first, row.index);
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 44),
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 9,
+                                  height: 9,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                label('正在回复…', size: 10, color: sceneMuted),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        if (!_chatVisible)
-          Positioned.fill(
-            child: _moduleContent(
-              PersonalModulePage(
-                module: _module,
-                topInset:
-                    appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
-                bottomInset: _composerExtent + 24,
-                onDraft: _personalDraft,
-                onModule: _selectModule,
-              ),
-            ),
-          ),
-        if (ScrollBenchmark.enabled && _chatVisible)
-          Positioned(
-            top: appToolbarHeight + 12 + MediaQuery.paddingOf(context).top,
-            right: 16,
-            child: ScrollBenchmark(
-              controller: scroll,
-              onStart: () => follow = false,
-            ),
-          ),
-        if (_chatVisible && demo.messages.isNotEmpty)
-          Positioned.fill(
-            bottom: _composerExtent,
-            child: LayoutBuilder(
-              builder: (context, bounds) => ValueListenableBuilder<int>(
-                valueListenable: _navigationRevision,
-                builder: (_, revision, _) => ChatMessageDial(
-                  key: ObjectKey(_conversation),
-                  visible: showNav,
-                  viewportHeight: bounds.maxHeight,
-                  currentTimestamp: _centeredIndex,
-                  resolveCurrentTimestamp: selectedMessageIndex,
-                  loadEntries: () async => [
-                    for (int i = 0; i < demo.messages.length; i++)
-                      ChatMessageLocatorPreview(
-                        timestamp: i,
-                        sender: demo.messages[i].user ? 'user' : 'assistant',
-                        previewContent: demo.messages[i].text,
-                        messageIndex: i,
-                      ),
-                  ],
-                  onOpenLocator: messageNavigator,
-                  onLatest: latest,
-                  showLatest: !follow && !focus.hasFocus,
-                  onJump: locate,
-                  onHidden: hideNavigation,
-                  senderName: (sender) =>
-                      sender == 'user' ? '你' : demo.role.name,
+          if (!_chatVisible)
+            Positioned.fill(
+              child: _moduleContent(
+                PersonalModulePage(
+                  module: _module,
+                  topInset:
+                      appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
+                  bottomInset: _composerExtent + 24,
+                  onDraft: _personalDraft,
+                  onModule: _selectModule,
                 ),
               ),
             ),
-          ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: NotificationListener<SizeChangedLayoutNotification>(
-            onNotification: (_) {
-              _queueComposerMeasure();
-              return true;
-            },
-            child: SizeChangedLayoutNotifier(
-              key: _composerMeasureKey,
-              child: ChatComposerBackdrop(
-                liveContent: appearance.flag('skymoniGlass'),
-                sceneAnchor: widget.backdropAnchor,
-                topInset: 6,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    composer(),
-                    if (demo.storageError != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-                        child: Text(
-                          demo.storageError!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Theme.of(context).colorScheme.error,
+          if (ScrollBenchmark.enabled && _chatVisible)
+            Positioned(
+              top: appToolbarHeight + 12 + MediaQuery.paddingOf(context).top,
+              right: 16,
+              child: ScrollBenchmark(
+                controller: scroll,
+                onStart: () => follow = false,
+              ),
+            ),
+          if (_chatVisible && demo.messages.isNotEmpty)
+            Positioned.fill(
+              bottom: _composerExtent,
+              child: LayoutBuilder(
+                builder: (context, bounds) => ValueListenableBuilder<int>(
+                  valueListenable: _navigationRevision,
+                  builder: (_, revision, _) => ChatMessageDial(
+                    key: ObjectKey(_conversation),
+                    visible: showNav,
+                    viewportHeight: bounds.maxHeight,
+                    currentTimestamp: _centeredIndex,
+                    resolveCurrentTimestamp: selectedMessageIndex,
+                    loadEntries: () async => [
+                      for (int i = 0; i < demo.messages.length; i++)
+                        ChatMessageLocatorPreview(
+                          timestamp: i,
+                          sender: demo.messages[i].user ? 'user' : 'assistant',
+                          previewContent: demo.messages[i].text,
+                          messageIndex: i,
+                        ),
+                    ],
+                    onOpenLocator: messageNavigator,
+                    onLatest: latest,
+                    showLatest: !follow && !focus.hasFocus,
+                    onJump: locate,
+                    onHidden: hideNavigation,
+                    senderName: (sender) =>
+                        sender == 'user' ? '你' : demo.role.name,
+                  ),
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: NotificationListener<SizeChangedLayoutNotification>(
+              onNotification: (_) {
+                _queueComposerMeasure();
+                return true;
+              },
+              child: SizeChangedLayoutNotifier(
+                key: _composerMeasureKey,
+                child: ChatComposerBackdrop(
+                  liveContent: appearance.flag('skymoniGlass'),
+                  sceneAnchor: widget.backdropAnchor,
+                  topInset: 6,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      composer(),
+                      if (demo.storageError != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                          child: Text(
+                            demo.storageError!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   int selectedMessageIndex() {
     if (!scroll.hasClients) return 0;
@@ -1379,6 +1414,49 @@ class _ChatPageState extends State<ChatPage>
       hideNavigation();
       toast(context, '本轮对话已删除');
     }
+  }
+
+  Widget executionRow(CloudTranscriptRow row) {
+    final anchor = keys.putIfAbsent(row.first, () => GlobalKey());
+    for (final message in row.messages) {
+      keys[message] = anchor;
+    }
+    final assistant = cloudChats.engineFor(_conversation);
+    final current = row.taskId != null
+        ? row.taskId == assistant.taskId
+        : identical(row.messages.last, demo.messages.last);
+    final phase = current ? assistant.phase : null;
+    final layout = appearance.text('assistantBubbleLayout');
+    return Padding(
+      key: anchor,
+      padding: EdgeInsets.fromLTRB(
+        layout != 'full' && appearance.flag('avatars') ? 41 : 2,
+        0,
+        2,
+        demo.compact ? 10 : 16,
+      ),
+      child: CloudExecutionDisclosure(
+        messages: row.messages,
+        phase: phase,
+        pendingRequestId: current
+            ? (assistant.pending?['requestId'] as String?)
+            : null,
+        expanded: _expandedExecutionIds.contains(row.first.id),
+        onToggle: () {
+          // Reading a long process must not trigger the automatic bottom seek.
+          follow = false;
+          _bottomSeek++;
+          _messageSeek++;
+          setState(() {
+            if (!_expandedExecutionIds.remove(row.first.id)) {
+              _expandedExecutionIds.add(row.first.id);
+            }
+          });
+        },
+        onResume: phase == 'permission' ? demo.resumeCloud : null,
+        onCapabilities: phase == 'permission' ? openCloudCapabilities : null,
+      ),
+    );
   }
 
   Widget message(Message m, int i) {
