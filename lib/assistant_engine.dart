@@ -585,6 +585,8 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
       'tool': call['tool'] as String,
       'purpose': call['purpose'] as String? ?? call['tool'] as String,
       'outcome': receipt.outcome,
+      if (const {'read', 'write', 'external'}.contains(call['effect']))
+        'effect': call['effect'] as String,
       ...toolResultDetails(
         call['tool'] as String,
         Map<String, dynamic>.from(call['arguments'] as Map),

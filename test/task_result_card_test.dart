@@ -120,6 +120,20 @@ void main() {
       );
     },
   );
+  test('read-only discovery cannot complete an action request', () {
+    expect(
+      TaskResult.fromMessages([
+        result('verified', tool: 'apps.list'),
+      ], goal: '设置闹钟'),
+      isNull,
+    );
+    expect(
+      TaskResult.fromMessages([
+        result('verified', tool: 'ui.observe'),
+      ], goal: '添加日程'),
+      isNull,
+    );
+  });
   test(
     'native verification and user confirmation retain distinct labels after export',
     () {

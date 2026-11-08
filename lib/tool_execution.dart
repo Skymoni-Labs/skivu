@@ -11,12 +11,14 @@ class ToolExecutionEvent {
     this.resultTitle,
     this.resultDetail,
     this.resultTarget,
+    this.effect,
   });
 
   final String taskId, requestId, tool, purpose;
   final String? outcome;
   final String? verification;
   final String? resultTitle, resultDetail, resultTarget;
+  final String? effect;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -28,6 +30,7 @@ class ToolExecutionEvent {
     if (resultTitle != null) 'resultTitle': resultTitle!,
     if (resultDetail != null) 'resultDetail': resultDetail!,
     if (resultTarget != null) 'resultTarget': resultTarget!,
+    if (effect != null) 'effect': effect!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -63,6 +66,9 @@ class ToolExecutionEvent {
           : null,
       resultTitle: displayText(raw['resultTitle'], 160),
       resultDetail: displayText(raw['resultDetail'], 240),
+      effect: const {'read', 'write', 'external'}.contains(raw['effect'])
+          ? raw['effect']
+          : null,
       resultTarget: validTarget(raw['resultTarget'])
           ? raw['resultTarget']
           : null,

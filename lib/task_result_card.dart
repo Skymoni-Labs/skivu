@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'cloud_execution_disclosure.dart';
 import 'state.dart';
+import 'device_tool_catalog.dart';
 
 /// A view of actual receipts. Rendering or restoring a card executes nothing.
 class TaskResult {
@@ -46,11 +47,22 @@ class TaskResult {
                   s.outcome != 'user_confirmed',
         ))
       return null;
+    final writes = work.where((step) {
+      final event = step.result!.toolExecution!;
+      var effect = event.effect;
+      if (effect == null) {
+        try {
+          effect = deviceTool(event.tool).effect;
+        } catch (_) {}
+      }
+      return const {'write', 'external'}.contains(effect);
+    }).toList();
+    if (writes.isEmpty) return null;
     final chosen =
-        work
+        writes
             .where((s) => s.result?.toolExecution?.resultTitle != null)
             .lastOrNull ??
-        work.last;
+        writes.last;
     final event = chosen.result!.toolExecution!;
     final target =
         event.resultTarget ??
@@ -73,7 +85,10 @@ class TaskResult {
     return TaskResult(
       title:
           event.resultTitle ??
-          (goal.trim().isEmpty ? chosen.purpose : goal.trim()),
+          (work.any((s) => s.outcome == 'user_confirmed') &&
+                  goal.trim().isNotEmpty
+              ? goal.trim()
+              : chosen.purpose),
       detail: event.resultDetail ?? '',
       status: work.any((s) => s.outcome == 'user_confirmed') ? '你已确认完成' : '已完成',
       tool: event.tool,
