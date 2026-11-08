@@ -1,5 +1,5 @@
-/// Display-only metadata. Arguments, screenshots and raw command output are not
-/// copied into the chat archive. Reading this record never dispatches a tool.
+/// Display-only metadata with bounded task labels/time summaries. Raw arguments,
+/// screenshots and command output are not copied. Reading never dispatches tools.
 class ToolExecutionEvent {
   const ToolExecutionEvent({
     required this.taskId,
@@ -8,11 +8,15 @@ class ToolExecutionEvent {
     required this.purpose,
     this.outcome,
     this.verification,
+    this.resultTitle,
+    this.resultDetail,
+    this.resultTarget,
   });
 
   final String taskId, requestId, tool, purpose;
   final String? outcome;
   final String? verification;
+  final String? resultTitle, resultDetail, resultTarget;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -21,6 +25,9 @@ class ToolExecutionEvent {
     'purpose': purpose,
     if (outcome != null) 'outcome': outcome!,
     if (verification != null) 'verification': verification!,
+    if (resultTitle != null) 'resultTitle': resultTitle!,
+    if (resultDetail != null) 'resultDetail': resultDetail!,
+    if (resultTarget != null) 'resultTarget': resultTarget!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -54,6 +61,31 @@ class ToolExecutionEvent {
       verification: raw['verification'] == 'process_exit'
           ? 'process_exit'
           : null,
+      resultTitle: displayText(raw['resultTitle'], 160),
+      resultDetail: displayText(raw['resultDetail'], 240),
+      resultTarget: validTarget(raw['resultTarget'])
+          ? raw['resultTarget']
+          : null,
     );
   }
+
+  static String? displayText(dynamic value, int max) =>
+      value is String &&
+          value.trim().isNotEmpty &&
+          value.length <= max &&
+          !RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f]').hasMatch(value)
+      ? value.trim()
+      : null;
+
+  static bool validTarget(dynamic value) =>
+      value is String &&
+      (const {
+            'clock.alarms',
+            'clock.timers',
+            'settings.display',
+          }.contains(value) ||
+          RegExp(
+                r'^app:[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$',
+              ).hasMatch(value) &&
+              value.length <= 220);
 }

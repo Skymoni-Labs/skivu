@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'device_engine.dart';
 import 'open_plugin_network.dart' show PluginApiError;
 import 'tool_submission.dart';
+import 'tool_result_details.dart';
 
 typedef AssistantModel =
     Future<String> Function(String system, List<Map<String, String>> history);
@@ -584,6 +585,11 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
       'tool': call['tool'] as String,
       'purpose': call['purpose'] as String? ?? call['tool'] as String,
       'outcome': receipt.outcome,
+      ...toolResultDetails(
+        call['tool'] as String,
+        Map<String, dynamic>.from(call['arguments'] as Map),
+        receipt.data,
+      ),
       if (receipt.data['value'] is Map &&
           (receipt.data['value'] as Map)['verification'] == 'process_exit')
         'verification': 'process_exit',

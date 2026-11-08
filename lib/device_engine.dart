@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'device_tool_catalog.dart';
+import 'tool_execution.dart';
 
 /// A request result explicitly distinguishes dispatch from verified completion.
 class DeviceToolReceipt {
@@ -99,6 +100,14 @@ class DeviceEngine {
 
   Future<Map<String, dynamic>> openAuthorization(String page) =>
       _transport('authorization', {'page': page});
+
+  /// Only an explicit tap on a result card reaches this navigation path.
+  Future<Map<String, dynamic>> openResult(String target) {
+    if (!ToolExecutionEvent.validTarget(target)) {
+      throw const FormatException('结果入口无效。');
+    }
+    return _transport('result.open', {'target': target});
+  }
 
   Future<List<Map<String, dynamic>>> catalog() async {
     final state = await status();

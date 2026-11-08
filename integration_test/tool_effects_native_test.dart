@@ -135,7 +135,7 @@ void main() {
           cloudChats.engineFor(demo.conversations[demo.conversation]).phase,
           'awaiting_verification',
         );
-        final confirm = find.text('已确认任务完成');
+        final confirm = find.text('用户确认完成');
         expect(confirm, findsOneWidget);
         await tester.ensureVisible(confirm);
         await frame('collapsed');

@@ -9,11 +9,13 @@ class ThinkingDisclosure extends StatefulWidget {
     this.leading,
     this.color,
     this.fontFamily,
+    this.onToggle,
   });
   final String text;
   final Widget? leading;
   final Color? color;
   final String? fontFamily;
+  final VoidCallback? onToggle;
   @override
   State<ThinkingDisclosure> createState() => _ThinkingDisclosureState();
 }
@@ -42,7 +44,10 @@ class _ThinkingDisclosureState extends State<ThinkingDisclosure> {
                 backgroundColor: Colors.transparent,
                 alignment: Alignment.centerLeft,
               ),
-              onPressed: () => setState(() => expanded = !expanded),
+              onPressed: () {
+                widget.onToggle?.call();
+                setState(() => expanded = !expanded);
+              },
               icon: Icon(
                 expanded ? Icons.expand_more : Icons.chevron_right,
                 size: 17,

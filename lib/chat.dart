@@ -29,6 +29,8 @@ import 'cloud_conversations.dart';
 import 'cloud_execution_disclosure.dart';
 import 'cloud_companion_motion.dart';
 import 'embedded_engine_settings.dart';
+import 'device_engine.dart';
+import 'task_result_card.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -60,6 +62,7 @@ class _ChatPageState extends State<ChatPage>
   final scroll = ScrollController();
   final keys = <Message, GlobalKey>{};
   final _expandedExecutionIds = <String>{};
+  final _openingResultIds = <String>{};
   final _composerMeasureKey = GlobalKey();
   double _composerExtent = 0;
   double? _viewportExtent;
@@ -1422,6 +1425,14 @@ class _ChatPageState extends State<ChatPage>
     }
   }
 
+  void holdDisclosurePosition() {
+    follow = false;
+    _bottomSeek++;
+    _messageSeek++;
+    // Also stop a bottom-follow animation already in flight.
+    if (scroll.hasClients) scroll.jumpTo(scroll.offset);
+  }
+
   Widget executionRow(CloudTranscriptRow row) {
     final anchor = keys.putIfAbsent(row.first, () => GlobalKey());
     for (final message in row.messages) {
@@ -1432,6 +1443,19 @@ class _ChatPageState extends State<ChatPage>
         ? row.taskId == assistant.taskId
         : identical(row.messages.last, demo.messages.last);
     final phase = current ? assistant.phase : null;
+    final thinking = [
+      for (final m in row.allMessages)
+        if (m.thinking?.isNotEmpty == true) m.thinking!,
+    ].join('\n\n');
+    final question =
+        demo.messages
+            .where((m) => m.user && m.turnId == row.first.turnId)
+            .lastOrNull
+            ?.text ??
+        '';
+    final result = row.reply != null && (!current || !demo.streaming)
+        ? TaskResult.fromMessages(row.messages, phase: phase, goal: question)
+        : null;
     final layout = appearance.text('assistantBubbleLayout');
     final speaker =
         demo.personas.where((p) => p.id == row.first.authorId).firstOrNull ??
@@ -1442,6 +1466,10 @@ class _ChatPageState extends State<ChatPage>
       child: AssistantReplyLayout(
         layout: layout,
         wide: appearance.flag('wideChat'),
+        thinking: appearance.flag('showThinking') && thinking.isNotEmpty
+            ? thinking
+            : null,
+        onThinkingToggle: holdDisclosurePosition,
         avatar: appearance.flag('avatars')
             ? messageAvatar(
                 row.first,
@@ -1463,9 +1491,7 @@ class _ChatPageState extends State<ChatPage>
               expanded: _expandedExecutionIds.contains(row.first.id),
               onToggle: () {
                 // Reading a long process must not trigger the automatic bottom seek.
-                follow = false;
-                _bottomSeek++;
-                _messageSeek++;
+                holdDisclosurePosition();
                 setState(() {
                   if (!_expandedExecutionIds.remove(row.first.id)) {
                     _expandedExecutionIds.add(row.first.id);
@@ -1478,13 +1504,51 @@ class _ChatPageState extends State<ChatPage>
               onCapabilities: phase == 'permission'
                   ? openCloudCapabilities
                   : null,
-              onConfirmResult: current && assistant.canConfirmResult
-                  ? () => unawaited(cloudChats.confirmResult(_conversation))
-                  : null,
             ),
             if (row.reply != null) ...[
               const SizedBox(height: 12),
-              message(row.reply!, row.replyIndex!, embedded: true),
+              message(
+                row.reply!,
+                row.replyIndex!,
+                embedded: true,
+                showThinking: false,
+              ),
+              if (current && assistant.canConfirmResult)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('task-confirm-result'),
+                      onPressed: () =>
+                          unawaited(cloudChats.confirmResult(_conversation)),
+                      icon: const Icon(Icons.check_circle_outline, size: 17),
+                      label: const Text('用户确认完成'),
+                    ),
+                  ),
+                ),
+            ],
+            if (result != null) ...[
+              const SizedBox(height: 10),
+              TaskResultCard(
+                key: ValueKey('task-result-${row.first.id}'),
+                result: result,
+                opening: _openingResultIds.contains(row.first.id),
+                onOpen: result.target == null
+                    ? null
+                    : () async {
+                        if (!_openingResultIds.add(row.first.id)) return;
+                        setState(() {});
+                        try {
+                          await deviceEngine.openResult(result.target!);
+                        } catch (_) {
+                          if (mounted) toast(context, '暂时无法打开对应软件，请检查应用授权范围。');
+                        } finally {
+                          _openingResultIds.remove(row.first.id);
+                          if (mounted) setState(() {});
+                        }
+                      },
+              ),
             ],
           ],
         ),
@@ -1524,7 +1588,12 @@ class _ChatPageState extends State<ChatPage>
     ),
   );
 
-  Widget message(Message m, int i, {bool embedded = false}) {
+  Widget message(
+    Message m,
+    int i, {
+    bool embedded = false,
+    bool showThinking = true,
+  }) {
     final speaker = m.authorId == null
         ? demo.role
         : demo.personas.where((p) => p.id == m.authorId).firstOrNull ??
@@ -1532,7 +1601,9 @@ class _ChatPageState extends State<ChatPage>
     final layout = appearance.text('assistantBubbleLayout');
     final fill = !m.user && layout != 'centered';
     final hasThinking =
-        appearance.flag('showThinking') && m.thinking?.isNotEmpty == true;
+        showThinking &&
+        appearance.flag('showThinking') &&
+        m.thinking?.isNotEmpty == true;
     keys.putIfAbsent(m, () => GlobalKey());
     final avatar = messageAvatar(m, speaker);
     final bubble = ChatBubbleSurface(
@@ -1698,6 +1769,7 @@ class _ChatPageState extends State<ChatPage>
             if (hasThinking)
               ThinkingDisclosure(
                 text: m.thinking!,
+                onToggle: holdDisclosurePosition,
                 color: appearance.textColorEnabled('thinkingText')
                     ? appearance.textColor('thinkingText')
                     : sceneMuted,
@@ -1716,6 +1788,7 @@ class _ChatPageState extends State<ChatPage>
               wide: appearance.flag('wideChat'),
               avatar: appearance.flag('avatars') ? avatar : null,
               thinking: hasThinking ? m.thinking : null,
+              onThinkingToggle: holdDisclosurePosition,
               thinkingColor: appearance.textColorEnabled('thinkingText')
                   ? appearance.textColor('thinkingText')
                   : sceneMuted,

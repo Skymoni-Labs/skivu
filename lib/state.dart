@@ -1545,6 +1545,11 @@ class DemoStore extends ChangeNotifier {
   }) {
     attached = false;
     if (isCloudChat) {
+      final current = conversations[conversation].messages
+          .where((m) => m.user)
+          .lastOrNull;
+      if (current != null)
+        current.requestStreaming = streamingOverride ?? config.streaming;
       _beginCloud(input);
       return true;
     }
@@ -1795,13 +1800,14 @@ class DemoStore extends ChangeNotifier {
   /// credentials and unpublished-model rejection remain the ordinary path.
   Future<ChatSession> startAssistantReply(
     String system,
-    List<Map<String, String>> history,
-  ) async {
+    List<Map<String, String>> history, {
+    bool? streaming,
+  }) async {
     final active = activeConnection;
     if (active == null) throw const ChatFailure('请先选择可用模型。');
     final config = ModelConnection.fromJson({
       ...active.toJson(),
-      'streaming': false,
+      'streaming': streaming ?? active.streaming,
       'maxOutput': active.maxOutput.clamp(512, 4096),
     });
     if (useBeta) return beta.startChat(history, system, requestConfig: config);
@@ -1814,6 +1820,11 @@ class DemoStore extends ChangeNotifier {
       throw const ChatFailure('请先配置可用的模型连接。');
     }
     return _api.start(config, key, history, system);
+  }
+
+  void assistantProgressChanged() {
+    _saveSoon();
+    changed();
   }
 
   Future<ChatSession> startDeviceReply(

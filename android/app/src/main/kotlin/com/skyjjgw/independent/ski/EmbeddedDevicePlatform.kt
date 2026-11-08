@@ -145,6 +145,24 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                                 "summary" to prior.getString("summary"))
                         }
                         "apps" -> installedApps()
+                        "result.open" -> {
+                            require(p.keys == setOf("target"))
+                            val target = text(p, "target", 220)
+                            // Display-only navigation, never replay the creating action.
+                            when (target) {
+                                "clock.alarms" -> openSystem(Intent(AlarmClock.ACTION_SHOW_ALARMS)) {}
+                                "clock.timers" -> openSystem(Intent(AlarmClock.ACTION_SHOW_TIMERS)) {}
+                                "settings.display" -> ui { activity.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
+                                else -> {
+                                    require(target.startsWith("app:")) { "结果入口不存在。" }
+                                    val pkg = target.removePrefix("app:")
+                                    require(pkg in packages()) { "此软件已不在授权范围内。" }
+                                    val intent = activity.packageManager.getLaunchIntentForPackage(pkg) ?: error("软件没有可打开的入口。")
+                                    ui { activity.startActivity(intent) }
+                                }
+                            }
+                            mapOf("opened" to true)
+                        }
                         "pairing.start" -> {
                             require(Build.VERSION.SDK_INT >= 30) { "无线配对需要 Android 11 或更新系统。" }
                             require(enabled("enabled") && enabled("shell")) { "请先启用代码执行能力。" }

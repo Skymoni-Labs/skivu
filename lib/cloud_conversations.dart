@@ -9,6 +9,14 @@ import 'cloud_assistant.dart' show cloudAssistant;
 import 'device_engine.dart';
 import 'state.dart';
 import 'tool_execution.dart';
+import 'assistant_stream_preview.dart';
+import 'stream_reveal.dart';
+
+class _ReplyDraft {
+  _ReplyDraft(this.message, this.epoch);
+  final Message message;
+  final int epoch;
+}
 
 final cloudChats = CloudChatCoordinator(demo);
 
@@ -20,6 +28,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
   final AssistantEngine Function(Conversation chat)? engineFactory;
   final _engines = <Conversation, AssistantEngine>{};
   final _sessions = <Conversation, ChatSession>{};
+  final _drafts = <Conversation, _ReplyDraft>{};
   final _epochs = <Conversation, int>{};
   Future<void> _stops = Future.value();
   bool _attached = false;
@@ -57,6 +66,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
   void _identityChanged() {
     for (final entry in _engines.entries.toList()) {
       if (!store.conversations.contains(entry.key)) {
+        _drafts.remove(entry.key);
         if (entry.value.running || entry.value.canResume)
           unawaited(stop(entry.key.id));
       } else {
@@ -98,26 +108,90 @@ class CloudChatCoordinator implements CloudConversationRunner {
             cancelModel: () => _sessions[chat]?.cancel(),
             model: (system, history) async {
               final expected = identity();
-              final session = await store.startAssistantReply(system, history);
+              final generation = engine.epoch;
+              final session = await store.startAssistantReply(
+                system,
+                history,
+                streaming: chat.messages
+                    .where((m) => m.user)
+                    .lastOrNull
+                    ?.requestStreaming,
+              );
               if (!engine.running || expected != identity()) {
                 session.cancel();
                 throw StateError('规划已取消或连接已更换。');
               }
               _sessions[chat] = session;
               final output = StringBuffer();
+              final thinking = StringBuffer();
+              var prefix = '';
+              final stale = _drafts.remove(chat);
+              if (stale != null) chat.messages.remove(stale.message);
+              Message draft() {
+                final old = _drafts[chat];
+                if (old != null && old.epoch == generation) return old.message;
+                final message = Message(false, '')
+                  ..status = 'pending'
+                  ..authorId = cloudPersonaId
+                  ..modelName = session.config.model
+                  ..provider = session.config.provider
+                  ..turnId = chat.messages
+                      .where((m) => m.user)
+                      .lastOrNull
+                      ?.turnId;
+                _drafts[chat] = _ReplyDraft(message, generation);
+                chat.messages.add(message);
+                return message;
+              }
+
+              final reveal = StreamReveal((text, reason) {
+                if (engine.epoch != generation ||
+                    expected != identity() ||
+                    !store.conversations.contains(chat))
+                  return;
+                final message = draft();
+                message.text += text;
+                if (reason.isNotEmpty)
+                  message.thinking = '${message.thinking ?? ''}$reason';
+                store.assistantProgressChanged();
+              });
               ApiUsage usage = const ApiUsage();
               try {
                 await for (final event in session.events) {
+                  if (engine.epoch != generation ||
+                      expected != identity() ||
+                      !engine.running ||
+                      !store.conversations.contains(chat)) {
+                    session.cancel();
+                    throw StateError('规划已取消或连接已更换。');
+                  }
                   output.write(event.text);
+                  thinking.write(event.thinking);
+                  if (session.config.streaming) {
+                    final next = engine.hasUnverifiedEffects
+                        ? null
+                        : assistantFinalPrefix(output.toString());
+                    var delta = '';
+                    if (next != null && next.startsWith(prefix)) {
+                      delta = next.substring(prefix.length);
+                      prefix = next;
+                    }
+                    reveal.add(delta, event.thinking);
+                  }
                   if (event.usage != null) usage = usage.merge(event.usage!);
                 }
                 if (session.cancelled) throw StateError('规划已取消。');
+                await reveal.finish();
+                if (!session.config.streaming && thinking.isNotEmpty)
+                  draft().thinking = thinking.toString();
                 if (usage.input != null && usage.output != null) {
                   chat.usedTokens += usage.input! + usage.output!;
                   chat.usage = ConversationUsage(totalTokens: chat.usedTokens);
                 }
                 return output.toString();
               } finally {
+                reveal.flush();
+                reveal.dispose();
                 if (identical(_sessions[chat], session)) _sessions.remove(chat);
               }
             },
@@ -132,8 +206,19 @@ class CloudChatCoordinator implements CloudConversationRunner {
           final value = engine.messages[seen++];
           if (value['role'] == 'user') continue;
           final tool = value['role'] == 'tool';
+          final draft = _drafts.remove(chat)?.message;
+          if (draft != null && !tool) {
+            final text = value['content'] ?? '';
+            draft.text = engine.phase != 'done' && draft.text.isNotEmpty
+                ? '${draft.text}\n\n$text'
+                : text;
+            draft.status = engine.phase == 'done' ? 'complete' : 'cancelled';
+            continue;
+          }
+          if (draft != null) chat.messages.remove(draft);
           chat.messages.add(
             Message(false, value['content'] ?? '')
+              ..thinking = draft?.thinking
               ..toolReceipt = tool
               ..toolExecution = tool ? ToolExecutionEvent.parse(value) : null
               ..contextNotice = tool ? '工具回执' : null
@@ -268,6 +353,8 @@ class CloudChatCoordinator implements CloudConversationRunner {
 
   @override
   void historyChanged(Conversation chat) {
+    final draft = _drafts.remove(chat);
+    if (draft != null) draft.message.status = 'cancelled';
     final engine = _engines[chat];
     if (engine != null &&
         (engine.running || engine.canResume || engine.phase == 'idle')) {
