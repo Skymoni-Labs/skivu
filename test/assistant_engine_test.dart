@@ -19,6 +19,8 @@ void main() {
     AssistantRead? read,
     String Function()? identity,
   }) => AssistantEngine(
+    strictBackground:
+        false, // Legacy journal fixtures; strict policy has dedicated coverage.
     engine: engine,
     model: model,
     identity: identity ?? () => 'model1',

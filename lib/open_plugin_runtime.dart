@@ -79,7 +79,7 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     if (method == 'ui.toast') return true;
     if (assistant && method.startsWith('device.engine.'))
       return host(method, params);
-    if (method == 'ui.openExternal' && effect == 'external')
+    if (!assistant && method == 'ui.openExternal' && effect == 'external')
       return host(method, params);
     throw const PluginApiError(
       'PERMISSION_DENIED',
@@ -132,7 +132,8 @@ class OpenPluginRuntime with WidgetsBindingObserver {
           if (params is Map && params['tool'] is String) {
             final definition = deviceTool(params['tool'] as String);
             allowedDeviceCall =
-                definition.effect == 'read' || effect == 'external';
+                (!assistant || definition.backgroundSafe) &&
+                (definition.effect == 'read' || effect == 'external');
           }
         }
         if (!reads.contains(method) &&
@@ -143,7 +144,9 @@ class OpenPluginRuntime with WidgetsBindingObserver {
                 }.contains(method)) &&
             !allowedDeviceCall &&
             !(effect == 'write' && writes.contains(method)) &&
-            !(effect == 'external' && method == 'ui.openExternal'))
+            !(!assistant &&
+                effect == 'external' &&
+                method == 'ui.openExternal'))
           throw const PluginApiError('PERMISSION_DENIED', '该工具未声明这种操作。');
         if ({'network.request', 'https.request'}.contains(method) &&
             !{

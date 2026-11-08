@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'device_engine.dart';
 import 'engine_app_selection_page.dart';
+import 'background_alarms_page.dart';
 
 /// Authorization belongs to the host. Models/plugins never operate this form.
 class EmbeddedEngineSettings extends StatefulWidget {
@@ -169,7 +170,7 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
       children: [
         const Padding(
           padding: EdgeInsets.all(12),
-          child: Text('小云、插件与手机 DSH 共用这套能力。按需开启权限；系统授权与应用范围由你管理。'),
+          child: Text('小云使用严格后台模式：任务不会打开其他软件或授权页面。有后台能力的操作会自动执行并核对结果。'),
         ),
         SizedBox(
           height: 4,
@@ -181,7 +182,22 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
             child: Text(message!, key: const ValueKey('engine-setup-message')),
           ),
         toggle('enabled', '启用手机引擎', '关闭后拒绝设备调用，并停止当前代码执行。'),
-        toggle('system', '系统接口', '手机时钟、倒计时及受支持的系统设置。'),
+        toggle('system', '系统接口', '小云原生闹钟、倒计时及受支持的后台系统设置。'),
+        ListTile(
+          title: const Text('小云闹钟'),
+          subtitle: Text(
+            state['alarmReady'] == true
+                ? '后台提醒已就绪 · 设置时不打开系统时钟'
+                : '查看闹钟并配置精确提醒和通知',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const BackgroundAlarmsPage(),
+            ),
+          ),
+        ),
+        const Text('既有界面操控和代码执行配置保留；小云自动任务不会使用界面操作或任意脚本。'),
         toggle('control', '界面操控', '仅操作下方选中的软件，需要无障碍授权。'),
         toggle('shell', '代码执行', '允许执行具备 Android shell 权限的代码，需要单独配对。'),
         const Divider(),

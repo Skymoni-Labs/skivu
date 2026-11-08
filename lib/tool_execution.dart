@@ -8,11 +8,13 @@ class ToolExecutionEvent {
     required this.purpose,
     this.outcome,
     this.verification,
+    this.resourceId,
   });
 
   final String taskId, requestId, tool, purpose;
   final String? outcome;
   final String? verification;
+  final String? resourceId;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -21,6 +23,7 @@ class ToolExecutionEvent {
     'purpose': purpose,
     if (outcome != null) 'outcome': outcome!,
     if (verification != null) 'verification': verification!,
+    if (resourceId != null) 'resourceId': resourceId!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -53,6 +56,11 @@ class ToolExecutionEvent {
       outcome: outcome as String?,
       verification: raw['verification'] == 'process_exit'
           ? 'process_exit'
+          : null,
+      resourceId:
+          raw['resourceId'] is String &&
+              RegExp(r'^[a-zA-Z0-9_-]{1,100}$').hasMatch(raw['resourceId'])
+          ? raw['resourceId']
           : null,
     );
   }

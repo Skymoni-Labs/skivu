@@ -51,6 +51,13 @@ class DeviceEngine {
   }
 
   Future<Map<String, dynamic>> status() => _transport('status', {});
+  Future<List<Map<String, dynamic>>> alarms() async {
+    final values = await channel.invokeListMethod<dynamic>('alarms.list') ?? [];
+    return values.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<Map<String, dynamic>> cancelAlarm(String id) =>
+      _transport('alarms.cancel', {'id': id});
   Future<Map<String, dynamic>> previousEffect(
     String tool,
     Map<String, dynamic> arguments,
@@ -103,7 +110,7 @@ class DeviceEngine {
   Future<List<Map<String, dynamic>>> catalog() async {
     final state = await status();
     return [
-      for (final tool in builtinDeviceTools)
+      for (final tool in [...builtinDeviceTools, ...nativeBackgroundTools])
         {
           ...tool.toJson(),
           'available': switch (tool.permission) {
@@ -136,6 +143,7 @@ class DeviceEngine {
     Map<String, dynamic> arguments, {
     required String owner,
     String? requestId,
+    bool backgroundOnly = true,
   }) async {
     final definition = deviceTool(toolId);
     definition.validate(arguments);
@@ -153,6 +161,7 @@ class DeviceEngine {
       'requestId': id,
       'tool': toolId,
       'arguments': arguments,
+      'executionPolicy': backgroundOnly ? 'background' : 'interactive',
     });
     if (raw['requestId'] != id) {
       throw const FormatException('设备回执与本次请求不匹配。');

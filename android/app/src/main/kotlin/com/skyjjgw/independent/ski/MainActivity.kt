@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
     override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? = DeviceTaskService.retainedEngine
     override fun shouldDestroyEngineWithHost(): Boolean = DeviceTaskService.taskId == null
     override fun onStart() { super.onStart(); DeviceTaskService.activityAttached = true; DeviceTaskService.currentActivity = this }
+    override fun onResume() { super.onResume(); embeddedDevice.reconcileBackgroundAlarms() }
     private val chatBackup by lazy { ChatBackupPlatform(this) }
     private val appPlatform by lazy { AppPlatform(this) }
     private val chatAttachment by lazy { ChatAttachmentPlatform(this) }

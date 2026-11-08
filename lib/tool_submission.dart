@@ -54,6 +54,11 @@ class ToolSubmission {
     Map<String, dynamic> args, {
     String? effect,
   }) {
+    // Native-owned resources have their own durable operation IDs and active
+    // resource dedupe. A completed/cancelled yesterday alarm must not fence a
+    // legitimate new request forever.
+    if (tool.startsWith('assistant.alarm.') || tool == 'assistant.timer.start')
+      return null;
     // Navigation may be needed several times to inspect an effect. It does not
     // create a second business object and must remain usable for verification.
     if (const {
