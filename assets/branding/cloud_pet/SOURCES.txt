@@ -164,3 +164,21 @@ Original atlas is preserved; unaccepted foreground-lens files are absent.
 Prompt, owner rule, source hashes, frame bounds and selected source:
 E:/zzz/ops/skivu-cloud-paper-occlusion-20261108/PROMPT.txt
 E:/zzz/ops/skivu-cloud-paper-occlusion-20261108/asset-selection.json
+
+2026-11-08 smooth the paper-occlusion entry and withdrawal:
+Sixteen additional whole-scene in-betweens were generated with the built-in
+image tool, using the four approved endpoint poses. Original 24 RGBA cells
+are pixel-identical in workflow-checking-smooth-v4.png (40 cells). Lens
+visibility changes by opaque paper-edge occlusion, not an opacity fade.
+The 8-frame entry and 8-frame exit keep connected hands and synchronous
+whole-head lean. Whole-scene registration aligns size and foot baseline.
+New bidirectional numeric fields use 128px cells and 48px displacement range.
+The read-pause at a half-covered pose in resultReady moves to fully hidden
+reading pose 8; the withdrawal now has a 600ms moving transition. Other
+activity timelines, source artwork and the approved coding loop are unchanged.
+A baseline phone SurfaceView sample covered 12.53s/755 intervals, mean
+60.23fps, maximum16.61ms, with no interval above1.5 refresh periods.
+That sample excludes screenrecord and does not claim all-app/permanent FPS.
+Prompt, cell hashes/registration, source and phone measurements:
+E:/zzz/ops/skivu-cloud-occlusion-smooth-20261108/PROMPT.txt
+E:/zzz/ops/skivu-cloud-occlusion-smooth-20261108/asset-selection.json
