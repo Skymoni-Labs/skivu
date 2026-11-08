@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'chat.dart';
 import 'cloud_conversations.dart';
+import 'cloud_companion_portrait.dart';
 import 'drawer_motion.dart';
 import 'glass.dart';
 import 'pages.dart';
@@ -466,9 +467,11 @@ class _SkiShellState extends State<SkiShell>
   final _foregroundKey = GlobalKey();
   late final DrawerMotion motion;
   late final VoidCallback _companionReturn;
+  late int _chatModule;
   @override
   void initState() {
     super.initState();
+    _chatModule = demo.isCloudChat ? 4 : 0;
     motion = DrawerMotion(vsync: this);
     _companionReturn = () {
       if (mounted && widget.route != '/chat') go('/chat');
@@ -491,6 +494,25 @@ class _SkiShellState extends State<SkiShell>
   }
 
   void panel(int direction) => motion.toggle(direction);
+
+  Widget _cloudToolbarCompanion() {
+    final chat = demo.conversations[demo.conversation];
+    final assistant = cloudChats.engineFor(chat);
+    unawaited(cloudChats.restoreChat(chat));
+    return AnimatedBuilder(
+      animation: assistant,
+      builder: (_, _) => CloudCompanionPortrait(
+        key: ValueKey('cloud-toolbar-portrait-${chat.id}'),
+        size: 44,
+        reduceMotion: appearance.flag('reduceMotion'),
+        activity: cloudActivityForTask(
+          assistant.phase,
+          tool: assistant.pending?['tool'] as String?,
+        ),
+      ),
+    );
+  }
+
   void go(String route) => Navigator.of(context).pushReplacementNamed(route);
   void returnHome(bool didPop, Object? result) {
     if (didPop) return;
@@ -579,6 +601,10 @@ class _SkiShellState extends State<SkiShell>
                     openWorkspace: () => panel(-1),
                     openCall: () => go('/call'),
                     openModels: () => go('/settings/models'),
+                    onModuleChanged: (value) {
+                      if (mounted && _chatModule != value)
+                        setState(() => _chatModule = value);
+                    },
                   )
           : ContentPage(route: widget.route, go: go);
       final navigation = RepaintBoundary(
@@ -599,7 +625,14 @@ class _SkiShellState extends State<SkiShell>
         ),
       );
       final capsule = appearance.flag('capsuleToolbar');
-      final typing = widget.route == '/chat' && demo.streaming;
+      final cloudToolbar =
+          widget.route == '/chat' &&
+          !socialUi &&
+          openPlugins.chatSurface == null &&
+          demo.isCloudChat &&
+          _chatModule == 4;
+      final typing =
+          widget.route == '/chat' && demo.streaming && !demo.isCloudChat;
       final toolbar = SizedBox(
         key: ValueKey(capsule ? 'capsule-toolbar' : 'rectangle-toolbar'),
         height: appToolbarHeight,
@@ -609,54 +642,71 @@ class _SkiShellState extends State<SkiShell>
           behavior: HitTestBehavior.opaque,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                SkiGlassButton(
-                  tooltip: '打开导航',
-                  plain: true,
-                  onPressed: () => panel(1),
-                  icon: Icons.menu_rounded,
+                Row(
+                  children: [
+                    SkiGlassButton(
+                      tooltip: '打开导航',
+                      plain: true,
+                      onPressed: () => panel(1),
+                      icon: Icons.menu_rounded,
+                    ),
+                    const SizedBox(width: 8),
+                    if (cloudToolbar)
+                      const Spacer()
+                    else
+                      Expanded(
+                        child: InkWell(
+                          onTap: widget.route == '/chat'
+                              ? () {
+                                  demo.editCurrentRole();
+                                  go('/characters/edit');
+                                }
+                              : null,
+                          child: Text(
+                            typing ? '对方正在输入中...' : title,
+                            key: ValueKey(
+                              typing ? 'typing-indicator' : 'toolbar-title',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: ink,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (widget.route == '/chat') const OpenPluginChatButton(),
+                    SkiGlassButton(
+                      tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
+                      plain: true,
+                      onPressed: () =>
+                          go(widget.route == '/chat' ? '/call' : '/chat'),
+                      icon: widget.route == '/chat'
+                          ? Icons.call_outlined
+                          : Icons.chat_bubble_outline,
+                    ),
+                    SkiGlassButton(
+                      tooltip: '打开工作区',
+                      plain: true,
+                      onPressed: () => panel(-1),
+                      icon: Icons.space_dashboard_outlined,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: widget.route == '/chat'
-                        ? () {
-                            demo.editCurrentRole();
-                            go('/characters/edit');
-                          }
-                        : null,
-                    child: Text(
-                      typing ? '对方正在输入中...' : title,
-                      key: ValueKey(
-                        typing ? 'typing-indicator' : 'toolbar-title',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: ink,
-                      ),
+                if (cloudToolbar)
+                  Center(
+                    child: SizedBox(
+                      key: const ValueKey('cloud-toolbar-companion'),
+                      width: 56,
+                      height: 56,
+                      child: Center(child: _cloudToolbarCompanion()),
                     ),
                   ),
-                ),
-                if (widget.route == '/chat') const OpenPluginChatButton(),
-                SkiGlassButton(
-                  tooltip: widget.route == '/chat' ? '语音通话' : '返回聊天',
-                  plain: true,
-                  onPressed: () =>
-                      go(widget.route == '/chat' ? '/call' : '/chat'),
-                  icon: widget.route == '/chat'
-                      ? Icons.call_outlined
-                      : Icons.chat_bubble_outline,
-                ),
-                SkiGlassButton(
-                  tooltip: '打开工作区',
-                  plain: true,
-                  onPressed: () => panel(-1),
-                  icon: Icons.space_dashboard_outlined,
-                ),
               ],
             ),
           ),

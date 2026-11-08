@@ -25,7 +25,7 @@ import 'chat_quote.dart';
 import 'scroll_glass_activity.dart';
 import 'scroll_benchmark.dart';
 import 'cloud_conversations.dart';
-import 'cloud_companion_portrait.dart';
+import 'cloud_companion_motion.dart';
 import 'embedded_engine_settings.dart';
 
 class ChatPage extends StatefulWidget {
@@ -35,10 +35,12 @@ class ChatPage extends StatefulWidget {
     required this.openCall,
     this.openModels,
     this.backdropAnchor,
+    this.onModuleChanged,
   });
   final VoidCallback openWorkspace, openCall;
   final VoidCallback? openModels;
   final GlobalKey? backdropAnchor;
+  final ValueChanged<int>? onModuleChanged;
   @override
   State<ChatPage> createState() => _ChatPageState();
 }
@@ -93,6 +95,15 @@ class _ChatPageState extends State<ChatPage>
     personalSpace.addListener(_personalChanged);
     _queueChatReader();
     _queueComposerMeasure();
+    _reportModule();
+  }
+
+  void _reportModule() {
+    final selected = _module;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _module == selected)
+        widget.onModuleChanged?.call(selected);
+    });
   }
 
   void _personalChanged() {
@@ -126,6 +137,7 @@ class _ChatPageState extends State<ChatPage>
       _module = value;
       showNav = false;
     });
+    widget.onModuleChanged?.call(value);
     if (MediaQuery.disableAnimationsOf(context) ||
         appearance.flag('reduceMotion') ||
         (demo.prefs['减少动态效果'] ?? false)) {
@@ -178,6 +190,7 @@ class _ChatPageState extends State<ChatPage>
     final current = demo.conversations[demo.conversation];
     if (!identical(current, _conversation)) {
       _module = demo.isCloudChat ? 4 : 0;
+      _reportModule();
       _moduleFade.stop();
       _moduleFade.value = 1;
       _bottomSeek++;
@@ -1002,25 +1015,11 @@ class _ChatPageState extends State<ChatPage>
   );
 
   Widget cloudHeader({bool empty = false}) {
-    final assistant = cloudChats.engineFor(_conversation);
-    unawaited(cloudChats.restoreChat(_conversation));
     return Padding(
       key: const ValueKey('cloud-chat-header'),
       padding: EdgeInsets.symmetric(vertical: empty ? 30 : 10),
       child: Column(
         children: [
-          AnimatedBuilder(
-            animation: assistant,
-            builder: (_, _) => CloudCompanionPortrait(
-              size: empty ? 112 : 76,
-              reduceMotion: appearance.flag('reduceMotion'),
-              activity: cloudActivityForTask(
-                assistant.phase,
-                tool: assistant.pending?['tool'] as String?,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
           Text(
             demo.role.name,
             style: TextStyle(fontSize: empty ? 25 : 18, color: sceneInk),
