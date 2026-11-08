@@ -119,11 +119,21 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
 
   List<CloudVisualLayer> layers(CloudActivity activity) {
     final t = reduced ? 1.0 : Curves.easeInOut.transform(transition.value);
+    final exclusive =
+        activity == CloudActivity.coding ||
+        outgoing.any((layer) => layer.activity == CloudActivity.coding);
+    // Coding has occluded wrists behind the laptop. A short sequential fade
+    // changes scenes without showing two complete sets of hands together.
+    final outgoingFade = exclusive ? (1 - t * 2).clamp(0.0, 1.0) : 1 - t;
+    final incomingFade = exclusive ? (t * 2 - 1).clamp(0.0, 1.0) : t;
+    final previous = exclusive && outgoing.length > 1
+        ? [outgoing.reduce((a, b) => a.opacity >= b.opacity ? a : b)]
+        : outgoing;
     return [
-      for (final layer in outgoing)
-        if (layer.opacity * (1 - t) > .001)
-          layer.withOpacity(layer.opacity * (1 - t)),
-      if (t > .001)
+      for (final layer in previous)
+        if (layer.opacity * outgoingFade > .001)
+          layer.withOpacity(layer.opacity * outgoingFade),
+      if (incomingFade > .001)
         CloudVisualLayer(
           activity: activity,
           pose: pose,
@@ -132,7 +142,7 @@ class _CloudCompanionPortraitState extends State<CloudCompanionPortrait>
                     ? petExit.value * petExit.duration!.inMicroseconds / 1000000
                     : motionSeconds
               : 0,
-          opacity: t,
+          opacity: incomingFade,
           greeting: greeting,
           freezeMotion: !reduced,
           petSegment: exitTarget != null ? CloudPetSegment.end : null,

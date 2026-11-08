@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/cloud_companion_motion.dart';
 import 'package:ski/cloud_pet_pack.dart';
+import 'package:crypto/crypto.dart';
 
 Map<String, dynamic> manifest() =>
     jsonDecode(
@@ -12,6 +13,32 @@ Map<String, dynamic> manifest() =>
         as Map<String, dynamic>;
 
 void main() {
+  test(
+    'coding keeps the exact approved original artwork and rests only at low hand poses',
+    () {
+      final data = manifest();
+      final pack = CloudPetPack.fromJson(data);
+      expect(
+        sha256.convert(File(pack.atlas).readAsBytesSync()).toString(),
+        'a5531a4f0f13d2ccfe292112a547b5f5cbaa473932bd09c94a696361271d8e1e',
+      );
+      expect(pack.singleSourceMotion, true);
+      final rests = pack.loop.frames.where((f) => f.holdMs >= 1000);
+      expect(rests.map((f) => f.index), orderedEquals([23, 71, 47]));
+      for (final name in [
+        'B_TypePhraseNear',
+        'B_TypePhraseFar',
+        'B_UseTouchpad',
+      ]) {
+        final frames = (data['clips'] as Map)[name] as List;
+        expect(
+          frames.every((row) => (row as List)[2] == 0),
+          true,
+          reason: 'Movement stays connected inside an authored operation',
+        );
+      }
+    },
+  );
   testWidgets('all 72 full coding drawings share one desk baseline and width', (
     tester,
   ) async {
@@ -77,7 +104,7 @@ void main() {
   test('a state pack plays entry once, repeats the loop, and ends at rest', () {
     final pack = CloudPetPack.fromJson(manifest());
     expect(pack.sample(0).segment, CloudPetSegment.start);
-    expect(pack.sample(.13).frame, 0);
+    expect(pack.sample(.13).frame, pack.holdFrame);
     final startSeconds = pack.start.durationMs / 1000;
     final loopSeconds = pack.loop.durationMs / 1000;
     expect(pack.sample(startSeconds).segment, CloudPetSegment.loop);
@@ -108,7 +135,7 @@ void main() {
     final invalid = manifest()..['atlas'] = 'https://example.com/pack.png';
     expect(() => CloudPetPack.fromJson(invalid), throwsFormatException);
     final empty = manifest();
-    (empty['clips'] as Map)['B_Loop'] = [];
+    (empty['clips'] as Map)[(empty['loopOrder'] as List).first] = [];
     expect(() => CloudPetPack.fromJson(empty), throwsFormatException);
     final invalidFrame = manifest();
     (invalidFrame['clips'] as Map)['A_Start'] = [
@@ -122,17 +149,22 @@ void main() {
       final data = manifest();
       final pack = CloudPetPack.fromJson(data);
       expect(pack.start.durationMs, 700);
-      expect(pack.loop.durationMs, greaterThanOrEqualTo(25000));
+      expect(pack.loop.durationMs, greaterThanOrEqualTo(20000));
       expect(pack.end.durationMs, greaterThanOrEqualTo(600));
-      for (final name in ['B_Loop', 'B_SideTyping', 'B_Touchpad']) {
+      for (final name in [
+        'B_TypePhraseNear',
+        'B_TypePhraseFar',
+        'B_UseTouchpad',
+      ]) {
         final frames = (data['clips'] as Map)[name] as List;
-        expect(frames.length, 24);
+        expect(frames.length, greaterThanOrEqualTo(24));
         expect(
           frames.take(23).every((frame) => (frame as List)[1] >= 60),
           true,
         );
       }
-      expect(pack.loop.frames.where((f) => f.holdMs >= 1400).length, 6);
+      expect(pack.loop.frames.where((f) => f.holdMs >= 1400).length, 3);
+      expect(pack.singleSourceMotion, true);
       expect(pack.loop.frames.map((f) => f.index).toSet().length, 72);
       expect(pack.wholeFrames, true);
       expect(pack.viewport, const Rect.fromLTWH(0, 0, 256, 256));

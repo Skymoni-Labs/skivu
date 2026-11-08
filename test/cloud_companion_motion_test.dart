@@ -22,6 +22,34 @@ Future<void> decoded(WidgetTester tester) async {
 
 void main() {
   testWidgets(
+    'entering and leaving the laptop never draws two character poses at once',
+    (tester) async {
+      Future<void> show(CloudActivity activity) => tester.pumpWidget(
+        MaterialApp(home: CloudCompanionPortrait(activity: activity)),
+      );
+      CloudCompanionPainter painter() => tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((w) => w.painter)
+          .whereType<CloudCompanionPainter>()
+          .single;
+      await show(CloudActivity.idle);
+      await decoded(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+      await show(CloudActivity.coding);
+      for (var i = 0; i < 75; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(painter().layers!.length, lessThanOrEqualTo(1));
+      }
+      await show(CloudActivity.thinking);
+      for (var i = 0; i < 75; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(painter().layers!.length, lessThanOrEqualTo(1));
+      }
+      expect(painter().activity, CloudActivity.thinking);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
     'parent updates do not restart a finite action; pause keeps the visible pose',
     (tester) async {
       Future<void> show({bool active = true}) => tester.pumpWidget(
@@ -280,8 +308,8 @@ void main() {
       final idle = await pixels();
       await show(CloudActivity.coding);
       expect(await pixels(), orderedEquals(idle));
-      await tester.pump(const Duration(milliseconds: 120));
-      expect(painter().layers!.length, 2);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(painter().layers!.length, 1);
       final frozenSeconds = painter().layers!.first.seconds;
       await tester.pump(const Duration(milliseconds: 30));
       expect(painter().layers!.first.seconds, frozenSeconds);

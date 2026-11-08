@@ -69,6 +69,7 @@ class CloudPetPack {
     activityName = json['activity'] as String;
     repeats = json['repeat'] as bool? ?? true;
     wholeFrames = json['wholeFrames'] as bool? ?? false;
+    singleSourceMotion = json['singleSourceMotion'] as bool? ?? false;
     atlas = json['atlas'] as String;
     if (!atlas.startsWith('assets/branding/cloud_pet/') ||
         atlas.contains('..')) {
@@ -243,6 +244,7 @@ class CloudPetPack {
   late final String id, atlas, activityName;
   late final bool repeats;
   late final bool wholeFrames;
+  late final bool singleSourceMotion;
   late final CloudPetFlow? flow;
   late final Size tileSize;
   late final Size? atlasSize;

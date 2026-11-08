@@ -326,6 +326,7 @@ class CloudCompanionPainter extends CustomPainter {
           registrationA.offset.dy,
           registrationB.offset.dx,
           registrationB.offset.dy,
+          pack.singleSourceMotion ? 1 : 0,
         ];
         for (var i = 0; i < values.length; i++) shader.setFloat(i, values[i]);
         shader.setImageSampler(0, art, filterQuality: FilterQuality.low);

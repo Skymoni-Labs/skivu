@@ -85,3 +85,15 @@ No original PNG, eye, arm or head was repainted, cropped or independently fixed.
 Fields regenerated only for active complete-frame edges; all art hashes kept.
 Timing, registration, reference and validation receipts:
 E:/zzz/ops/skivu-cloud-natural-cadence-20261108/
+
+2026-11-08 coding intention / hand-ownership correction:
+The rejected cloud_scene rig is not used. The original approved complete RGBA
+character drawings are unchanged. Coding now has named phrase, screen-reading,
+trackpad, waiting and result-reading clips. Long rests occur only in low-hand
+settled poses 23, 71 and 47 (2.1-2.4 s), never on a raised key stroke.
+Coding optical fields have 128px spatial samples. The coding shader samples
+one warped original drawing at a time rather than adding two wrist silhouettes;
+its entry/exit also uses non-overlapping fades to avoid an extra set of arms.
+Other activities retain their original artwork and choreography.
+Evidence and rejected-material quarantine:
+E:/zzz/ops/skivu-cloud-coding-intentions-20261108/

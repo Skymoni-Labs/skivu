@@ -11,6 +11,7 @@ uniform float uMix;
 uniform vec2 uScale;
 uniform vec2 uOffsetA;
 uniform vec2 uOffsetB;
+uniform float uSingleSource;
 uniform sampler2D uArt;
 uniform sampler2D uFlow;
 out vec4 fragColor;
@@ -34,6 +35,12 @@ void main() {
   b=(q-(1.-uMix)*uScale.x*field(b,1.).xy)/scale;
   a=(q-uMix*uScale.y*field(a,0.).xy)/scale;
   b=(q-(1.-uMix)*uScale.x*field(b,1.).xy)/scale;
+  if (uSingleSource > .5) {
+    // A hand belongs to one complete original drawing. Blending two drawings
+    // at a wrist occlusion can expose both silhouettes as a third hand.
+    fragColor=uMix<.5 ? art(a,uFrameA) : art(b,uFrameB);
+    return;
+  }
   float wa=(1.-uMix)*max(.15,field(a,0.).z);
   float wb=uMix*max(.15,field(b,1.).z);
   // Warp both whole drawings into correspondence before combining their
