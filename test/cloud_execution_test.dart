@@ -60,9 +60,10 @@ void main() {
       final messages = completedRound();
       final before = jsonEncode(messages.map((m) => m.toJson()).toList());
       final rows = cloudTranscriptRows(messages, cloud: true);
-      expect(rows, hasLength(3));
+      expect(rows, hasLength(2));
       expect(rows[1].messages, hasLength(4));
-      expect(rows.last.first, same(messages.last));
+      expect(rows.last.reply, same(messages.last));
+      expect(rows.last.allMessages, hasLength(5));
       final steps = cloudExecutionSteps(rows[1].messages);
       expect(steps, hasLength(2));
       expect(steps.map((s) => s.outcome), ['verified', 'verified']);
@@ -217,6 +218,119 @@ void main() {
       expect(find.text('当前亮度为 80。'), findsNothing);
       expect(expanded, false);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'one avatar anchors the process and answer in every reply layout',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      seedPreviewConversation();
+      demo.streaming = false;
+      appearance.set('reduceMotion', true);
+      appearance.set('avatars', true);
+      final originalLayout = appearance.text('assistantBubbleLayout');
+      addTearDown(
+        () => appearance.set('assistantBubbleLayout', originalLayout),
+      );
+      tester.view.physicalSize = const Size(390, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      demo.openCloudChat();
+      final chat = demo.conversations[demo.conversation];
+      chat.messages
+        ..clear()
+        ..addAll(completedRound());
+      final engine = cloudChats.engineFor(chat);
+      engine.account = cloudChats.identity();
+      engine.taskId = 'qa-task';
+      engine.phase = 'done';
+      final avatar = find.byKey(
+        ValueKey('execution-avatar-${chat.messages[1].id}'),
+      );
+      final toggle = find.byKey(
+        ValueKey('execution-toggle-${chat.messages[1].id}'),
+      );
+      final answer = find.byKey(const ValueKey('message-bubble-5'));
+      for (final layout in ['centered', 'side', 'full']) {
+        appearance.set('assistantBubbleLayout', layout);
+        await tester.pumpWidget(const SkiApp());
+        await tester.pumpAndSettle();
+        expect(avatar, findsOneWidget);
+        expect(
+          find.byKey(ValueKey('message-avatar-${chat.messages.last.id}')),
+          findsNothing,
+        );
+        final position = tester.getTopLeft(avatar);
+        final answerTop = tester.getTopLeft(answer).dy;
+        expect(tester.getTopLeft(toggle).dy, greaterThanOrEqualTo(position.dy));
+        expect(answerTop, greaterThan(position.dy));
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(avatar).dx, closeTo(position.dx, .01));
+        expect(tester.getTopLeft(avatar).dy, closeTo(position.dy, .01));
+        expect(tester.getTopLeft(toggle).dy, greaterThanOrEqualTo(position.dy));
+        expect(tester.getTopLeft(answer).dy, greaterThan(answerTop));
+        expect(find.text('1. 读取当前亮度'), findsOneWidget);
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.getTopLeft(avatar).dy, closeTo(position.dy, .01));
+        expect(tester.getTopLeft(answer).dy, closeTo(answerTop, .01));
+        expect(tester.takeException(), isNull, reason: layout);
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
+
+  testWidgets(
+    'the running process keeps its avatar when the final reply arrives',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      seedPreviewConversation();
+      demo.streaming = false;
+      appearance.set('reduceMotion', true);
+      appearance.set('avatars', true);
+      tester.view.physicalSize = const Size(390, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      demo.openCloudChat();
+      final chat = demo.conversations[demo.conversation];
+      chat.messages
+        ..clear()
+        ..addAll([
+          Message(true, '查看亮度')..turnId = 'qa-turn',
+          toolRecord('one'),
+        ]);
+      final engine = cloudChats.engineFor(chat);
+      engine.account = cloudChats.identity();
+      engine.taskId = 'qa-task';
+      engine.phase = 'executing';
+      engine.pending = {'tool': 'settings.brightness.read', 'requestId': 'one'};
+      await tester.pumpWidget(const SkiApp());
+      await tester.pumpAndSettle();
+      final avatar = find.byKey(
+        ValueKey('execution-avatar-${chat.messages[1].id}'),
+      );
+      final before = tester.getTopLeft(avatar);
+      chat.messages.addAll([
+        toolRecord('one', outcome: 'verified'),
+        Message(false, '亮度已核对。')
+          ..turnId = 'qa-turn'
+          ..authorId = cloudPersonaId,
+      ]);
+      engine.phase = 'done';
+      engine.pending = null;
+      engine.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(avatar, findsOneWidget);
+      expect(tester.getTopLeft(avatar), before);
+      expect(find.text('亮度已核对。'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('message-avatar-${chat.messages.last.id}')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     },
   );
 

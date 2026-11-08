@@ -9,7 +9,14 @@ class CloudTranscriptRow {
   final int index;
   final bool execution;
   final List<Message> messages;
+  Message? reply;
+  int? replyIndex;
   Message get first => messages.first;
+  Iterable<Message> get allMessages sync* {
+    yield* messages;
+    if (reply != null) yield reply!;
+  }
+
   String? get taskId => messages
       .map((m) => m.toolExecution?.taskId)
       .whereType<String>()
@@ -28,11 +35,26 @@ List<CloudTranscriptRow> cloudTranscriptRows(
     if (execution &&
         previous != null &&
         previous.execution &&
+        previous.reply == null &&
         previous.first.turnId == message.turnId &&
         (previous.taskId == null ||
             message.toolExecution == null ||
             previous.taskId == message.toolExecution!.taskId)) {
       previous.messages.add(message);
+    } else if (cloud &&
+        !message.user &&
+        !message.toolReceipt &&
+        previous != null &&
+        previous.execution &&
+        previous.reply == null &&
+        previous.first.turnId == message.turnId &&
+        (previous.first.authorId == message.authorId ||
+            [
+              previous.first.authorId,
+              message.authorId,
+            ].every((id) => id == null || id == cloudPersonaId))) {
+      previous.reply = message;
+      previous.replyIndex = i;
     } else {
       rows.add(CloudTranscriptRow(i, message, execution: execution));
     }

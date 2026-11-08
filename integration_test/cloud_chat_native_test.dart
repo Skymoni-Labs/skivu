@@ -134,15 +134,26 @@ void main() {
         );
         await tester.ensureVisible(toggle);
         await tester.pump(const Duration(milliseconds: 350));
+        final avatar = find.byKey(
+          ValueKey('execution-avatar-${chat.messages[1].id}'),
+        );
+        expect(avatar, findsOneWidget);
+        final avatarPosition = tester.getTopLeft(avatar);
+        expect(
+          tester.getTopLeft(toggle).dy,
+          greaterThanOrEqualTo(avatarPosition.dy),
+        );
         await reviewFrame(tester, 'collapsed');
         await tester.tap(toggle);
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.text('1. 查看手机能力状态'), findsOneWidget);
         expect(find.text('2. 只读核对安卓实际亮度'), findsOneWidget);
+        expect(tester.getTopLeft(avatar), avatarPosition);
         await reviewFrame(tester, 'expanded');
         await tester.tap(toggle);
         await tester.pump(const Duration(milliseconds: 350));
         expect(find.text('1. 查看手机能力状态'), findsNothing);
+        expect(tester.getTopLeft(avatar), avatarPosition);
         await reviewFrame(tester, 'recollapsed');
         expect(
           requests,
@@ -212,6 +223,8 @@ void main() {
           'oneFoldedProcess': true,
           'twoStepsNotFourMessages': true,
           'toggleDoesNotReplay': true,
+          'singleAvatarAboveProcessAndAnswer': true,
+          'avatarStationaryOnToggle': true,
         };
         binding.reportData = {...?binding.reportData, ...receipt};
         final directory = await getApplicationSupportDirectory();

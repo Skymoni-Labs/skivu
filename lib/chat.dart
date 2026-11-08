@@ -14,6 +14,7 @@ import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
 import 'assistant_reply_layout.dart';
+import 'thinking_disclosure.dart';
 import 'message_info_row.dart';
 import 'chat_extras.dart';
 import 'sticker_library_page.dart';
@@ -307,7 +308,7 @@ class _ChatPageState extends State<ChatPage>
           demo.messages,
           cloud: demo.isCloudChat,
         ).indexed)
-          for (final message in row.messages) message: index,
+          for (final message in row.allMessages) message: index,
       };
       final targetIndex = indexes[target];
       if (targetIndex == null) return;
@@ -1427,39 +1428,93 @@ class _ChatPageState extends State<ChatPage>
         : identical(row.messages.last, demo.messages.last);
     final phase = current ? assistant.phase : null;
     final layout = appearance.text('assistantBubbleLayout');
+    final speaker =
+        demo.personas.where((p) => p.id == row.first.authorId).firstOrNull ??
+        demo.role;
     return Padding(
       key: anchor,
-      padding: EdgeInsets.fromLTRB(
-        layout != 'full' && appearance.flag('avatars') ? 41 : 2,
-        0,
-        2,
-        demo.compact ? 10 : 16,
-      ),
-      child: CloudExecutionDisclosure(
-        messages: row.messages,
-        phase: phase,
-        pendingRequestId: current
-            ? (assistant.pending?['requestId'] as String?)
+      padding: EdgeInsets.only(bottom: demo.compact ? 14 : 24),
+      child: AssistantReplyLayout(
+        layout: layout,
+        wide: appearance.flag('wideChat'),
+        avatar: appearance.flag('avatars')
+            ? messageAvatar(
+                row.first,
+                speaker,
+                key: ValueKey('execution-avatar-${row.first.id}'),
+              )
             : null,
-        expanded: _expandedExecutionIds.contains(row.first.id),
-        onToggle: () {
-          // Reading a long process must not trigger the automatic bottom seek.
-          follow = false;
-          _bottomSeek++;
-          _messageSeek++;
-          setState(() {
-            if (!_expandedExecutionIds.remove(row.first.id)) {
-              _expandedExecutionIds.add(row.first.id);
-            }
-          });
-        },
-        onResume: phase == 'permission' ? demo.resumeCloud : null,
-        onCapabilities: phase == 'permission' ? openCloudCapabilities : null,
+        child: Column(
+          crossAxisAlignment: layout == 'centered'
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.stretch,
+          children: [
+            CloudExecutionDisclosure(
+              messages: row.messages,
+              phase: phase,
+              pendingRequestId: current
+                  ? (assistant.pending?['requestId'] as String?)
+                  : null,
+              expanded: _expandedExecutionIds.contains(row.first.id),
+              onToggle: () {
+                // Reading a long process must not trigger the automatic bottom seek.
+                follow = false;
+                _bottomSeek++;
+                _messageSeek++;
+                setState(() {
+                  if (!_expandedExecutionIds.remove(row.first.id)) {
+                    _expandedExecutionIds.add(row.first.id);
+                  }
+                });
+              },
+              onResume: phase == 'permission' ? demo.resumeCloud : null,
+              onCapabilities: phase == 'permission'
+                  ? openCloudCapabilities
+                  : null,
+            ),
+            if (row.reply != null) ...[
+              const SizedBox(height: 12),
+              message(row.reply!, row.replyIndex!, embedded: true),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget message(Message m, int i) {
+  Widget messageAvatar(Message m, Persona speaker, {Key? key}) => Tooltip(
+    key: key ?? ValueKey('message-avatar-${m.id}'),
+    message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
+    child: InkWell(
+      onTap: () {
+        if (m.user) {
+          editUserCard(context);
+        } else {
+          demo.persona = demo.personas.indexOf(speaker);
+          Navigator.of(context).pushReplacementNamed('/characters/edit');
+        }
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: m.user ? const Color(0xffcce6fa) : mist,
+          borderRadius: BorderRadius.circular(
+            appearance.flag('squareAvatars') ? 7 : 16,
+          ),
+        ),
+        child: m.user
+            ? UserAvatar(square: appearance.flag('squareAvatars'))
+            : CharacterAvatar(
+                persona: speaker,
+                square: appearance.flag('squareAvatars'),
+              ),
+      ),
+    ),
+  );
+
+  Widget message(Message m, int i, {bool embedded = false}) {
     final speaker = m.authorId == null
         ? demo.role
         : demo.personas.where((p) => p.id == m.authorId).firstOrNull ??
@@ -1469,36 +1524,7 @@ class _ChatPageState extends State<ChatPage>
     final hasThinking =
         appearance.flag('showThinking') && m.thinking?.isNotEmpty == true;
     keys.putIfAbsent(m, () => GlobalKey());
-    final avatar = Tooltip(
-      message: m.user ? '编辑我的角色卡' : '编辑对话角色卡',
-      child: InkWell(
-        onTap: () {
-          if (m.user) {
-            editUserCard(context);
-          } else {
-            demo.persona = demo.personas.indexOf(speaker);
-            Navigator.of(context).pushReplacementNamed('/characters/edit');
-          }
-        },
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: m.user ? const Color(0xffcce6fa) : mist,
-            borderRadius: BorderRadius.circular(
-              appearance.flag('squareAvatars') ? 7 : 16,
-            ),
-          ),
-          child: m.user
-              ? UserAvatar(square: appearance.flag('squareAvatars'))
-              : CharacterAvatar(
-                  persona: speaker,
-                  square: appearance.flag('squareAvatars'),
-                ),
-        ),
-      ),
-    );
+    final avatar = messageAvatar(m, speaker);
     final bubble = ChatBubbleSurface(
       key: ValueKey('message-bubble-$i'),
       user: m.user,
@@ -1650,6 +1676,27 @@ class _ChatPageState extends State<ChatPage>
           ),
       ],
     );
+    if (embedded) {
+      return Padding(
+        key: keys[m],
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: fill
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.start,
+          children: [
+            if (hasThinking)
+              ThinkingDisclosure(
+                text: m.thinking!,
+                color: appearance.textColorEnabled('thinkingText')
+                    ? appearance.textColor('thinkingText')
+                    : sceneMuted,
+              ),
+            content,
+          ],
+        ),
+      );
+    }
     return Padding(
       key: keys[m],
       padding: EdgeInsets.only(bottom: demo.compact ? 14 : 24),
