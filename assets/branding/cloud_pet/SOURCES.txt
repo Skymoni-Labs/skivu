@@ -140,3 +140,11 @@ its unchanged speed. The 1360 ms reading clip is removed. The last frame
 warps directly back to the first, without a same-frame hold at the seam.
 Entry/exit, source artwork and all other activities remain unchanged.
 Evidence: E:/zzz/ops/skivu-cloud-coding-no-pause-20261108/
+
+2026-11-08 magnifier/paper occlusion correction:
+Checking and resultReady keep the exact original atlas and timing. Each
+interpolated sample now owns one complete source drawing, as coding does,
+so confidence blending cannot expose the paper edge through a second lens
+silhouette. Transitions involving these scenes use the same sequential
+fade as coding. No character artwork was regenerated or repainted.
+Evidence: E:/zzz/ops/skivu-cloud-magnifier-front-20261108/

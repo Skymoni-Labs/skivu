@@ -361,6 +361,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('magnifier scene changes never overlap a second set of props', (
+    tester,
+  ) async {
+    Future<void> show(CloudActivity activity) => tester.pumpWidget(
+      MaterialApp(home: CloudCompanionPortrait(activity: activity)),
+    );
+    CloudCompanionPainter painter() => tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((widget) => widget.painter)
+        .whereType<CloudCompanionPainter>()
+        .single;
+    await show(CloudActivity.idle);
+    await decoded(tester);
+    for (final activity in [
+      CloudActivity.checking,
+      CloudActivity.resultReady,
+    ]) {
+      await show(CloudActivity.idle);
+      await tester.pump(const Duration(milliseconds: 400));
+      await show(activity);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(painter().layers!.length, lessThanOrEqualTo(1));
+      }
+      expect(painter().layers!.single.activity, activity);
+      await show(CloudActivity.permission);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        expect(painter().layers!.length, lessThanOrEqualTo(1));
+      }
+      expect(painter().layers!.single.activity, CloudActivity.permission);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   test('final replies and unknown outcomes never invent verified success', () {
     expect(cloudActivityForTask('done'), CloudActivity.resultReady);
     expect(cloudActivityForTask('unknown'), CloudActivity.checking);

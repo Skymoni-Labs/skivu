@@ -2496,7 +2496,7 @@
     },
     "checking": {
       "version": 1,
-      "id": "cloud-workflow-checking-v1",
+      "id": "cloud-workflow-checking-occlusion-v2",
       "activity": "checking",
       "wholeFrames": true,
       "repeat": true,
@@ -2822,11 +2822,12 @@
             0
           ]
         ]
-      }
+      },
+      "singleSourceMotion": true
     },
     "resultReady": {
       "version": 1,
-      "id": "cloud-workflow-resultReady-v1",
+      "id": "cloud-workflow-resultReady-occlusion-v2",
       "activity": "resultReady",
       "wholeFrames": true,
       "repeat": false,
@@ -3152,7 +3153,8 @@
             0
           ]
         ]
-      }
+      },
+      "singleSourceMotion": true
     },
     "complete": {
       "version": 1,

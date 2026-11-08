@@ -31,6 +31,16 @@ void main() {
       catalog.packs[CloudActivity.resultReady]!.atlas,
       catalog.packs[CloudActivity.checking]!.atlas,
     );
+    for (final activity in [
+      CloudActivity.checking,
+      CloudActivity.resultReady,
+    ]) {
+      expect(
+        catalog.packs[activity]!.singleSourceMotion,
+        true,
+        reason: 'The magnifier and paper must share one occlusion owner',
+      );
+    }
     expect(
       catalog.packs[CloudActivity.resultReady]!.atlas,
       isNot(catalog.packs[CloudActivity.complete]!.atlas),
