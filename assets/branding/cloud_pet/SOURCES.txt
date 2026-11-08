@@ -182,3 +182,14 @@ That sample excludes screenrecord and does not claim all-app/permanent FPS.
 Prompt, cell hashes/registration, source and phone measurements:
 E:/zzz/ops/skivu-cloud-occlusion-smooth-20261108/PROMPT.txt
 E:/zzz/ops/skivu-cloud-occlusion-smooth-20261108/asset-selection.json
+
+2026-11-08 native-review refinement of the new occlusion poses:
+Four generated withdrawal cells 36-39 overshot the approved lens endpoint,
+so they are excluded. Twelve new poses are active; original pose16 bridges
+the withdrawal. Entry is600ms; exit remains600ms, with no in-motion holds.
+All checking poses now share a registered foot baseline/center. Numeric
+motion data constrain the lens to rigid translation, stabilize paper edges,
+and reject inconsistent flow; integrated blink edges keep the authored
+expression rather than warping eyes. No source RGBA artwork changed.
+Phone review and corrected timestamp-window measurements in the same ops
+directory retain the first sample with a stale ready-hold gap separately.
