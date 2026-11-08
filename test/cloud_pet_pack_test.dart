@@ -14,7 +14,7 @@ Map<String, dynamic> manifest() =>
 
 void main() {
   test(
-    'only the selected first five seconds repeat with the left hand hidden',
+    'the selected hidden-hand phrase repeats continuously without a reading pause',
     () {
       final data = manifest(), pack = CloudPetPack.fromJson(manifest());
       final hidden = (data['occludedLeftFrames'] as List).cast<int>().toSet();
@@ -24,7 +24,15 @@ void main() {
       final hiddenMs = pack.loop.frames
           .where((f) => hidden.contains(f.index))
           .fold<int>(0, (n, f) => n + f.durationMs);
-      expect(pack.loop.durationMs, 5000);
+      expect(pack.loop.durationMs, 3640);
+      expect(pack.loop.frames.every((f) => f.holdMs == 0), true);
+      for (var i = 0; i < pack.loop.frames.length; i++) {
+        expect(
+          pack.loop.frames[i].index,
+          isNot(pack.loop.frames[(i + 1) % pack.loop.frames.length].index),
+          reason: 'Repeated drawings must not create a stationary loop seam',
+        );
+      }
       expect(hiddenMs, pack.loop.durationMs);
       expect(pack.loop.frames.every((f) => f.index >= 72), true);
       for (var ms = 0; ms < 15000; ms += 4) {
@@ -108,7 +116,7 @@ void main() {
     },
   );
   test(
-    'coding keeps the exact approved original artwork and rests only at low hand poses',
+    'coding keeps the exact approved artwork and continuously moves between drawings',
     () {
       final data = manifest();
       final pack = CloudPetPack.fromJson(data);
@@ -119,8 +127,7 @@ void main() {
         'a5531a4f0f13d2ccfe292112a547b5f5cbaa473932bd09c94a696361271d8e1e',
       );
       expect(pack.singleSourceMotion, true);
-      final rests = pack.loop.frames.where((f) => f.holdMs >= 1000);
-      expect(rests.map((f) => f.index), orderedEquals([87]));
+      expect(pack.loop.frames.where((f) => f.holdMs > 0), isEmpty);
       for (final name in ['B_TypeWithLeftHidden']) {
         final frames = (data['clips'] as Map)[name] as List;
         expect(
@@ -244,7 +251,7 @@ void main() {
       final data = manifest();
       final pack = CloudPetPack.fromJson(data);
       expect(pack.start.durationMs, 700);
-      expect(pack.loop.durationMs, 5000);
+      expect(pack.loop.durationMs, 3640);
       expect(pack.end.durationMs, greaterThanOrEqualTo(600));
       for (final name in ['B_TypeWithLeftHidden']) {
         final frames = (data['clips'] as Map)[name] as List;
@@ -254,7 +261,7 @@ void main() {
           true,
         );
       }
-      expect(pack.loop.frames.where((f) => f.holdMs >= 1000).length, 1);
+      expect(pack.loop.frames.where((f) => f.holdMs > 0), isEmpty);
       expect(pack.singleSourceMotion, true);
       expect(pack.loop.frames.map((f) => f.index).toSet().length, 16);
       expect(pack.wholeFrames, true);

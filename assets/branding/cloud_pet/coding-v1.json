@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "id": "cloud-workflow-coding-first-five-v3",
+  "id": "cloud-workflow-coding-continuous-v4",
   "activity": "coding",
   "wholeFrames": true,
   "repeat": true,
@@ -189,14 +189,6 @@
         0
       ]
     ],
-    "B_ReadResult": [
-      [
-        87,
-        1360,
-        1200,
-        1
-      ]
-    ],
     "C_End": [
       [
         86,
@@ -213,8 +205,7 @@
     ]
   },
   "loopOrder": [
-    "B_TypeWithLeftHidden",
-    "B_ReadResult"
+    "B_TypeWithLeftHidden"
   ],
   "motionFlow": {
     "atlas": "assets/branding/cloud_pet/motion-coding-flow-v1.png",
@@ -960,8 +951,7 @@
   ],
   "singleSourceMotion": true,
   "choreography": {
-    "B_TypeWithLeftHidden": "far left hand fully behind screen; near hand types lightly",
-    "B_ReadResult": "Brief settled reading pause, then ease into the same five-second hidden-hand phrase"
+    "B_TypeWithLeftHidden": "Continuous hidden-left typing at the approved speed, with no reading hold between repeats"
   },
   "excludedFrames": [
     27,

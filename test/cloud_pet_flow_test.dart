@@ -121,7 +121,8 @@ void main() {
       );
       expect(pack.sample(start + .025, moving: false).progress, 0);
       final coding = catalog.packs[CloudActivity.coding]!;
-      expect(coding.loop.durationMs, 5000);
+      expect(coding.loop.durationMs, 3640);
+      expect(coding.loop.frames.every((frame) => frame.holdMs == 0), true);
       final idle = catalog.packs[CloudActivity.idle]!;
       final longRest = idle.loop.frames.indexWhere((f) => f.holdMs > 0);
       final holdStart =
