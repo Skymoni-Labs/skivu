@@ -66,7 +66,10 @@ export function labCall(base,owner,args={}){
  if(op==='updateCheck')return{ok:true,current:'1.0.0',latest:'1.0.0',has_update:false,install:{mode:'skivu'},notes:['更新随 Skivu 插件包交付，不访问或修改 DSH。']};
  if(op==='version')return{ok:true,current:'1.0.0',version:'1.0.0',upstreamVersion:'1.1.71',host:'Skivu 小云',embedded:true};
  if(op==='agentsStatus')return{ok:true,agents:[],running:0,available:false,note:'执行由小云现有任务体系管理；没有独立 DSH 智能体。'};
- if(op==='skillCatalog')return{ok:true,items:library.skills.map(({content,...s})=>s),skills:library.skills.map(({content,...s})=>s),count:library.skills.length,summary:'原包技能资料；未宣称依赖工具已安装'};
+ if(op==='skillCatalog'){
+  const items=library.skills.map(({content,...s})=>s),broken=items.filter(s=>s.availability==='broken');
+  return{ok:true,items,skills:items,count:items.length,fromPlugin:items.length,libraries:{redteam:items.length,official:0},availability:{summary:{available:items.length-broken.length,broken:broken.length,unknown:0},broken},note:'技能正文由本插件提供，小云通过资料工具按需读取；外部工具和密钥需由小云另行检查。',summary:'原包技能资料；未宣称依赖工具已安装'};
+ }
  if(op==='skillRead'){const s=library.skills.find(s=>s.name===req.name);return s?.blockedReason?{ok:false,error:s.blockedReason,available:false}:s?{ok:true,...s,text:s.content,markdown:s.content}:{ok:false,error:'未找到技能'};}
  if(op==='settingsGet')return{ok:true,settings:json(file,{prompt:'',rules:[],enabled:false,mode:'append',ownServers:[]}),preset:library.preset,source:library.source};
  if(op==='settingsSave'){

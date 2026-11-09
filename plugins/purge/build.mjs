@@ -16,6 +16,10 @@ let drill=fs.readFileSync('upstream/lib/redteam/client.js','utf8').replace('() =
  .replace(/function AgentsTab\(props\) \{[\s\S]*?(?=    function ConcurrencyCard)/, `function AgentsTab(props) { return h('div', { className: 'rt-main' }, h('div', { className: 'rt-card' }, h('h4', null, '小云统一执行'), h('p', null, '代码执行、手机操作和恢复由小云当前任务体系负责。下方保留原包角色提示词资料，不代表另一个 DSH 运行器。')), h(PromptsTab, props)); }\n\n`)
  .replace("['agents', '智能体']","['agents', '角色资料']")
  .replace("const side = h('div', { className: 'rt-side' }, sideChildren)","const side = h('details', { className: 'rt-side', open: window.innerWidth > 650 }, h('summary', null, '网段与范围'), h('div', null, sideChildren))");
+const skillsStart=drill.indexOf('    function SkillsTab(props) {');
+const skillsEnd=drill.indexOf('    /* ---------------------------------------------------------- 漏洞战果 */',skillsStart);
+if(skillsStart<0||skillsEnd<0)throw Error('Upstream skills UI signature changed');
+drill=drill.slice(0,skillsStart)+fs.readFileSync('skills-tab.js','utf8')+'\n\n'+drill.slice(skillsEnd);
 const downloadStart=drill.indexOf('const download = (text, label) => {');
 const downloadEnd=drill.indexOf('      const items = (data && data.items)',downloadStart);
 if(downloadStart<0||downloadEnd<0)throw Error('Upstream report export signature changed');

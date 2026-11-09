@@ -7495,7 +7495,10 @@ function labCall(base, owner, args = {}) {
   if (op === "updateCheck") return { ok: true, current: "1.0.0", latest: "1.0.0", has_update: false, install: { mode: "skivu" }, notes: ["\u66F4\u65B0\u968F Skivu \u63D2\u4EF6\u5305\u4EA4\u4ED8\uFF0C\u4E0D\u8BBF\u95EE\u6216\u4FEE\u6539 DSH\u3002"] };
   if (op === "version") return { ok: true, current: "1.0.0", version: "1.0.0", upstreamVersion: "1.1.71", host: "Skivu \u5C0F\u4E91", embedded: true };
   if (op === "agentsStatus") return { ok: true, agents: [], running: 0, available: false, note: "\u6267\u884C\u7531\u5C0F\u4E91\u73B0\u6709\u4EFB\u52A1\u4F53\u7CFB\u7BA1\u7406\uFF1B\u6CA1\u6709\u72EC\u7ACB DSH \u667A\u80FD\u4F53\u3002" };
-  if (op === "skillCatalog") return { ok: true, items: library_default.skills.map(({ content, ...s }) => s), skills: library_default.skills.map(({ content, ...s }) => s), count: library_default.skills.length, summary: "\u539F\u5305\u6280\u80FD\u8D44\u6599\uFF1B\u672A\u5BA3\u79F0\u4F9D\u8D56\u5DE5\u5177\u5DF2\u5B89\u88C5" };
+  if (op === "skillCatalog") {
+    const items = library_default.skills.map(({ content, ...s }) => s), broken = items.filter((s) => s.availability === "broken");
+    return { ok: true, items, skills: items, count: items.length, fromPlugin: items.length, libraries: { redteam: items.length, official: 0 }, availability: { summary: { available: items.length - broken.length, broken: broken.length, unknown: 0 }, broken }, note: "\u6280\u80FD\u6B63\u6587\u7531\u672C\u63D2\u4EF6\u63D0\u4F9B\uFF0C\u5C0F\u4E91\u901A\u8FC7\u8D44\u6599\u5DE5\u5177\u6309\u9700\u8BFB\u53D6\uFF1B\u5916\u90E8\u5DE5\u5177\u548C\u5BC6\u94A5\u9700\u7531\u5C0F\u4E91\u53E6\u884C\u68C0\u67E5\u3002", summary: "\u539F\u5305\u6280\u80FD\u8D44\u6599\uFF1B\u672A\u5BA3\u79F0\u4F9D\u8D56\u5DE5\u5177\u5DF2\u5B89\u88C5" };
+  }
   if (op === "skillRead") {
     const s = library_default.skills.find((s2) => s2.name === req.name);
     return s?.blockedReason ? { ok: false, error: s.blockedReason, available: false } : s ? { ok: true, ...s, text: s.content, markdown: s.content } : { ok: false, error: "\u672A\u627E\u5230\u6280\u80FD" };

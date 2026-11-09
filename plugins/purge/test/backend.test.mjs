@@ -45,6 +45,7 @@ test('plugin library isolation and source-path confinement',()=>{
 });
 test('22 skill bodies and one quarantined placeholder are truthful',()=>{
  const skills=call({op:'skillCatalog'});assert.equal(skills.items.length,23);assert.equal(skills.items.filter(s=>s.availability==='available').length,22);assert.equal(raw({op:'skillRead',name:'redteam/unauth-exploit.md'}).ok,false);
+ assert.equal(skills.fromPlugin,23);assert.deepEqual(skills.availability.summary,{available:22,broken:1,unknown:0});assert.equal(skills.libraries.redteam,23);
  assert.ok(call({op:'skillRead',name:skills.items[0].name}).content.length>100);
  assert.equal(call({op:'agentsStatus'}).available,false);
  assert.throws(()=>raw({op:'probeSessions',engagement}),/未启用网络探测/);
