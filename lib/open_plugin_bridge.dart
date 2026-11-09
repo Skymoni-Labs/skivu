@@ -40,6 +40,8 @@ const pluginMethodPermissions = <String, String>{
   'runtime.open': 'runtime.local',
   'runtime.install': 'runtime.local',
   'prompt.set': 'prompt',
+  'prompt.get': 'prompt',
+  'lab.call': 'cloud.lab',
   'clipboard.read': 'clipboard',
   'clipboard.write': 'clipboard',
   'device.discover': 'device.observe',

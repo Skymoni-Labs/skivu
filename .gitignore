@@ -35,5 +35,10 @@ __pycache__/
 /credentials/
 /screenshots/
 /runtime-*.log
+/plugins/purge/node_modules/
+/plugins/purge/dist/
+/plugins/purge/default-prompt.txt
+/plugins/purge/library.json
+/plugins/purge/LICENSE.txt
 /android/app/cloud-assets/
 /android/app/cloud-runtime/

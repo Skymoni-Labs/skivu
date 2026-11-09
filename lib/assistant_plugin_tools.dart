@@ -117,11 +117,16 @@ class AssistantPluginTools implements AssistantExtensions {
     try {
       final result = await runtime.run(parts[1], args);
       guard();
+      final unknown = result is Map && result['outcome'] == 'unknown';
       return DeviceToolReceipt({
         'requestId': requestId,
         'tool': name,
-        'outcome': tool['effect'] == 'read' ? 'verified' : 'dispatched',
-        'summary': '插件工具已返回；业务结果以插件数据及实际软件为准。',
+        'outcome': unknown
+            ? 'unknown'
+            : (tool['effect'] == 'read' ? 'verified' : 'dispatched'),
+        'summary': unknown
+            ? '插件回执中断；请先核对原状态，不能自动重放。'
+            : '插件工具已返回；业务结果以插件数据及实际软件为准。',
         'value': {
           'source': 'plugin',
           'businessVerified': false,

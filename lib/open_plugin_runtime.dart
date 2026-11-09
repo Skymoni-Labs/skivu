@@ -7,6 +7,7 @@ import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_network.dart';
 import 'device_tool_catalog.dart';
+import 'open_plugin_lab.dart';
 
 typedef CompanionRunner =
     Future<Object?> Function(
@@ -77,6 +78,17 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     check();
     if (method == 'context.get') return context;
     if (method == 'ui.toast') return true;
+    if (assistant && method == 'lab.call') {
+      final value = await invokePluginLab(
+        record,
+        params,
+        assistant: true,
+        readOnly: effect == 'read',
+        callId: context['callId'] as String?,
+      );
+      check();
+      return value;
+    }
     if (assistant && method.startsWith('device.engine.'))
       return host(method, params);
     if (method == 'ui.openExternal' && effect == 'external')
@@ -131,6 +143,7 @@ class OpenPluginRuntime with WidgetsBindingObserver {
           'network.request',
           'https.request',
           'ui.toast',
+          'lab.call',
         };
         const writes = {'storage.compareAndSet', 'fs.write', 'fs.remove'};
         var allowedDeviceCall = false;

@@ -622,14 +622,25 @@ void main() {
     await gesture.cancel();
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets('workspace only shows coming-soon modules', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: WorkspacePanel(close: () {})),
-      ),
-    );
-    expect(find.text('即将开放'), findsNWidgets(4));
-    expect(find.text('灵感笔记.md'), findsNothing);
-    expect(find.byType(TextField), findsNothing);
-  });
+  testWidgets(
+    'workspace exposes completed modules and cloud rules without stale placeholders',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: WorkspacePanel(close: () {})),
+        ),
+      );
+      expect(find.text('即将开放'), findsNothing);
+      expect(find.text('小云项目'), findsOneWidget);
+      expect(find.text('小云 · 规则与演练'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .every((tile) => tile.onTap != null),
+        isTrue,
+      );
+      expect(find.text('灵感笔记.md'), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+    },
+  );
 }

@@ -8,6 +8,7 @@ import 'cloud_coding_page.dart';
 import 'cloud_storage_page.dart';
 import 'speech_settings_page.dart';
 import 'extensions_page.dart';
+import 'cloud_purge_launcher.dart';
 
 class WorkspacePanel extends StatelessWidget {
   const WorkspacePanel({
@@ -55,6 +56,7 @@ class WorkspacePanel extends StatelessWidget {
                           (r) =>
                               r.authorized &&
                               r.manifest.launcher &&
+                              r.manifest.id != 'org.skivu.purge' &&
                               !(cloudIntegration.migrated &&
                                   r.manifest.id == 'org.skivu.dsh'),
                         )
@@ -77,6 +79,13 @@ class WorkspacePanel extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.rule_folder_outlined),
+                      title: const Text('小云 · 规则与演练'),
+                      subtitle: const Text('提示词、技能、资产、证据和报告'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => launchCloudPurge(context, library),
                     ),
                     for (final item in <(IconData, String, String, Widget)>[
                       (

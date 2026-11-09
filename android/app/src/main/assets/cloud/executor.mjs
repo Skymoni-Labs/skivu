@@ -11,6 +11,7 @@ import {writeWorkbook} from './formats.mjs';
 import {pipeline} from 'node:stream/promises';
 import {hashFile,range,rangeFiles,logSources,walkFiles,readLines,ContentStore,QueryStore} from './streaming.mjs';
 import {Jobs} from './jobs.mjs';
+import {labCall} from './lab.mjs';
 
 const base = process.env.SKIVU_CLOUD_ROOT || '/root/skivu-home/cloud';
 const workspace = process.env.SKIVU_CLOUD_WORKSPACE || '/workspace';
@@ -65,6 +66,7 @@ function toolchain(){const commands=['node','npm','python3','git','bash','sh','m
 async function invoke(tool,args,ctx){
  const {owner,taskId,requestId}=ctx;
  refreshProjects();
+ if(tool==='coding.lab')return labCall(base,owner,args);
  if(tool==='coding.environment')return {policy:manager.policy(),contentTransfer:'coding.content.create/append/finish -> files.write(contentId); byte offsets, integrity checks; complete paged logs and search',node:process.version,platform:process.platform,arch:process.arch,workspace,tools:toolchain(),formatsModule:'/opt/skivu-cloud/formats.mjs',formatsApi:'import {writeWorkbook,writeDocument,packageProject} from "/opt/skivu-cloud/formats.mjs"; writeWorkbook(file,[{name,rows:[[value,{value,formula,format,bold}]],widths,freezeRows}]); writeDocument(file,[{text,heading}]); packageProject(file,projectRoot,explicitRelativeFilePaths)',sandbox:'PRoot compatibility layer; authorized code can access this app runtime',resources:'DSH 0.2.1-rc.2 / Ubuntu / Node, bundled and SHA-256 verified'};
  if(tool==='coding.projects.list')return projects;
  if(tool.startsWith('coding.content.'))return contents.invoke(tool.slice('coding.content.'.length),args,owner);

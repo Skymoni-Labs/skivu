@@ -48,6 +48,7 @@ const openPluginPermissions = <String, String>{
   'ai.generate': '按宿主授权使用模型生成内容，可能消耗额度；本地运行环境按会话授权',
   'runtime.local': '打开你批准并核验签名的独立本地编程环境，可执行代码并修改该组件内的项目和运行文件',
   'prompt': '向所选角色的后续对话贡献提示词',
+  'cloud.lab': '使用小云内置环境管理本插件的规则、技能与演练资料库；不启动独立 DSH',
   'clipboard': '读取和写入系统剪贴板',
   'external.open': '经每次确认在系统浏览器或关联软件打开公开 HTTPS 链接',
   'device.observe': '读取已授权的手机状态、软件清单和任务界面；不会自动开启系统权限',

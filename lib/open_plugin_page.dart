@@ -14,6 +14,7 @@ import 'device_engine_plugin.dart';
 import 'local_runtime_page.dart';
 import 'cloud_integration.dart';
 import 'cloud_coding_page.dart';
+import 'open_plugin_lab.dart';
 import 'state.dart';
 import 'chat_api.dart';
 import 'open_plugin_companion_ui.dart';
@@ -153,7 +154,11 @@ class _OpenPluginPageState extends State<OpenPluginPage>
   void initState() {
     super.initState();
     if (!widget.record.manifest.independentRuntime) {
-      roleId = widget.initialRoleId ?? demo.role.id;
+      roleId =
+          widget.initialRoleId ??
+          (widget.record.manifest.permissions.contains('cloud.lab')
+              ? cloudPersonaId
+              : demo.role.id);
       chatId = widget.initialChatId ?? demo.conversations[demo.conversation].id;
     }
     if (!widget.record.manifest.independentRuntime &&
@@ -539,6 +544,17 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       demo.changed();
       return {'id': '${chat.id}:${chat.messages.indexOf(message)}'};
     }
+    if (method == 'prompt.get') {
+      return {
+        'text':
+            widget.registry.promptContributions[widget
+                .record
+                .manifest
+                .id]?[roleId] ??
+            '',
+        'roleId': roleId,
+      };
+    }
     if (method == 'prompt.set') {
       final role = roleId;
       if (role == null) throw const PluginApiError('NOT_FOUND', '请先选择角色。');
@@ -548,6 +564,11 @@ class _OpenPluginPageState extends State<OpenPluginPage>
         bridge.text(p, 'text', empty: true),
       );
       return true;
+    }
+    if (method == 'lab.call') {
+      final value = await invokePluginLab(widget.record, p);
+      bridge.check();
+      return value;
     }
     if (method.startsWith('device.engine.')) {
       return engineScope.call(widget.registry, widget.record, method, p);
