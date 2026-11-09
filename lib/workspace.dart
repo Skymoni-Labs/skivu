@@ -3,6 +3,8 @@ import 'open_plugin.dart';
 import 'open_plugin_page.dart';
 import 'widgets.dart';
 import 'state.dart';
+import 'cloud_integration.dart';
+import 'cloud_coding_page.dart';
 
 class WorkspacePanel extends StatelessWidget {
   const WorkspacePanel({
@@ -38,12 +40,21 @@ class WorkspacePanel extends StatelessWidget {
           const SizedBox(height: 20),
           Expanded(
             child: ListenableBuilder(
-              listenable: registry ?? openPlugins,
+              listenable: Listenable.merge([
+                registry ?? openPlugins,
+                cloudIntegration,
+              ]),
               builder: (context, _) {
                 final library = registry ?? openPlugins;
                 final launchers =
                     library.records.values
-                        .where((r) => r.authorized && r.manifest.launcher)
+                        .where(
+                          (r) =>
+                              r.authorized &&
+                              r.manifest.launcher &&
+                              !(cloudIntegration.migrated &&
+                                  r.manifest.id == 'org.skivu.dsh'),
+                        )
                         .toList()
                       ..sort(
                         (a, b) => a.manifest.name.compareTo(b.manifest.name),
@@ -51,6 +62,19 @@ class WorkspacePanel extends StatelessWidget {
                 return ListView(
                   padding: EdgeInsets.zero,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: const Icon(Icons.code),
+                        title: const Text('小云项目'),
+                        subtitle: const Text('内置编程、文件和旧会话'),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CloudCodingPage(),
+                          ),
+                        ),
+                      ),
+                    ),
                     for (final item in [
                       (Icons.folder_outlined, '文件'),
                       (Icons.handyman_outlined, '工具'),

@@ -1,0 +1,3 @@
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path name="final_deliveries" path="cloud-artifacts/" />
+</paths>

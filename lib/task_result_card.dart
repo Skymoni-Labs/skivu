@@ -111,7 +111,12 @@ class TaskResult {
       'ui.scroll',
     };
     final work = steps
-        .where((s) => !navigation.contains(s.first.toolExecution!.tool))
+        .where(
+          (s) =>
+              !navigation.contains(s.first.toolExecution!.tool) &&
+              !s.first.toolExecution!.tool.startsWith('coding.') &&
+              !s.first.toolExecution!.tool.startsWith('adapter.'),
+        )
         .toList();
     if (work.isEmpty ||
         work.any(

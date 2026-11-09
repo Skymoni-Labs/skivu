@@ -6,6 +6,17 @@ Map<String, String> toolResultDetails(
   Map<String, dynamic> receipt,
 ) {
   final value = receipt['value'];
+  if (tool == 'coding.deliver.prepare' &&
+      receipt['outcome'] == 'verified' &&
+      value is Map &&
+      value['artifacts'] is List) {
+    final ids = (value['artifacts'] as List)
+        .whereType<Map>()
+        .map((a) => a['id'])
+        .whereType<String>()
+        .toList();
+    return {if (ids.isNotEmpty) 'artifactIds': ids.join(',')};
+  }
   if (tool.startsWith('tasks.plan.') &&
       receipt['outcome'] == 'verified' &&
       value is Map &&

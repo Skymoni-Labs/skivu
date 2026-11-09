@@ -57,7 +57,8 @@ class TaskScheduleStore(private val context: Context) {
         require(p.getInt("maxOutputTokens") in 512..4096)
         require(p.getString("missedPolicy") in setOf("latest","skip"))
         require(p.getInt("maxDelayMinutes") in 1..1440)
-        require(p.optString("mode","summary") in setOf("summary","local_tasks","device_action"))
+        require(p.optString("mode","summary") in setOf("summary","local_tasks","device_action","coding"))
+        if(p.optString("mode")=="coding")require(Regex("project_[a-zA-Z0-9_-]{1,110}").matches(p.optString("projectId"))&&java.io.File(context.filesDir,"cloud-projects/${p.optString("projectId")}").isDirectory){"编程计划必须绑定一个现有内置项目。"}
     }
     fun create(args: JSONObject,operation: String): JSONObject {
         val digest=TaskDatabase.digest("create:${canonical(args)}")
@@ -81,6 +82,7 @@ class TaskScheduleStore(private val context: Context) {
                 .put("maxOutputTokens",args.optInt("maxOutputTokens",1024)).put("missedPolicy",args.optString("missedPolicy","latest"))
                 .put("maxDelayMinutes",args.optInt("maxDelayMinutes",60)).put("allowForeground",args.optBoolean("allowForeground",false))
                 .put("created",now).put("updated",now).put("state",if(args.optBoolean("enabled",true)) "enabled" else "paused").put("reason","")
+            if(args.has("projectId"))p.put("projectId",args.getString("projectId"))
             validateConfig(p)
             if(args.has("modelBinding")) p.put("modelBinding",args.getJSONObject("modelBinding"))
             require(store.queryJson(db,"SELECT data FROM plans WHERE state!='ended'").size<256) { "启用或暂停的计划已达上限，请先整理。" }
@@ -101,7 +103,7 @@ class TaskScheduleStore(private val context: Context) {
             val p=store.plan(args.getString("id"),db) ?: error("计划不存在。")
             require(p.getInt("version")==args.getInt("expectedRevision")) { "计划已在其他位置修改，请重新读取。" }
             if(action=="update") {
-                for(key in listOf("goal","mode","modelIdentity","modelName","modelBinding","maxRequestsPerRun","maxDailyRequests","maxOutputTokens","missedPolicy","maxDelayMinutes","allowForeground")) if(args.has(key)) p.put(key,args.get(key))
+                for(key in listOf("goal","mode","projectId","modelIdentity","modelName","modelBinding","maxRequestsPerRun","maxDailyRequests","maxOutputTokens","missedPolicy","maxDelayMinutes","allowForeground")) if(args.has(key)) p.put(key,args.get(key))
                 if(args.has("rule")) p.put("rule",rule(args.getJSONObject("rule")))
                 validateConfig(p)
                 p.put("nextAt",next(p.getJSONObject("rule"),System.currentTimeMillis()) ?: JSONObject.NULL)
@@ -157,6 +159,7 @@ class TaskScheduleStore(private val context: Context) {
         r.put("state",state).put("finished",now).put("leaseUntil",0).put("summary",summary.take(400));store.writeRun(db,r)
         if(p.getInt("version")==r.getInt("planVersion")) {
             p.put("lastRun",JSONObject().put("id",r.getString("id")).put("dueAt",r.getLong("dueAt")).put("finished",now).put("state",state).put("summary",summary.take(400)).put("result",result.take(12000)).put("requests",r.getInt("requests")))
+            if(r.has("artifactIds"))p.getJSONObject("lastRun").put("artifactIds",r.getJSONArray("artifactIds"))
             if(p.getString("state")=="enabled") {
                 val next=next(p.getJSONObject("rule"),maxOf(now,r.getLong("dueAt")))
                 p.put("nextAt",next ?: JSONObject.NULL)
@@ -166,11 +169,16 @@ class TaskScheduleStore(private val context: Context) {
             store.writePlan(db,p)
         }
     }
-    fun finish(lease: JSONObject,state: String,summary: String,result: String): JSONObject? = store.transaction { db ->
+    fun finish(lease: JSONObject,state: String,summary: String,result: String,artifactIds:JSONArray?=null): JSONObject? = store.transaction { db ->
         require(state in setOf("verified","unknown","failed","missed","waiting_conditions","cancelled"))
         val r=store.run(lease.getString("id"),db) ?: return@transaction null
         if(r.getString("token")!=lease.getString("token") || r.getString("state")!="running") return@transaction null
         val p=store.plan(r.getString("planId"),db) ?: return@transaction null
+        if(artifactIds!=null){require(artifactIds.length()<=40)
+            @Suppress("UNCHECKED_CAST") val actual=CloudArtifacts(context).list("cloud:${p.getString("id")}").map{it as Map<String,Any?>}.filter{it["state"]=="delivered"}.map{it["id"]}.toSet()
+            for(i in 0 until artifactIds.length())require(artifactIds.getString(i) in actual){"计划成果记录不存在或不属于此计划。"}
+            r.put("artifactIds",artifactIds)
+        }
         finishInside(db,r,p,state,summary,result);p
     }
     fun recover() {

@@ -12,6 +12,8 @@ import 'open_plugin_external.dart';
 import 'open_plugin_device.dart';
 import 'device_engine_plugin.dart';
 import 'local_runtime_page.dart';
+import 'cloud_integration.dart';
+import 'cloud_coding_page.dart';
 import 'state.dart';
 import 'chat_api.dart';
 import 'open_plugin_companion_ui.dart';
@@ -79,6 +81,15 @@ Future<void> launchOpenPlugin(
   Map<String, dynamic>? payload,
 }) async {
   final library = registry ?? openPlugins;
+  if (record.manifest.id == 'org.skivu.dsh') {
+    await cloudIntegration.initialize();
+    if (cloudIntegration.migrated && context.mounted) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => const CloudCodingPage()));
+      return;
+    }
+  }
   if (!record.authorized) {
     if (!record.manifest.compatible) {
       ScaffoldMessenger.of(

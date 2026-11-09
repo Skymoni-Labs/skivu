@@ -70,6 +70,78 @@ final builtinDeviceTools = <DeviceToolDefinition>[
     parameters: _object({}),
   ),
   DeviceToolDefinition(
+    id: 'ui.wait',
+    description: '等待 100–10000 毫秒后重新观察实际界面，可取消，不使用旧节点。',
+    permission: 'device.observe',
+    parameters: _object(
+      {
+        'milliseconds': {'type': 'integer'},
+      },
+      ['milliseconds'],
+    ),
+  ),
+  DeviceToolDefinition(
+    id: 'ui.verify',
+    description:
+        '用新的实际观察核对原动作 requestId；expect.kind 为 text/checked/selected/navigation，传明确 text、checked 或 selected，可指定 package/viewId。条件必须证明实际变化；不满足则保留未知，不重复动作。',
+    permission: 'device.observe',
+    parameters: _object(
+      {
+        'requestId': _text(120),
+        'expect': _object(
+          {
+            'kind': {
+              'type': 'string',
+              'enum': ['text', 'checked', 'selected', 'navigation'],
+            },
+            'package': _text(200),
+            'viewId': _text(300),
+            'description': _text(300),
+            'text': _text(12000),
+            'checked': {'type': 'boolean'},
+            'selected': {'type': 'boolean'},
+          },
+          ['kind'],
+        ),
+      },
+      ['requestId', 'expect'],
+    ),
+  ),
+  DeviceToolDefinition(
+    id: 'ui.screenshot',
+    description:
+        '获取当前授权可见页面的真实截图，临时排除浮岛；仅在节点不足且确需图像时使用。图片直接传当前模型，模型不支持视觉或安全窗口截图被拒绝时如实等待，不猜内容。',
+    permission: 'device.observe',
+    parameters: _object({}),
+  ),
+  DeviceToolDefinition(
+    id: 'ui.longPress',
+    description: '长按最新观察中的真实控件；之后重新观察和核对。',
+    permission: 'device.control',
+    effect: 'external',
+    parameters: _object(
+      {'observationId': _text(100), 'elementId': _text(100)},
+      ['observationId', 'elementId'],
+    ),
+  ),
+  DeviceToolDefinition(
+    id: 'ui.swipe',
+    description: '在最新观察的控件范围内向 up/down/left/right 滑动；不用旧坐标盲点。',
+    permission: 'device.control',
+    effect: 'external',
+    parameters: _object(
+      {
+        'observationId': _text(100),
+        'elementId': _text(100),
+        'direction': {
+          'type': 'string',
+          'enum': ['up', 'down', 'left', 'right'],
+        },
+      },
+      ['observationId', 'elementId', 'direction'],
+    ),
+  ),
+  DeviceToolDefinition(
     id: 'ui.tap',
     description: '点击本轮观察中存在的控件；界面变化后必须重新观察。',
     permission: 'device.control',

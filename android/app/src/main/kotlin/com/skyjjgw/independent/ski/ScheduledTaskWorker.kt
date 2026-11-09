@@ -41,6 +41,7 @@ class ScheduledTaskWorker(context: Context,params: WorkerParameters): Worker(con
                 TaskBetaKeys.register(runtime.dartExecutor.binaryMessenger)
                 val platform=TaskPlatform(applicationContext,null,ownedLease)
                 platform.register(runtime.dartExecutor.binaryMessenger)
+                CloudPlatform(applicationContext,null,ownedLease,claimed.getJSONObject("plan").optString("projectId").ifBlank{null}).register(runtime.dartExecutor.binaryMessenger)
                 val channel=MethodChannel(runtime.dartExecutor.binaryMessenger,"skivu/scheduled_worker")
                 channel.setMethodCallHandler { call,result ->
                     when(call.method) {
@@ -57,6 +58,8 @@ class ScheduledTaskWorker(context: Context,params: WorkerParameters): Worker(con
         try { completion.get(140,TimeUnit.SECONDS) }
         catch (_: Exception) { store.finish(ownedLease,"unknown","后台执行中断，结果待核对；不会自动重放。","") }
         finally {
+            CloudRuntime.cancelRun(applicationContext,ownedLease.getString("id"))
+            ExecutionHub.expireRun(applicationContext,ownedLease.getString("id"))
             // If Dart exited without a committed finish, preserve the uncertain occurrence.
             store.finish(ownedLease,"unknown","后台回执中断，结果待核对；不会自动重放。","")
             main.post { engine?.destroy(); engine=null }
@@ -66,7 +69,7 @@ class ScheduledTaskWorker(context: Context,params: WorkerParameters): Worker(con
     }
     override fun onStopped() {
         lease?.let { try {TaskScheduleStore(applicationContext).finish(it,"unknown","执行已停止，已派发的结果需核对。","")} catch (_: Exception) {} }
-        main.post { engine?.let { MethodChannel(it.dartExecutor.binaryMessenger,"skivu/scheduled_worker").invokeMethod("stop",null) };completion.complete(Unit) }
+        lease?.let{owned->java.util.concurrent.Executors.newSingleThreadExecutor().apply{execute{CloudRuntime.cancelRun(applicationContext,owned.getString("id"));main.post{engine?.let { MethodChannel(it.dartExecutor.binaryMessenger,"skivu/scheduled_worker").invokeMethod("stop",null) };completion.complete(Unit)};shutdown()}}}
         super.onStopped()
     }
     companion object {

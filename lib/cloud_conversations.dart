@@ -17,6 +17,10 @@ import 'state.dart';
 import 'tool_execution.dart';
 import 'assistant_stream_preview.dart';
 import 'stream_reveal.dart';
+import 'cloud_coding_tools.dart';
+import 'cloud_execution_state.dart';
+import 'phone_task_adapters.dart';
+import 'cloud_integration.dart';
 
 class _ReplyDraft {
   _ReplyDraft(this.message, this.epoch);
@@ -41,6 +45,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
   final _sessions = <Conversation, ChatSession>{};
   final _drafts = <Conversation, _ReplyDraft>{};
   final _epochs = <Conversation, int>{};
+  final _executionStates = <Conversation, CloudExecutionState>{};
   Future<void> _stops = Future.value();
   bool _attached = false;
 
@@ -62,8 +67,24 @@ class CloudChatCoordinator implements CloudConversationRunner {
     store.cloudRunner = this;
     if (_attached) return;
     _attached = true;
+    if (identical(store, demo)) unawaited(cloudIntegration.initialize());
     store.addListener(_identityChanged);
     if (identical(store, demo)) {
+      CloudExecutionState.controls.setMethodCallHandler((call) async {
+        if (call.method != 'control') return;
+        final value = Map<String, dynamic>.from(call.arguments as Map);
+        for (final entry in _engines.entries.toList()) {
+          if (entry.value.taskId != value['taskId']) continue;
+          switch (value['action']) {
+            case 'stop':
+              await stop(entry.key.id);
+            case 'pause':
+              entry.value.requestPause();
+            case 'resume':
+              entry.value.continuePaused();
+          }
+        }
+      });
       DeviceEngine.channel.setMethodCallHandler((call) async {
         if (call.method != 'taskStopped') return;
         final id = (call.arguments as Map?)?['taskId'];
@@ -97,7 +118,14 @@ class CloudChatCoordinator implements CloudConversationRunner {
             identity: identity,
             beginTask: deviceEngine.beginTask,
             endTask: deviceEngine.endTask,
-            extensions: AssistantPluginTools(store.plugins),
+            extensions: CombinedAssistantTools([
+              CloudCodingTools(
+                owner: 'cloud:${chat.id}',
+                taskId: () => engine.taskId,
+              ),
+              AssistantPluginTools(store.plugins),
+              PhoneTaskAdapters(() => engine.latestObservation),
+            ]),
             taskTools: AssistantPlanTools(
               AssistantTaskTools(tasks),
               taskPlans,
@@ -219,10 +247,26 @@ class CloudChatCoordinator implements CloudConversationRunner {
             },
           );
       var seen = (chat.assistantJournal?['messages'] as List?)?.length ?? 0;
+      final execution = CloudExecutionState(engine, chat.id);
+      _executionStates[chat] = execution;
       engine.addListener(() {
         if (!store.conversations.contains(chat) ||
             !identical(_engines[chat], engine))
           return;
+        execution.publish();
+        for (final record in engine.messages.where(
+          (m) => m['outcome'] == 'verified',
+        )) {
+          final existing = chat.messages
+              .where(
+                (m) =>
+                    m.toolExecution?.taskId == record['taskId'] &&
+                    m.toolExecution?.requestId == record['requestId'],
+              )
+              .lastOrNull;
+          if (existing != null && existing.toolExecution?.outcome != 'verified')
+            existing.toolExecution = ToolExecutionEvent.parse(record);
+        }
         if (engine.messages.length < seen) seen = 0;
         while (seen < engine.messages.length) {
           final value = engine.messages[seen++];
@@ -298,6 +342,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
     // Only the active task is journalled here. Edited/deleted chat history is
     // rebuilt from canonical messages below, never from an older journal.
     engine.messages.clear();
+    _executionStates[chat]?.newTask();
     final role = store.personas.firstWhere((p) => p.id == cloudPersonaId);
     final current = !reviewOnly && chat.messages.lastOrNull?.user == true
         ? chat.messages.last

@@ -56,6 +56,9 @@ class ToolSubmission {
   }) {
     // Local task edits use atomic request receipts and revision checks instead.
     if (tool.startsWith('tasks.')) return null;
+    // File tools have native hash/revision guards and durable request receipts.
+    // Running jobs retain a fence until their real exit is read back.
+    if (tool.startsWith('coding.') && tool != 'coding.exec.start') return null;
     // Navigation may be needed several times to inspect an effect. It does not
     // create a second business object and must remain usable for verification.
     if (const {

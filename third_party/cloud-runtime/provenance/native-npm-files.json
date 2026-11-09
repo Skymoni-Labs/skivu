@@ -1,0 +1,20 @@
+[
+  "sherpa-onnx-linux-x64/libsherpa-onnx-c-api.so",
+  "sherpa-onnx-linux-x64/sherpa-onnx.node",
+  "sherpa-onnx-linux-x64/libsherpa-onnx-cxx-api.so",
+  "sherpa-onnx-linux-x64/libonnxruntime.so",
+  "@koromix/koffi-linux-x64/linux_x64/koffi.node",
+  "@koromix/koffi-linux-x64/musl_x64/koffi.node",
+  "@trycua/cua-driver-linux-x64-gnu/libcua_driver_sdk.so",
+  "@trycua/cua-driver-linux-x64-gnu/cua_driver_node_runtime.node",
+  "@vscode/ripgrep-linux-x64/bin/rg",
+  "node-pty/prebuilds/linux-arm64/pty.node",
+  "node-pty/prebuilds/linux-x64/pty.node",
+  "node-addon-require-builtin-linux-x64-gnu/prebuilt/linux-x64-gnu-napi-v9.node",
+  "@deepseek-ai/node-addon-system-linux-x64/bin/landlock-run",
+  "@deepseek-ai/node-addon-system-linux-x64/bin/glibc/system.node",
+  "@deepseek-ai/node-addon-system-linux-x64/bin/musl/system.node",
+  "@img/sharp-libvips-linux-x64/lib/libvips-cpp.so.8.18.7",
+  "@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+  "@ubjs/node-linux-x64-gnu/uniffi-runtime-napi.linux-x64-gnu.node"
+]

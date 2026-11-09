@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_page.dart';
+import 'cloud_integration.dart';
 
 class OpenPluginsPage extends StatefulWidget {
   const OpenPluginsPage({super.key});
@@ -22,7 +23,10 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(refresh);
+    Future.microtask(() async {
+      await cloudIntegration.initialize();
+      await refresh();
+    });
   }
 
   Future<List<int>> download(String url, int max) async {
@@ -282,6 +286,7 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
         for (final e in catalog) (e['manifest'] as Map)['id']: e,
       };
       final ids = {...openPlugins.records.keys, ...available.keys}.where((id) {
+        if (id == 'org.skivu.dsh' && cloudIntegration.migrated) return false;
         final m =
             openPlugins.records[id]?.manifest ??
             OpenPluginManifest.parse(available[id]!['manifest']);

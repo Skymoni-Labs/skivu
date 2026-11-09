@@ -22,8 +22,12 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
     packaging {
+        jniLibs.useLegacyPackaging = true
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
     }
+    androidResources { noCompress += "bin" }
+    sourceSets["main"].assets.srcDir("cloud-assets")
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).

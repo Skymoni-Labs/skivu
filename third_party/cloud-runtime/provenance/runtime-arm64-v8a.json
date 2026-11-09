@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dshVersion": "0.2.1-rc.2",
+  "nodeVersion": "24.18.1",
+  "abi": "arm64-v8a",
+  "sha256": "88448dfcf4e1a157601c12951d24aba3930c5384ebf3313260e9dd30cc3829ca",
+  "inputs": {
+    "base": "a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2",
+    "node": "7201e3a09dc825bac57867c81913e2b8f0ef87d04cb9082af4cda82f6ff3d88c",
+    "npmLock": "c67d0d3b6423db35faae8d91d6054e7d0fa7cb9e197bede42438326f123ca8a7"
+  },
+  "hostAdapterVersion": "0.1.4"
+}

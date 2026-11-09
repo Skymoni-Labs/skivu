@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'device_engine.dart';
+import 'cloud_coding_page.dart';
 import 'engine_app_selection_page.dart';
 
 /// Authorization belongs to the host. Models/plugins never operate this form.
@@ -169,7 +170,17 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
       children: [
         const Padding(
           padding: EdgeInsets.all(12),
-          child: Text('小云、插件与手机 DSH 共用这套能力。按需开启权限；系统授权与应用范围由你管理。'),
+          child: Text(
+            '小云与插件共用手机能力。内置 Linux 编程与 Android Shell 分别管理；系统授权与应用范围由你管理。',
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.code),
+          title: const Text('小云项目与编程环境'),
+          subtitle: const Text('内置 Linux、旧项目迁移、成果和运行状态'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const CloudCodingPage()),
+          ),
         ),
         SizedBox(
           height: 4,

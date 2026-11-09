@@ -3,6 +3,8 @@ import 'task_model_binding.dart';
 import 'personal_space.dart';
 import 'state.dart' show demo;
 import 'task_plans.dart';
+import 'cloud_file_card.dart';
+import 'cloud_coding_tools.dart';
 
 String _operation() => 'ui:${DateTime.now().microsecondsSinceEpoch}';
 String _error(Object e) => e is StateError ? '${e.message}' : '$e';
@@ -147,6 +149,11 @@ class _TaskSchedulingPanelState extends State<TaskSchedulingPanel> {
                         style: const TextStyle(fontSize: 12),
                       ),
                     if (p.lastRun case final result?) ...[
+                      if (result['artifactIds'] is List &&
+                          (result['artifactIds'] as List).isNotEmpty)
+                        CloudFileCard(
+                          ids: List<String>.from(result['artifactIds']),
+                        ),
                       Text(
                         '最近一次：${runStateLabel(result['state'])} · ${planTime(result['dueAt'])}',
                         style: const TextStyle(fontSize: 12, height: 1.7),
@@ -458,10 +465,46 @@ class _PlanEditorState extends State<_PlanEditor> {
   late String missed = widget.plan?.data['missedPolicy'] ?? 'latest';
   bool saving = false, useCurrentModel = false;
   late String mode = widget.plan?.data['mode'] ?? 'summary';
+  List<Map<String, dynamic>> codingProjects = [];
+  Future<void> loadCodingProjects() async {
+    try {
+      final result = await cloudExecutionChannel
+          .invokeMapMethod<String, dynamic>('invoke', {
+            'tool': 'coding.projects.list',
+            'arguments': <String, dynamic>{},
+            'owner': 'cloud:project_selector',
+            'taskId': 'project_selector',
+            'requestId': 'projects_${DateTime.now().microsecondsSinceEpoch}',
+          });
+      if (result?['outcome'] != 'verified')
+        throw StateError(result?['message'] ?? '无法读取项目。');
+      if (mounted)
+        setState(
+          () => codingProjects = (result!['value'] as List)
+              .whereType<Map>()
+              .map((v) => Map<String, dynamic>.from(v))
+              .where((v) => v['archived'] != true)
+              .toList(),
+        );
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    }
+  }
+
+  late final TextEditingController project = TextEditingController(
+    text: widget.plan?.data['projectId'] ?? '',
+  );
   String? error;
+  @override
+  void initState() {
+    super.initState();
+    if (mode == 'coding') Future.microtask(loadCodingProjects);
+  }
+
   @override
   void dispose() {
     goal.dispose();
+    project.dispose();
     super.dispose();
   }
 
@@ -525,6 +568,7 @@ class _PlanEditorState extends State<_PlanEditor> {
             'taskId': widget.task.id,
           'goal': goal.text.trim(),
           'mode': mode,
+          if (mode == 'coding') 'projectId': project.text.trim(),
           'rule': rule,
           'maxRequestsPerRun': calls,
           'maxDailyRequests': daily,
@@ -631,9 +675,37 @@ class _PlanEditorState extends State<_PlanEditor> {
                   value: 'device_action',
                   child: Text('操作手机能力（需要实际核验）'),
                 ),
+                DropdownMenuItem(value: 'coding', child: Text('内置项目编程与最终交付')),
               ],
-              onChanged: saving ? null : (v) => setState(() => mode = v!),
+              onChanged: saving
+                  ? null
+                  : (v) {
+                      setState(() => mode = v!);
+                      if (v == 'coding') loadCodingProjects();
+                    },
             ),
+            if (mode == 'coding')
+              DropdownButtonFormField<String>(
+                key: ValueKey(codingProjects.map((p) => p['id']).join(',')),
+                initialValue: codingProjects.any((p) => p['id'] == project.text)
+                    ? project.text
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: '执行项目',
+                  helperText: '计划只在所选项目执行。没有项目时先在小云中创建。',
+                ),
+                items: [
+                  for (final p in codingProjects)
+                    DropdownMenuItem<String>(
+                      value: p['id'],
+                      child: Text(p['name']),
+                    ),
+                ],
+                onChanged: saving
+                    ? null
+                    : (id) => setState(() => project.text = id ?? ''),
+              ),
             Wrap(
               spacing: 8,
               children: [

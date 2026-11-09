@@ -44,10 +44,11 @@ class AssistantPlanTools implements AssistantExtensions {
   static final fields = <String, dynamic>{
     'mode': {
       'type': 'string',
-      'enum': ['summary', 'local_tasks', 'device_action'],
+      'enum': ['summary', 'local_tasks', 'device_action', 'coding'],
       'description':
-          'summary=整理或生成内容，local_tasks=实际管理待办，device_action=实际手机操作（必须取得对应业务回执才算成功）',
+          'summary=整理或生成内容，local_tasks=实际管理待办，device_action=实际手机操作，coding=在保存的 projectId 内置项目执行编程（必须有实际结果回执）',
     },
+    'projectId': _text(120),
     'goal': _text(4000),
     'rule': rule,
     'maxRequestsPerRun': {'type': 'integer'},

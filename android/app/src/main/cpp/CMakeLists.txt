@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(cloudruntime C)
+add_library(cloudruntime SHARED cloudruntime.c)
+target_compile_options(cloudruntime PRIVATE -Wall -Wextra -O2)
+target_link_options(cloudruntime PRIVATE -Wl,-z,max-page-size=16384)

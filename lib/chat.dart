@@ -31,6 +31,7 @@ import 'cloud_companion_motion.dart';
 import 'embedded_engine_settings.dart';
 import 'device_engine.dart';
 import 'task_result_card.dart';
+import 'cloud_file_card.dart';
 import 'task_plans.dart';
 
 class ChatPage extends StatefulWidget {
@@ -1547,6 +1548,11 @@ class _ChatPageState extends State<ChatPage>
         ? TaskResult.fromMessages(row.messages, phase: phase, goal: question)
         : null;
     final linkedTask = result?.linkedTask(personalSpace);
+    final artifactIds = row.messages
+        .expand((m) => (m.toolExecution?.artifactIds ?? '').split(','))
+        .where((id) => id.startsWith('artifact_'))
+        .toSet()
+        .toList();
     final linkedPlan =
         taskPlans.records
             .where((p) => p.id == result?.managedPlanId)
@@ -1631,6 +1637,13 @@ class _ChatPageState extends State<ChatPage>
                     ),
                   ),
                 ),
+            ],
+            if (artifactIds.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              CloudFileCard(
+                key: ValueKey('files-${row.first.id}'),
+                ids: artifactIds,
+              ),
             ],
             if (result != null) ...[
               const SizedBox(height: 10),

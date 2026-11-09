@@ -106,6 +106,7 @@ class LocalRuntimePlatform(private val context: Activity) {
         return MessageDigest.getInstance("SHA-256").digest(signatures!![0].toByteArray()).joinToString("") { "%02x".format(it) }
     }
     private fun service(component: ComponentName) = context.packageManager.getServiceInfo(component, PackageManager.GET_META_DATA).also {
+        require(component.packageName!="org.skivu.dsh.runtime"||CloudMigration(context).status()["state"]!="verified"){"旧 DSH 数据已迁入小云，请使用内置项目和编程工具。"}
         require(it.exported && it.enabled && it.applicationInfo.enabled && it.permission == PERMISSION && it.applicationInfo.uid != context.applicationInfo.uid)
         require(it.metaData?.getInt("org.skivu.runtime.protocol") == 1)
         require(context.packageManager.checkPermission(android.Manifest.permission.INTERNET, component.packageName) == PackageManager.PERMISSION_DENIED)

@@ -1,0 +1,457 @@
+[
+  {
+    "package": "apt",
+    "version": "2.8.3",
+    "source": "apt"
+  },
+  {
+    "package": "base-files",
+    "version": "13ubuntu10.5",
+    "source": "base-files"
+  },
+  {
+    "package": "base-passwd",
+    "version": "3.6.3build1",
+    "source": "base-passwd"
+  },
+  {
+    "package": "bash",
+    "version": "5.2.21-2ubuntu4",
+    "source": "bash"
+  },
+  {
+    "package": "bsdutils",
+    "version": "1:2.39.3-9ubuntu6.6",
+    "source": "util-linux (2.39.3-9ubuntu6.6)"
+  },
+  {
+    "package": "coreutils",
+    "version": "9.4-3ubuntu6.3",
+    "source": "coreutils"
+  },
+  {
+    "package": "dash",
+    "version": "0.5.12-6ubuntu5",
+    "source": "dash"
+  },
+  {
+    "package": "debconf",
+    "version": "1.5.86ubuntu1",
+    "source": "debconf"
+  },
+  {
+    "package": "debianutils",
+    "version": "5.17build1",
+    "source": "debianutils"
+  },
+  {
+    "package": "diffutils",
+    "version": "1:3.10-1ubuntu0.1",
+    "source": "diffutils"
+  },
+  {
+    "package": "dpkg",
+    "version": "1.22.6ubuntu6.6",
+    "source": "dpkg"
+  },
+  {
+    "package": "e2fsprogs",
+    "version": "1.47.0-2.4~exp1ubuntu4.1",
+    "source": "e2fsprogs"
+  },
+  {
+    "package": "findutils",
+    "version": "4.9.0-5build1",
+    "source": "findutils"
+  },
+  {
+    "package": "gcc-14-base",
+    "version": "14.2.0-4ubuntu2~24.04.1",
+    "source": "gcc-14"
+  },
+  {
+    "package": "gpgv",
+    "version": "2.4.4-2ubuntu17.6",
+    "source": "gnupg2"
+  },
+  {
+    "package": "grep",
+    "version": "3.11-4build1",
+    "source": "grep"
+  },
+  {
+    "package": "gzip",
+    "version": "1.12-1ubuntu3.2",
+    "source": "gzip"
+  },
+  {
+    "package": "hostname",
+    "version": "3.23+nmu2ubuntu2",
+    "source": "hostname"
+  },
+  {
+    "package": "init-system-helpers",
+    "version": "1.66ubuntu1",
+    "source": "init-system-helpers"
+  },
+  {
+    "package": "libacl1",
+    "version": "2.3.2-1build1.1",
+    "source": "acl"
+  },
+  {
+    "package": "libapt-pkg6.0t64",
+    "version": "2.8.3",
+    "source": "apt"
+  },
+  {
+    "package": "libassuan0",
+    "version": "2.5.6-1build1",
+    "source": "libassuan"
+  },
+  {
+    "package": "libattr1",
+    "version": "1:2.5.2-1ubuntu0.1",
+    "source": "attr"
+  },
+  {
+    "package": "libaudit-common",
+    "version": "1:3.1.2-2.1build1.1",
+    "source": "audit"
+  },
+  {
+    "package": "libaudit1",
+    "version": "1:3.1.2-2.1build1.1",
+    "source": "audit"
+  },
+  {
+    "package": "libblkid1",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "libbz2-1.0",
+    "version": "1.0.8-5.1ubuntu0.1",
+    "source": "bzip2"
+  },
+  {
+    "package": "libc-bin",
+    "version": "2.39-0ubuntu8.8",
+    "source": "glibc"
+  },
+  {
+    "package": "libc6",
+    "version": "2.39-0ubuntu8.8",
+    "source": "glibc"
+  },
+  {
+    "package": "libcap-ng0",
+    "version": "0.8.4-2build2",
+    "source": "libcap-ng"
+  },
+  {
+    "package": "libcap2",
+    "version": "1:2.66-5ubuntu2.4",
+    "source": "libcap2"
+  },
+  {
+    "package": "libcom-err2",
+    "version": "1.47.0-2.4~exp1ubuntu4.1",
+    "source": "e2fsprogs"
+  },
+  {
+    "package": "libcrypt1",
+    "version": "1:4.4.36-4build1",
+    "source": "libxcrypt"
+  },
+  {
+    "package": "libdb5.3t64",
+    "version": "5.3.28+dfsg2-7",
+    "source": "db5.3"
+  },
+  {
+    "package": "libdebconfclient0",
+    "version": "0.271ubuntu3",
+    "source": "cdebconf"
+  },
+  {
+    "package": "libext2fs2t64",
+    "version": "1.47.0-2.4~exp1ubuntu4.1",
+    "source": "e2fsprogs"
+  },
+  {
+    "package": "libffi8",
+    "version": "3.4.6-1build1",
+    "source": "libffi"
+  },
+  {
+    "package": "libgcc-s1",
+    "version": "14.2.0-4ubuntu2~24.04.1",
+    "source": "gcc-14"
+  },
+  {
+    "package": "libgcrypt20",
+    "version": "1.10.3-2ubuntu0.2",
+    "source": "libgcrypt20"
+  },
+  {
+    "package": "libgmp10",
+    "version": "2:6.3.0+dfsg-2ubuntu6.1",
+    "source": "gmp"
+  },
+  {
+    "package": "libgnutls30t64",
+    "version": "3.8.3-1.1ubuntu3.6",
+    "source": "gnutls28"
+  },
+  {
+    "package": "libgpg-error0",
+    "version": "1.47-3build2.1",
+    "source": "libgpg-error"
+  },
+  {
+    "package": "libhogweed6t64",
+    "version": "3.9.1-2.2build1.1",
+    "source": "nettle"
+  },
+  {
+    "package": "libidn2-0",
+    "version": "2.3.7-2build1.1",
+    "source": "libidn2"
+  },
+  {
+    "package": "liblz4-1",
+    "version": "1.9.4-1build1.1",
+    "source": "lz4"
+  },
+  {
+    "package": "liblzma5",
+    "version": "5.6.1+really5.4.5-1ubuntu0.3",
+    "source": "xz-utils"
+  },
+  {
+    "package": "libmd0",
+    "version": "1.1.0-2build1.1",
+    "source": "libmd"
+  },
+  {
+    "package": "libmount1",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "libncursesw6",
+    "version": "6.4+20240113-1ubuntu2.2",
+    "source": "ncurses"
+  },
+  {
+    "package": "libnettle8t64",
+    "version": "3.9.1-2.2build1.1",
+    "source": "nettle"
+  },
+  {
+    "package": "libnpth0t64",
+    "version": "1.6-3.1build1",
+    "source": "npth"
+  },
+  {
+    "package": "libp11-kit0",
+    "version": "0.25.3-4ubuntu2.2",
+    "source": "p11-kit"
+  },
+  {
+    "package": "libpam-modules",
+    "version": "1.5.3-5ubuntu5.7",
+    "source": "pam"
+  },
+  {
+    "package": "libpam-modules-bin",
+    "version": "1.5.3-5ubuntu5.7",
+    "source": "pam"
+  },
+  {
+    "package": "libpam-runtime",
+    "version": "1.5.3-5ubuntu5.7",
+    "source": "pam"
+  },
+  {
+    "package": "libpam0g",
+    "version": "1.5.3-5ubuntu5.7",
+    "source": "pam"
+  },
+  {
+    "package": "libpcre2-8-0",
+    "version": "10.42-4ubuntu2.1",
+    "source": "pcre2"
+  },
+  {
+    "package": "libproc2-0",
+    "version": "2:4.0.4-4ubuntu3.3",
+    "source": "procps"
+  },
+  {
+    "package": "libseccomp2",
+    "version": "2.5.5-1ubuntu3.1",
+    "source": "libseccomp"
+  },
+  {
+    "package": "libselinux1",
+    "version": "3.5-2ubuntu2.1",
+    "source": "libselinux"
+  },
+  {
+    "package": "libsemanage-common",
+    "version": "3.5-1build5",
+    "source": "libsemanage"
+  },
+  {
+    "package": "libsemanage2",
+    "version": "3.5-1build5",
+    "source": "libsemanage"
+  },
+  {
+    "package": "libsepol2",
+    "version": "3.5-2build1",
+    "source": "libsepol"
+  },
+  {
+    "package": "libsmartcols1",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "libss2",
+    "version": "1.47.0-2.4~exp1ubuntu4.1",
+    "source": "e2fsprogs"
+  },
+  {
+    "package": "libssl3t64",
+    "version": "3.0.13-0ubuntu3.15",
+    "source": "openssl"
+  },
+  {
+    "package": "libstdc++6",
+    "version": "14.2.0-4ubuntu2~24.04.1",
+    "source": "gcc-14"
+  },
+  {
+    "package": "libsystemd0",
+    "version": "255.4-1ubuntu8.17",
+    "source": "systemd"
+  },
+  {
+    "package": "libtasn1-6",
+    "version": "4.19.0-3ubuntu0.24.04.2",
+    "source": "libtasn1-6"
+  },
+  {
+    "package": "libtinfo6",
+    "version": "6.4+20240113-1ubuntu2.2",
+    "source": "ncurses"
+  },
+  {
+    "package": "libudev1",
+    "version": "255.4-1ubuntu8.17",
+    "source": "systemd"
+  },
+  {
+    "package": "libunistring5",
+    "version": "1.1-2build1.1",
+    "source": "libunistring"
+  },
+  {
+    "package": "libuuid1",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "libxxhash0",
+    "version": "0.8.2-2build1",
+    "source": "xxhash"
+  },
+  {
+    "package": "libzstd1",
+    "version": "1.5.5+dfsg2-2build1.1",
+    "source": "libzstd"
+  },
+  {
+    "package": "login",
+    "version": "1:4.13+dfsg1-4ubuntu3.2",
+    "source": "shadow"
+  },
+  {
+    "package": "logsave",
+    "version": "1.47.0-2.4~exp1ubuntu4.1",
+    "source": "e2fsprogs"
+  },
+  {
+    "package": "mawk",
+    "version": "1.3.4.20240123-1build1",
+    "source": "mawk"
+  },
+  {
+    "package": "mount",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "ncurses-base",
+    "version": "6.4+20240113-1ubuntu2.2",
+    "source": "ncurses"
+  },
+  {
+    "package": "ncurses-bin",
+    "version": "6.4+20240113-1ubuntu2.2",
+    "source": "ncurses"
+  },
+  {
+    "package": "passwd",
+    "version": "1:4.13+dfsg1-4ubuntu3.2",
+    "source": "shadow"
+  },
+  {
+    "package": "perl-base",
+    "version": "5.38.2-3.2ubuntu0.4",
+    "source": "perl"
+  },
+  {
+    "package": "procps",
+    "version": "2:4.0.4-4ubuntu3.3",
+    "source": "procps"
+  },
+  {
+    "package": "sed",
+    "version": "4.9-2ubuntu0.24.04.1",
+    "source": "sed"
+  },
+  {
+    "package": "sensible-utils",
+    "version": "0.0.22",
+    "source": "sensible-utils"
+  },
+  {
+    "package": "sysvinit-utils",
+    "version": "3.08-6ubuntu3",
+    "source": "sysvinit"
+  },
+  {
+    "package": "tar",
+    "version": "1.35+dfsg-3ubuntu0.4",
+    "source": "tar"
+  },
+  {
+    "package": "ubuntu-keyring",
+    "version": "2023.11.28.1",
+    "source": "ubuntu-keyring"
+  },
+  {
+    "package": "util-linux",
+    "version": "2.39.3-9ubuntu6.6",
+    "source": "util-linux"
+  },
+  {
+    "package": "zlib1g",
+    "version": "1:1.3.dfsg-3.1ubuntu2.2",
+    "source": "zlib"
+  }
+]

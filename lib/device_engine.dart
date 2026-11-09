@@ -57,7 +57,8 @@ class DeviceEngine {
     String tool,
     Map<String, dynamic> arguments,
   ) {
-    if (tool.startsWith('plugin:')) return Future.value({'found': false});
+    if (tool.startsWith('plugin:') || tool.startsWith('coding.'))
+      return Future.value({'found': false});
     deviceTool(tool).validate(arguments);
     return _transport('effect.lookup', {'tool': tool, 'arguments': arguments});
   }

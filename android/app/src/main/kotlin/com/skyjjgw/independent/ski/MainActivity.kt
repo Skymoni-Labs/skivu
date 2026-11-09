@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
     private val pluginExternal by lazy { OpenPluginExternalPlatform(this) }
     private val pluginRuntime by lazy { OpenPluginRuntimePlatform(this) }
     private val localRuntime by lazy { LocalRuntimePlatform(this) }
+    private val cloudPlatform by lazy { CloudPlatform(applicationContext,this) }
     private val embeddedDevice by lazy { EmbeddedDevicePlatform(this) }
     private val taskPlatform by lazy { TaskPlatform(applicationContext,this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
@@ -41,6 +42,7 @@ class MainActivity : FlutterActivity() {
             ?: DeviceBridgePlatform(applicationContext, flutterEngine).also { DeviceTaskService.platform = it }
         appPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
         taskPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
+        cloudPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
         chatAttachment.register(flutterEngine.dartExecutor.binaryMessenger)
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
         chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
@@ -66,6 +68,7 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         localRuntime.activityResult(requestCode, resultCode)
+        cloudPlatform.onResult(requestCode,resultCode,data)
         chatBackup.activityResult(requestCode, resultCode, data)
         chatAttachment.onResult(requestCode, resultCode, data)
         pluginFiles.onResult(requestCode, resultCode, data)

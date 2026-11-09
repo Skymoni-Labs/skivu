@@ -71,7 +71,7 @@ class TaskPlatform(private val context: Context,private val activity: Activity?=
                         }
                         "runs.check" -> {plans.check(lease ?: error("缺少执行租约。"));mapOf("active" to true)}
                         "runs.reserveModel" -> plans.reserveModel(lease ?: error("缺少执行租约。"))
-                        "runs.finish" -> plans.finish(lease ?: error("缺少执行租约。"),args.getString("state"),args.optString("summary"),args.optString("result"))?.also {
+                        "runs.finish" -> plans.finish(lease ?: error("缺少执行租约。"),args.getString("state"),args.optString("summary"),args.optString("result"),args.optJSONArray("artifactIds"))?.also {
                             ScheduledTaskWorker.notifyResult(context,it)
                             if(context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0) android.util.Log.i("SkivuScheduler","committed plan:${it.getString("id")} state:${it.optJSONObject("lastRun")?.optString("state")}")
                         } ?: mapOf("finished" to false)

@@ -175,14 +175,17 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                         }
                         "session.start" -> {
                             val id = text(p,"taskId",100)
+                            EmbeddedTaskService.activeTasks.add(id)
                             EmbeddedTaskService.taskId = id
                             ui { activity.startForegroundService(Intent(activity, EmbeddedTaskService::class.java).putExtra("taskId",id)) }
                             mapOf("active" to true)
                         }
                         "session.end" -> {
+                            EmbeddedTaskService.activeTasks.remove(p["taskId"])
                             if (EmbeddedTaskService.taskId == p["taskId"]) {
-                                EmbeddedTaskService.taskId = null
-                                ui { activity.stopService(Intent(activity, EmbeddedTaskService::class.java)) }
+                                val next=EmbeddedTaskService.activeTasks.firstOrNull()
+                                EmbeddedTaskService.taskId = next
+                                ui { if(next==null)activity.stopService(Intent(activity, EmbeddedTaskService::class.java))else activity.startForegroundService(Intent(activity,EmbeddedTaskService::class.java).putExtra("taskId",next)) }
                             }
                             mapOf("active" to false)
                         }
@@ -321,7 +324,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                 "summary" to summary, "value" to value)
         if (tool == "device.status") return receipt("verified", "设备状态已读取。", status())
         val permission = when {
-            tool == "apps.list" || tool == "ui.observe" || tool == "settings.brightness.read" -> "observe"
+            tool in setOf("apps.list","ui.observe","ui.verify","ui.wait","ui.screenshot","settings.brightness.read") -> "observe"
             tool == "apps.launch" || tool.startsWith("ui.") -> "control"
             tool.startsWith("clock.") || tool.startsWith("settings.") -> "system"
             tool == "shell.execute" -> "shell"
@@ -334,7 +337,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
             require(cached.getString("fingerprint") == fingerprint) { "同一请求编号不能用于不同操作。" }
             return remembered[key] ?: receipt(cached.getString("outcome"), cached.getString("summary"))
         }
-        val writing = tool != "apps.list" && tool != "ui.observe" && tool != "settings.brightness.read"
+        val writing = tool !in setOf("apps.list","ui.observe","ui.verify","ui.wait","ui.screenshot","settings.brightness.read")
         fun persist(outcome: String, summary: String) {
             // No goals, arguments, screens or command output are persisted here.
             val item = JSONObject(mapOf("fingerprint" to fingerprint, "outcome" to outcome, "summary" to summary))
@@ -356,7 +359,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
             when (tool) {
                 "apps.list" -> {
                     require(args.isEmpty())
-                    receipt("verified", "已读取可启动软件。", installedApps())
+                    receipt("verified", "已读取授权范围内可启动的软件。", installedApps().filter{it["allowed"]==true})
                 }
                 "apps.launch" -> {
                     require(args.keys == setOf("package"))
@@ -372,11 +375,23 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
                     else receipt("verified", "已观察授权软件当前界面。", ui { service.observe(packages()) })
                 }
-                "ui.tap", "ui.input", "ui.scroll", "ui.back", "ui.home" -> {
+                "ui.wait"->{
+                    require(args.keys.all{it in setOf("milliseconds")});val duration=(args["milliseconds"] as? Number)?.toLong()?:500;require(duration in 100..10000)
+                    val until=android.os.SystemClock.uptimeMillis()+duration
+                    while(android.os.SystemClock.uptimeMillis()<until){check(key !in cancelledRequests);Thread.sleep(minOf(100,until-android.os.SystemClock.uptimeMillis()).coerceAtLeast(1))}
+                    val service=SkivuAccessibilityService.connected
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已等待并重新观察。",ui{service.observe(packages())})
+                }
+                "ui.verify"->{val service=SkivuAccessibilityService.connected
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else {val proof=ui{service.verify(args,packages(),owner)};receipt(if(proof["matched"]==true)"verified" else "unknown",if(proof["matched"]==true)"已依据新观察核对原动作。" else "未满足明确核对条件；不会重复原动作。",proof)}
+                }
+                "ui.screenshot"->{require(args.isEmpty());val service=SkivuAccessibilityService.connected
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已取得授权页面实际截图；图片能否理解取决于当前模型真实视觉能力。",service.screenshot(packages()))}
+                "ui.tap", "ui.input", "ui.scroll", "ui.back", "ui.home", "ui.longPress", "ui.swipe" -> {
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
                     else {
-                        val accepted = ui { service.act(tool, args, packages(), ::beforeAction) }
+                        val accepted = ui { service.act(tool, args, packages(), ::beforeAction,id,owner) }
                         receipt(if (accepted) "dispatched" else "failed",
                             if (accepted) "系统已接受动作，请重新观察核对结果。" else "控件未接受动作。")
                     }
@@ -415,8 +430,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                 }
                 "clock.alarms.show" -> {
                     require(args.isEmpty())
-                    openSystem(Intent(AlarmClock.ACTION_SHOW_ALARMS), ::beforeAction)
-                    receipt("dispatched", "已请求打开闹钟列表。")
+                    val target=openSystem(Intent(AlarmClock.ACTION_SHOW_ALARMS), ::beforeAction)
+                    receipt("dispatched", "已请求打开闹钟列表。",mapOf("expectedPackage" to target))
                 }
                 "settings.open" -> {
                     require(args.keys == setOf("page"))
@@ -426,8 +441,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                         "application" to Settings.ACTION_APPLICATION_DETAILS_SETTINGS)[args["page"]] ?: error("设置页面不存在。")
                     val intent = Intent(action)
                     if (args["page"] == "application") intent.data = Uri.parse("package:${activity.packageName}")
-                    openSystem(intent, ::beforeAction)
-                    receipt("dispatched", "已打开设置页面，尚未更改设置。")
+                    val target=openSystem(intent, ::beforeAction)
+                    receipt("dispatched", "已打开设置页面，尚未更改设置。",mapOf("expectedPackage" to target))
                 }
                 "settings.brightness.read" -> {
                     require(args.isEmpty())
@@ -475,7 +490,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         return answer
     }
 
-    private fun openSystem(intent: Intent, beforeDispatch: () -> Unit) {
+    private fun openSystem(intent: Intent, beforeDispatch: () -> Unit):String {
         val pm = activity.packageManager
         val default = intent.resolveActivity(pm)?.packageName
         val allowed = pm.queryIntentActivities(intent, 0).map { it.activityInfo.packageName }
@@ -484,6 +499,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         require(selected != null) { "请选择并授权一个可处理此请求的软件。" }
         intent.setPackage(selected)
         ui { beforeDispatch(); activity.startActivity(intent) }
+        return selected
     }
     private fun text(p: Map<String, Any?>, key: String, max: Int): String {
         val value = p[key] as? String ?: error("文字参数无效。")

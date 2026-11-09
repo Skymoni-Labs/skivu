@@ -5,6 +5,7 @@ import 'cloud_companion_portrait.dart';
 import 'glass.dart';
 import 'personal_space.dart';
 import 'task_scheduling_ui.dart';
+import 'cloud_execution_panel.dart';
 import 'task_plans.dart';
 import 'state.dart' show demo, ink, muted, green, sceneInk, sceneMuted;
 import 'widgets.dart';
@@ -599,6 +600,7 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
       '已完成': all.where((r) => r.done).toList(),
     };
     return [
+      const CloudExecutionPanel(),
       Row(
         children: [
           for (final flag in [false, true])

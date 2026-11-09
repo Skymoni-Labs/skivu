@@ -92,7 +92,7 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage>
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.phonelink_setup),
             title: const Text('内置手机引擎'),
-            subtitle: const Text('小云、插件与 DSH 共用 · 权限和系统接口'),
+            subtitle: const Text('小云与插件共用 · 权限和系统接口'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
