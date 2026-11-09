@@ -15,7 +15,7 @@ try {
     $firstInstall = ($before | Select-String 'firstInstallTime=').Line.Trim()
     & 'D:/anaconda3/python.exe' tools/prepare_cloud_runtime.py --abi x86_64
     if ($LASTEXITCODE -ne 0) { throw 'Runtime verification failed.' }
-    & $flutter build apk --debug --no-pub --target-platform android-x64 --target integration_test/cloud_purge_native_test.dart --dart-define=SKIVU_PURGE_QA=true
+    & $flutter build apk --debug --target-platform android-x64 --target integration_test/cloud_purge_native_test.dart --dart-define=SKIVU_PURGE_QA=true
     if ($LASTEXITCODE -ne 0) { throw 'QA build failed.' }
     $binary = (Get-Item -LiteralPath build/app/outputs/flutter-apk/app-debug.apk).FullName
     $aapt = Get-ChildItem -LiteralPath (Join-Path $androidSdkRoot 'build-tools') -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'aapt.exe' } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
