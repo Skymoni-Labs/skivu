@@ -7,6 +7,7 @@ $adb = Join-Path $androidSdkRoot 'platform-tools/adb.exe'
 $flutter = 'E:/DevTools/flutter-operit2-rolelife/bin/flutter.bat'
 $qaPackage = 'com.skyjjgw.independent.ski.purgeqa'
 $normalPackage = 'com.skyjjgw.independent.ski'
+if (!$env:SKIVU_EXECUTION_OUTPUT) { $env:SKIVU_EXECUTION_OUTPUT = Join-Path $projectRoot 'build/purge-native-proof' }
 Push-Location $projectRoot
 try {
     $before = & $adb -s $Serial shell dumpsys package $normalPackage
@@ -19,7 +20,8 @@ try {
     $binary = (Get-Item -LiteralPath build/app/outputs/flutter-apk/app-debug.apk).FullName
     $aapt = Get-ChildItem -LiteralPath (Join-Path $androidSdkRoot 'build-tools') -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'aapt.exe' } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
     $badging = & $aapt dump badging $binary
-    if (!($badging -match "package: name='$qaPackage'")) { throw 'Refusing to launch a binary with an unexpected package ID.' }
+    $packageLine = ($badging | Select-String "^package: name='([^']+)'" | Select-Object -First 1)
+    if (!$packageLine -or $packageLine.Matches[0].Groups[1].Value -ne $qaPackage) { throw 'Refusing to launch a binary with an unexpected package ID.' }
     # The default drive cleanup uninstalls its cached application package.
     # A prebuilt, verified ID plus keep-app-running avoids that cleanup entirely.
     & $flutter drive --no-pub -d $Serial --target integration_test/cloud_purge_native_test.dart --driver test_driver/execution_acceptance.dart --use-application-binary $binary --keep-app-running
