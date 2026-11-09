@@ -68,25 +68,47 @@ class CloudPhoneAcceptanceTest{
         val id="qa_overlay_task";var stops=0
         ExecutionHub.bind(id){if(it=="stop")stops++}
         val state=mapOf("taskId" to id,"source" to "native_qa","sequence" to System.currentTimeMillis(),"phase" to "observing","goal" to "观察测试页面","target" to testContext.packageName,"action" to "读取真实控件","phone" to true,"canStop" to true,"canPause" to false)
+        context.getSharedPreferences("cloud-overlay",0).edit().putFloat("x",.05f).commit()
         ExecutionHub.setMode(context,"compact");ExecutionHub.update(context,state);Thread.sleep(400)
         fun capture(name:String){val image=instrumentation.getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();java.io.File(context.filesDir,"qa-overlay-$name.png").outputStream().use{image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)};image.recycle()}
         capture("compact")
         val service=service();val snapshot=ui{service.observe(allowed)};assertFalse(rows(snapshot).any{it["text"].toString().contains("正在观察")})
         val compact=ui{service.overlayReviewMetrics()};assertEquals(false,compact["expanded"]);assertEquals(false,compact["focusable"]);assertEquals(22,compact["avatarDp"]);assertTrue((compact["height"] as Number).toFloat()/context.resources.displayMetrics.density<=37)
+        fun centered(label:String,metrics:Map<String,Any?> = ui{service.overlayReviewMetrics()}){
+            val bounds=ui{service.getSystemService(android.view.WindowManager::class.java).currentWindowMetrics.bounds}
+            val twiceCenter=2*(metrics["x"] as Number).toInt()+(metrics["width"] as Number).toInt()
+            assertTrue("$label must stay centered: $metrics, bounds=$bounds",kotlin.math.abs(twiceCenter-bounds.width())<=2)
+        }
+        centered("compact ignores legacy horizontal preference",compact)
         val now=android.os.SystemClock.uptimeMillis();val x=(compact["x"] as Number).toFloat()+20*context.resources.displayMetrics.density;val y=(compact["y"] as Number).toFloat()+18*context.resources.displayMetrics.density
         val automation=instrumentation.getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
-        automation.injectInputEvent(android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,x,y,0),true);automation.injectInputEvent(android.view.MotionEvent.obtain(now,now+80,android.view.MotionEvent.ACTION_UP,x,y,0),true);Thread.sleep(400)
+        automation.injectInputEvent(android.view.MotionEvent.obtain(now,now,android.view.MotionEvent.ACTION_DOWN,x,y,0),true);automation.injectInputEvent(android.view.MotionEvent.obtain(now,now+80,android.view.MotionEvent.ACTION_UP,x,y,0),true)
+        repeat(5){Thread.sleep(45);centered("expanding frame $it")};Thread.sleep(175)
         assertEquals(true,ui{service.overlayReviewMetrics()}["expanded"]);capture("expanded")
+        centered("expanded")
+        val beforeDrag=ui{service.overlayReviewMetrics()};val dragTime=android.os.SystemClock.uptimeMillis()
+        val dragX=(beforeDrag["x"] as Number).toFloat()+20*context.resources.displayMetrics.density
+        val dragY=(beforeDrag["y"] as Number).toFloat()+18*context.resources.displayMetrics.density
+        val distance=80*context.resources.displayMetrics.density
+        automation.injectInputEvent(android.view.MotionEvent.obtain(dragTime,dragTime,android.view.MotionEvent.ACTION_DOWN,dragX,dragY,0),true)
+        automation.injectInputEvent(android.view.MotionEvent.obtain(dragTime,dragTime+100,android.view.MotionEvent.ACTION_MOVE,dragX+distance,dragY+distance,0),true)
+        automation.injectInputEvent(android.view.MotionEvent.obtain(dragTime,dragTime+150,android.view.MotionEvent.ACTION_UP,dragX+distance,dragY+distance,0),true);Thread.sleep(150)
+        val dragged=ui{service.overlayReviewMetrics()};centered("horizontal drag cannot offset capsule",dragged)
+        assertEquals(true,dragged["expanded"])
+        assertTrue("Vertical dragging is preserved",(dragged["y"] as Number).toFloat()>(beforeDrag["y"] as Number).toFloat()+distance/2)
         val image=service.screenshot(allowed);assertEquals(true,image["overlayExcluded"]);assertTrue(image["image"].toString().startsWith("data:image/jpeg;base64,"))
         assertTrue(automation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_90));Thread.sleep(650)
         ui{service.refreshOverlay()};Thread.sleep(300)
         val rotated=ui{service.overlayReviewMetrics()};val bounds=ui{service.getSystemService(android.view.WindowManager::class.java).currentWindowMetrics.bounds}
+        centered("landscape expanded",rotated)
         assertTrue((rotated["x"] as Number).toInt()>=0);assertTrue((rotated["y"] as Number).toInt()>=0)
         assertTrue((rotated["x"] as Number).toInt()+(rotated["width"] as Number).toInt()<=bounds.width())
         assertTrue((rotated["y"] as Number).toInt()+(rotated["height"] as Number).toInt()<=bounds.height());capture("rotated")
         assertTrue(automation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_0));Thread.sleep(650);ui{service.refreshOverlay()}
         ExecutionHub.setMode(context,"dot");Thread.sleep(250);assertEquals("dot",ExecutionHub.mode(context));assertEquals(0,stops)
+        centered("dot")
         capture("dot")
+        ExecutionHub.setMode(context,"compact");Thread.sleep(300);centered("restored compact")
         ExecutionHub.setMode(context,"hidden");ExecutionHub.update(context,state+mapOf("sequence" to System.currentTimeMillis()+1,"phase" to "completed","verified" to true));Thread.sleep(250);assertEquals("hidden",ExecutionHub.mode(context));assertEquals(0,stops)
         ExecutionHub.update(context,state+mapOf("sequence" to System.currentTimeMillis()+2));ExecutionHub.control(id,"stop");Thread.sleep(100);assertEquals(1,stops)
         ExecutionHub.setMode(context,"hidden")

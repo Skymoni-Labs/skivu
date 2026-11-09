@@ -32,7 +32,7 @@ class CloudOverlay(private val service:SkivuAccessibilityService){
         // Mode/phase updates never expand; expanded is solely a user gesture.
         val key="$mode:$expanded:${state["taskId"]}:${state["phase"]}:${state["action"]}:${state["canPause"]}:${state["canStop"]}"
         if(view!=null&&revision==key){clamp();return};revision=key
-        val oldX=params?.x;val oldY=params?.y;val oldWidth=view?.width?:0;val oldHeight=view?.height?:0;remove(false)
+        val oldY=params?.y;val oldWidth=view?.width?:0;val oldHeight=view?.height?:0;remove(false)
         val panel=LinearLayout(service).apply{orientation=LinearLayout.VERTICAL;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS;isFocusable=false}
         val dot=mode=="dot"
         panel.setPadding(dp(if(dot)11 else 8),dp(if(dot)11 else 7),dp(if(dot)11 else 8),dp(if(dot)11 else 7))
@@ -63,11 +63,13 @@ class CloudOverlay(private val service:SkivuAccessibilityService){
         val targetWidth=panel.measuredWidth;val targetHeight=panel.measuredHeight
         val lp=WindowManager.LayoutParams(targetWidth,targetHeight,WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.LEFT;x=oldX?:((metrics.widthPixels-dp(if(dot)32 else 200))*prefs.getFloat("x",.5f)).toInt();y=oldY?:(dp(48)+(metrics.heightPixels-dp(160))*prefs.getFloat("y",0f)).toInt();title="Skivu execution overlay";softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING}
-        var downX=0f;var downY=0f;var startX=0;var startY=0
+            // WindowManager keeps every animated width centered, including after
+            // rotation. Legacy horizontal drag preferences must not offset it.
+            PixelFormat.TRANSLUCENT).apply{gravity=Gravity.TOP or Gravity.CENTER_HORIZONTAL;x=0;y=oldY?:(dp(48)+(metrics.heightPixels-dp(160))*prefs.getFloat("y",0f)).toInt();title="Skivu execution overlay";softInputMode=WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING}
+        var downX=0f;var downY=0f;var startY=0
         header.setOnTouchListener{_,event->when(event.actionMasked){
-            MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;startX=lp.x;startY=lp.y;drag=false;false}
-            MotionEvent.ACTION_MOVE->{if(abs(event.rawX-downX)>dp(6)||abs(event.rawY-downY)>dp(6))drag=true;if(drag){lp.x=startX+(event.rawX-downX).toInt();lp.y=startY+(event.rawY-downY).toInt();clamp();};drag}
+            MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;startY=lp.y;drag=false;false}
+            MotionEvent.ACTION_MOVE->{if(abs(event.rawX-downX)>dp(6)||abs(event.rawY-downY)>dp(6))drag=true;if(drag){lp.y=startY+(event.rawY-downY).toInt();clamp();};drag}
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{if(drag){persist();true}else false}
             else->false}}
         view=panel;params=lp
@@ -83,15 +85,15 @@ class CloudOverlay(private val service:SkivuAccessibilityService){
     private fun control(label:String,description:String,action:()->Unit)=TextView(service).apply{text=label;contentDescription=description;setTextColor(Color.WHITE);textSize=12f;gravity=Gravity.CENTER;setPadding(dp(9),dp(5),dp(9),dp(5));setOnClickListener{action()};isFocusable=false}
     private fun clamp(){val v=view?:return;val p=params?:return
         val bounds=if(android.os.Build.VERSION.SDK_INT>=30)wm.currentWindowMetrics.bounds else Rect(0,0,service.resources.displayMetrics.widthPixels,service.resources.displayMetrics.heightPixels)
-        var top=dp(32);var bottom=dp(32);var left=dp(4);var right=dp(4)
-        if(android.os.Build.VERSION.SDK_INT>=30){val insets=wm.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout());top=maxOf(top,insets.top+dp(4));bottom=maxOf(bottom,insets.bottom+dp(4));bottom=maxOf(bottom,wm.currentWindowMetrics.windowInsets.getInsets(WindowInsets.Type.ime()).bottom+dp(4));left=maxOf(left,insets.left);right=maxOf(right,insets.right)}
-        p.x=p.x.coerceIn(left,maxOf(left,bounds.width()-maxOf(dp(32),v.width)-right));p.y=p.y.coerceIn(top,maxOf(top,bounds.height()-maxOf(dp(32),v.height)-bottom));runCatching{wm.updateViewLayout(v,p)}
+        var top=dp(32);var bottom=dp(32)
+        if(android.os.Build.VERSION.SDK_INT>=30){val insets=wm.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout());top=maxOf(top,insets.top+dp(4));bottom=maxOf(bottom,insets.bottom+dp(4));bottom=maxOf(bottom,wm.currentWindowMetrics.windowInsets.getInsets(WindowInsets.Type.ime()).bottom+dp(4))}
+        p.x=0;p.y=p.y.coerceIn(top,maxOf(top,bounds.height()-maxOf(dp(32),v.height)-bottom));runCatching{wm.updateViewLayout(v,p)}
     }
-    private fun persist(){val p=params?:return;val m=service.resources.displayMetrics;prefs.edit().putFloat("x",(p.x.toFloat()/maxOf(1,m.widthPixels-(view?.width?:0))).coerceIn(0f,1f)).putFloat("y",((p.y-dp(48)).toFloat()/maxOf(1,m.heightPixels-dp(160))).coerceIn(0f,1f)).apply()}
+    private fun persist(){val p=params?:return;val m=service.resources.displayMetrics;prefs.edit().remove("x").putFloat("y",((p.y-dp(48)).toFloat()/maxOf(1,m.heightPixels-dp(160))).coerceIn(0f,1f)).apply()}
     fun suspendForScreenshot(){suspended++;remove()}
     fun restoreAfterScreenshot(){suspended=maxOf(0,suspended-1);refresh()}
     fun close(){remove()}
-    internal fun reviewMetrics():Map<String,Any?> {val v=view;val p=params;return mapOf("visible" to (v!=null),"mode" to ExecutionHub.mode(service),"expanded" to expanded,"x" to p?.x,"y" to p?.y,"width" to v?.width,"height" to v?.height,"avatarDp" to if(v!=null&&ExecutionHub.mode(service)=="compact")22 else 0,"focusable" to (p!=null&&p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE==0))}
+    internal fun reviewMetrics():Map<String,Any?> {val v=view;val p=params;val location=IntArray(2);v?.getLocationOnScreen(location);return mapOf("visible" to (v!=null),"mode" to ExecutionHub.mode(service),"expanded" to expanded,"x" to if(v!=null)location[0] else null,"y" to if(v!=null)location[1] else null,"width" to v?.width,"height" to v?.height,"avatarDp" to if(v!=null&&ExecutionHub.mode(service)=="compact")22 else 0,"focusable" to (p!=null&&p.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE==0))}
     private fun remove(reset:Boolean=true){animator?.cancel();view?.animate()?.cancel();view?.let{runCatching{wm.removeView(it)}};view=null;params=null;if(reset)revision=""}
 
     private class Portrait(context:Context,phase:String,private val half:Boolean):View(context){
