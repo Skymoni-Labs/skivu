@@ -349,13 +349,11 @@ class _OpenPluginPageState extends State<OpenPluginPage>
           )
           .firstOrNull;
       if (chat == null) throw const PluginApiError('NOT_FOUND', '原聊天已不存在。');
-      final text = bridge.text(p, 'text', max: 12000, empty: true);
+      final text = bridge.text(p, 'text', empty: true);
       final draft = [
         chat.draft,
         text,
       ].where((s) => s.trim().isNotEmpty).join('\n\n');
-      if (draft.length > 30000)
-        throw const PluginApiError('LIMIT_EXCEEDED', '原聊天草稿过长，请先处理。');
       demo.saveDraft(chat, draft);
       chat.draftRevision++;
       demo.changed();
@@ -392,35 +390,49 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       return (await Clipboard.getData('text/plain'))?.text;
     if (method == 'clipboard.write') {
       await Clipboard.setData(
-        ClipboardData(
-          text: bridge.text(p, 'text', max: 1024 * 1024, empty: true),
-        ),
+        ClipboardData(text: bridge.text(p, 'text', empty: true)),
       );
       return true;
     }
     if (method == 'files.pick') {
-      final value = await const MethodChannel(
-        'skivu/open_plugin_files',
-      ).invokeMapMethod<String, dynamic>('pick');
+      final value = await const MethodChannel('skivu/open_plugin_files')
+          .invokeMapMethod<String, dynamic>('pick', {
+            'owner': 'plugin:${widget.record.manifest.id}',
+          });
       if (value == null) return null;
       return {
         'name': value['name'],
         'mime': value['mime'],
-        'base64': base64Encode(value['bytes'] as Uint8List),
+        'bytes': value['bytes'],
+        'contentId': value['contentId'],
+        'sha256': value['sha256'],
+        'inlineComplete': value['inlineBytes'] is Uint8List,
+        if (value['inlineBytes'] is Uint8List)
+          'base64': base64Encode(value['inlineBytes'] as Uint8List),
       };
     }
+    if (method == 'files.read')
+      return const MethodChannel(
+        'skivu/open_plugin_files',
+      ).invokeMapMethod<String, dynamic>('read', {
+        'owner': 'plugin:${widget.record.manifest.id}',
+        'contentId': bridge.text(p, 'contentId'),
+        if (p['offset'] != null) 'offset': p['offset'],
+        if (p['length'] != null) 'length': p['length'],
+      });
     if (method == 'files.save') {
-      final bytes = base64Decode(
-        bridge.text(p, 'base64', max: 12 * 1024 * 1024, empty: true),
-      );
-      if (bytes.length > 8 * 1024 * 1024)
-        throw const PluginApiError('LIMIT_EXCEEDED', '文件超过 8 MiB。');
+      final content = p['contentId'];
+      final bytes = content == null
+          ? base64Decode(bridge.text(p, 'base64', empty: true))
+          : null;
       return await const MethodChannel(
             'skivu/open_plugin_files',
           ).invokeMethod<bool>('save', {
             'name': bridge.text(p, 'name', max: 160),
             'mime': bridge.text(p, 'mime', max: 150),
-            'bytes': Uint8List.fromList(bytes),
+            'owner': 'plugin:${widget.record.manifest.id}',
+            if (content != null) 'contentId': content,
+            if (bytes != null) 'bytes': Uint8List.fromList(bytes),
           }) ??
           false;
     }
@@ -448,17 +460,16 @@ class _OpenPluginPageState extends State<OpenPluginPage>
           ? bridge.text(p, 'subtitle', max: 1000, empty: true)
           : r.subtitle;
       final prompt = p.containsKey('prompt')
-          ? bridge.text(p, 'prompt', max: 60000, empty: true)
+          ? bridge.text(p, 'prompt', empty: true)
           : r.prompt;
       final card = p['card'] ?? r.card;
       if (card is! Map ||
-          card.length > 100 ||
           card.entries.any(
             (e) =>
                 e.key is! String ||
                 e.value is! String ||
-                (e.key as String).length > 100 ||
-                (e.value as String).length > 6000,
+                (e.key as String).contains('\u0000') ||
+                (e.value as String).contains('\u0000'),
           ))
         throw const PluginApiError('INVALID_ARGUMENT', '角色卡格式不正确。');
       await allow(
@@ -507,7 +518,7 @@ class _OpenPluginPageState extends State<OpenPluginPage>
             },
         ];
       }
-      final text = bridge.text(p, 'text', max: 60000), role = p['role'];
+      final text = bridge.text(p, 'text'), role = p['role'];
       if (!['user', 'assistant'].contains(role))
         throw const PluginApiError('INVALID_ARGUMENT', '消息身份不正确。');
       await allow(
@@ -534,7 +545,7 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       await widget.registry.setPrompt(
         widget.record.manifest.id,
         role,
-        bridge.text(p, 'text', max: 32768, empty: true),
+        bridge.text(p, 'text', empty: true),
       );
       return true;
     }
@@ -553,18 +564,14 @@ class _OpenPluginPageState extends State<OpenPluginPage>
     if (independent && p.containsKey('roleId'))
       throw const PluginApiError('INVALID_ARGUMENT', '独立运行模块不接受角色参数。');
     if (generating) throw const PluginApiError('BUSY', '本插件已有生成任务。');
-    final instruction = bridge.text(p, 'instruction', max: 60000),
+    final instruction = bridge.text(p, 'instruction'),
         role = p['roleId'] ?? roleId;
     if (!independent &&
         (role is! String || !demo.personas.any((r) => r.id == role)))
       throw const PluginApiError('NOT_FOUND', '角色已不存在。');
-    final max = p['maxOutput'] ?? 1024, context = p['context'] ?? [];
-    if (max is! int ||
-        max < 16 ||
-        max > 4096 ||
-        context is! List ||
-        context.length > 50 ||
-        utf8.encode(jsonEncode(context)).length > 65536)
+    final max = p['maxOutput'] ?? demo.activeConnection?.maxOutput ?? 0,
+        context = p['context'] ?? [];
+    if (max is! int || max < 0 || context is! List)
       throw const PluginApiError('INVALID_ARGUMENT', '生成参数超出范围。');
     final history = <Map<String, String>>[];
     for (final m in context) {
@@ -577,7 +584,7 @@ class _OpenPluginPageState extends State<OpenPluginPage>
     }
     await allow(
       '使用当前模型生成？',
-      '${independent ? "独立模块" : "角色：${demo.personas.firstWhere((r) => r.id == role).name}"}\n最多输出 $max token；会按当前模型设置消耗额度。\n\n${instruction.substring(0, instruction.length.clamp(0, 2000))}\n\n插件提供 ${history.length} 条上下文。',
+      '${independent ? "独立模块" : "角色：${demo.personas.firstWhere((r) => r.id == role).name}"}\n${max == 0 ? '输出跟随服务端' : '最多输出 $max token（本次配置）'}；会按当前模型设置消耗额度。\n\n${instruction.substring(0, instruction.length.clamp(0, 2000))}\n\n插件提供 ${history.length} 条上下文。',
     );
     generating = true;
     ChatSession? session;
@@ -591,13 +598,9 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       bridge.check();
       sessions.add(session);
       var text = '', usage = const ApiUsage();
-      await for (final event in session.events.timeout(
-        const Duration(seconds: 90),
-      )) {
+      await for (final event in session.events) {
         bridge.check();
         text += event.text;
-        if (text.length > 256 * 1024)
-          throw const PluginApiError('LIMIT_EXCEEDED', '生成结果过长。');
         if (event.usage != null) usage = usage.merge(event.usage!);
       }
       return {
@@ -646,7 +649,6 @@ class _OpenPluginPageState extends State<OpenPluginPage>
       if (call.method == 'console' && mounted) {
         final raw = call.arguments as Map;
         logs.add('${raw['level']} L${raw['line']}: ${raw['message']}');
-        if (logs.length > 100) logs.removeAt(0);
       }
       return null;
     });

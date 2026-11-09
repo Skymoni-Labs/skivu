@@ -26,6 +26,99 @@ final tool = {
 
 void main() {
   test(
+    'keeps large requests, complete responses and paginated catalogs',
+    () async {
+      final input = '题目🙂' * 150000;
+      final output = '完整结果🙂' * 500000;
+      final description = '详细工具说明' * 5000;
+      final cursor = 'page-' + 'x' * 5000;
+      final client = McpClient(
+        const McpConnection('http://localhost:8080/mcp'),
+        client: MockClient((request) async {
+          final body = jsonDecode(request.body);
+          final id = body['id'];
+          switch (body['method']) {
+            case 'initialize':
+              return reply(id, {
+                'protocolVersion': '2025-11-25',
+                'capabilities': {'tools': {}},
+              });
+            case 'notifications/initialized':
+              return http.Response('', 202);
+            case 'tools/list':
+              final second = body['params']['cursor'] != null;
+              if (second) expect(body['params']['cursor'], cursor);
+              return reply(id, {
+                'tools': [
+                  for (var i = 0; i < 600; i++)
+                    {
+                      ...tool,
+                      'name': 'tool_${i + (second ? 600 : 0)}',
+                      'description': i == 0 ? description : '',
+                    },
+                ],
+                if (!second) 'nextCursor': cursor,
+              });
+            default:
+              expect(body['params']['arguments']['text'], input);
+              return reply(id, {
+                'content': [
+                  {'type': 'text', 'text': output},
+                ],
+              });
+          }
+        }),
+      );
+      addTearDown(client.close);
+      await client.initialize();
+      final all = await client.listTools();
+      expect(all, hasLength(1200));
+      expect(all.first.description, description);
+      expect(
+        (await client.callTool(all.first, {
+          'text': input,
+        }))['content'][0]['text'],
+        output,
+      );
+    },
+  );
+
+  test(
+    'only explicitly configured deadline ends a pending MCP request',
+    () async {
+      final client = McpClient(
+        const McpConnection('http://localhost/mcp', timeoutSeconds: 1),
+        client: MockClient(
+          (_) => Future<http.Response>.delayed(
+            const Duration(seconds: 2),
+            () => http.Response('', 503),
+          ),
+        ),
+      );
+      addTearDown(client.close);
+      await expectLater(
+        client.initialize(),
+        throwsA(
+          isA<McpFailure>().having(
+            (e) => e.message,
+            'message',
+            contains('你设置的超时'),
+          ),
+        ),
+      );
+      await expectLater(
+        client.initialize(),
+        throwsA(
+          isA<McpFailure>().having(
+            (e) => e.message,
+            'message',
+            contains('已关闭'),
+          ),
+        ),
+      );
+    },
+  );
+  test(
     'negotiates session and protocol, paginates, calls only when requested',
     () async {
       final methods = <String>[];
@@ -164,12 +257,11 @@ void main() {
   });
 
   test(
-    'refuses local insecure endpoints, header injection and use before initialize',
+    'accepts configured HTTP and rejects header injection and use before initialize',
     () async {
-      expect(
-        () => McpClient(const McpConnection('http://example.com/mcp')),
-        throwsFormatException,
-      );
+      final local = McpClient(const McpConnection('http://localhost:8080/mcp'));
+      expect(local.endpoint.scheme, 'http');
+      local.close();
       expect(
         () => McpClient(
           const McpConnection(

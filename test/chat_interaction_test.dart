@@ -77,7 +77,10 @@ void main() {
       'data':
           'data:text/plain;base64,${base64Encode(List.filled(2 * 1024 * 1024 + 1, 0))}',
     };
-    expect(cleanChatInteraction(big), isNull);
+    expect(
+      (cleanChatInteraction(big)!['payload'] as Map)['bytes'],
+      2 * 1024 * 1024 + 1,
+    );
   });
   test(
     'clear and undo include attachments without losing new events',

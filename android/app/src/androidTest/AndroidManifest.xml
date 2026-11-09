@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="操控验收">
+        <provider android:name="com.skyjjgw.independent.ski.QaDocumentsProvider"
+            android:authorities="com.skyjjgw.independent.ski.engineqa.test.documents"
+            android:exported="true" android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
         <activity android:name="com.skyjjgw.independent.ski.CloudFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
 </manifest>

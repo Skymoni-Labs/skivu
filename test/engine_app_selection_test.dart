@@ -108,6 +108,7 @@ void main() {
         'system': true,
         'control': false,
         'shell': false,
+        'allApplications': false,
         'packages': ['com.test.sms', 'com.test.not_installed'],
       };
       final writes = <Map<String, dynamic>>[];
@@ -162,6 +163,7 @@ void main() {
         'system': true,
         'control': false,
         'shell': false,
+        'allApplications': false,
         'packages': [
           'com.test.sms',
           'com.test.not_installed',

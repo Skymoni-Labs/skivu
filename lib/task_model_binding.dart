@@ -12,8 +12,32 @@ Object? _canonical(Object? value) {
   return value;
 }
 
-String modelBindingFingerprint(Map<String, dynamic> binding) =>
-    sha256.convert(utf8.encode(jsonEncode(_canonical(binding)))).toString();
+Map<String, dynamic> modelAuthority(Map<String, dynamic> config) => {
+  for (final key in [
+    'id',
+    'protocol',
+    'address',
+    'model',
+    'auth',
+    'credentialId',
+  ])
+    if (config.containsKey(key)) key: config[key],
+};
+String modelBindingFingerprint(Map<String, dynamic> binding) => sha256
+    .convert(
+      utf8.encode(
+        jsonEncode(
+          _canonical({
+            ...binding,
+            if (binding['connection'] is Map)
+              'connection': modelAuthority(
+                Map<String, dynamic>.from(binding['connection']),
+              ),
+          }),
+        ),
+      ),
+    )
+    .toString();
 
 /// Public model configuration only, never a credential/token. Ordinary chat's
 /// model selection does not change a previously saved plan's model.

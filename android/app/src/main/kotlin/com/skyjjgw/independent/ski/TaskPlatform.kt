@@ -29,8 +29,8 @@ class TaskPlatform(private val context: Context,private val activity: Activity?=
                 try {
                     val lease=if(args.has("_lease")) args.getJSONObject("_lease") else workerLease
                     if(workerLease!=null) {
-                        require(call.method in setOf("document.read","document.cas","runs.check","runs.reserveModel","runs.finish","tools.invoke","tools.status","runtime.status")) { "后台执行不能创建新的定时计划或修改授权。" }
-                        require(lease?.optString("id")==workerLease.getString("id") && lease.optString("token")==workerLease.getString("token"));plans.check(workerLease)
+                        require(call.method in setOf("document.read","document.cas","runs.check","runs.pause","runs.resume","runs.stop","runs.checkpoint.read","runs.checkpoint.write","runs.heartbeat","runs.reserveModel","runs.finish","tools.invoke","tools.status","tools.cancel","runtime.status","resources.list","resources.get","resources.verify","resources.calendars","resources.create","resources.update","resources.cancel","plans.list","plans.get","plans.create","plans.update","plans.pause","plans.resume","plans.cancel","runtime.pendingOpen")) { "后台执行不能创建新的定时计划或修改授权。" }
+                        require(lease?.optString("id")==workerLease.getString("id") && lease.optString("token")==workerLease.getString("token"));if(call.method in setOf("runs.finish","runs.checkpoint.read","runs.checkpoint.write","tools.cancel")){require(db.run(workerLease.getString("id"))?.optString("token")==workerLease.getString("token"))}else plans.check(workerLease)
                     }
                     val answer: Any? = when(call.method) {
                         "document.read" -> db.document()
@@ -57,7 +57,7 @@ class TaskPlatform(private val context: Context,private val activity: Activity?=
                         }
                         "runtime.reconcile" -> {TaskScheduler(context).reconcile();mapOf("reconciled" to true)}
                         "runtime.registerWorker" -> {require(workerLease==null);check(context.getSharedPreferences("skivu.scheduled-runtime",0).edit().putLong("callback",args.getLong("handle")).commit());mapOf("registered" to true)}
-                        "runtime.status" -> mapOf("notifications" to context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled(),"calendarRead" to (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED),"calendarWrite" to (context.checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED),"timeZone" to java.util.TimeZone.getDefault().id,"locked" to context.getSystemService(KeyguardManager::class.java).isDeviceLocked,"globalDailyRequestLimit" to 40)
+                        "runtime.status" -> mapOf("notifications" to context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled(),"calendarRead" to (context.checkSelfPermission(android.Manifest.permission.READ_CALENDAR)==PackageManager.PERMISSION_GRANTED),"calendarWrite" to (context.checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR)==PackageManager.PERMISSION_GRANTED),"timeZone" to java.util.TimeZone.getDefault().id,"locked" to context.getSystemService(KeyguardManager::class.java).isDeviceLocked,"globalDailyRequestLimit" to 0,"limitMode" to "unrestricted")
                         "runtime.authorize" -> {
                             require(activity!=null && workerLease==null)
                             val permissions=when(args.getString("kind")) {"calendar" -> arrayOf(android.Manifest.permission.READ_CALENDAR,android.Manifest.permission.WRITE_CALENDAR);"notifications" -> if(Build.VERSION.SDK_INT>=33) arrayOf(android.Manifest.permission.POST_NOTIFICATIONS) else emptyArray();else -> error("授权类型无效。")}
@@ -69,17 +69,24 @@ class TaskPlatform(private val context: Context,private val activity: Activity?=
                             activity?.intent?.removeExtra("skivuTaskId")
                             mapOf("taskId" to id)
                         }
+                        "runs.get"->{require(workerLease==null||args.getString("id")==workerLease.getString("id"));db.run(args.getString("id"))?:error("执行记录不存在。")}
                         "runs.check" -> {plans.check(lease ?: error("缺少执行租约。"));mapOf("active" to true)}
+                        "runs.checkpoint.read" -> mapOf("value" to TaskBlobStore(context).checkpoint((lease?:error("缺少租约。")).getString("id")))
+                        "runs.checkpoint.write" -> {TaskBlobStore(context).saveCheckpoint((lease?:error("缺少租约。")).getString("id"),args.getString("value"));mapOf("saved" to true)}
+                        "runs.pause","runs.resume"->{require(workerLease==null||args.getString("id")==workerLease.getString("id"));val action=call.method.removePrefix("runs.");val r=plans.controlRun(args.getString("id"),action);if(workerLease==null)ScheduledTaskWorker.requestControl(args.getString("id"),action);TaskScheduler(context).reconcile(false);r}
+                        "runs.stop" -> {require(workerLease==null||args.getString("id")==workerLease.getString("id"));val r=plans.stopRun(args.getString("id"));ScheduledTaskWorker.requestStop(context,args.getString("id"));r}
+                        "runs.heartbeat" -> plans.heartbeat(lease ?: error("缺少执行租约。"),args.optJSONObject("checkpoint"))
                         "runs.reserveModel" -> plans.reserveModel(lease ?: error("缺少执行租约。"))
-                        "runs.finish" -> plans.finish(lease ?: error("缺少执行租约。"),args.getString("state"),args.optString("summary"),args.optString("result"),args.optJSONArray("artifactIds"))?.also {
+                        "runs.finish" -> plans.finish(lease ?: error("缺少执行租约。"),args.getString("state"),args.optString("summary"),args.optString("result"),args.optJSONArray("artifactIds"),args.optJSONArray("artifactBatches"))?.also {
                             ScheduledTaskWorker.notifyResult(context,it)
                             if(context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE!=0) android.util.Log.i("SkivuScheduler","committed plan:${it.getString("id")} state:${it.optJSONObject("lastRun")?.optString("state")}")
                         } ?: mapOf("finished" to false)
                         "tools.invoke" -> TaskBackgroundTools(context).invoke(args,lease ?: error("缺少执行租约。"))
-                        "tools.status" -> {val prefs=context.getSharedPreferences("skivu.device-engine.v1",0);mapOf("enabled" to prefs.getBoolean("enabled",false),"system" to prefs.getBoolean("system",false),"control" to false,"shell" to false,"background" to true)}
+                        "tools.status" -> TaskBackgroundTools(context).status(lease ?: error("缺少执行租约。"))
+                        "tools.cancel" -> TaskBackgroundTools(context).cancel(args,lease ?: error("缺少执行租约。"))
                         else -> error("任务接口不存在。")
                     }
-                    if(call.method !in setOf("document.read","runtime.status","runtime.pendingOpen","plans.list","plans.get","resources.list","resources.get","resources.calendars","runs.check","tools.invoke","tools.status","runs.reserveModel")) {
+                    if(call.method !in setOf("document.read","runtime.status","runtime.pendingOpen","plans.list","plans.get","resources.list","resources.get","resources.calendars","runs.check","runs.get","runs.heartbeat","runs.checkpoint.read","runs.checkpoint.write","tools.invoke","tools.status","runs.reserveModel")) {
                         changed()
                         if(call.method.startsWith("plans.") || call.method=="document.cas") TaskScheduler(context).reconcile()
                     }
@@ -89,7 +96,7 @@ class TaskPlatform(private val context: Context,private val activity: Activity?=
         }
     }
     companion object {
-        val worker=Executors.newSingleThreadExecutor()
+        val worker=Executors.newCachedThreadPool()
         private val channels=mutableListOf<WeakReference<MethodChannel>>()
         fun changed() { Handler(Looper.getMainLooper()).post {synchronized(channels) {channels.removeAll {it.get()==null};channels.forEach {it.get()?.invokeMethod("changed",null)}}} }
     }

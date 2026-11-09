@@ -598,9 +598,14 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                             selected: session.muted,
                           ),
                           _control(
-                            Icons.screen_share_outlined,
-                            '共享屏幕，即将开放',
-                            null,
+                            Icons.done_rounded,
+                            '说完了',
+                            const {
+                                  VoiceCallPhase.listening,
+                                  VoiceCallPhase.userSpeaking,
+                                }.contains(session.phase)
+                                ? () => unawaited(session.finishInput())
+                                : null,
                             compact: compact,
                           ),
                           Column(

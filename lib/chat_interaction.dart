@@ -13,13 +13,13 @@ Map<String, dynamic>? cleanChatInteraction(Map<dynamic, dynamic> raw) {
       payload is! Map)
     return null;
   final p = <String, dynamic>{};
-  String? text(String key, int limit) {
+  String? text(String key, int? limit) {
     final v = payload[key];
-    return v is String && v.length <= limit ? v : null;
+    return v is String && (limit == null || v.length <= limit) ? v : null;
   }
 
   if (['image', 'video', 'audio', 'file', 'music'].contains(kind)) {
-    final data = text('data', 2800000), name = text('name', 120);
+    final data = text('data', null), name = text('name', 120);
     if (data == null || name == null || name.trim().isEmpty) return null;
     final match = RegExp(
       r'^data:([a-z0-9.+/-]+);base64,([A-Za-z0-9+/=]+)$',
@@ -46,7 +46,7 @@ Map<String, dynamic>? cleanChatInteraction(Map<dynamic, dynamic> raw) {
     if (!allowed.contains(mime)) return null;
     try {
       final bytes = base64Decode(match.group(2)!);
-      if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) return null;
+      if (bytes.isEmpty) return null;
       p.addAll({
         'data': data,
         'name': name.replaceAll(RegExp(r'[\\/\x00-\x1f]'), '_'),

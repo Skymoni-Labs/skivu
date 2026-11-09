@@ -46,7 +46,8 @@ class RelayAccount extends ChangeNotifier {
   num? quotaPerUnit;
   String currency = 'USD', billingPreference = '';
   String funding = 'relay';
-  int maxOutput = 2048;
+  int maxOutput = 0;
+  int? legacyMaxOutput;
   bool streaming = true;
   Map<String, dynamic>? betaStatus;
   Map<String, dynamic>? loginOptions;
@@ -110,6 +111,8 @@ class RelayAccount extends ChangeNotifier {
       'model': activeModel,
       'funding': funding,
       'maxOutput': maxOutput,
+      'limitsVersion': 2,
+      if (legacyMaxOutput != null) 'legacyMaxOutput': legacyMaxOutput,
       'streaming': streaming,
       if (authorizing)
         'pending': {
@@ -133,7 +136,12 @@ class RelayAccount extends ChangeNotifier {
       if (stored == null) return;
       final raw = jsonDecode(stored) as Map;
       funding = raw['funding'] == 'beta' ? 'beta' : 'relay';
-      maxOutput = (raw['maxOutput'] as int? ?? 2048).clamp(128, 4096);
+      legacyMaxOutput =
+          raw['legacyMaxOutput'] as int? ??
+          (raw['limitsVersion'] == null ? raw['maxOutput'] as int? : null);
+      maxOutput = raw['limitsVersion'] == null && raw['maxOutput'] == 2048
+          ? 0
+          : raw['maxOutput'] as int? ?? 0;
       streaming = raw['streaming'] != false;
       final deadline = raw['expires'] as int?;
       if (deadline != null &&
@@ -275,7 +283,7 @@ class RelayAccount extends ChangeNotifier {
   }
 
   Future<void> setGeneration(int output, bool stream) async {
-    maxOutput = output.clamp(128, 4096);
+    maxOutput = output;
     streaming = stream;
     await _persist();
     notifyListeners();

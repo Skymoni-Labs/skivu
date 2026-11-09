@@ -46,10 +46,12 @@ class AssistantPlanTools implements AssistantExtensions {
       'type': 'string',
       'enum': ['summary', 'local_tasks', 'device_action', 'coding'],
       'description':
-          'summary=整理或生成内容，local_tasks=实际管理待办，device_action=实际手机操作，coding=在保存的 projectId 内置项目执行编程（必须有实际结果回执）',
+          'summary=整理或生成内容，local_tasks=实际管理待办，device_action=实际手机操作，coding=内置编程；projectId仅在用户主动限定一个项目时设置，未指定可按目标选择或创建项目',
     },
     'projectId': _text(120),
-    'goal': _text(4000),
+    'allowForeground': {'type': 'boolean'},
+    'maxRunSeconds': {'type': 'integer'},
+    'goal': {'type': 'string'},
     'rule': rule,
     'maxRequestsPerRun': {'type': 'integer'},
     'maxDailyRequests': {'type': 'integer'},
@@ -77,7 +79,7 @@ class AssistantPlanTools implements AssistantExtensions {
       ['id'],
     ),
     'create': AssistantTaskTools.definition(
-      '用户明确要求到时间由小云处理事情时创建真实后台计划。先保存待办再传 taskId。准点提醒使用系统提醒，不用此接口。一次性用 rule.kind=once 和 at(UTC毫秒)，每天用daily/time，每周weekly/time/weekdays(周一1..周日7)，间隔interval/intervalMinutes最少15分钟。后台允许系统延迟，不保证准点。使用当前选定模型；每次和每日请求次数有限。',
+      '用户明确要求到时间由小云处理事情时创建真实后台计划。先保存待办再传 taskId。准点提醒使用系统提醒，不用此接口。一次性用 rule.kind=once 和 at(UTC毫秒)，每天用daily/time，每周weekly/time/weekdays(周一1..周日7)，间隔interval/intervalMinutes为正整数分钟。后台允许系统延迟，不保证准点。使用当前选定模型；默认不额外限制请求次数；用户可选设预算，0表示不限制。',
       'write',
       {
         'taskId': _text(100),

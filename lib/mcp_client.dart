@@ -14,7 +14,12 @@ class McpFailure implements Exception {
 }
 
 class McpConnection {
-  const McpConnection(this.endpoint, {this.token = ''});
+  const McpConnection(
+    this.endpoint, {
+    this.token = '',
+    this.timeoutSeconds = 0,
+  });
+  final int timeoutSeconds;
   final String endpoint, token;
 }
 
@@ -30,18 +35,22 @@ class McpConnectionStore {
     return McpConnection(
       endpoint,
       token: await _secure.read(key: _key(id)) ?? '',
+      timeoutSeconds: prefs.getInt('skivu.mcp.timeout.$id') ?? 0,
     );
   }
 
   Future<void> save(String id, McpConnection value) async {
     validateMcpEndpoint(value.endpoint);
     _validateToken(value.token);
+    if (value.timeoutSeconds < 0) throw const McpFailure('超时不能为负数，0表示不设置。');
     if (value.token.isEmpty) {
       await _secure.delete(key: _key(id));
     } else {
       await _secure.write(key: _key(id), value: value.token);
     }
     final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setInt('skivu.mcp.timeout.$id', value.timeoutSeconds))
+      throw const McpFailure('连接超时配置未保存。');
     if (!await prefs.setString('skivu.mcp.endpoint.$id', value.endpoint)) {
       throw const McpFailure('连接地址未保存，请重试。');
     }
@@ -51,11 +60,12 @@ class McpConnectionStore {
     await _secure.delete(key: _key(id));
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('skivu.mcp.endpoint.$id');
+    await prefs.remove('skivu.mcp.timeout.$id');
   }
 }
 
 void _validateToken(String token) {
-  if (token.length > 8192 || RegExp(r'[\x00-\x20\x7f]').hasMatch(token)) {
+  if (RegExp(r'[\x00-\x20\x7f]').hasMatch(token)) {
     throw const McpFailure('密钥格式无效，请移除空格和换行。');
   }
 }
@@ -74,7 +84,6 @@ class McpTool {
       throw const McpFailure('服务返回了无效的工具定义。');
     }
     final description = value['description'] as String? ?? '';
-    if (description.length > 20000) throw const McpFailure('工具说明过长。');
     return McpTool(
       value['name'],
       description,
@@ -89,11 +98,14 @@ class McpClient {
   McpClient(McpConnection connection, {http.Client? client})
     : endpoint = validateMcpEndpoint(connection.endpoint),
       token = connection.token,
+      timeoutSeconds = connection.timeoutSeconds,
       _client = client ?? http.Client() {
     _validateToken(token);
+    if (timeoutSeconds < 0) throw const McpFailure('超时不能为负数，0表示不设置。');
   }
   final Uri endpoint;
   final String token;
+  final int timeoutSeconds;
   final http.Client _client;
   String? _session, _protocol;
   int _sequence = 0;
@@ -125,8 +137,6 @@ class McpClient {
       'method': method,
       if (params != null) 'params': params,
     });
-    if (utf8.encode(body).length > 512 * 1024)
-      throw const McpFailure('工具参数过大。');
     final request = http.Request('POST', endpoint)
       ..followRedirects = false
       ..headers.addAll({
@@ -138,17 +148,18 @@ class McpClient {
       })
       ..body = body;
     try {
-      final response = await _client
-          .send(request)
-          .timeout(const Duration(seconds: 25));
-      return await _read(
-        response,
-        id,
-        notification,
-      ).timeout(const Duration(seconds: 60));
+      Future<Map<String, dynamic>> exchange() async {
+        final response = await _client.send(request);
+        return _read(response, id, notification);
+      }
+
+      final operation = exchange();
+      return timeoutSeconds == 0
+          ? await operation
+          : await operation.timeout(Duration(seconds: timeoutSeconds));
     } on TimeoutException {
       close();
-      throw const McpFailure('MCP 请求超时，请重新连接。');
+      throw const McpFailure('MCP 请求达到你设置的超时；服务可能仍在执行，请先核对原状态再重新连接。');
     } on McpFailure {
       rethrow;
     } catch (_) {
@@ -171,9 +182,7 @@ class McpClient {
     }
     final session = response.headers['mcp-session-id'];
     if (session != null) {
-      if (session.isEmpty ||
-          session.length > 512 ||
-          RegExp(r'[^\x21-\x7e]').hasMatch(session)) {
+      if (session.isEmpty || RegExp(r'[^\x21-\x7e]').hasMatch(session)) {
         await response.stream.listen((_) {}).cancel();
         throw const McpFailure('MCP 会话标识无效。');
       }
@@ -191,21 +200,11 @@ class McpClient {
         ?.split(';')
         .first
         .trim();
-    var total = 0;
-    final stream = response.stream
-        .map((chunk) {
-          total += chunk.length;
-          if (total > 4 * 1024 * 1024) throw const McpFailure('MCP 响应过大。');
-          return chunk;
-        })
-        .timeout(const Duration(seconds: 45));
+    final stream = response.stream;
     if (contentType == 'application/json') {
-      final bytes = <int>[];
-      await for (final chunk in stream) {
-        bytes.addAll(chunk);
-      }
+      final text = await stream.transform(utf8.decoder).join();
       if (notification) return {};
-      return _result(jsonDecode(utf8.decode(bytes)), id);
+      return _result(jsonDecode(text), id);
     }
     if (contentType == 'text/event-stream' && !notification) {
       final data = <String>[];
@@ -259,16 +258,12 @@ class McpClient {
       });
       if (result['tools'] is! List) throw const McpFailure('MCP 工具列表无效。');
       tools.addAll((result['tools'] as List).map(McpTool.parse));
-      if (tools.length > 1000 ||
-          tools.map((item) => item.name).toSet().length != tools.length) {
-        throw const McpFailure('MCP 工具列表过大或包含重复项目。');
+      if (tools.map((item) => item.name).toSet().length != tools.length) {
+        throw const McpFailure('MCP 工具列表包含重复项目。');
       }
       final next = result['nextCursor'];
       if (next != null &&
-          (next is! String ||
-              next.isEmpty ||
-              next.length > 4000 ||
-              !cursors.add(next))) {
+          (next is! String || next.isEmpty || !cursors.add(next))) {
         throw const McpFailure('MCP 工具分页无效。');
       }
       cursor = next;

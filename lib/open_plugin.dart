@@ -21,7 +21,7 @@ const runtimeOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v4.json';
 const defaultOpenPluginCatalog =
     'https://skymoni.com/app-plugins/catalog/apps-v5.json';
-const maxOpenPluginBytes = 32 * 1024 * 1024;
+const int? maxOpenPluginBytes = null; // No product package-size quota.
 bool pluginJsonEqual(Object? a, Object? b) {
   if (a is Map && b is Map)
     return a.length == b.length &&
@@ -179,7 +179,6 @@ class OpenPluginManifest {
         permissions.toSet().length != permissions.length)
       throw const FormatException('插件权限不受支持。');
     if (domains is! List ||
-        domains.length > 100 ||
         domains.toSet().length != domains.length ||
         domains.any(
           (d) =>
@@ -209,8 +208,7 @@ class OpenPluginManifest {
         ) ||
         (c.containsKey('chatSurface') && c['chatSurface'] is! bool) ||
         c['launcher'] is! bool ||
-        c['chatActions'] is! List ||
-        (c['chatActions'] as List).length > 20)
+        c['chatActions'] is! List)
       throw const FormatException('插件入口声明不正确。');
     final ids = <String>{};
     for (final a in c['chatActions']) {
@@ -257,20 +255,16 @@ class OpenPluginPackage {
   final Map<String, Map<String, String>> files;
   final String licenseText, notices, raw, digest;
   factory OpenPluginPackage.parse(String text) {
-    if (utf8.encode(text).length > maxOpenPluginBytes)
-      throw const FormatException('插件包超过 32 MiB。');
     final value = jsonDecode(text);
     if (value is! Map || value.length != 4 || value['files'] is! Map)
       throw const FormatException('插件包格式不正确。');
     final manifest = OpenPluginManifest.parse(value['manifest']);
-    final license = _text(value, 'licenseText', 256 * 1024);
-    if (value['notices'] is! String ||
-        (value['notices'] as String).length > 256 * 1024)
+    final license = value['licenseText'];
+    if (license is! String ||
+        license.trim().isEmpty ||
+        value['notices'] is! String)
       throw const FormatException('插件来源说明不正确。');
     final files = <String, Map<String, String>>{};
-    if ((value['files'] as Map).length > 512)
-      throw const FormatException('插件文件过多。');
-    var total = 0;
     for (final e in (value['files'] as Map).entries) {
       if (e.key is! String ||
           !pluginRelativePath(e.key) ||
@@ -283,10 +277,9 @@ class OpenPluginPackage {
           !RegExp(r'^[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+$').hasMatch(f['mime']) ||
           f['base64'] is! String)
         throw const FormatException('插件资源格式不正确。');
-      final bytes = base64Decode(f['base64']);
-      if (bytes.length > 8 * 1024 * 1024 ||
-          (total += bytes.length) > 24 * 1024 * 1024)
-        throw const FormatException('插件资源超过上限。');
+      base64Decode(
+        f['base64'],
+      ); // Validate encoding; actual memory/storage are the boundary.
       if (e.key == manifest.entry && f['mime'] != 'text/html')
         throw const FormatException('插件入口 MIME 不正确。');
       files[e.key] = Map<String, String>.from(f);
@@ -336,7 +329,7 @@ OpenPluginCatalogResult parseOpenPluginCatalog(Object? raw, String url) {
       raw['schemaVersion'] != 1 ||
       raw['protocolVersion'] != '3.0' ||
       raw['packages'] is! List ||
-      (raw['packages'] as List).length > 5000)
+      (raw['packages'] as List).any((item) => item is! Map))
     throw const FormatException('目录格式无效。');
   final entries = <String, Map<String, dynamic>>{};
   var skipped = 0;
@@ -348,8 +341,7 @@ OpenPluginCatalogResult parseOpenPluginCatalog(Object? raw, String url) {
           e['sha256'] is! String ||
           !RegExp(r'^[a-f0-9]{64}$').hasMatch(e['sha256']) ||
           e['bytes'] is! int ||
-          e['bytes'] <= 0 ||
-          e['bytes'] > maxOpenPluginBytes)
+          e['bytes'] <= 0)
         throw const FormatException();
       final manifest = OpenPluginManifest.parse(e['manifest']);
       if (entries.containsKey(manifest.id)) throw const FormatException();
@@ -467,12 +459,9 @@ class OpenPluginRegistry extends ChangeNotifier {
         final bindings = jsonDecode(
           prefs.getString('skivu.open-plugin.role-bindings') ?? '{}',
         );
-        if (bindings is Map && bindings.length <= 200) {
+        if (bindings is Map) {
           for (final plugin in bindings.entries) {
-            if (plugin.key is! String ||
-                plugin.value is! Map ||
-                (plugin.value as Map).length > 1000)
-              continue;
+            if (plugin.key is! String || plugin.value is! Map) continue;
             roleBindings[plugin.key] = {
               for (final role in (plugin.value as Map).entries)
                 if (role.key is String &&
@@ -509,10 +498,7 @@ class OpenPluginRegistry extends ChangeNotifier {
           if (prompts is Map)
             promptContributions[e.key] = {
               for (final x in prompts.entries)
-                if (x.key is String &&
-                    x.value is String &&
-                    utf8.encode(x.value).length <= 32768)
-                  x.key: x.value,
+                if (x.key is String && x.value is String) x.key: x.value,
             };
         } catch (_) {
           error = '部分插件读取失败，可重新导入修复。';
@@ -571,7 +557,6 @@ class OpenPluginRegistry extends ChangeNotifier {
       if (old != null &&
           comparePluginVersions(p.manifest.version, old.manifest.version) < 0)
         throw StateError('不能安装旧版本');
-      if (records.length >= 200 && old == null) throw StateError('请先卸载部分插件');
       await disk.writePackage(id, p.raw);
       records[id] = OpenPluginRecord(p, origin: origin);
       try {
@@ -625,7 +610,6 @@ class OpenPluginRegistry extends ChangeNotifier {
   }
 
   Future<void> setPrompt(String id, String role, String text) async {
-    if (utf8.encode(text).length > 32768) throw StateError('插件提示词过长');
     final next = {...?promptContributions[id], role: text};
     await disk.writeData(id, 'prompts', jsonEncode(next));
     promptContributions[id] = next;
@@ -649,7 +633,6 @@ class OpenPluginRegistry extends ChangeNotifier {
           u.hasFragment)
         throw const FormatException('目录须为 HTTPS。');
     }
-    if (next.length > 30) throw StateError('目录过多');
     final p = await SharedPreferences.getInstance();
     if (!await p.setStringList('skivu.open-plugin.catalogs', next))
       throw StateError('目录未保存');
@@ -686,3 +669,14 @@ Future<void> writePluginFile(String id, String path, Uint8List value) =>
 Future<List<String>> listPluginFiles(String id) => disk.listFiles(id);
 Future<void> removePluginFile(String id, String path) =>
     disk.removeFile(id, path);
+Future<Map<String, dynamic>> readPluginFileRange(
+  String id,
+  String path,
+  int offset,
+  int length,
+) => disk.readRange(id, path, offset, length);
+Future<Map<String, dynamic>> writePluginStream(
+  String id,
+  String path,
+  Stream<List<int>> stream,
+) => disk.writeStream(id, path, stream);

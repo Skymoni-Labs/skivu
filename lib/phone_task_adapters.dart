@@ -116,7 +116,6 @@ class ChoiceQuestion {
         elements.where((r) => r['id'] == id && r['password'] != true).single;
     if (questionIds.isEmpty ||
         optionIds.length < 2 ||
-        optionIds.length > 26 ||
         optionIds.toSet().length != optionIds.length)
       throw StateError('题干或选项不完整。');
     final question = questionIds
@@ -159,8 +158,7 @@ class PhoneTaskAdapters implements AssistantExtensions {
   };
   static const list = {
     'type': 'array',
-    'maxItems': 26,
-    'items': {'type': 'string', 'maxLength': 2000},
+    'items': {'type': 'string'},
   };
   static final definitions = [
     {

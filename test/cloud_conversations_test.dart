@@ -255,7 +255,7 @@ void main() {
       }
 
       Future<String> model(String _, List<Map<String, String>> __) async =>
-          ++plans == 1 || plans == 3
+          ++plans == 1 || plans == 4
           ? '{"type":"call","tool":"settings.brightness.read","arguments":{},"message":"read"}'
           : '{"type":"final","message":"brightness 80"}';
       final store = DemoStore(settings: TestModels(), storage: disk);
@@ -279,14 +279,21 @@ void main() {
       expect(ids.length, 2);
       expect(ids.toSet(), hasLength(1));
       expect(current.messages.where((m) => m.toolReceipt), hasLength(3));
-      final process = cloudTranscriptRows(
+      final processes = cloudTranscriptRows(
         current.messages,
         cloud: true,
-      ).where((row) => row.execution).single;
-      final step = cloudExecutionSteps(process.messages).single;
-      expect(step.requestId, ids.first);
-      expect(step.outcome, 'verified');
-      expect(process.messages.every((m) => m.toolExecution != null), true);
+      ).where((row) => row.execution).toList();
+      final steps = processes
+          .expand((row) => cloudExecutionSteps(row.messages))
+          .toList();
+      expect(steps.every((step) => step.requestId == ids.first), true);
+      expect(steps.last.outcome, 'verified');
+      expect(
+        processes
+            .expand((row) => row.messages)
+            .every((m) => m.toolExecution != null),
+        true,
+      );
       expect(current.messages.last.text, 'brightness 80');
       restored.regenerate();
       await waitForReply(restored);
@@ -295,7 +302,7 @@ void main() {
         2,
         reason: 'Retry is a read-only review even if the model requests a tool',
       );
-      expect(current.messages.last.text, contains('未继续执行'));
+      expect(current.messages.last.text, contains('不会重放设备操作'));
       store.dispose();
       restored.dispose();
     },

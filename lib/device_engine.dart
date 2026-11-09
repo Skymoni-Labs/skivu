@@ -92,12 +92,14 @@ class DeviceEngine {
     required bool control,
     required bool shell,
     required List<String> packages,
+    bool? allApplications,
   }) => _transport('configure', {
     'enabled': enabled,
     'system': system,
     'control': control,
     'shell': shell,
     'packages': packages,
+    if (allApplications != null) 'allApplications': allApplications,
   });
 
   Future<Map<String, dynamic>> openAuthorization(String page) =>
@@ -120,7 +122,12 @@ class DeviceEngine {
             ...tool.toJson(),
             'available': switch (tool.permission) {
               'device.observe' =>
-                tool.id == 'device.status' ||
+                const {
+                      'device.status',
+                      'device.receipt',
+                      'shell.output.read',
+                      'shell.output.export',
+                    }.contains(tool.id) ||
                     state['enabled'] == true &&
                         (tool.id != 'ui.observe' ||
                             state['accessibility'] == true),

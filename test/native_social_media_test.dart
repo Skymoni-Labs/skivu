@@ -49,10 +49,10 @@ void main() {
         throwsFormatException,
       );
       expect(
-        () => NativeChatAttachment.parse(
+        NativeChatAttachment.parse(
           attachment(bytes: List.filled(2 * 1024 * 1024 + 1, 1)),
-        ),
-        throwsFormatException,
+        ).bytes.length,
+        2 * 1024 * 1024 + 1,
       );
     },
   );
@@ -186,7 +186,7 @@ void main() {
           openNativeChatAttachment(context, attachment(mime: 'text/html')),
     );
     expect(calls, 0);
-    expect(find.text('附件格式不正确或超过 2MB。'), findsOneWidget);
+    expect(find.text('附件格式不正确。'), findsOneWidget);
   });
 
   testWidgets('unsupported system open on desktop offers the save action', (

@@ -14,7 +14,7 @@ import java.util.concurrent.Executors
 
 class ChatAttachmentFileProvider : FileProvider()
 
-/** Bounded local chat attachments; no network or broad external storage access. */
+/** Local chat attachments; no network or broad external storage access. */
 class ChatAttachmentPlatform(private val activity: Activity) {
     companion object { const val SAVE_REQUEST = 6421 }
     private data class Attachment(val bytes: ByteArray, val mime: String, val name: String)
@@ -37,7 +37,7 @@ class ChatAttachmentPlatform(private val activity: Activity) {
                 if (call.method !in listOf("open", "save")) { result.notImplemented(); return@setMethodCallHandler }
                 if (closed) { result.error("CLOSED", "附件操作已结束。", null); return@setMethodCallHandler }
                 val attachment = try { parse(call) } catch (_: Exception) {
-                    result.error("INVALID_ATTACHMENT", "附件格式不正确或超过 2MB。", null); return@setMethodCallHandler
+                    result.error("INVALID_ATTACHMENT", "附件格式不正确。", null); return@setMethodCallHandler
                 }
                 if (call.method == "save" && pending != null) {
                     result.error("BUSY", "附件保存选择器已打开。", null); return@setMethodCallHandler
@@ -50,7 +50,7 @@ class ChatAttachmentPlatform(private val activity: Activity) {
 
     private fun parse(call: MethodCall): Attachment {
         val bytes = requireNotNull(call.argument<ByteArray>("bytes"))
-        require(bytes.isNotEmpty() && bytes.size <= 2 * 1024 * 1024)
+        require(bytes.isNotEmpty())
         val mime = requireNotNull(call.argument<String>("mime"))
         val extension = requireNotNull(extensions[mime])
         val rawName = requireNotNull(call.argument<String>("name"))

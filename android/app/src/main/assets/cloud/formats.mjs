@@ -6,24 +6,35 @@ import {deflateRawSync} from 'node:zlib';
 const xml=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
 const table=Array.from({length:256},(_,i)=>{let n=i;for(let k=0;k<8;k++)n=(n&1)?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
 function crc32(b){let n=0xffffffff;for(const c of b)n=table[(n^c)&255]^(n>>>8);return (n^0xffffffff)>>>0;}
+// ZIP64, stored entries, streamed from files. Neither total archive size nor
+// the number of entries depends on an in-memory Buffer.concat or ZIP32 fields.
 export function writeZip(file,entries){
- if(!entries.length||entries.length>30000)throw Error('Invalid explicit ZIP manifest');
- let offset=0;const chunks=[],central=[];const seen=new Set();
- for(const {name,data} of entries){if(typeof name!=='string'||name.startsWith('/')||name.includes('\\')||name.split('/').some(v=>v==='..'||!v)||seen.has(name))throw Error('Unsafe/duplicate ZIP name');seen.add(name);
-  const raw=Buffer.isBuffer(data)?data:Buffer.from(data),compressed=deflateRawSync(raw);const n=Buffer.from(name);const crc=crc32(raw);
-  const local=Buffer.alloc(30);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt16LE(0x800,6);local.writeUInt16LE(8,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(compressed.length,18);local.writeUInt32LE(raw.length,22);local.writeUInt16LE(n.length,26);
-  const c=Buffer.alloc(46);c.writeUInt32LE(0x02014b50);c.writeUInt16LE(20,4);c.writeUInt16LE(20,6);c.writeUInt16LE(0x800,8);c.writeUInt16LE(8,10);c.writeUInt32LE(crc,16);c.writeUInt32LE(compressed.length,20);c.writeUInt32LE(raw.length,24);c.writeUInt16LE(n.length,28);c.writeUInt32LE(offset,42);
-  chunks.push(local,n,compressed);central.push(c,n);offset+=local.length+n.length+compressed.length;
+ fs.mkdirSync(path.dirname(path.resolve(file)),{recursive:true});
+ const centralFile=file+'.central.tmp',output=fs.openSync(file,'w'),central=fs.openSync(centralFile,'w');
+ let offset=0,centralSize=0,count=0;const seen=new Set();
+ const put=(fd,b)=>{let at=0;while(at<b.length)at+=fs.writeSync(fd,b,at,b.length-at);return b.length;};
+ try {for(const entry of entries){const {name,data,source}=entry;
+   if(typeof name!=='string'||name.startsWith('/')||name.includes('\\')||name.split('/').some(v=>v==='..'||!v)||seen.has(name))throw Error('Unsafe/duplicate ZIP name');seen.add(name);
+   const n=Buffer.from(name);if(n.length>65535)throw Error('ZIP format cannot encode this entry name');
+   let crc=0xffffffff,size=0;const raw=source?null:Buffer.isBuffer(data)?data:Buffer.from(data);
+   const each=callback=>{if(raw){callback(raw);return;}const fd=fs.openSync(source,'r'),buffer=Buffer.alloc(65536);try{let len;while((len=fs.readSync(fd,buffer,0,buffer.length,null))>0)callback(buffer.subarray(0,len));}finally{fs.closeSync(fd);}};
+   each(b=>{size+=b.length;for(const value of b)crc=table[(crc^value)&255]^(crc>>>8);});crc=(crc^0xffffffff)>>>0;
+   const local=Buffer.alloc(30),extra=Buffer.alloc(20);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(45,4);local.writeUInt16LE(0x800,6);local.writeUInt32LE(crc,14);local.writeUInt32LE(0xffffffff,18);local.writeUInt32LE(0xffffffff,22);local.writeUInt16LE(n.length,26);local.writeUInt16LE(extra.length,28);extra.writeUInt16LE(1);extra.writeUInt16LE(16,2);extra.writeBigUInt64LE(BigInt(size),4);extra.writeBigUInt64LE(BigInt(size),12);
+   const c=Buffer.alloc(46),ce=Buffer.alloc(28);c.writeUInt32LE(0x02014b50);c.writeUInt16LE(45,4);c.writeUInt16LE(45,6);c.writeUInt16LE(0x800,8);c.writeUInt32LE(crc,16);c.writeUInt32LE(0xffffffff,20);c.writeUInt32LE(0xffffffff,24);c.writeUInt16LE(n.length,28);c.writeUInt16LE(ce.length,30);c.writeUInt32LE(0xffffffff,42);ce.writeUInt16LE(1);ce.writeUInt16LE(24,2);ce.writeBigUInt64LE(BigInt(size),4);ce.writeBigUInt64LE(BigInt(size),12);ce.writeBigUInt64LE(BigInt(offset),20);
+   centralSize+=put(central,c)+put(central,n)+put(central,ce);offset+=put(output,local)+put(output,n)+put(output,extra);each(b=>offset+=put(output,b));count++;
  }
- const c=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(entries.length,8);end.writeUInt16LE(entries.length,10);end.writeUInt32LE(c.length,12);end.writeUInt32LE(offset,16);
- fs.mkdirSync(path.dirname(path.resolve(file)),{recursive:true});fs.writeFileSync(file,Buffer.concat([...chunks,c,end]));
+ fs.closeSync(central);const centralOffset=offset,fd=fs.openSync(centralFile,'r'),buffer=Buffer.alloc(65536);try{let len;while((len=fs.readSync(fd,buffer,0,buffer.length,null))>0)offset+=put(output,buffer.subarray(0,len));}finally{fs.closeSync(fd);}
+ const end64=Buffer.alloc(56);end64.writeUInt32LE(0x06064b50);end64.writeBigUInt64LE(44n,4);end64.writeUInt16LE(45,12);end64.writeUInt16LE(45,14);end64.writeBigUInt64LE(BigInt(count),24);end64.writeBigUInt64LE(BigInt(count),32);end64.writeBigUInt64LE(BigInt(centralSize),40);end64.writeBigUInt64LE(BigInt(centralOffset),48);put(output,end64);
+ const locator=Buffer.alloc(20);locator.writeUInt32LE(0x07064b50);locator.writeBigUInt64LE(BigInt(offset),8);locator.writeUInt32LE(1,16);put(output,locator);
+ const end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(0xffff,8);end.writeUInt16LE(0xffff,10);end.writeUInt32LE(0xffffffff,12);end.writeUInt32LE(0xffffffff,16);put(output,end);fs.fsyncSync(output);
+ }finally{try{fs.closeSync(central);}catch{}fs.closeSync(output);if(fs.existsSync(centralFile))fs.unlinkSync(centralFile);}
 }
 const declaration='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const officeRel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const pkgRel='http://schemas.openxmlformats.org/package/2006/relationships';
 const colName=n=>{let s='';for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;};
 export function writeWorkbook(file,sheets){
- if(!Array.isArray(sheets)||!sheets.length||sheets.length>255)throw Error('Workbook needs real worksheets');
+ if(!Array.isArray(sheets)||!sheets.length)throw Error('Workbook needs real worksheets');
  const names=new Set();for(const s of sheets){if(typeof s.name!=='string'||!s.name||s.name.length>31||/[\[\]:*?/\\]/.test(s.name)||names.has(s.name))throw Error('Invalid worksheet name');names.add(s.name);if(!Array.isArray(s.rows))throw Error('Missing rows');}
  const formats=[],styles=[{bold:false,format:''}],styleIndex=cell=>{const value={bold:cell.bold===true,format:cell.format||''};let i=styles.findIndex(s=>s.bold===value.bold&&s.format===value.format);if(i<0){i=styles.length;styles.push(value);}if(value.format&&!formats.includes(value.format))formats.push(value.format);return i;};
  const files=[];
@@ -35,7 +46,7 @@ export function writeWorkbook(file,sheets){
    if(typeof value==='boolean')return `<c r="${ref}" s="${style}" t="b"><v>${+value}</v></c>`;
    return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is></c>`;
   }).join('')}</row>`;}).join('');
-  const widths=sheet.widths?.length?`<cols>${sheet.widths.map((width,c)=>`<col min="${c+1}" max="${c+1}" width="${Math.max(1,Math.min(100,Number(width)||12))}" customWidth="1"/>`).join('')}</cols>`:'';
+  const widths=sheet.widths?.length?`<cols>${sheet.widths.map((width,c)=>`<col min="${c+1}" max="${c+1}" width="${Math.max(1,Number(width)||12)}" customWidth="1"/>`).join('')}</cols>`:'';
   const freeze=sheet.freezeRows?`<sheetViews><sheetView workbookViewId="0"><pane ySplit="${Math.max(1,Math.floor(sheet.freezeRows))}" topLeftCell="A${Math.floor(sheet.freezeRows)+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`:'';
   files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:declaration+`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${freeze}${widths}<sheetData>${rows}</sheetData></worksheet>`});
  }
@@ -57,6 +68,6 @@ export function writeDocument(file,paragraphs){
 }
 export function packageProject(file,root,finalPaths){
  if(!Array.isArray(finalPaths)||!finalPaths.length)throw Error('An explicit project manifest is required');root=fs.realpathSync(root);
- const entries=finalPaths.map(relative=>{if(typeof relative!=='string'||path.isAbsolute(relative)||relative.split('/').some(v=>['..','.git','node_modules','.cache'].includes(v)))throw Error('Unrelated/generated paths are excluded');const source=fs.realpathSync(path.join(root,relative));if(!source.startsWith(root+'/')||!fs.statSync(source).isFile())throw Error('Final project entry is not a file');return {name:relative,data:fs.readFileSync(source)};});
+ const entries=finalPaths.map(relative=>{if(typeof relative!=='string'||path.isAbsolute(relative)||relative.split('/').includes('..'))throw Error('Unrelated/generated paths are excluded');const source=fs.realpathSync(path.join(root,relative));if(!source.startsWith(root+'/')||!fs.statSync(source).isFile())throw Error('Final project entry is not a file');return {name:relative,source};});
  writeZip(file,entries);return {file,entries:entries.length};
 }

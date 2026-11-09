@@ -27,6 +27,7 @@ const pluginMethodPermissions = <String, String>{
   'fs.remove': 'files',
   'files.pick': 'files',
   'files.save': 'files',
+  'files.read': 'files',
   'https.request': 'network',
   'network.request': 'network',
   'characters.list': 'characters.read',
@@ -90,7 +91,6 @@ class OpenPluginBridge {
   final void Function()? guard;
   bool closed = false;
   int pending = 0;
-  int _cancelling = 0;
   String get id => record.manifest.id;
   void check() {
     guard?.call();
@@ -98,11 +98,11 @@ class OpenPluginBridge {
       throw const PluginApiError('CLOSED', '插件已关闭或需要重新授权。');
   }
 
-  String text(Map p, String key, {int max = 65536, bool empty = false}) {
+  String text(Map p, String key, {int? max, bool empty = false}) {
     final v = p[key];
     if (v is! String ||
         (!empty && v.isEmpty) ||
-        v.length > max ||
+        (max != null && v.length > max) ||
         v.contains('\u0000'))
       throw PluginApiError('INVALID_ARGUMENT', '$key 格式不正确。');
     return v;
@@ -132,14 +132,7 @@ class OpenPluginBridge {
       if (permission.isNotEmpty &&
           !record.manifest.permissions.contains(permission))
         throw const PluginApiError('PERMISSION_DENIED', '插件未获准使用此能力。');
-      // Keep a bounded Stop lane even when all normal calls are waiting.
-      // The device scope still checks the exact owned request before stopping.
-      final cancellation = method == 'device.engine.cancel';
-      if (cancellation ? _cancelling >= 8 : pending - _cancelling >= 8) {
-        throw const PluginApiError('BUSY', '同时运行的宿主请求过多。');
-      }
       pending++;
-      if (cancellation) _cancelling++;
       try {
         final result = await _call(
           method,
@@ -148,7 +141,6 @@ class OpenPluginBridge {
         check();
         return {'ok': true, 'result': result};
       } finally {
-        if (cancellation) _cancelling--;
         pending--;
       }
     } on PluginApiError catch (e) {
@@ -190,13 +182,9 @@ class OpenPluginBridge {
           data.remove(k);
         else {
           final v = p['value'];
-          if (utf8.encode(jsonEncode(v)).length > 10 * 1024 * 1024)
-            throw const PluginApiError('LIMIT_EXCEEDED', '单个存档超过 10 MiB。');
           data[k] = v;
         }
         final encoded = jsonEncode(data);
-        if (utf8.encode(encoded).length > 64 * 1024 * 1024)
-          throw const PluginApiError('LIMIT_EXCEEDED', '插件存档空间已满。');
         check();
         await writePluginData(id, 'storage', encoded);
         registry.storageChanged(id);
@@ -217,12 +205,26 @@ class OpenPluginBridge {
           );
         return true;
       });
-    if (method == 'https.request' || method == 'network.request')
+    if (method == 'https.request' || method == 'network.request') {
+      final responsePath = p['responsePath'];
+      if (responsePath != null &&
+          (responsePath is! String ||
+              !pluginRelativePath(responsePath) ||
+              !record.manifest.permissions.contains('files')))
+        throw const PluginApiError(
+          'PERMISSION_DENIED',
+          '流式下载需要插件文件权限及有效的工作区路径。',
+        );
       return network.request(
         p,
         record.manifest.domains,
         allowLocal: record.manifest.permissions.contains('network.local'),
+        storeResponse: responsePath is String
+            ? (stream) =>
+                  _serial(id, () => writePluginStream(id, responsePath, stream))
+            : null,
       );
+    }
     if (method.startsWith('fs.'))
       return _serial(id, () async {
         check();
@@ -231,15 +233,20 @@ class OpenPluginBridge {
         if (!pluginRelativePath(path))
           throw const PluginApiError('INVALID_ARGUMENT', '文件路径必须位于本插件工作区。');
         if (method == 'fs.read') {
+          if (p.containsKey('offset') || p.containsKey('length'))
+            return readPluginFileRange(
+              id,
+              path,
+              p['offset'] as int? ?? 0,
+              p['length'] as int? ?? 48000,
+            );
           final bytes = await readPluginFile(id, path);
           return bytes == null ? null : {'base64': base64Encode(bytes)};
         }
         if (method == 'fs.remove')
           await removePluginFile(id, path);
         else {
-          final bytes = base64Decode(
-            text(p, 'base64', max: 12 * 1024 * 1024, empty: true),
-          );
+          final bytes = base64Decode(text(p, 'base64', empty: true));
           await writePluginFile(id, path, Uint8List.fromList(bytes));
         }
         return true;

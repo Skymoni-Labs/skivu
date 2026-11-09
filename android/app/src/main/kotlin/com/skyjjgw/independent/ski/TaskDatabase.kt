@@ -10,6 +10,7 @@ import java.security.MessageDigest
 
 /** Cross-engine transactions; the legacy JSON preference is a recovery source only. */
 class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(context, "skivu-managed-tasks.db", null, 1) {
+    private val blobs=TaskBlobStore(context)
     init { setWriteAheadLoggingEnabled(true) }
     override fun onConfigure(db: SQLiteDatabase) { super.onConfigure(db); db.setForeignKeyConstraintsEnabled(true); db.rawQuery("PRAGMA busy_timeout=5000",null).use {it.moveToFirst()} }
     override fun onCreate(db: SQLiteDatabase) {
@@ -31,10 +32,9 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
         finally { db.endTransaction() }
     }
     fun document(db: SQLiteDatabase = readableDatabase): Map<String, Any?> = db.rawQuery("SELECT version,value FROM documents WHERE id=1", null).use {
-        if (it.moveToFirst()) mapOf("version" to it.getInt(0), "value" to it.getString(1)) else mapOf("version" to 0, "value" to null)
+        if (it.moveToFirst()) mapOf("version" to it.getInt(0), "value" to blobs.decode(it.getString(1))) else mapOf("version" to 0, "value" to null)
     }
     fun validateDocument(raw: String): JSONObject {
-        require(raw.toByteArray(Charsets.UTF_8).size <= 4*1024*1024) { "任务数据超过上限。" }
         val value = JSONObject(raw)
         require(value.getInt("version") in 1..3 && value.opt("tasks") is JSONArray && value.opt("memories") is JSONArray)
         for (key in listOf("tasks","memories")) {
@@ -43,7 +43,7 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
             for (index in 0 until rows.length()) {
                 val item = rows.getJSONObject(index)
                 require(Regex("[a-zA-Z0-9_-]{1,100}").matches(item.getString("id")) && ids.add(item.getString("id")))
-                require(item.getString("title").length in 1..160 && item.getString("body").length <= 12000)
+                require(item.getString("title").isNotBlank())
                 require(item.opt("done") is Boolean && item.opt("archived") is Boolean)
             }
         }
@@ -54,8 +54,8 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
         return transaction { db ->
             val prior = document(db)
             if (prior["value"] == null) {
-                db.insertOrThrow("migration_backup", null, ContentValues().apply { put("id",1);put("value",raw);put("created",System.currentTimeMillis()) })
-                db.insertOrThrow("documents", null, ContentValues().apply { put("id",1);put("version",1);put("value",raw) })
+                db.insertOrThrow("migration_backup", null, ContentValues().apply { put("id",1);put("value",blobs.encode(raw));put("created",System.currentTimeMillis()) })
+                db.insertOrThrow("documents", null, ContentValues().apply { put("id",1);put("version",1);put("value",blobs.encode(raw)) })
             }
             document(db)
         }
@@ -63,15 +63,14 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
     fun validateLease(db: SQLiteDatabase, lease: JSONObject?) {
         if (lease == null) return
         val id = lease.getString("id"); val token = lease.getString("token")
-        db.rawQuery("SELECT r.state,r.token,r.lease_until,p.state,p.version,r.plan_version FROM runs r JOIN plans p ON p.id=r.plan_id WHERE r.id=?", arrayOf(id)).use {
-            require(it.moveToFirst() && it.getString(0)=="running" && it.getString(1)==token && it.getLong(2)>System.currentTimeMillis() && it.getString(3)=="enabled" && it.getInt(4)==it.getInt(5)) { "本次计划已停止或版本已变化。" }
-        }
+        val run=run(id,db)
+        require(run!=null&&run.optString("state")=="running"&&run.optString("token")==token&&run.optLong("leaseUntil")>System.currentTimeMillis()&&!run.optBoolean("stopRequested")){"本次执行已停止、租约失效或身份已变化。"}
     }
     fun compareAndSet(version: Int, raw: String, lease: JSONObject?): Boolean {
         val parsed = validateDocument(raw)
         return transaction { db ->
             validateLease(db,lease)
-            val saved = db.update("documents", ContentValues().apply { put("value",raw); put("version",version+1) }, "id=1 AND version=?", arrayOf(version.toString())) == 1
+            val saved = db.update("documents", ContentValues().apply { put("value",blobs.encode(raw)); put("version",version+1) }, "id=1 AND version=?", arrayOf(version.toString())) == 1
             if (saved) {
                 val archived = mutableSetOf<String>()
                 val tasks = parsed.getJSONArray("tasks")
@@ -79,7 +78,7 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
                 for (id in archived) {
                     for (p in queryJson(db,"SELECT data FROM plans WHERE task_id=? AND state='enabled'", arrayOf(id))) {
                         p.put("state","paused").put("reason","任务已归档").put("version",p.getInt("version")+1)
-                        if(p.optJSONObject("lastRun")?.optString("state")=="running") p.getJSONObject("lastRun").put("state","unknown").put("summary","任务已归档，已派发的结果需核对。")
+                        if(p.optJSONObject("lastRun")?.optString("state")=="running") p.getJSONObject("lastRun").put("summary","任务已归档，后续计划暂停；本次执行可单独停止。")
                         writePlan(db,p)
                     }
                 }
@@ -93,15 +92,15 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
         for(i in 0 until rows.length()) if(rows.getJSONObject(i).getString("id")==id) return rows.getJSONObject(i)
         return null
     }
-    fun queryJson(db: SQLiteDatabase, sql: String, args: Array<String>? = null): List<JSONObject> = db.rawQuery(sql,args).use { cursor -> buildList { while(cursor.moveToNext()) add(JSONObject(cursor.getString(0))) } }
+    fun queryJson(db: SQLiteDatabase, sql: String, args: Array<String>? = null): List<JSONObject> = db.rawQuery(sql,args).use { cursor -> buildList { while(cursor.moveToNext()) add(JSONObject(blobs.decode(cursor.getString(0)))) } }
     fun plan(id: String, db: SQLiteDatabase = readableDatabase): JSONObject? = queryJson(db,"SELECT data FROM plans WHERE id=?", arrayOf(id)).firstOrNull()
     fun writePlan(db: SQLiteDatabase, p: JSONObject) { db.insertWithOnConflict("plans",null,ContentValues().apply {
         put("id",p.getString("id"));put("task_id",p.getString("taskId"));put("version",p.getInt("version"));put("state",p.getString("state"));
-        if(p.isNull("nextAt")) putNull("next_ms") else put("next_ms",p.getLong("nextAt"));put("data",p.toString())
+        if(p.isNull("nextAt")) putNull("next_ms") else put("next_ms",p.getLong("nextAt"));put("data",blobs.encode(p.toString()))
     },SQLiteDatabase.CONFLICT_REPLACE) }
     fun run(id: String, db: SQLiteDatabase = readableDatabase): JSONObject? = queryJson(db,"SELECT data FROM runs WHERE id=?",arrayOf(id)).firstOrNull()
     fun writeRun(db: SQLiteDatabase, r: JSONObject) { db.insertWithOnConflict("runs",null,ContentValues().apply {
-        put("id",r.getString("id"));put("plan_id",r.getString("planId"));put("due_ms",r.getLong("dueAt"));put("plan_version",r.getInt("planVersion"));put("state",r.getString("state"));put("token",r.getString("token"));put("lease_until",r.getLong("leaseUntil"));put("data",r.toString())
+        put("id",r.getString("id"));put("plan_id",r.getString("planId"));put("due_ms",r.getLong("dueAt"));put("plan_version",r.getInt("planVersion"));put("state",r.getString("state"));put("token",r.getString("token"));put("lease_until",r.getLong("leaseUntil"));put("data",blobs.encode(r.toString()))
     },SQLiteDatabase.CONFLICT_REPLACE) }
     fun operation(db: SQLiteDatabase,id: String,digest: String): String? = db.rawQuery("SELECT digest,entity_id FROM operations WHERE id=?",arrayOf(id)).use {
         if (!it.moveToFirst()) null else {require(it.getString(0)==digest) { "操作编号不能复用为不同内容。" };it.getString(1)}
@@ -109,7 +108,6 @@ class TaskDatabase private constructor(context: Context) : SQLiteOpenHelper(cont
     fun remember(db: SQLiteDatabase,id: String,digest: String,entity: String) {
         require(Regex("[a-zA-Z0-9_:-]{1,200}").matches(id))
         db.insertOrThrow("operations",null,ContentValues().apply {put("id",id);put("digest",digest);put("entity_id",entity)})
-        db.execSQL("DELETE FROM operations WHERE rowid NOT IN (SELECT rowid FROM operations ORDER BY rowid DESC LIMIT 1024)")
     }
     companion object {
         @Volatile private var value: TaskDatabase? = null

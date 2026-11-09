@@ -498,7 +498,7 @@ void main() {
     },
   );
   testWidgets(
-    'narrow plan editor adjusts daily budget when per-run limit increases',
+    'narrow plan editor accepts user budgets above old caps and allows zero',
     (tester) async {
       tester.view.physicalSize = const Size(320, 900);
       tester.view.devicePixelRatio = 1;
@@ -526,26 +526,17 @@ void main() {
       );
       await tester.tap(find.text('打开计划'));
       await tester.pumpAndSettle();
-      Finder field(String label) => find.byWidgetPredicate(
-        (w) =>
-            w is DropdownButtonFormField<int> &&
-            w.decoration.labelText == label,
-      );
-      Future<void> choose(String label, String value) async {
-        await tester.ensureVisible(field(label));
+      Finder input(String label) => find.widgetWithText(TextFormField, label);
+      for (final entry in {
+        '本次模型请求预算（0不限制）': '125',
+        '每日模型请求预算（0不限制）': '0',
+        '输出 tokens（0沿用模型配置）': '262144',
+      }.entries) {
+        await tester.ensureVisible(input(entry.key));
         await tester.pumpAndSettle();
-        await tester.tap(field(label));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(value).last);
-        await tester.pumpAndSettle();
+        await tester.enterText(input(entry.key), entry.value);
+        await tester.pump();
       }
-
-      await choose('每天最多请求模型次数', '3');
-      await choose('每次最多请求模型次数', '5');
-      final daily = tester.widget<DropdownButtonFormField<int>>(
-        field('每天最多请求模型次数'),
-      );
-      expect(daily.initialValue, 5);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

@@ -54,7 +54,7 @@ void main() {
     },
   );
   test(
-    'corrupt and oversized journals do not block startup or invent results',
+    'corrupt journals are isolated while valid journals above forty retain all results',
     () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(DeviceTaskJournal.key, 'not-json');
@@ -63,16 +63,19 @@ void main() {
         DeviceTaskJournal.key,
         jsonEncode(List.generate(41, (i) => receipt(i))),
       );
-      expect(await DeviceTaskJournal().restore(), isEmpty);
+      expect((await DeviceTaskJournal().restore()).length, 41);
     },
   );
-  test('only the newest forty bounded receipts are retained', () async {
-    await DeviceTaskJournal().save({
-      for (var i = 0; i < 45; i++) 'device_$i': receipt(i),
-    });
-    final restored = await DeviceTaskJournal().restore();
-    expect(restored.length, 40);
-    expect(restored.containsKey('device_0'), false);
-    expect(restored.containsKey('device_44'), true);
-  });
+  test(
+    'all receipts remain queryable without discarding the oldest result',
+    () async {
+      await DeviceTaskJournal().save({
+        for (var i = 0; i < 45; i++) 'device_$i': receipt(i),
+      });
+      final restored = await DeviceTaskJournal().restore();
+      expect(restored.length, 45);
+      expect(restored.containsKey('device_0'), true);
+      expect(restored.containsKey('device_44'), true);
+    },
+  );
 }

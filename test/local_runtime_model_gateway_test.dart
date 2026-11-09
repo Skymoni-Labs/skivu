@@ -256,45 +256,53 @@ void main() {
     registry.dispose();
   });
 
-  test('transport rejects a flood of queued frames before dispatch', () async {
-    final package = fixture.package(permissions: ['ai.generate']);
-    final registry = OpenPluginRegistry();
-    final record = OpenPluginRecord(
-      package,
-      enabled: true,
-      grantedDigest: package.digest,
-    );
-    registry.records[package.manifest.id] = record;
-    final bridge = OpenPluginBridge(
-      registry: registry,
-      record: record,
-      host: (_, __) async => null,
-    );
-    var confirms = 0;
-    final gateway = LocalRuntimeModelGateway(
-      bridge: bridge,
-      confirm: () async {
-        confirms++;
-        return true;
-      },
-      newSession: () => throw StateError('unexpected model call'),
-    );
-    final input = StreamController<List<int>>();
-    final done = gateway.serve(input.stream, (_) async {});
-    final check = expectLater(done, throwsFormatException);
-    input.add(
-      utf8.encode(
-        List.generate(9, (i) => frame('$i', params)).join('\n') + '\n',
-      ),
-    );
-    await check;
-    expect(confirms, 0);
-    await input.close();
-    bridge.close();
-    registry.dispose();
-  });
+  test(
+    'transport processes every queued frame in order without a fixed count budget',
+    () async {
+      final package = fixture.package(permissions: ['ai.generate']);
+      final registry = OpenPluginRegistry();
+      final record = OpenPluginRecord(
+        package,
+        enabled: true,
+        grantedDigest: package.digest,
+      );
+      registry.records[package.manifest.id] = record;
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (_, __) async => null,
+      );
+      var confirms = 0;
+      final gateway = LocalRuntimeModelGateway(
+        bridge: bridge,
+        confirm: () async {
+          confirms++;
+          return true;
+        },
+        newSession: () => throw StateError('unexpected model call'),
+      );
+      final input = StreamController<List<int>>();
+      var replies = 0;
+      final allReplies = Completer<void>();
+      final done = gateway.serve(input.stream, (bytes) async {
+        expect((jsonDecode(utf8.decode(bytes)) as Map)['id'], '${replies++}');
+        if (replies == 9) allReplies.complete();
+      });
+      input.add(
+        utf8.encode(
+          List.generate(9, (i) => frame('$i', params)).join('\n') + '\n',
+        ),
+      );
+      await allReplies.future.timeout(const Duration(seconds: 5));
+      expect(confirms, 9);
+      await input.close();
+      await done;
+      bridge.close();
+      registry.dispose();
+    },
+  );
 
-  test('transport rejects oversized frames before dispatch', () async {
+  test('transport rejects incomplete large frames before dispatch', () async {
     final package = fixture.package(permissions: ['ai.generate']);
     final registry = OpenPluginRegistry();
     final record = OpenPluginRecord(
@@ -320,11 +328,11 @@ void main() {
     final input = StreamController<List<int>>();
     final done = gateway.serve(input.stream, (_) async {});
     final check = expectLater(done, throwsFormatException);
-    input.add(List.filled(LocalRuntimeModelGateway.maxFrameBytes, 65));
+    input.add(List.filled(4 * 1024 * 1024, 65));
     input.add([65]);
+    unawaited(input.close());
     await check;
     expect(confirms, 0);
-    await input.close();
     bridge.close();
     registry.dispose();
   });

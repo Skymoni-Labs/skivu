@@ -16,6 +16,7 @@ class ToolExecutionEvent {
     this.managedPlanId,
     this.managedResourceId,
     this.artifactIds,
+    this.artifactBatches,
   });
 
   final String taskId, requestId, tool, purpose;
@@ -27,6 +28,7 @@ class ToolExecutionEvent {
   final String? managedPlanId;
   final String? managedResourceId;
   final String? artifactIds;
+  final String? artifactBatches;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -43,6 +45,7 @@ class ToolExecutionEvent {
     if (managedPlanId != null) 'managedPlanId': managedPlanId!,
     if (managedResourceId != null) 'managedResourceId': managedResourceId!,
     if (artifactIds != null) 'artifactIds': artifactIds!,
+    if (artifactBatches != null) 'artifactBatches': artifactBatches!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -75,9 +78,16 @@ class ToolExecutionEvent {
       artifactIds:
           raw['artifactIds'] is String &&
               RegExp(
-                r'^artifact_[0-9a-f]{32}(,artifact_[0-9a-f]{32}){0,39}$',
+                r'^artifact_[0-9a-f]{32}(,artifact_[0-9a-f]{32})*$',
               ).hasMatch(raw['artifactIds'])
           ? raw['artifactIds']
+          : null,
+      artifactBatches:
+          raw['artifactBatches'] is String &&
+              RegExp(
+                r'^[a-f0-9]{64}(,[a-f0-9]{64})*$',
+              ).hasMatch(raw['artifactBatches'])
+          ? raw['artifactBatches']
           : null,
       outcome: outcome as String?,
       verification: raw['verification'] == 'process_exit'

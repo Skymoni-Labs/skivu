@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'speech_recognition_settings.dart';
 
 enum SpeechProvider { system, openai, elevenlabs, azure, custom }
 
@@ -31,6 +32,7 @@ class SpeechProfile {
     this.response = 'audio',
     this.responsePath = 'audio',
     this.instructions = '',
+    this.timeoutSeconds = 0,
   });
   static const system = SpeechProfile(id: 'system');
   final String id,
@@ -47,8 +49,10 @@ class SpeechProfile {
       instructions;
   final SpeechProvider provider;
   final double speed;
+  final int timeoutSeconds;
 
   void validate() {
+    if (timeoutSeconds < 0) throw const FormatException('超时不能为负数，0 表示不设置');
     if (name.trim().isEmpty) throw const FormatException('请填写连接名称');
     if (!speed.isFinite || speed < .5 || speed > 2)
       throw const FormatException('语速需在 0.5～2.0 之间');
@@ -93,6 +97,7 @@ class SpeechProfile {
     'response': response,
     'responsePath': responsePath,
     'instructions': instructions,
+    'timeoutSeconds': timeoutSeconds,
   };
   factory SpeechProfile.fromJson(Map<String, dynamic> j) => SpeechProfile(
     id: j['id'] as String,
@@ -109,6 +114,7 @@ class SpeechProfile {
     response: j['response'] as String? ?? 'audio',
     responsePath: j['responsePath'] as String? ?? 'audio',
     instructions: j['instructions'] as String? ?? '',
+    timeoutSeconds: (j['timeoutSeconds'] as num? ?? 0).toInt(),
   );
 }
 
@@ -134,6 +140,7 @@ class SpeechSettings extends ChangeNotifier {
   List<SpeechProfile> profiles = [SpeechProfile.system];
   String activeId = 'system';
   String? error;
+  RecognitionProfile recognition = const RecognitionProfile();
   SpeechProfile get active =>
       profiles.where((p) => p.id == activeId).firstOrNull ??
       SpeechProfile.system;
@@ -142,6 +149,18 @@ class SpeechSettings extends ChangeNotifier {
       final raw = await _secure.read(key: storageKey);
       if (raw == null) return;
       final j = jsonDecode(raw) as Map;
+      if (j['recognition'] is Map) {
+        try {
+          final value = RecognitionProfile.fromJson(
+            Map<String, dynamic>.from(j['recognition']),
+          );
+          value.validate();
+          recognition = value;
+        } catch (_) {
+          recognition = const RecognitionProfile();
+          error = '识别配置读取失败，已使用 Android 系统识别；请检查识别设置。';
+        }
+      }
       final next = (j['profiles'] as List)
           .map((p) => SpeechProfile.fromJson(Map<String, dynamic>.from(p)))
           .toList();
@@ -165,6 +184,7 @@ class SpeechSettings extends ChangeNotifier {
       value: jsonEncode({
         'activeId': id,
         'profiles': next.map((p) => p.toJson()).toList(),
+        'recognition': recognition.toJson(),
       }),
     );
     profiles = next;
@@ -183,6 +203,21 @@ class SpeechSettings extends ChangeNotifier {
       next[index] = profile;
     }
     await _write(next, profile.id);
+  }
+
+  Future<void> saveRecognition(RecognitionProfile value) async {
+    value.validate();
+    await _secure.write(
+      key: storageKey,
+      value: jsonEncode({
+        'activeId': activeId,
+        'profiles': profiles.map((p) => p.toJson()).toList(),
+        'recognition': value.toJson(),
+      }),
+    );
+    recognition = value;
+    error = null;
+    notifyListeners();
   }
 
   Future<void> select(String id) async {

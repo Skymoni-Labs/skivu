@@ -6,90 +6,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'media_picker_session.dart';
+import 'speech_input_session.dart';
+import 'speech_settings.dart';
 import 'state.dart';
 import 'widgets.dart';
 
 Future<Uint8List> normalizeChatPhoto(Uint8List bytes) async {
-  if (bytes.isEmpty || bytes.length > 6 * 1024 * 1024)
-    throw const FormatException('图片过大');
+  if (bytes.isEmpty) throw const FormatException('图片为空');
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
   ui.ImageDescriptor? descriptor;
   try {
     descriptor = await ui.ImageDescriptor.encoded(buffer);
-    if (descriptor.width > 8192 || descriptor.height > 8192)
-      throw const FormatException('图片尺寸过大');
-    for (final side in [1024, 768, 512, 384, 256]) {
-      final ratio =
-          side /
-          (descriptor.width > descriptor.height
-              ? descriptor.width
-              : descriptor.height);
-      final codec = await descriptor.instantiateCodec(
-        targetWidth: (descriptor.width * ratio.clamp(0, 1)).round().clamp(
-          1,
-          1024,
-        ),
-        targetHeight: (descriptor.height * ratio.clamp(0, 1)).round().clamp(
-          1,
-          1024,
-        ),
-      );
-      final image = (await codec.getNextFrame()).image;
-      try {
-        final data = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (data != null && data.lengthInBytes <= 144 * 1024)
-          return data.buffer.asUint8List(
-            data.offsetInBytes,
-            data.lengthInBytes,
-          );
-      } finally {
-        image.dispose();
-        codec.dispose();
-      }
+    if (descriptor.width <= 0 || descriptor.height <= 0) {
+      throw const FormatException('无法读取图片尺寸');
     }
-    throw const FormatException('图片无法压缩，请选择其他图片');
+    // Standard upload formats retain their original encoding and resolution.
+    // Other Android-decodable formats are converted at the source resolution.
+    if (chatPhotoMime(bytes) != null) return bytes;
+    final codec = await descriptor.instantiateCodec();
+    final image = (await codec.getNextFrame()).image;
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) throw const FormatException('无法转换图片格式');
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } finally {
+      image.dispose();
+      codec.dispose();
+    }
   } finally {
     descriptor?.dispose();
     buffer.dispose();
   }
 }
 
-class _SpeechDraft {
-  final channel = const MethodChannel('skivu/voice_call');
-  Completer<String>? pending;
-  Future<String> listen() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android)
-      throw const FormatException('请在安卓客户端使用麦克风，或选择描述语音。');
-    final done = pending = Completer<String>();
-    done.future.ignore();
-    channel.setMethodCallHandler((event) async {
-      if (done.isCompleted) return;
-      final args = event.arguments is Map ? event.arguments as Map : {};
-      if (event.method == 'result')
-        done.complete(args['text']?.toString() ?? '');
-      if (event.method == 'recognitionError')
-        done.completeError(const FormatException('未能识别语音，请重试或改为描述语音。'));
-    });
-    try {
-      final result = await channel.invokeMethod<String>('listen', {
-        'requestPermission': true,
-      });
-      if (result == 'permission_required')
-        throw const FormatException('请允许麦克风权限。');
-      return await done.future.timeout(const Duration(seconds: 45));
-    } finally {
-      if (identical(pending, done)) {
-        pending = null;
-        await channel.invokeMethod('stopListening');
-        channel.setMethodCallHandler(null);
-      }
-    }
-  }
-
-  void cancel() {
-    if (pending?.isCompleted == false)
-      pending!.completeError(const FormatException('已取消识别'));
-  }
+String? chatPhotoMime(Uint8List bytes) {
+  if (bytes.length >= 8 &&
+      bytes[0] == 137 &&
+      bytes[1] == 80 &&
+      bytes[2] == 78 &&
+      bytes[3] == 71)
+    return 'image/png';
+  if (bytes.length >= 3 &&
+      bytes[0] == 255 &&
+      bytes[1] == 216 &&
+      bytes[2] == 255)
+    return 'image/jpeg';
+  if (bytes.length >= 12 &&
+      String.fromCharCodes(bytes.sublist(0, 4)) == 'RIFF' &&
+      String.fromCharCodes(bytes.sublist(8, 12)) == 'WEBP')
+    return 'image/webp';
+  return null;
 }
 
 enum ChatMediaChoice { gallery, camera, describedVoice }
@@ -100,9 +66,6 @@ Future<Uint8List?> _pickSystemChatPhoto(ImageSource source) =>
     mediaPickerSession.run(MediaDestination.chatImage, () async {
       final file = await ImagePicker().pickImage(
         source: source,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 85,
         requestFullMetadata: false,
       );
       return file == null ? null : await file.readAsBytes();
@@ -134,7 +97,8 @@ Future<bool> sendSystemChatPhoto(
       '照片',
       kind: 'image',
       described: false,
-      imageData: 'data:image/png;base64,${base64Encode(bytes)}',
+      imageData:
+          'data:${chatPhotoMime(bytes) ?? 'image/png'};base64,${base64Encode(bytes)}',
       streamingOverride: streamingOverride,
     );
     if (!ok) toast(context, demo.lastError ?? '当前无法发送，请等待回复完成。');
@@ -218,7 +182,7 @@ Future<bool> composeChatMedia(
   }
   final chatId = demo.conversations[demo.conversation].id;
   final text = TextEditingController();
-  final speech = _SpeechDraft();
+  final speech = SpeechInputSession();
   final described = !initiallyReal;
   bool busy = false, sent = false;
   String? error;
@@ -265,8 +229,13 @@ Future<bool> composeChatMedia(
                   icon: const Icon(Icons.mic_none),
                   label: Text(busy ? '取消识别' : '开始语音识别'),
                 ),
-                const Text(
-                  '使用手机的语音识别，将转写内容作为语音消息交给角色。',
+                if (busy)
+                  TextButton(
+                    onPressed: speech.finish,
+                    child: const Text('结束录音并识别'),
+                  ),
+                Text(
+                  '使用${speechSettings.recognition.label}，识别结果可修改后发送。',
                   style: TextStyle(fontSize: 12, height: 1.6),
                 ),
                 const SizedBox(height: 12),
@@ -275,7 +244,6 @@ Future<bool> composeChatMedia(
                 controller: text,
                 minLines: 3,
                 maxLines: 7,
-                maxLength: 10000,
                 decoration: InputDecoration(
                   labelText: photo
                       ? '照片内容描述'
@@ -345,6 +313,7 @@ Future<bool> composeChatMedia(
   );
   speech.cancel();
   await Future<void>.delayed(const Duration(milliseconds: 300));
+  speech.dispose();
   text.dispose();
   return sent;
 }

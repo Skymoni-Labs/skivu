@@ -20,6 +20,7 @@ ModelConnection connection(
   model: protocol == ApiProtocol.gemini ? 'gemini-test' : 'test-model',
   streaming: streaming,
   timeoutSeconds: timeout,
+  maxOutput: protocol == ApiProtocol.anthropic ? 8192 : 0,
 );
 
 String sse(List<Object> frames) =>
@@ -45,7 +46,7 @@ void main() {
       direct.cancel();
       final account = ChatSession.account(
         MockClient((request) async {
-          expect(jsonDecode(request.body)['max_tokens'], 4096);
+          expect(jsonDecode(request.body)['max_tokens'], 8192);
           return http.Response(
             jsonEncode({
               'choices': [
@@ -63,7 +64,7 @@ void main() {
         'test',
         'test-token',
       );
-      expect(account.effectiveMaxOutput, 4096);
+      expect(account.effectiveMaxOutput, 8192);
       await account.events.toList();
     },
   );
@@ -251,7 +252,8 @@ void main() {
         expect(jsonEncode(body), contains('第一轮'));
         expect(jsonEncode(body), contains('角色设定'));
         if (protocol == ApiProtocol.responses) expect(body!['store'], false);
-        if (protocol == ApiProtocol.chat) expect(body!['max_tokens'], 2048);
+        if (protocol == ApiProtocol.chat)
+          expect(body!.containsKey('max_tokens'), false);
       },
     );
   }

@@ -84,10 +84,12 @@ class PluginNetwork {
     Map<String, dynamic> p,
     List<String> domains, {
     bool allowLocal = false,
+    Future<Map<String, dynamic>> Function(Stream<List<int>> stream)?
+    storeResponse,
   }) async {
     if (closed) throw const PluginApiError('CLOSED', '插件已关闭。');
     final url = p['url'];
-    if (url is! String || url.length > 8192)
+    if (url is! String)
       throw const PluginApiError('INVALID_ARGUMENT', '缺少有效的 HTTPS 地址。');
     final uri = pluginNetworkUri(url, domains, allowLocal: allowLocal);
     final method = (p['method'] ?? 'GET').toString().toUpperCase();
@@ -103,7 +105,7 @@ class PluginNetwork {
       throw const PluginApiError('INVALID_ARGUMENT', 'HTTP 方法不支持。');
     final r = http.Request(method, uri)..followRedirects = false;
     final headers = p['headers'] ?? {};
-    if (headers is! Map || headers.length > 60)
+    if (headers is! Map)
       throw const PluginApiError('INVALID_ARGUMENT', '请求头不正确。');
     for (final e in headers.entries) {
       if (e.key is! String ||
@@ -126,8 +128,6 @@ class PluginNetwork {
       throw const PluginApiError('INVALID_ARGUMENT', '只能提供一种请求正文。');
     if (p['body'] is String) r.body = p['body'];
     if (p['bodyBase64'] is String) r.bodyBytes = base64Decode(p['bodyBase64']);
-    if (r.bodyBytes.length > 8 * 1024 * 1024)
-      throw const PluginApiError('LIMIT_EXCEEDED', '请求内容超过 8 MiB。');
     final transport = resolve
         ? await dns.publicClient(
             uri.host,
@@ -139,15 +139,28 @@ class PluginNetwork {
     _active.add(transport);
     try {
       if (closed) throw const PluginApiError('CLOSED', '插件已关闭。');
-      final response = await transport
-          .send(r)
-          .timeout(const Duration(seconds: 40));
+      final timeout = p['timeoutSeconds'] as int? ?? 0;
+      if (timeout < 0)
+        throw const PluginApiError('INVALID_ARGUMENT', '超时不能为负数，0不设置应用时限。');
+      final response = await (timeout > 0
+          ? transport.send(r).timeout(Duration(seconds: timeout))
+          : transport.send(r));
+      final metadata = <String, dynamic>{
+        'status': response.statusCode,
+        'headers': response.headers,
+        'mime': response.headers['content-type'] ?? 'application/octet-stream',
+      };
+      if (storeResponse != null)
+        return {
+          ...metadata,
+          'file': await storeResponse(response.stream),
+          'bodyInline': false,
+        };
       final bytes = <int>[];
-      await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 40),
-      )) {
-        if (bytes.length + chunk.length > 8 * 1024 * 1024)
-          throw const PluginApiError('LIMIT_EXCEEDED', '响应超过 8 MiB。');
+      await for (final chunk
+          in timeout > 0
+              ? response.stream.timeout(Duration(seconds: timeout))
+              : response.stream) {
         bytes.addAll(chunk);
       }
       if (closed) throw const PluginApiError('CLOSED', '插件已关闭。');

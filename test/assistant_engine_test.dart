@@ -79,7 +79,7 @@ void main() {
     },
   );
   test(
-    'permission wait resumes the same operation ID without another model plan',
+    'permission defers dependent work and resumes the original request ID',
     () async {
       var granted = false, plans = 0;
       final ids = <String>[];
@@ -98,7 +98,7 @@ void main() {
       );
       await a.send('8点15分闹钟');
       expect(a.canResume, true);
-      expect(plans, 1);
+      expect(plans, 2);
       granted = true;
       await a.resume();
       expect(a.phase, 'awaiting_verification');
@@ -107,35 +107,45 @@ void main() {
     },
   );
   test(
-    'uncertain writes never automatically replay, including after restart',
+    'uncertain writes are read back and never replayed after restart',
     () async {
       String? saved;
-      var calls = 0;
+      var writes = 0, reads = 0, rounds = 0;
       final a = assistant(
         native((args) async {
-          calls++;
+          if (args['tool'] == 'device.receipt') {
+            reads++;
+            return {
+              'requestId': args['requestId'],
+              'outcome': 'verified',
+              'value': {'found': true, 'outcome': 'unknown'},
+            };
+          }
+          writes++;
           return {
             'requestId': args['requestId'],
             'outcome': 'unknown',
             'summary': 'callback lost',
           };
         }),
-        (_, __) async =>
-            '{"type":"call","tool":"clock.alarm.create","arguments":{"hour":8,"minute":15},"message":"闹钟"}',
+        (_, __) async => ++rounds <= 2
+            ? '{"type":"call","tool":"settings.brightness.write","arguments":{"level":80},"message":"write once"}'
+            : '{"type":"final","message":"结果待核对，未重复执行"}',
         write: (v) async => saved = v,
       );
-      await a.send('闹钟');
-      expect(a.phase, 'unknown');
-      await a.resume();
-      expect(calls, 1);
+      await a.send('set brightness');
+      expect(a.phase, 'awaiting_verification');
+      expect(writes, 1);
+      expect(reads, 1);
       final b = assistant(
-        native((_) async => throw StateError('must not run')),
+        native((_) async => throw StateError('must not replay')),
         (_, __) async => '',
         read: () async => saved,
       );
       await b.restore();
-      expect(b.phase, 'unknown');
+      expect(b.phase, 'awaiting_verification');
       expect(b.pending, isNull);
+      expect(b.hasUnverifiedEffects, true);
     },
   );
   test(
@@ -160,7 +170,9 @@ void main() {
       );
       await run;
       await Future<void>.delayed(Duration.zero);
-      expect(a.phase, 'stopped');
+      expect(a.phase, 'model_changed');
+      expect(a.goal, 'do something');
+      expect(a.recoveryRequired, true);
       expect(calls, 0);
       expect(a.pending, isNull);
     },
@@ -263,7 +275,8 @@ void main() {
     );
     await a.send('alarm');
     expect(calls, 0);
-    expect(a.phase, 'unknown');
+    expect(a.phase, 'failed');
+    expect(a.hasUnverifiedEffects, false);
     expect(
       () => AssistantEngine.parse(
         '{"type":"call","tool":"ui.home","arguments":{},"message":"x","owner":"admin"}',
@@ -293,7 +306,9 @@ void main() {
         }),
       );
       await a.restore();
-      expect(a.phase, 'unknown');
+      expect(a.phase, 'recovering');
+      expect(a.recoveryRequired, true);
+      expect(a.checkpointPending, contains('cloud_1_1'));
       expect(a.pending, isNull);
     },
   );
@@ -352,12 +367,28 @@ void main() {
       await dispatched.future;
       final interruptedJournal = durable!;
       final restored = assistant(
-        native((_) async {
+        native((args) async {
+          expect(args['tool'], 'device.receipt');
           restoredCalls++;
-          throw StateError('A restored write must never dispatch');
+          return {
+            'requestId': args['requestId'],
+            'outcome': 'verified',
+            'value': {'found': true, 'outcome': 'unknown'},
+          };
         }),
         (_, history) async {
           restoredPlans++;
+          if (restoredPlans == 1) {
+            expect(history.last['content'], contains('恢复原任务'));
+            return jsonEncode({
+              'type': 'call',
+              'tool': 'device.receipt',
+              'arguments': {'originalRequestId': requestId},
+              'message': '核对原回执',
+            });
+          }
+          if (restoredPlans == 2)
+            return '{"type":"final","message":"结果未知，未重放"}';
           expect(history.last['content'], 'Just say hello without tools');
           return '{"type":"final","message":"Hello"}';
         },
@@ -366,16 +397,16 @@ void main() {
       );
       await restored.restore();
       await restored.resume();
-      expect(restored.phase, 'unknown');
+      expect(restored.phase, 'awaiting_verification');
       expect(restored.pending, isNull);
-      expect(restoredCalls, 0);
-      expect(restoredPlans, 0);
-      expect(restored.messages.last['content'], contains('不会自动重放'));
+      expect(restoredCalls, 1);
+      expect(restoredPlans, 2);
+      expect(restored.hasUnverifiedEffects, true);
       await restored.send('Just say hello without tools');
       expect(restored.phase, 'done');
       expect(restored.messages.last['content'], 'Hello');
-      expect(restoredCalls, 0);
-      expect(restoredPlans, 1);
+      expect(restoredCalls, 1);
+      expect(restoredPlans, 3);
       expect(originalCalls, 1);
       delayed.complete({'requestId': requestId, 'outcome': 'unknown'});
       await firstRun;
@@ -384,7 +415,7 @@ void main() {
     },
   );
   test(
-    'changing models during native execution cancels the original owner and rejects the late result',
+    'model changes preserve in-flight identity and explicit Stop cancels that original owner',
     () async {
       var identity = 'first-model', plans = 0;
       Map<String, dynamic>? invocation, cancellation;
@@ -416,8 +447,11 @@ void main() {
       await started.future;
       identity = 'second-model';
       a.identityChanged();
+      expect(a.phase, 'model_changed');
+      expect(a.goal, 'Show my alarms');
+      final stopping = a.stop();
       await cancelled.future;
-      await a.stop();
+      await stopping;
       expect(cancellation?['owner'], invocation?['owner']);
       expect(cancellation?['requestId'], invocation?['requestId']);
       result.complete({

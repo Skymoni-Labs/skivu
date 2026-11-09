@@ -66,7 +66,7 @@ class BetaAccess extends ChangeNotifier {
               : ApiProtocol.chat,
           address: 'https://skymoni.com${_chatPath}',
           model: activeModel!,
-          maxOutput: 2048,
+          maxOutput: 0,
         );
   String get _chatPath => modelProtocols[activeModel] == 'responses'
       ? '/api/app-beta/responses'

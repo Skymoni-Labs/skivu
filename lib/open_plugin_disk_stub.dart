@@ -14,3 +14,14 @@ Future<void> writeFile(String id, String path, Uint8List data) async =>
     _unsupported();
 Future<List<String>> listFiles(String id) async => _unsupported();
 Future<void> removeFile(String id, String path) async => _unsupported();
+Future<Map<String, dynamic>> readRange(
+  String id,
+  String path,
+  int offset,
+  int length,
+) async => _unsupported();
+Future<Map<String, dynamic>> writeStream(
+  String id,
+  String path,
+  Stream<List<int>> stream,
+) async => _unsupported();

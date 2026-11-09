@@ -1553,6 +1553,11 @@ class _ChatPageState extends State<ChatPage>
         .where((id) => id.startsWith('artifact_'))
         .toSet()
         .toList();
+    final artifactBatches = row.messages
+        .expand((m) => (m.toolExecution?.artifactBatches ?? '').split(','))
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
     final linkedPlan =
         taskPlans.records
             .where((p) => p.id == result?.managedPlanId)
@@ -1638,11 +1643,12 @@ class _ChatPageState extends State<ChatPage>
                   ),
                 ),
             ],
-            if (artifactIds.isNotEmpty) ...[
+            if (artifactIds.isNotEmpty || artifactBatches.isNotEmpty) ...[
               const SizedBox(height: 10),
               CloudFileCard(
                 key: ValueKey('files-${row.first.id}'),
                 ids: artifactIds,
+                batches: artifactBatches,
               ),
             ],
             if (result != null) ...[

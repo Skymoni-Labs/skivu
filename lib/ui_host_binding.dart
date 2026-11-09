@@ -133,15 +133,11 @@ class UiHostBinding {
     if (action == 'chatInteraction') {
       final raw = c['event'];
       final event = raw is Map ? cleanChatInteraction(raw) : null;
-      if (event == null) return '附件格式不正确或超过 2MB。';
+      if (event == null) return '附件格式不正确。';
       if (event['kind'] == 'contact' &&
           roleFor(event['payload']['roleId']) == null)
         return '角色已不存在。';
       if (selected.interactions.any((e) => e['id'] == event['id'])) return null;
-      if (selected.interactions.length >= 100 ||
-          jsonEncode(selected.interactions).length + jsonEncode(event).length >
-              12000000)
-        return '此段对话附件已达本机上限，请先导出保存。';
       selected.interactions.add(event);
       selected.placeholder = false;
       store.changed();
@@ -189,9 +185,7 @@ class UiHostBinding {
       return null;
     }
     if (action == 'confirmBatch') {
-      if (!store.confirmPending(
-        streamingOverride: mode == ChatUiMode.classic ? null : false,
-      ))
+      if (!store.confirmPending(streamingOverride: null))
         return store.lastError ?? '没有待发送消息。';
       return null;
     }
@@ -209,7 +203,7 @@ class UiHostBinding {
         sticker.name,
         kind: 'sticker',
         stickerId: sticker.id,
-        streamingOverride: mode == ChatUiMode.classic ? null : false,
+        streamingOverride: null,
       ))
         return store.lastError ?? '当前无法发送表情。';
       return null;
@@ -220,11 +214,7 @@ class UiHostBinding {
           : selected;
       if (target == null) return '这段对话已不存在';
       final text = c['text'], revision = c['revision'];
-      if (text is! String ||
-          text.length > 10000 ||
-          revision is! int ||
-          revision < 0)
-        return '消息格式不正确';
+      if (text is! String || revision is! int || revision < 0) return '消息格式不正确';
       if (revision <= (draftRevisions[target.id] ?? -1)) return null;
       draftRevisions[target.id] = revision;
       if (action == 'draft') {
@@ -233,10 +223,7 @@ class UiHostBinding {
       }
       if (text.trim().isEmpty) return '请先输入消息';
       if (store.streaming) return '当前回复正在生成';
-      if (!store.send(
-        text,
-        streamingOverride: mode == ChatUiMode.classic ? null : false,
-      )) {
+      if (!store.send(text, streamingOverride: null)) {
         return store.lastError ?? '请先配置模型连接';
       }
       store.saveDraft(selected, '');
@@ -295,12 +282,14 @@ class UiHostBinding {
   }) {
     final chat = selected;
     final changed = _lastChat != chat.id;
-    // Social modes show typing in the title, then one complete reply. Even a
-    // provider that ignores stream:false cannot leak partial bubbles here.
+    // Each request follows its saved streaming preference across UI styles.
     final values =
         mode != ChatUiMode.classic &&
             store.streaming &&
-            chat.messages.lastOrNull?.status == 'pending'
+            chat.messages.lastOrNull?.status == 'pending' &&
+            !(chat.messages.lastOrNull?.requestStreaming ??
+                store.activeConnection?.streaming ??
+                false)
         ? chat.messages.take(chat.messages.length - 1).toList()
         : chat.messages;
     final prefix = Object.hashAll(

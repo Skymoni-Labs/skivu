@@ -266,7 +266,7 @@ Future<void> editUserCard(BuildContext context) async {
 
 Future<void> showChatControls(BuildContext context) async {
   final config = demo.activeConnection;
-  double maximum = (config?.maxOutput ?? 2048).toDouble().clamp(128, 4096);
+  double maximum = (config?.maxOutput ?? 0).toDouble();
   bool streaming = config?.streaming ?? true;
   await showModalBottomSheet<void>(
     context: context,
@@ -363,15 +363,19 @@ Future<void> showChatControls(BuildContext context) async {
                 },
               ),
             const Divider(),
-            label('最大回复 Token：${maximum.round()}', size: 14),
-            Slider(
-              value: maximum,
-              min: 128,
-              max: 4096,
-              divisions: 31,
+            TextFormField(
+              initialValue: '${maximum.round()}',
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '最大输出 Token',
+                helperText: '0跟随服务端；正整数按模型实际支持范围发送，不另设应用封顶',
+              ),
               onChanged: demo.streaming
                   ? null
-                  : (v) => change(() => maximum = v),
+                  : (v) {
+                      final n = int.tryParse(v);
+                      if (n != null && n >= 0) maximum = n.toDouble();
+                    },
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

@@ -18,6 +18,37 @@ ModelConnection config({ApiProtocol protocol = ApiProtocol.chat}) =>
     );
 
 void main() {
+  test(
+    'nonstream coding response preserves content beyond the former 4 MiB gate',
+    () async {
+      final text = '完整代码🙂' * 600000;
+      final session = AgentChatSession.account(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'role': 'assistant', 'content': text},
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+        config(),
+        'fixture-token',
+      );
+      addTearDown(session.cancel);
+      final value = await session.send(
+        messages: [
+          {'role': 'user', 'content': '生成代码'},
+        ],
+        tools: [],
+      );
+      expect(value['choices'][0]['message']['content'], text);
+    },
+  );
   test('host does not impose message or tool count caps', () async {
     var sent = 0;
     final session = AgentChatSession.account(
@@ -93,7 +124,7 @@ void main() {
         expect(request.headers['authorization'], 'AppAccount synthetic-token');
         final body = jsonDecode(request.body) as Map;
         expect(body['model'], 'host-selected');
-        expect(body['max_tokens'], 4096);
+        expect(body['max_tokens'], 5000);
         expect(body['funding'], 'beta');
         expect(body['stream'], false);
         expect((body['tools'] as List).first['function']['name'], 'write_file');
@@ -202,25 +233,33 @@ void main() {
     },
   );
 
-  test('oversized requests fail before network', () async {
-    var calls = 0;
-    final session = AgentChatSession.account(
-      MockClient((_) async {
-        calls++;
-        return http.Response('{}', 200);
-      }),
-      config(),
-      'synthetic-token',
-    );
-    await expectLater(
-      session.send(
+  test(
+    'large valid requests reach the network without the former four MiB quota',
+    () async {
+      var calls = 0;
+      final session = AgentChatSession.account(
+        MockClient((request) async {
+          calls++;
+          expect(
+            utf8.encode(request.body).length,
+            greaterThan(4 * 1024 * 1024),
+          );
+          return http.Response(
+            '{"choices":[{"message":{"content":"ok"}}]}',
+            200,
+          );
+        }),
+        config(),
+        'synthetic-token',
+      );
+      final result = await session.send(
         messages: [
           {'role': 'user', 'content': 'x' * (4 * 1024 * 1024)},
         ],
         tools: [],
-      ),
-      throwsA(isA<ChatFailure>()),
-    );
-    expect(calls, 0);
-  });
+      );
+      expect(result['choices'][0]['message']['content'], 'ok');
+      expect(calls, 1);
+    },
+  );
 }

@@ -53,7 +53,9 @@ class CloudChatCoordinator implements CloudConversationRunner {
       .convert(
         utf8.encode(
           jsonEncode({
-            'connection': store.activeConnection?.toJson(),
+            'connection': store.activeConnection == null
+                ? null
+                : modelAuthority(store.activeConnection!.toJson()),
             'account': store.useAccount,
             'beta': store.useBeta,
             'revision': store.account.authorizationRevision,
@@ -62,6 +64,34 @@ class CloudChatCoordinator implements CloudConversationRunner {
         ),
       )
       .toString();
+
+  bool compatibleLegacyIdentity(String old) {
+    final current = store.activeConnection;
+    if (current == null) return false;
+    final config = current.toJson()
+      ..remove('limitsVersion')
+      ..remove('legacyLimits');
+    final legacy = current.legacyLimits;
+    if (legacy != null) {
+      if (legacy['maxOutput'] is int) config['maxOutput'] = legacy['maxOutput'];
+      if (legacy['timeoutSeconds'] is int)
+        config['timeoutSeconds'] = legacy['timeoutSeconds'];
+    }
+    return old ==
+        sha256
+            .convert(
+              utf8.encode(
+                jsonEncode({
+                  'connection': config,
+                  'account': store.useAccount,
+                  'beta': store.useBeta,
+                  'revision': store.account.authorizationRevision,
+                  'user': store.account.user?['id'],
+                }),
+              ),
+            )
+            .toString();
+  }
 
   void attach() {
     store.cloudRunner = this;
@@ -116,12 +146,16 @@ class CloudChatCoordinator implements CloudConversationRunner {
           engineFactory?.call(chat) ??
           AssistantEngine(
             identity: identity,
+            compatibleIdentity: compatibleLegacyIdentity,
             beginTask: deviceEngine.beginTask,
             endTask: deviceEngine.endTask,
             extensions: CombinedAssistantTools([
               CloudCodingTools(
                 owner: 'cloud:${chat.id}',
                 taskId: () => engine.taskId,
+                hasActiveWork: () =>
+                    engine.activeCodingJobs.isNotEmpty ||
+                    engine.checkpointPending?.contains('coding.') == true,
               ),
               AssistantPluginTools(store.plugins),
               PhoneTaskAdapters(() => engine.latestObservation),
@@ -241,7 +275,10 @@ class CloudChatCoordinator implements CloudConversationRunner {
                   chat.usage = ConversationUsage(totalTokens: chat.usedTokens);
                 }
                 if (limited)
-                  throw AssistantOutputLimit(session.effectiveMaxOutput);
+                  throw AssistantOutputLimit(
+                    session.effectiveMaxOutput,
+                    output.toString(),
+                  );
                 return output.toString();
               } finally {
                 reveal.flush();
@@ -308,6 +345,10 @@ class CloudChatCoordinator implements CloudConversationRunner {
   Future<void> restoreChat(Conversation chat) async {
     final engine = engineFor(chat);
     await engine.restore();
+    if (engine.recoveryRequired &&
+        !engine.userPaused &&
+        engine.phase != 'model_changed')
+      unawaited(engine.recover());
     if (!engine.journalError &&
         chat.assistantJournal != null &&
         chat.assistantJournal!['phase'] != engine.phase) {
@@ -373,7 +414,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
       if (!store.conversations.contains(chat) || _epochs[chat] != ticket)
         return;
       final selected = [
-        for (final id in references.take(20))
+        for (final id in references)
           if (tasks.task(id) case final record?)
             {
               'id': record.id,

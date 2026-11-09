@@ -17,7 +17,6 @@ class SpeechApi {
   final http.Client Function() _factory;
   http.Client? _client;
   int _generation = 0;
-  static const maxBytes = 10 * 1024 * 1024;
   void cancel() {
     _generation++;
     _client?.close();
@@ -29,13 +28,10 @@ class SpeechApi {
     cancel();
     final generation = _generation;
     final client = _client = _factory();
-    try {
-      if (text.trim().isEmpty || text.length > 10000)
-        throw const SpeechFailure('每次语音文字需在 1～10000 字符以内。');
+    Future<Uint8List> exchange() async {
+      if (text.trim().isEmpty) throw const SpeechFailure('语音文字不能为空。');
       final request = buildSpeechRequest(p, text);
-      final response = await client
-          .send(request)
-          .timeout(const Duration(seconds: 45));
+      final response = await client.send(request);
       if (response.statusCode != 200)
         throw SpeechFailure(switch (response.statusCode) {
           401 || 403 => '语音鉴权失败，请检查密钥和音色权限。',
@@ -68,18 +64,15 @@ class SpeechApi {
           ]);
         } else {
           // Audio URLs never inherit the synthesis request's credentials.
-          final audio = await client
-              .send(
-                http.Request('GET', speechUri(value))..followRedirects = false,
-              )
-              .timeout(const Duration(seconds: 45));
+          final audio = await client.send(
+            http.Request('GET', speechUri(value))..followRedirects = false,
+          );
           if (audio.statusCode != 200) throw const SpeechFailure('音频地址下载失败。');
           bytes = await _read(audio);
         }
       }
       if (generation != _generation) throw const SpeechFailure('语音已取消');
-      if (bytes.isEmpty || bytes.length > maxBytes)
-        throw const SpeechFailure('音频为空或超过 10 MB，请缩短文字。');
+      if (bytes.isEmpty) throw const SpeechFailure('服务返回的音频为空。');
       // JSON/HTML errors are not playable audio even if a service returns 200.
       final prefix = utf8
           .decode(bytes.take(40).toList(), allowMalformed: true)
@@ -87,6 +80,15 @@ class SpeechApi {
       if (prefix.startsWith('{') || prefix.startsWith('<'))
         throw const SpeechFailure('接口返回了文本而非音频，请检查返回方式。');
       return bytes;
+    }
+
+    try {
+      final operation = exchange();
+      return p.timeoutSeconds == 0
+          ? await operation
+          : await operation.timeout(Duration(seconds: p.timeoutSeconds));
+    } on TimeoutException {
+      throw const SpeechFailure('语音合成达到你设置的超时，可调整超时配置。');
     } on SpeechFailure {
       rethrow;
     } on FormatException {
@@ -100,15 +102,9 @@ class SpeechApi {
   }
 
   Future<Uint8List> _read(http.StreamedResponse response) async {
-    if ((response.contentLength ?? 0) > maxBytes)
-      throw const SpeechFailure('音频超过 10 MB，请缩短文字。');
     final result = BytesBuilder(copy: false);
-    await for (final chunk in response.stream.timeout(
-      const Duration(seconds: 45),
-    )) {
+    await for (final chunk in response.stream) {
       result.add(chunk);
-      if (result.length > maxBytes)
-        throw const SpeechFailure('音频超过 10 MB，请缩短文字。');
     }
     return result.takeBytes();
   }

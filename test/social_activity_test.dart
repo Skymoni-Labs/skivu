@@ -232,7 +232,7 @@ void main() {
       final events = await session.events.toList();
       expect(events.map((e) => e.text).join(), '角色评论');
       expect(requests.single['stream'], isFalse);
-      expect(requests.single['max_tokens'], lessThanOrEqualTo(512));
+      expect(requests.single.containsKey('max_tokens'), false);
       expect(jsonEncode(requests), contains('ROLE_CARD_ONLY'));
       expect(jsonEncode(requests), isNot(contains('PRIVATE_CHAT_HISTORY')));
       expect(store.exportChats(), before);

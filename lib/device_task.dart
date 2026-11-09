@@ -54,8 +54,6 @@ class DevicePlan {
     Map<String, dynamic> observation,
     Set<String> apps,
   ) {
-    if (text.length > 16000)
-      throw const DeviceTaskFailure('INVALID_PLAN', '模型计划过长。');
     final Object? raw;
     try {
       raw = jsonDecode(text);
@@ -66,7 +64,6 @@ class DevicePlan {
         raw.length != 5 ||
         raw['done'] is! bool ||
         raw['summary'] is! String ||
-        (raw['summary'] as String).length > 1000 ||
         raw['action'] is! String ||
         raw['arguments'] is! Map ||
         raw['evidenceIds'] is! List) {
@@ -77,8 +74,7 @@ class DevicePlan {
         .toList();
     final ids = nodes.map((n) => n['element_id']).whereType<String>().toSet();
     final evidence = raw['evidenceIds'] as List;
-    if (evidence.length > 10 ||
-        evidence.any((e) => e is! String || !ids.contains(e)))
+    if (evidence.any((e) => e is! String || !ids.contains(e)))
       throw const DeviceTaskFailure('INVALID_PLAN', '完成依据不属于当前界面。');
     final done = raw['done'] as bool, action = raw['action'] as String;
     final args = Map<String, dynamic>.from(raw['arguments'] as Map);
@@ -147,7 +143,6 @@ class DevicePlan {
       if (action == 'input_text' &&
           (args['element_id'] is! String ||
               args['text'] is! String ||
-              (args['text'] as String).length > 4000 ||
               !{'replace', 'insert'}.contains(args['mode'])))
         throw const DeviceTaskFailure('INVALID_PLAN', '输入参数无效。');
       if ({'tap', 'long_press'}.contains(action) &&
@@ -155,9 +150,7 @@ class DevicePlan {
           !(args['x'] is num && args['y'] is num))
         throw const DeviceTaskFailure('INVALID_PLAN', '缺少点击目标。');
       if (action == 'wait' &&
-          (args['timeout_ms'] is! int ||
-              args['timeout_ms'] < 100 ||
-              args['timeout_ms'] > 5000))
+          (args['timeout_ms'] is! int || args['timeout_ms'] <= 0))
         throw const DeviceTaskFailure('INVALID_PLAN', '等待时间无效。');
     }
     return DevicePlan(
@@ -193,11 +186,12 @@ class DeviceTaskRunner {
   final Future<void> Function() waitForConfirmation;
   final Set<String> apps;
   final int maxActions, maxRounds;
-  final DateTime deadline;
+  final DateTime? deadline;
   final bool directControl;
   String? capability;
   int count = 0, rounds = 0;
-  int refreshes = 0;
+  String? stalledFingerprint, invalidFingerprint;
+  final _cancelSignal = Completer<void>();
   String? failureCode;
   bool cancelled = false;
   String cancelMessage = '任务已停止。';
@@ -206,7 +200,7 @@ class DeviceTaskRunner {
     check();
     if (cancelled)
       throw DeviceTaskFailure(failureCode ?? 'CANCELLED', cancelMessage);
-    if (DateTime.now().isAfter(deadline))
+    if (deadline != null && DateTime.now().isAfter(deadline!))
       throw const DeviceTaskFailure('TIME_LIMIT', '任务已达到时间上限。');
   }
 
@@ -236,7 +230,7 @@ class DeviceTaskRunner {
   }
 
   Future<void> execute(String name, Map<String, dynamic> args) async {
-    if (count >= maxActions)
+    if (maxActions > 0 && count >= maxActions)
       throw const DeviceTaskFailure('ACTION_LIMIT', '已达到操作次数上限。');
     final rid = '$id:${++count}';
     final input = {...args, 'request_id': rid};
@@ -270,13 +264,7 @@ class DeviceTaskRunner {
       throw const _FreshObservationRequired();
     }
     validated(result);
-    final end = DateTime.now().add(const Duration(seconds: 25));
     while ({'accepted', 'executing'}.contains(result['state'])) {
-      if (DateTime.now().isAfter(end))
-        throw const DeviceTaskFailure(
-          'RESULT_UNKNOWN',
-          '操作仍未收到最终回执，请核对，不要重复执行。',
-        );
       await Future<void>.delayed(const Duration(milliseconds: 250));
       guard();
       result = validated(await call('get_status', {'request_id': rid}));
@@ -291,7 +279,6 @@ class DeviceTaskRunner {
       'state': result['state'],
       'actionExecuted': true,
     });
-    if (receipts.length > 8) receipts.removeAt(0);
   }
 
   Future<void> run() async {
@@ -304,20 +291,18 @@ class DeviceTaskRunner {
           'allowedPackages': apps.toList(),
           'maxActions': maxActions,
           'directControl': directControl,
-          'timeoutMs': deadline
-              .difference(DateTime.now())
-              .inMilliseconds
-              .clamp(1000, 600000),
+          'timeoutMs': deadline == null
+              ? 0
+              : deadline!.difference(DateTime.now()).inMilliseconds,
         }),
       );
       capability = lease['taskCapability'] as String;
       guard();
       await execute('launch_app', {'package_name': apps.first});
-      while (rounds < maxRounds) {
+      while (maxRounds == 0 || rounds < maxRounds) {
         guard();
         await update('observing', '正在读取任务软件的当前界面。');
         Map<String, dynamic> observation;
-        final returnDeadline = DateTime.now().add(const Duration(seconds: 30));
         while (true) {
           final value = await call('observe', {
             'mode': 'tree',
@@ -330,11 +315,6 @@ class DeviceTaskRunner {
             break;
           }
           await update('awaiting_user', '已离开允许操作的软件。请返回该软件继续，或从通知停止任务。');
-          if (DateTime.now().isAfter(returnDeadline))
-            throw const DeviceTaskFailure(
-              'APP_OUT_OF_SCOPE',
-              '长时间未返回允许的软件，任务已停止；请核对范围后重新开始。',
-            );
           await Future<void>.delayed(const Duration(milliseconds: 500));
           guard();
         }
@@ -344,15 +324,44 @@ class DeviceTaskRunner {
         final text = await plan(observation, List.of(receipts));
         guard();
         rounds++;
-        final next = DevicePlan.parse(text, observation, apps);
+        final DevicePlan next;
+        try {
+          next = DevicePlan.parse(text, observation, apps);
+          invalidFingerprint = null;
+        } on DeviceTaskFailure catch (e) {
+          final fingerprint = '${e.code}:${e.message}:$text';
+          if (invalidFingerprint == fingerprint) rethrow;
+          invalidFingerprint = fingerprint;
+          receipts.add({
+            'stage': 'planning',
+            'state': 'rejected',
+            'actionExecuted': false,
+            'errorCode': e.code,
+            'message': e.message,
+          });
+          await update('planning', '计划格式未通过，没有执行；正在根据实际错误修正。');
+          continue;
+        }
         if (next.done) {
           await update('completed', next.summary);
           return;
         }
         if (next.action == 'wait') {
-          await Future<void>.delayed(
-            Duration(milliseconds: next.arguments['timeout_ms']),
-          );
+          await update('waiting', '等待当前界面条件，继续前会重新观察。');
+          guard();
+          final finished = Completer<void>();
+          var duration = Duration(milliseconds: next.arguments['timeout_ms']);
+          if (deadline != null) {
+            final remaining = deadline!.difference(DateTime.now());
+            if (remaining < duration) duration = remaining;
+          }
+          final timer = Timer(duration, finished.complete);
+          try {
+            await Future.any([finished.future, _cancelSignal.future]);
+          } finally {
+            timer.cancel();
+          }
+          guard();
           continue;
         }
         try {
@@ -362,13 +371,34 @@ class DeviceTaskRunner {
               'observation_id': observation['observation_id'],
             'service_instance_id': observation['service_instance_id'],
           });
-          refreshes = 0;
+          stalledFingerprint = null;
         } on _FreshObservationRequired {
-          if (++refreshes > 2)
+          final target =
+              ((observation['tree'] as Map?)?['elements'] as List? ?? [])
+                  .whereType<Map>()
+                  .where((n) => n['element_id'] == next.arguments['element_id'])
+                  .map(
+                    (n) => {
+                      for (final e in n.entries)
+                        if (e.key != 'element_id') e.key: e.value,
+                    },
+                  )
+                  .toList();
+          final fingerprint = jsonEncode([
+            observation['package_name'],
+            next.action,
+            {
+              for (final e in next.arguments.entries)
+                if (e.key != 'element_id') e.key: e.value,
+            },
+            target,
+          ]);
+          if (stalledFingerprint == fingerprint)
             throw const DeviceTaskFailure(
               'STALE_OBSERVATION',
-              '界面持续变化，已停止后续操作，请人工核对。',
+              '相同目标仍然失效且没有新进展，没有重复已执行的操作。',
             );
+          stalledFingerprint = fingerprint;
           await update('observing', '上一步确认未执行；正在重新观察并规划，不重放旧动作。');
         }
       }
@@ -406,6 +436,7 @@ class DeviceTaskRunner {
     String message = '任务已停止。',
   }) async {
     cancelled = true;
+    if (!_cancelSignal.isCompleted) _cancelSignal.complete();
     failureCode = code;
     cancelMessage = message;
     if (capability != null) {

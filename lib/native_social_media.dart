@@ -44,7 +44,7 @@ class NativeChatAttachment {
           'music',
           'file',
         }.contains(clean['kind'])) {
-      throw const FormatException('附件格式不正确或超过 2MB。');
+      throw const FormatException('附件格式不正确。');
     }
     final payload = clean['payload'] as Map;
     final data = payload['data'] as String;
@@ -153,8 +153,6 @@ Future<Map<String, dynamic>?> pickNativeChatFile({required String kind}) async {
     ],
   );
   if (file == null) return null;
-  if (await file.length() > 2 * 1024 * 1024)
-    throw const FormatException('附件不能超过 2MB。');
   final suffix = file.name.split('.').last.toLowerCase();
   final mime = switch (suffix) {
     'mp3' => 'audio/mpeg',
@@ -179,6 +177,6 @@ Future<Map<String, dynamic>?> pickNativeChatFile({required String kind}) async {
       'data': 'data:$mime;base64,${base64Encode(bytes)}',
     },
   });
-  if (event == null) throw const FormatException('附件格式不正确或超过 2MB。');
+  if (event == null) throw const FormatException('附件格式不正确。');
   return event;
 }

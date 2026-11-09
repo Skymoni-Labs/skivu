@@ -4,6 +4,11 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.media.MediaRecorder
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -27,6 +32,12 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
     private var epoch = 0
     private var utterance: String? = null
     private var permissionResult: MethodChannel.Result? = null
+    private var permissionAction: (() -> String)? = null
+    private val main=Handler(Looper.getMainLooper())
+    private var recorder: MediaRecorder? = null
+    private var recordingFile: File? = null
+    private var recordingProbe: Runnable? = null
+    private val recordings=mutableSetOf<String>()
     private val preparing = mutableListOf<MethodChannel.Result>()
     private var speechEpoch = 0
     private var audioEpoch = 0
@@ -41,14 +52,20 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
                         if(call.argument<Boolean>("systemTts") == false) result.success(null)
                         else prepare(result)
                     }
-                    "listen" -> {
+                    "recognitionStatus" -> result.success(mapOf("systemAvailable" to SpeechRecognizer.isRecognitionAvailable(activity),"onDeviceAvailable" to (Build.VERSION.SDK_INT>=31&&SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)),"microphoneGranted" to (activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED)))
+                    "listen", "record" -> {
+                        val arguments=call.arguments as? Map<*,*> ?: emptyMap<Any,Any>()
+                        val start:()->String={if(call.method=="record"){record(arguments);"recording"}else{listen(arguments);"listening"}}
                         if(activity.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                             if(call.argument<Boolean>("requestPermission") == true && permissionResult == null) {
-                                permissionResult = result
+                                permissionResult = result;permissionAction=start
                                 activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 7462)
                             } else result.success("permission_required")
-                        } else { listen(); result.success("listening") }
+                        } else result.success(start())
                     }
+                    "finishListening" -> { recognizer?.stopListening(); result.success(null) }
+                    "finishRecording" -> { finishRecording(); result.success(null) }
+                    "discardRecording" -> { call.argument<String>("path")?.let{path->if(recordings.remove(path))File(path).delete()};result.success(null) }
                     "stopListening" -> { stopListening(); result.success(null) }
                     "speak" -> {
                         stopListening()
@@ -115,7 +132,7 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
         audioFile?.delete(); audioFile = null
     }
     private fun playAudio(bytes: ByteArray?, result: MethodChannel.Result) {
-        require(bytes != null && bytes.isNotEmpty() && bytes.size <= 10 * 1024 * 1024) { "音频为空或超过 10 MB。" }
+        require(bytes != null && bytes.isNotEmpty()) { "音频为空。" }
         pause()
         val generation = audioEpoch
         Thread {
@@ -146,11 +163,12 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
             }
         }.start()
     }
-    private fun listen() {
-        check(SpeechRecognizer.isRecognitionAvailable(activity)) { "本机没有语音识别服务；请安装系统语音服务，或在更多中输入文字。" }
+    private fun listen(options:Map<*,*>) {
         stopListening()
+        check(SpeechRecognizer.isRecognitionAvailable(activity)) { "本机没有语音识别服务；请在语音设置中选择自定义识别服务，或安装系统语音识别服务。" }
         val generation = ++epoch
-        val next = SpeechRecognizer.createSpeechRecognizer(activity)
+        val onDevice=options["preferOnDevice"]==true&&Build.VERSION.SDK_INT>=31&&SpeechRecognizer.isOnDeviceRecognitionAvailable(activity)
+        val next = if(onDevice&&Build.VERSION.SDK_INT>=31)SpeechRecognizer.createOnDeviceSpeechRecognizer(activity)else SpeechRecognizer.createSpeechRecognizer(activity)
         recognizer = next; listening = true
         fun current() = epoch == generation && listening
         next.setRecognitionListener(object : RecognitionListener {
@@ -158,7 +176,7 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
             override fun onBeginningOfSpeech() { if(current()) emit("speech") }
             override fun onRmsChanged(rmsdB: Float) { if(current()) emit("level", mapOf("value" to rmsdB.coerceAtLeast(0f).toDouble())) }
             override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
+            override fun onEndOfSpeech() { if(current()) emit("transcribing") }
             override fun onError(error: Int) { if(current()) {listening = false; emit("recognitionError", mapOf("code" to error))} }
             override fun onResults(results: Bundle?) {
                 if(!current()) return
@@ -166,21 +184,62 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
                 if(text.isBlank()) emit("recognitionError", mapOf("code" to 7)) else emit("result", mapOf("text" to text))
             }
-            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) { if(current()) emit("partial", mapOf("text" to (partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""))) }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         next.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
-            .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false))
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, options["language"]?.toString()?.ifBlank{null} ?: Locale.getDefault().toLanguageTag())
+            .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true))
     }
-    private fun stopListening() { ++epoch; listening = false; recognizer?.cancel(); recognizer?.destroy(); recognizer = null }
+    @Suppress("DEPRECATION")
+    private fun record(options:Map<*,*>){
+        stopListening()
+        val file=File.createTempFile("skivu-recognition-", ".m4a", activity.cacheDir)
+        val next=if(Build.VERSION.SDK_INT>=31)MediaRecorder(activity)else MediaRecorder()
+        try{
+            next.setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            next.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            next.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            next.setAudioSamplingRate(44100);next.setAudioEncodingBitRate(96000);next.setAudioChannels(1)
+            next.setOutputFile(file.absolutePath);next.prepare();next.start()
+            recorder=next;recordingFile=file;recordings.add(file.absolutePath)
+            val generation=epoch;val silence=(options["silenceMillis"] as? Number)?.toLong()?:1200L
+            var heard=false;var lastVoice=SystemClock.uptimeMillis()
+            val probe=object:Runnable{override fun run(){
+                if(recorder!==next||generation!=epoch)return
+                val amplitude=runCatching{next.maxAmplitude}.getOrDefault(0)
+                emit("level", mapOf("value" to (amplitude/3276.8)))
+                if(amplitude>900){lastVoice=SystemClock.uptimeMillis();if(!heard){heard=true;emit("speech")}}
+                if(heard&&silence>0&&SystemClock.uptimeMillis()-lastVoice>=silence){finishRecording();return}
+                main.postDelayed(this,100)
+            }}
+            recordingProbe=probe;main.postDelayed(probe,100)
+        }catch(e:Exception){next.release();file.delete();throw IllegalStateException("麦克风录音启动失败，请检查权限、系统麦克风开关或其他应用是否正在收音。",e)}
+    }
+    private fun finishRecording(){
+        val next=recorder?:return;val file=recordingFile?:return
+        recordingProbe?.let{main.removeCallbacks(it)};recordingProbe=null;recorder=null;recordingFile=null
+        try{next.stop();next.release();check(file.length()>0){"录音没有有效内容，请说话后重新结束。"};emit("recorded",mapOf("path" to file.absolutePath,"bytes" to file.length(),"mime" to "audio/mp4"))}
+        catch(_:Exception){runCatching{next.release()};recordings.remove(file.absolutePath);file.delete();emit("recognitionError",mapOf("code" to 3))}
+    }
+    private fun stopListening() {
+        // A canceled draft must not start capturing later when an already-open
+        // Android permission dialog finally returns its result.
+        permissionAction=null
+        permissionResult?.success("permission_required");permissionResult=null
+        ++epoch; listening = false; recognizer?.cancel(); recognizer?.destroy(); recognizer = null
+        recordingProbe?.let{main.removeCallbacks(it)};recordingProbe=null
+        recorder?.let{runCatching{it.stop()};it.release()};recorder=null
+        recordingFile?.let{recordings.remove(it.absolutePath);it.delete()};recordingFile=null
+    }
     fun permissionResult(requestCode: Int, grantResults: IntArray) {
         if(requestCode != 7462) return
         val result = permissionResult ?: return
         permissionResult = null
+        val start=permissionAction;permissionAction=null
         try {
-            if(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {listen(); result.success("listening")}
+            if(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {result.success(start?.invoke()?:"permission_required")}
             else result.success("permission_required")
         } catch(failure: Exception) {result.error("VOICE_UNAVAILABLE", failure.message, null)}
     }
@@ -188,6 +247,7 @@ class VoiceCallPlatform(private val activity: FlutterActivity) {
     fun close() {
         pause(); ++speechEpoch; tts?.shutdown(); tts = null; ttsReady = false
         preparing.forEach { it.error("VOICE_UNAVAILABLE", "语音已关闭。", null) }; preparing.clear()
-        permissionResult?.success("permission_required"); permissionResult = null
+        permissionResult?.success("permission_required"); permissionResult = null;permissionAction=null
+        recordings.toList().forEach{File(it).delete()};recordings.clear()
     }
 }

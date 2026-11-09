@@ -19,7 +19,8 @@ import java.util.concurrent.TimeUnit
 import org.skivu.engine.adb.EmbeddedAdbEngine
 
 /** Native, in-APK capability host. All Android authority is checked here again. */
-class EmbeddedDevicePlatform(private val activity: Activity) {
+class EmbeddedDevicePlatform(private val activity: android.content.Context) {
+    private val hostActivity get()=activity as? Activity
     private val prefs = activity.getSharedPreferences("skivu.device-engine.v1", 0)
     private val worker = Executors.newSingleThreadExecutor()
     private val cancellationWorker = Executors.newSingleThreadExecutor()
@@ -53,8 +54,8 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
     fun close() {
         if (!closed.compareAndSet(false,true)) return
         cancellationEpoch.incrementAndGet(); adb.close()
-        EmbeddedTaskService.taskId = null; EmbeddedTaskService.stopTask = null
-        activity.stopService(Intent(activity, EmbeddedTaskService::class.java))
+        if(hostActivity!=null){EmbeddedTaskService.taskId = null; EmbeddedTaskService.stopTask = null
+        activity.stopService(Intent(activity, EmbeddedTaskService::class.java))}
         worker.execute { if (receiptStore.isInitialized()) receipts.close() }
         worker.shutdown()
         cancellationWorker.shutdown()
@@ -137,8 +138,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                             val tool = text(p, "tool", 120)
                             @Suppress("UNCHECKED_CAST")
                             val args = p["arguments"] as? Map<String, Any?> ?: error("操作参数无效。")
-                            require(JSONObject(args).toString().length <= 32768)
-                            // Read-only lookup also covers requests from older app versions.
+                                                // Read-only lookup also covers requests from older app versions.
                             val prior = receipts.submitted(digest("$tool:${JSONObject(args)}"))
                             if (prior == null) mapOf("found" to false) else mapOf(
                                 "found" to true, "outcome" to prior.getString("outcome"),
@@ -152,13 +152,13 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                             when (target) {
                                 "clock.alarms" -> openSystem(Intent(AlarmClock.ACTION_SHOW_ALARMS)) {}
                                 "clock.timers" -> openSystem(Intent(AlarmClock.ACTION_SHOW_TIMERS)) {}
-                                "settings.display" -> ui { activity.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
+                                "settings.display" -> ui { launch(Intent(Settings.ACTION_DISPLAY_SETTINGS)) }
                                 else -> {
                                     require(target.startsWith("app:")) { "结果入口不存在。" }
                                     val pkg = target.removePrefix("app:")
                                     require(pkg in packages()) { "此软件已不在授权范围内。" }
                                     val intent = activity.packageManager.getLaunchIntentForPackage(pkg) ?: error("软件没有可打开的入口。")
-                                    ui { activity.startActivity(intent) }
+                                    ui { launch(intent) }
                                 }
                             }
                             mapOf("opened" to true)
@@ -187,6 +187,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                                 EmbeddedTaskService.taskId = next
                                 ui { if(next==null)activity.stopService(Intent(activity, EmbeddedTaskService::class.java))else activity.startForegroundService(Intent(activity,EmbeddedTaskService::class.java).putExtra("taskId",next)) }
                             }
+                            PhoneControlArbiter.release("assistant:${p["taskId"]}")
                             mapOf("active" to false)
                         }
                         "configure" -> configure(p)
@@ -234,16 +235,15 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         if (Looper.myLooper() == Looper.getMainLooper()) return action()
         val task = FutureTask(action)
         main.post(task)
-        return task.get(8, TimeUnit.SECONDS)
+        return task.get()
     }
     private fun enabled(name: String) = prefs.getBoolean(name, false)
-    private fun packages() = prefs.getStringSet("packages", emptySet()).orEmpty().toSet()
+    private fun packages():Set<String> = if(prefs.getBoolean("allApplications",false))activity.packageManager.getInstalledApplications(0).map{it.packageName}.toSet() else prefs.getStringSet("packages", emptySet()).orEmpty().toSet()
     private fun installedApps(): List<Map<String, Any?>> {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         val alphabet = AppAlphabet()
         val allowed = packages()
         return activity.packageManager.queryIntentActivities(intent, 0)
-            .filter { it.activityInfo.packageName != activity.packageName }
             .distinctBy { it.activityInfo.packageName }.map {
                 val name = it.loadLabel(activity.packageManager).toString()
                 mapOf("package" to it.activityInfo.packageName,
@@ -251,7 +251,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     "allowed" to (it.activityInfo.packageName in allowed)) + alphabet.fields(name)
             }
     }
-    private fun status(probeBackend: Boolean = true): Map<String, Any?> {
+    internal fun status(probeBackend: Boolean = true): Map<String, Any?> {
         val backend = if (enabled("enabled") && enabled("shell")) {
             if (probeBackend) adb.probe() else adb.executionSnapshot()
         } else emptyMap()
@@ -261,27 +261,28 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         "enabled" to enabled("enabled"), "system" to enabled("system"),
         "control" to enabled("control"), "shell" to enabled("shell"),
         "accessibility" to (SkivuAccessibilityService.connected != null),
+        "locked" to activity.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked,
+        "interactive" to activity.getSystemService(android.os.PowerManager::class.java).isInteractive,
         "writeSettings" to Settings.System.canWrite(activity),
         "notifications" to activity.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled(),
         "shellConnected" to (backend["connected"] == true), "shellUid" to backend["uid"],
         "shellStatusSource" to if (probeBackend) "probe" else "execution_snapshot",
         "shellPaired" to adb.isPaired(),
-        "packages" to packages().toList()
+        "packages" to prefs.getStringSet("packages",emptySet()).orEmpty().toList(),"allApplications" to prefs.getBoolean("allApplications",false)
         )
     }
 
     private fun configure(p: Map<String, Any?>): Map<String, Any?> {
-        require(p.keys == setOf("enabled", "system", "control", "shell", "packages"))
+        require(p.keys.containsAll(setOf("enabled", "system", "control", "shell", "packages"))&&p.keys.all{it in setOf("enabled", "system", "control", "shell", "packages","allApplications")})
         for (key in listOf("enabled", "system", "control", "shell")) require(p[key] is Boolean)
         val apps = (p["packages"] as? List<*>)?.map {
             require(it is String && Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$").matches(it))
-            require(it != activity.packageName) { "不能把权限管理宿主作为操控目标。" }
             it
         }?.toSet() ?: error("请选择软件范围。")
-        require(apps.size <= 200)
         require(prefs.edit().apply {
             for (key in listOf("enabled", "system", "control", "shell")) putBoolean(key, p[key] as Boolean)
             putStringSet("packages", apps)
+            if(p["allApplications"] is Boolean)putBoolean("allApplications",p["allApplications"] as Boolean)
         }.commit()) { "授权设置没有保存。" }
         if (p["enabled"] != true || p["shell"] != true) {
             ui { activity.stopService(Intent(activity, EmbeddedPairingService::class.java)) }
@@ -291,7 +292,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
 
     private fun authorize(p: Map<String, Any?>): Map<String, Any?> {
         if(p["page"] == "notifications" && Build.VERSION.SDK_INT >= 33) {
-            ui { activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),7221) }
+            ui { (hostActivity?:error("系统权限需要用户在小云页面确认。")).requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),7221) }
             return mapOf("outcome" to "dispatched", "summary" to "请由用户在系统窗口确认通知授权。")
         }
         val intent = when (p["page"]) {
@@ -303,11 +304,11 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                 Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS else Settings.ACTION_DEVICE_INFO_SETTINGS)
             else -> error("授权页面不存在。")
         }
-        ui { activity.startActivity(intent) }
+        ui { launch(intent) }
         return mapOf("outcome" to "dispatched", "summary" to "已打开系统设置，请完成授权后返回核对状态。")
     }
 
-    private fun invoke(p: Map<String, Any?>): Map<String, Any?> {
+    internal fun invoke(p: Map<String, Any?>,leaseCheck:()->Unit={}): Map<String, Any?> {
         require(p.keys == setOf("version", "owner", "requestId", "tool", "arguments") && p["version"] == 1)
         val id = p["requestId"] as? String ?: error("缺少请求编号。")
         val owner = p["owner"] as? String ?: error("缺少调用身份。")
@@ -316,13 +317,17 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         val tool = p["tool"] as? String ?: error("缺少工具名称。")
         @Suppress("UNCHECKED_CAST")
         val args = p["arguments"] as? Map<String, Any?> ?: error("缺少工具参数。")
-        require(JSONObject(args).toString().length <= 32768)
         val key = digest("$owner:$id")
         val fingerprint = digest("$tool:${JSONObject(args)}")
         fun receipt(outcome: String, summary: String, value: Any? = null): Map<String, Any?> =
             mapOf("requestId" to id, "tool" to tool, "outcome" to outcome,
                 "summary" to summary, "value" to value)
         if (tool == "device.status") return receipt("verified", "设备状态已读取。", status())
+        if(tool=="device.receipt"){val original=args["originalRequestId"] as String;val saved=receipts.read(digest("$owner:$original"));return receipt("verified","原请求持久回执已读取，没有重新执行。",if(saved==null)mapOf("found" to false)else mapOf("found" to true,"originalRequestId" to original,"outcome" to saved.optString("outcome"),"summary" to saved.optString("summary"),"value" to plain(saved.opt("value"))))}
+        if(tool in setOf("shell.output.read","shell.output.export")){
+            val output=args["outputId"] as String;val stream=args["stream"] as? String?:"stdout";val logs=CloudShellOutputs(activity)
+            return receipt("verified","已读取原高权限执行日志，没有重新连接或执行。",if(tool=="shell.output.export")logs.export(owner,output,stream)else logs.page(owner,output,stream,(args["offset"] as? Number)?.toLong()?:0,(args["length"] as? Number)?.toInt()?:48000))
+        }
         val permission = when {
             tool in setOf("apps.list","ui.observe","ui.verify","ui.wait","ui.screenshot","settings.brightness.read") -> "observe"
             tool == "apps.launch" || tool.startsWith("ui.") -> "control"
@@ -332,15 +337,20 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         }
         if (!enabled("enabled") || (permission != "observe" && !enabled(permission)))
             return receipt("permission_required", "请先在手机能力设置中启用并授权这项能力。")
+        leaseCheck()
+        if(tool.startsWith("ui.")||tool in setOf("apps.launch","clock.alarm.create","clock.timer.start","clock.alarms.show","settings.open")){
+            PhoneControlArbiter.acquire(owner){leaseCheck();check(key !in cancelledRequests){"此设备调用已撤销。"}}
+        }
         val cached = receipts.read(key)
         if (cached != null) {
             require(cached.getString("fingerprint") == fingerprint) { "同一请求编号不能用于不同操作。" }
-            return remembered[key] ?: receipt(cached.getString("outcome"), cached.getString("summary"))
+            return remembered[key] ?: receipt(cached.getString("outcome"), cached.getString("summary"),plain(cached.opt("value")))
         }
         val writing = tool !in setOf("apps.list","ui.observe","ui.verify","ui.wait","ui.screenshot","settings.brightness.read")
-        fun persist(outcome: String, summary: String) {
-            // No goals, arguments, screens or command output are persisted here.
+        fun persist(outcome: String, summary: String, value:Any?=null) {
+            // Large result bodies live in app-private immutable blob segments.
             val item = JSONObject(mapOf("fingerprint" to fingerprint, "outcome" to outcome, "summary" to summary))
+            if(value!=null)item.put("value",value)
             receipts.write(key, item)
         }
         if (key in cancelledRequests) {
@@ -352,7 +362,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         }
         var actionAttempted = false
         fun beforeAction() {
-            check(key !in cancelledRequests) { "此设备调用已撤销。" }
+            leaseCheck();check(key !in cancelledRequests) { "此设备调用已撤销。" }
             actionAttempted = true
         }
         val answer = try {
@@ -366,27 +376,26 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                     val target = args["package"] as? String ?: error("缺少软件包名。")
                     require(target in packages()) { "目标软件尚未授权。" }
                     val intent = activity.packageManager.getLaunchIntentForPackage(target) ?: error("软件没有启动入口。")
-                    ui { beforeAction(); activity.startActivity(intent) }
+                    ui { beforeAction(); launch(intent) }
                     receipt("dispatched", "已请求打开软件，请观察界面核对。")
                 }
                 "ui.observe" -> {
-                    require(args.isEmpty())
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
-                    else receipt("verified", "已观察授权软件当前界面。", ui { service.observe(packages()) })
+                    else receipt("verified", "已观察授权软件当前界面。", ui { service.observe(packages(),args) })
                 }
                 "ui.wait"->{
                     require(args.keys.all{it in setOf("milliseconds")});val duration=(args["milliseconds"] as? Number)?.toLong()?:500;require(duration in 100..10000)
                     val until=android.os.SystemClock.uptimeMillis()+duration
                     while(android.os.SystemClock.uptimeMillis()<until){check(key !in cancelledRequests);Thread.sleep(minOf(100,until-android.os.SystemClock.uptimeMillis()).coerceAtLeast(1))}
                     val service=SkivuAccessibilityService.connected
-                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已等待并重新观察。",ui{service.observe(packages())})
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已等待并重新观察。",ui{service.observe(packages(),args)})
                 }
                 "ui.verify"->{val service=SkivuAccessibilityService.connected
                     if(service==null)receipt("permission_required","无障碍服务未连接。")else {val proof=ui{service.verify(args,packages(),owner)};receipt(if(proof["matched"]==true)"verified" else "unknown",if(proof["matched"]==true)"已依据新观察核对原动作。" else "未满足明确核对条件；不会重复原动作。",proof)}
                 }
-                "ui.screenshot"->{require(args.isEmpty());val service=SkivuAccessibilityService.connected
-                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已取得授权页面实际截图；图片能否理解取决于当前模型真实视觉能力。",service.screenshot(packages()))}
+                "ui.screenshot"->{val service=SkivuAccessibilityService.connected
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已取得授权页面实际截图；图片能否理解取决于当前模型真实视觉能力。",service.screenshot(packages(),args))}
                 "ui.tap", "ui.input", "ui.scroll", "ui.back", "ui.home", "ui.longPress", "ui.swipe" -> {
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
@@ -463,13 +472,15 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
                 }
                 "shell.execute" -> {
                     require(args.keys.all { it in setOf("command", "timeoutSeconds") })
-                    val command = text(args, "command", 12000)
-                    val seconds = if (args.containsKey("timeoutSeconds")) integer(args, "timeoutSeconds", 1..600) else 30
+                    val command = args["command"] as? String?:error("缺少命令。")
+                    require(command.isNotBlank()&&!command.contains('\u0000'))
+                    val seconds=(args["timeoutSeconds"] as? Number)?.toLong()?:0L
+                    require(seconds>=0&&seconds<=Long.MAX_VALUE/1000)
                     if (adb.probe()["connected"] != true) {
                         receipt("permission_required", "高权限执行后端未连接，请先完成设备配对和连接。")
                     } else {
                         beforeAction()
-                        val value = adb.execute(command, seconds) { key !in cancelledRequests }
+                        val value = CloudShellOutputs(activity).execute(owner,id){out,err->adb.execute(command, seconds,out,err) { key !in cancelledRequests }}
                         receipt("verified", "命令进程已结束；业务结果仍需根据回执核对。", value + mapOf("verification" to "process_exit", "businessVerified" to false))
                     }
                 }
@@ -482,7 +493,7 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
             if (answer["outcome"] == "permission_required") {
                 receipts.remove(key)
             } else {
-                persist(answer["outcome"] as String, answer["summary"] as String)
+                persist(answer["outcome"] as String, answer["summary"] as String,answer["value"])
                 remembered[key] = answer
                 if (remembered.size > 100) remembered.remove(remembered.keys.first())
             }
@@ -490,6 +501,19 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         return answer
     }
 
+    internal fun cancelInvocation(owner:String,requestId:String):Map<String,Any?>{
+        val key=digest("$owner:$requestId");cancelledRequests.add(key)
+        val stopping=if(activeRequest==key)adb.stop()else null
+        return if(stopping!=null)adb.awaitStop(stopping)else mapOf("outcome" to "cancelled")
+    }
+    internal fun invokeLeased(p:Map<String,Any?>,check:()->Unit):Map<String,Any?>{
+        val key=digest("${p["owner"]}:${p["requestId"]}");activeRequest=key;activeOwner=p["owner"] as? String
+        return try{invoke(p,check)}finally{if(activeRequest==key){activeRequest=null;activeOwner=null};cancelledRequests.remove(key)}
+    }
+    private fun launch(intent:Intent){
+        if(hostActivity!=null)activity.startActivity(intent)
+        else (SkivuAccessibilityService.connected?:activity).startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
     private fun openSystem(intent: Intent, beforeDispatch: () -> Unit):String {
         val pm = activity.packageManager
         val default = intent.resolveActivity(pm)?.packageName
@@ -498,12 +522,12 @@ class EmbeddedDevicePlatform(private val activity: Activity) {
         val selected = if (default in allowed) default else allowed.singleOrNull()
         require(selected != null) { "请选择并授权一个可处理此请求的软件。" }
         intent.setPackage(selected)
-        ui { beforeDispatch(); activity.startActivity(intent) }
+        ui { beforeDispatch(); launch(intent) }
         return selected
     }
     private fun text(p: Map<String, Any?>, key: String, max: Int): String {
         val value = p[key] as? String ?: error("文字参数无效。")
-        require(value.length <= max && !value.contains('\u0000'))
+        require(!value.contains('\u0000'))
         return value
     }
     private fun integer(p: Map<String, Any?>, key: String, range: IntRange): Int {

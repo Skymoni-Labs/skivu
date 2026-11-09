@@ -1,4 +1,5 @@
 import 'assistant_engine.dart';
+import 'package:flutter/services.dart';
 import 'device_engine.dart';
 import 'device_engine_plugin.dart';
 import 'open_plugin.dart';
@@ -8,10 +9,11 @@ import 'open_plugin_tools.dart';
 
 /// Manifest registration is separate from role-companion bindings.
 class AssistantPluginTools implements AssistantExtensions {
-  AssistantPluginTools(this.registry) {
+  AssistantPluginTools(this.registry, {this.engine}) {
     registry.addListener(_changed);
   }
   final OpenPluginRegistry registry;
+  final DeviceEngine? engine;
   final active = <OpenPluginRuntime, OpenPluginRecord>{};
   final activeScopes = <OpenPluginRuntime, DeviceEngineScope>{};
   void dispose() {
@@ -86,7 +88,7 @@ class AssistantPluginTools implements AssistantExtensions {
     }
 
     late final OpenPluginRuntime runtime;
-    final scope = DeviceEngineScope();
+    final scope = DeviceEngineScope(engine: engine);
     runtime = OpenPluginRuntime(
       registry: registry,
       record: record,
@@ -95,16 +97,20 @@ class AssistantPluginTools implements AssistantExtensions {
       context: {'scope': 'assistant', 'callId': requestId},
       effect: tool['effect'] as String,
       checkContext: guard,
-      host: (method, params) => scope.call(
-        registry,
-        record,
-        method,
-        params,
-        checkRuntime: () {
-          guard();
-          runtime.check();
-        },
-      ),
+      host: (method, params) => method == 'ui.openExternal'
+          ? const MethodChannel(
+              'skivu/open_plugin_external',
+            ).invokeMethod('open', params)
+          : scope.call(
+              registry,
+              record,
+              method,
+              params,
+              checkRuntime: () {
+                guard();
+                runtime.check();
+              },
+            ),
     );
     active[runtime] = record;
     activeScopes[runtime] = scope;

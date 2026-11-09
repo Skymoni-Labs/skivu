@@ -122,9 +122,7 @@ Future<void> showRoleCompanions(
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('允许随正常聊天读写本机记录'),
-                    subtitle: const Text(
-                      '可随时关闭。一次聊天最多4次模型请求，可能增加额度消耗；外部操作另行确认。',
-                    ),
+                    subtitle: const Text('可随时关闭。会按当前模型设置消耗额度；外部操作按已授予的权限执行。'),
                     value:
                         openPlugins.bindingFor(
                           record.manifest.id,

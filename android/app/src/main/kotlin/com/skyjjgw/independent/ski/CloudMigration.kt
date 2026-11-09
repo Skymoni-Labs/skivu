@@ -15,7 +15,7 @@ class CloudMigration(private val context:Context){
     private val receipt get()=File(base,"receipt.json")
     fun acceptSnapshot(fd:android.os.ParcelFileDescriptor):Map<String,Any?> = synchronized(lock){
         val partial=File(base,"activation.partial")
-        try{android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use{input->partial.outputStream().use{output->val b=ByteArray(65536);var total=0L;while(true){val n=input.read(b);if(n<0)break;total+=n;require(total<=4L*1024*1024*1024);output.write(b,0,n)}}};ZipFile(partial).use{require(it.getEntry("migration-manifest.json")!=null)};check(partial.renameTo(File(base,"dsh-original-data.zip")));migrate()}catch(e:Exception){partial.delete();throw e}
+        try{android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use{input->partial.outputStream().use{output->val b=ByteArray(65536);var total=0L;while(true){val n=input.read(b);if(n<0)break;total+=n;output.write(b,0,n)}}};ZipFile(partial).use{require(it.getEntry("migration-manifest.json")!=null)};check(partial.renameTo(File(base,"dsh-original-data.zip")));migrate()}catch(e:Exception){partial.delete();throw e}
     }
     fun status():Map<String,Any?> = synchronized(lock){
         @Suppress("UNCHECKED_CAST")
@@ -30,7 +30,7 @@ class CloudMigration(private val context:Context){
         if(!archive.exists()){
             val staging=File(base,"snapshot.partial")
             try{
-                context.contentResolver.openInputStream(Uri.parse("content://org.skivu.dsh.runtime.migration/snapshot"))!!.use{input->staging.outputStream().use{out->val b=ByteArray(65536);var total=0L;while(true){val n=input.read(b);if(n<0)break;total+=n;require(total<=4L*1024*1024*1024);out.write(b,0,n)}}}
+                context.contentResolver.openInputStream(Uri.parse("content://org.skivu.dsh.runtime.migration/snapshot"))!!.use{input->staging.outputStream().use{out->val b=ByteArray(65536);var total=0L;while(true){val n=input.read(b);if(n<0)break;total+=n;out.write(b,0,n)}}}
                 ZipFile(staging).use{require(it.getEntry("migration-manifest.json")!=null)};check(staging.renameTo(archive))
             }catch(e:Exception){staging.delete();return@synchronized mapOf("state" to "bridge_required","message" to "系统未允许直接读取旧组件。请使用一次性迁移连接；不会打开 DSH 编程页面或删除原数据。","reason" to e.javaClass.simpleName,"sourceVersion" to installed.versionName)}
         }
@@ -40,13 +40,13 @@ class CloudMigration(private val context:Context){
             val manifestEntry=zip.getEntry("migration-manifest.json")?:error("迁移清单缺失。")
             require(manifestEntry.size in 1..(40L*1024*1024))
             val manifest=JSONObject(zip.getInputStream(manifestEntry).bufferedReader().use{it.readText()});require(manifest.getInt("version")==1&&manifest.getString("sourcePackage")=="org.skivu.dsh.runtime")
-            val entries=manifest.getJSONArray("entries");require(entries.length()<=200000)
+            val entries=manifest.getJSONArray("entries");
             for(i in 0 until entries.length()){
                 val item=entries.getJSONObject(i);val relative=item.getString("path");require(relative.length<=2000&&!relative.startsWith('/')&&!relative.contains('\\')&&relative.split('/').none{it.isEmpty()||it==".."||it=="."}&&relative.substringBefore('/') in setOf("home","projects"))
                 val dest=File(stage,relative);require(dest.canonicalPath.startsWith(stage.canonicalPath+"/"))
                 when(item.getString("type")){
                     "directory"->dest.mkdirs()
-                    "file"->{val entry=zip.getEntry(relative)?:error("迁移文件缺失。");require(entry.size==item.getLong("bytes"));bytes+=entry.size;require(bytes<=4L*1024*1024*1024);dest.parentFile!!.mkdirs();val sha=MessageDigest.getInstance("SHA-256");zip.getInputStream(entry).use{input->dest.outputStream().use{out->val b=ByteArray(65536);while(true){val n=input.read(b);if(n<0)break;sha.update(b,0,n);out.write(b,0,n)}}};require(sha.digest().joinToString(""){"%02x".format(it)}==item.getString("sha256"));files++}
+                    "file"->{val entry=zip.getEntry(relative)?:error("迁移文件缺失。");require(entry.size==item.getLong("bytes"));bytes+=entry.size;dest.parentFile!!.mkdirs();val sha=MessageDigest.getInstance("SHA-256");zip.getInputStream(entry).use{input->dest.outputStream().use{out->val b=ByteArray(65536);while(true){val n=input.read(b);if(n<0)break;sha.update(b,0,n);out.write(b,0,n)}}};require(sha.digest().joinToString(""){"%02x".format(it)}==item.getString("sha256"));files++}
                     // Link metadata remains in the original archive. Do not recreate
                     // an old Android-private absolute link into another app's UID.
                     "symlink"->links+=item

@@ -6,6 +6,29 @@ Map<String, String> toolResultDetails(
   Map<String, dynamic> receipt,
 ) {
   final value = receipt['value'];
+  if (tool == 'workflow.batch' && value is Map && value['steps'] is List) {
+    final ids = <String>{}, batches = <String>{};
+    for (final step in value['steps']) {
+      if (step is Map && step['receipt'] is Map) {
+        final data = toolResultDetails(
+          step['tool'],
+          Map<String, dynamic>.from(step['arguments']),
+          Map<String, dynamic>.from(step['receipt']),
+        );
+        ids.addAll(
+          (data['artifactIds'] ?? '').split(',').where((v) => v.isNotEmpty),
+        );
+        batches.addAll(
+          (data['artifactBatches'] ?? '').split(',').where((v) => v.isNotEmpty),
+        );
+      }
+    }
+    return {
+      if (ids.isNotEmpty) 'artifactIds': ids.join(','),
+      if (batches.isNotEmpty) 'artifactBatches': batches.join(','),
+    };
+  }
+
   if (tool == 'coding.deliver.prepare' &&
       receipt['outcome'] == 'verified' &&
       value is Map &&
@@ -15,7 +38,10 @@ Map<String, String> toolResultDetails(
         .map((a) => a['id'])
         .whereType<String>()
         .toList();
-    return {if (ids.isNotEmpty) 'artifactIds': ids.join(',')};
+    return {
+      if (ids.isNotEmpty) 'artifactIds': ids.join(','),
+      if (value['batchId'] is String) 'artifactBatches': value['batchId'],
+    };
   }
   if (tool.startsWith('tasks.plan.') &&
       receipt['outcome'] == 'verified' &&

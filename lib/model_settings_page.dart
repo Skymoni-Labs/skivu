@@ -194,10 +194,10 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
       model = TextEditingController(text: widget.profile?.model ?? ''),
       keyInput = TextEditingController(),
       maxOutput = TextEditingController(
-        text: '${widget.profile?.maxOutput ?? 2048}',
+        text: '${widget.profile?.maxOutput ?? 0}',
       ),
       timeout = TextEditingController(
-        text: '${widget.profile?.timeoutSeconds ?? 120}',
+        text: '${widget.profile?.timeoutSeconds ?? 0}',
       ),
       contextLimit = TextEditingController(
         text: widget.profile?.contextLimit?.toString() ?? '',
@@ -271,8 +271,8 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
     streaming: streaming,
     includeUsage: includeUsage,
     tokenParameter: tokenParameter,
-    maxOutput: int.tryParse(maxOutput.text) ?? 2048,
-    timeoutSeconds: int.tryParse(timeout.text) ?? 120,
+    maxOutput: int.tryParse(maxOutput.text) ?? 0,
+    timeoutSeconds: int.tryParse(timeout.text) ?? 0,
     contextLimit: int.tryParse(contextLimit.text),
     temperature: double.tryParse(temperature.text),
   );
@@ -639,23 +639,23 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                           const SizedBox(height: 20),
                           field(
                             maxOutput,
-                            '最大输出 Token',
+                            '最大输出 Token（0 跟随服务端）',
                             keyboard: TextInputType.number,
                             validator: (v) {
                               final n = int.tryParse(v ?? '');
-                              return n == null || n < 16 || n > 131072
-                                  ? '请输入 16–131072 的整数'
+                              return n == null || n < 0
+                                  ? '请输入非负整数；0不额外限制。Anthropic需填写模型实际有效值'
                                   : null;
                             },
                           ),
                           field(
                             timeout,
-                            '等待超时（秒）',
+                            '等待超时（秒，0不设置）',
                             keyboard: TextInputType.number,
                             validator: (v) {
                               final n = int.tryParse(v ?? '');
-                              return n == null || n < 15 || n > 600
-                                  ? '请输入 15–600 的整数'
+                              return n == null || n < 0
+                                  ? '请输入非负整数，0表示不设置超时'
                                   : null;
                             },
                           ),
@@ -663,7 +663,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                             contextLimit,
                             '上下文容量（可选）',
                             keyboard: TextInputType.number,
-                            note: '按模型的实际容量填写，用于底部占比显示；不会自动截断历史。',
+                            note: '按模型的实际容量填写，用于上下文压缩和占比显示；原始历史完整保留。',
                             validator: (v) =>
                                 v?.trim().isNotEmpty == true &&
                                     (int.tryParse(v!) == null ||

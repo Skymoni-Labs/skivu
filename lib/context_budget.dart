@@ -49,9 +49,7 @@ ContextBudgetResult budgetContext({
               (m.containsKey('image') ? 4096 : 0),
         );
     return (contextLimit == null || estimate + outputTokens <= contextLimit) &&
-        (!account ||
-            (values.length + (system.trim().isEmpty ? 0 : 1) <= 128 &&
-                utf8.encode(body).length <= 262144));
+        true;
   }
 
   var body = encode();

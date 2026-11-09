@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'speech_settings.dart';
+import 'speech_recognition_page.dart';
 import 'voice_call_session.dart';
 import 'widgets.dart';
 
@@ -160,12 +161,7 @@ class _SpeechSettingsPageState extends State<SpeechSettingsPage>
           ),
         ),
         const SizedBox(height: 16),
-        const ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.mic_none),
-          title: Text('语音识别'),
-          subtitle: Text('当前使用 Android 系统识别。首次收音时请求麦克风权限；服务可能联网。'),
-        ),
+        RecognitionSettingsPanel(settings: model),
         if (model.error != null) Text(model.error!),
       ],
     ),
@@ -191,6 +187,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
       headers,
       body,
       path,
+      timeout,
       instructions;
   late String method, response;
   late double speed;
@@ -218,6 +215,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
     headers = TextEditingController(text: p.headers);
     body = TextEditingController(text: p.body);
     path = TextEditingController(text: p.responsePath);
+    timeout = TextEditingController(text: '${p.timeoutSeconds}');
     instructions = TextEditingController(text: p.instructions);
     if (widget.profile == null) preset(provider);
   }
@@ -262,6 +260,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
       headers,
       body,
       path,
+      timeout,
       instructions,
     ]) {
       c.dispose();
@@ -305,6 +304,10 @@ class _SpeechEditorState extends State<SpeechEditor> {
   Future<void> save() async {
     setState(() => error = null);
     try {
+      final timeoutSeconds = int.tryParse(timeout.text.trim());
+      if (timeoutSeconds == null || timeoutSeconds < 0) {
+        throw const FormatException('超时请填写非负整数，0 表示不设置');
+      }
       final p = SpeechProfile(
         id:
             widget.profile?.id ??
@@ -322,6 +325,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
         response: response,
         responsePath: path.text.trim(),
         instructions: instructions.text.trim(),
+        timeoutSeconds: timeoutSeconds,
       );
       p.validate();
       setState(() => busy = true);
@@ -376,6 +380,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
           const SizedBox(height: 20),
           field(name, '连接名称'),
           if (provider != SpeechProvider.system) ...[
+            field(timeout, '网络合成超时（秒）', hint: '0 表示不设置，可随时取消等待。'),
             field(
               endpoint,
               '完整合成接口地址',

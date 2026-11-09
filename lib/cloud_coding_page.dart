@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'cloud_coding_tools.dart';
 import 'cloud_integration.dart';
+import 'cloud_storage_page.dart';
+import 'cloud_project_browser.dart';
+import 'cloud_programs_page.dart';
 
 class CloudCodingPage extends StatefulWidget {
   const CloudCodingPage({super.key});
@@ -25,19 +28,33 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
     String tool,
     Map<String, dynamic> args, {
     String? owner,
+    String? scope,
   }) async {
     final r = await cloudExecutionChannel
         .invokeMapMethod<String, dynamic>('invoke', {
           'tool': tool,
           'arguments': args,
           'owner': owner ?? 'cloud:project_browser',
-          'taskId': 'project_browser',
+          'taskId': scope ?? 'project_browser',
           'requestId':
               'browser_${DateTime.now().microsecondsSinceEpoch}_${++serial}',
         });
     if (r?['outcome'] != 'verified')
       throw StateError(r?['message'] ?? '操作尚未核对。');
     return r?['value'];
+  }
+
+  CloudCall scopedCalls({String? owner}) {
+    var scope = 'browser_${DateTime.now().microsecondsSinceEpoch}';
+    return (tool, args) async {
+      final captured = scope;
+      try {
+        return await call(tool, args, owner: owner, scope: captured);
+      } finally {
+        if (tool == 'coding.cancel' && scope == captured)
+          scope = 'browser_${DateTime.now().microsecondsSinceEpoch}';
+      }
+    };
   }
 
   Future<void> refresh() => prepare();
@@ -104,6 +121,33 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
           child: const Text('检查并准备内置环境'),
         ),
         const SizedBox(height: 16),
+        ListTile(
+          title: const Text('全部程序与完整输出'),
+          subtitle: const Text('Linux、普通 Android、高权限执行的原始记录与日志。'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CloudProgramsPage(
+                callForOwner: (owner) => scopedCalls(owner: owner),
+              ),
+            ),
+          ),
+        ),
+        ListTile(
+          title: const Text('执行资源策略'),
+          subtitle: const Text('默认跟随设备资源；查看来源或自行调整并发。'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const CloudExecutionPolicyPage(),
+            ),
+          ),
+        ),
+        ListTile(
+          title: const Text('手机文件与自动保存位置'),
+          subtitle: const Text('授权目录、导入文件，以及最终成果的保存位置。'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const CloudStoragePage()),
+          ),
+        ),
         const Text('已保存项目'),
         for (final project in projects)
           ListTile(
@@ -184,69 +228,10 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (c) => Scaffold(
-            appBar: AppBar(title: Text(p['name'])),
-            body: ListView(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('在小云对话中指定此项目即可继续编程。恢复后先检查文件和进程，不自动重跑。'),
-                ),
-                for (final job in value['jobs'])
-                  ListTile(
-                    title: Text('进程：${job['state']}'),
-                    subtitle: Text(job['command'] ?? ''),
-                    trailing: job['state'] == 'running'
-                        ? TextButton(
-                            child: const Text('停止此进程'),
-                            onPressed: () async {
-                              final result = await call('coding.jobs.stop', {
-                                'jobId': job['id'],
-                              }, owner: p['owner']);
-                              if (c.mounted)
-                                ScaffoldMessenger.of(c).showSnackBar(
-                                  SnackBar(
-                                    content: Text('进程状态：${result['state']}'),
-                                  ),
-                                );
-                            },
-                          )
-                        : null,
-                  ),
-                for (final file in value['files'])
-                  ListTile(
-                    title: Text(file['path']),
-                    subtitle: Text(file['type']),
-                    onTap: file['type'] != 'file'
-                        ? null
-                        : () async {
-                            try {
-                              final data = await call('coding.files.read', {
-                                'projectId': p['id'],
-                                'path': file['path'],
-                              }, owner: p['owner']);
-                              if (!c.mounted) return;
-                              await Navigator.of(c).push(
-                                MaterialPageRoute<void>(
-                                  builder: (c) => Scaffold(
-                                    appBar: AppBar(title: Text(file['path'])),
-                                    body: SingleChildScrollView(
-                                      padding: const EdgeInsets.all(16),
-                                      child: SelectableText(data['text']),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            } catch (e) {
-                              if (c.mounted)
-                                ScaffoldMessenger.of(
-                                  c,
-                                ).showSnackBar(SnackBar(content: Text('$e')));
-                            }
-                          },
-                  ),
-              ],
-            ),
+          builder: (_) => CloudProjectBrowser(
+            project: Map<String, dynamic>.from(p),
+            initial: Map<String, dynamic>.from(value),
+            call: scopedCalls(owner: p['owner']),
           ),
         ),
       );
@@ -256,58 +241,11 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
   }
 
   Future<void> legacy() async {
-    try {
-      final result = await call('coding.legacy.sessions', {});
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (c) => Scaffold(
-            appBar: AppBar(title: const Text('旧 DSH 会话')),
-            body: ListView(
-              children: [
-                if ((result['sessions'] as List).isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Text('没有可读取的旧会话；迁移状态与原始备份可在上一页核对。'),
-                  ),
-                for (final session in result['sessions'])
-                  ListTile(
-                    title: Text(session['path']),
-                    subtitle: Text('${session['bytes']} B · 只读历史'),
-                    onTap: () async {
-                      try {
-                        final data = await call('coding.legacy.read', {
-                          'sessionId': session['id'],
-                        });
-                        if (!c.mounted) return;
-                        await Navigator.of(c).push(
-                          MaterialPageRoute<void>(
-                            builder: (c) => Scaffold(
-                              appBar: AppBar(title: const Text('历史会话内容')),
-                              body: SingleChildScrollView(
-                                padding: const EdgeInsets.all(16),
-                                child: SelectableText(
-                                  '${data['source']}\n\n${data['text']}',
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      } catch (e) {
-                        if (c.mounted)
-                          ScaffoldMessenger.of(
-                            c,
-                          ).showSnackBar(SnackBar(content: Text('$e')));
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) setState(() => error = '$e');
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            CloudLegacyBrowser(call: (tool, args) => call(tool, args)),
+      ),
+    );
   }
 }

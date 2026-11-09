@@ -176,7 +176,12 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     final cleared = _chat.interactionsClearedAt;
     _items = [
       for (final message in _chat.messages)
-        if (message.user || message.status != 'pending')
+        if (message.user ||
+            message.status != 'pending' ||
+            ((message.requestStreaming ??
+                    _store.activeConnection?.streaming ??
+                    true) &&
+                message.text.isNotEmpty))
           _SocialChatItem.message(message),
       for (final event in _chat.interactions)
         if (!_chat.hiddenInteractions.contains(event['id']))
@@ -289,12 +294,8 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
 
   void _send() {
     if (_input.text.trim().isEmpty || _store.streaming) return;
-    if (_input.text.length > 10000) {
-      toast(context, '单条消息最多 10000 字符，完整草稿已保留，请分条发送。');
-      return;
-    }
     _follow = true;
-    if (_store.send(_input.text, streamingOverride: false)) {
+    if (_store.send(_input.text, streamingOverride: null)) {
       _panel = '';
       _input.clear();
       _bottom();
@@ -305,7 +306,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
 
   Future<void> _confirm() async {
     _follow = true;
-    if (!_store.confirmPending(streamingOverride: false)) {
+    if (!_store.confirmPending(streamingOverride: null)) {
       toast(context, _store.lastError ?? '没有待发送消息。');
     } else {
       _focus.unfocus();
@@ -696,10 +697,6 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     final start = selection.isValid ? selection.start : _input.text.length;
     final end = selection.isValid ? selection.end : _input.text.length;
     final next = _input.text.replaceRange(start, end, value);
-    if (next.length > 10000) {
-      toast(context, '单条消息最多 10000 字符，完整草稿已保留，请分条发送。');
-      return;
-    }
     _input.value = TextEditingValue(
       text: next,
       selection: TextSelection.collapsed(offset: start + value.length),
@@ -712,22 +709,22 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
     _follow = true;
     switch (action) {
       case 'album':
-        await showChatMediaActions(context, streamingOverride: false);
+        await showChatMediaActions(context, streamingOverride: null);
       case 'camera':
         await sendSystemChatPhoto(
           context,
           source: ImageSource.camera,
-          streamingOverride: false,
+          streamingOverride: null,
         );
       case 'speech':
         await composeChatMedia(
           context,
           photo: false,
           initiallyReal: true,
-          streamingOverride: false,
+          streamingOverride: null,
         );
       case 'describe-image':
-        await composeChatMedia(context, photo: true, streamingOverride: false);
+        await composeChatMedia(context, photo: true, streamingOverride: null);
       case 'call':
         await _voiceCallPreview();
       case 'models':
@@ -1515,10 +1512,6 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
       maxLines: 4,
       textInputAction: TextInputAction.newline,
       keyboardType: TextInputType.multiline,
-      inputFormatters: [
-        if (_input.text.length <= 10000)
-          LengthLimitingTextInputFormatter(10000),
-      ],
       style: TextStyle(
         fontSize: 16,
         height: 22 / 16,
@@ -1742,7 +1735,7 @@ class _NativeSocialChatState extends State<NativeSocialChat> {
                             _store.stickerFor(id)?.name ?? '',
                             kind: 'sticker',
                             stickerId: id,
-                            streamingOverride: false,
+                            streamingOverride: null,
                           ))
                             toast(context, _store.lastError ?? '当前无法发送');
                           else

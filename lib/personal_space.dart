@@ -101,9 +101,6 @@ class PersonalRecord {
     }
     if (!RegExp(r'^[a-zA-Z0-9_-]{1,100}$').hasMatch(m['id']) ||
         (m['title'] as String).trim().isEmpty ||
-        (m['title'] as String).length > 160 ||
-        (m['body'] as String).length > 12000 ||
-        (m['category'] as String).length > 40 ||
         (m['date'] != '' && !validPersonalDay(m['date'])) ||
         (m['time'] != '' &&
             (!RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(m['time']) ||
@@ -124,7 +121,6 @@ class PersonalRecord {
             !ToolExecutionEvent.validTarget(m['sourceTarget']) ||
         m['sourceDetail'] != null &&
             (m['sourceDetail'] is! String ||
-                (m['sourceDetail'] as String).length > 400 ||
                 (m['sourceDetail'] as String).contains('\u0000'))) {
       throw const FormatException('记录格式无效');
     }
@@ -219,8 +215,6 @@ class PersonalSpaceStore extends ChangeNotifier {
       _databaseVersion = snapshot?.version ?? 0;
       final raw = snapshot?.value ?? await _readValue();
       if (raw != null) {
-        if (utf8.encode(raw).length > 4 * 1024 * 1024)
-          throw const FormatException('记录过大');
         final v = jsonDecode(raw);
         if (v is! Map ||
             !{1, 2}.contains(v['version']) ||
@@ -240,8 +234,7 @@ class PersonalSpaceStore extends ChangeNotifier {
         if (v['version'] == 1) _legacyRaw = raw;
         final receipts = v['receipts'];
         if (receipts != null) {
-          if (receipts is! List || receipts.length > 256)
-            throw const FormatException('回执格式无效');
+          if (receipts is! List) throw const FormatException('回执格式无效');
           _receipts = receipts.map((r) {
             if (r is! Map ||
                 r.keys.toSet().difference({
@@ -321,17 +314,13 @@ class PersonalSpaceStore extends ChangeNotifier {
             'digest': digest!,
             'taskId': resultId!(),
           });
-        final retained = receipts
-            .skip((receipts.length - 256).clamp(0, receipts.length))
-            .toList();
+        final retained = receipts;
         final value = jsonEncode({
           'version': 2,
           'tasks': tasks.map((r) => r.toJson()).toList(),
           'memories': memories.map((r) => r.toJson()).toList(),
           'receipts': retained,
         });
-        if (utf8.encode(value).length > 4 * 1024 * 1024)
-          throw StateError('记录空间已满，请先整理不需要的记录。');
         if (_persistence != null) {
           check?.call();
           if (!await _persistence.compareAndSet(_databaseVersion, value))
@@ -378,9 +367,6 @@ class PersonalSpaceStore extends ChangeNotifier {
     bool? inProgress,
   }) => _change((tasks, memories) {
     if (title.trim().isEmpty ||
-        title.length > 160 ||
-        body.length > 12000 ||
-        category.length > 40 ||
         [title, body, category].any((value) => value.contains('\u0000')) ||
         (memory && body.trim().isEmpty))
       throw StateError('请补全标题和内容。');

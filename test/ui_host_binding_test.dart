@@ -17,66 +17,62 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final mode in [ChatUiMode.wechat, ChatUiMode.qq]) {
-    test(
-      '${mode.name} requests a full reply and never projects a pending bubble',
-      () async {
-        final response = Completer<http.Response>();
-        final requested = Completer<Map<String, dynamic>>();
-        final models = TestModels();
-        final original = models.connections.single;
-        final store = DemoStore(
-          storage: MemoryChats(),
-          settings: models,
-          api: ChatApi(
-            clientFactory: () => MockClient((r) {
-              requested.complete(jsonDecode(r.body) as Map<String, dynamic>);
-              return response.future;
-            }),
-          ),
-        );
-        await store.restore();
-        store.newChat();
-        final host = UiHostBinding(store);
-        expect(
-          host.mutate({
-            'protocol': 1,
-            'command': 'send',
-            'chatId': host.selected.id,
-            'revision': 1,
-            'text': 'whole reply',
-          }, mode: mode),
-          isNull,
-        );
-        expect((await requested.future)['stream'], isFalse);
-        // Some providers still deliver partial text: it must not cross the bridge.
-        store.messages.last.text = 'partial';
-        final waiting = host.snapshot(mode, force: true);
-        expect(waiting['streaming'], isTrue);
-        expect(waiting['messages'], hasLength(1));
-        expect(jsonEncode(waiting), isNot(contains('partial')));
-        store.messages.last.text = '';
-        response.complete(
-          http.Response(
-            jsonEncode({
-              'choices': [
-                {
-                  'message': {'role': 'assistant', 'content': 'complete reply'},
-                },
-              ],
-            }),
-            200,
-            headers: {'content-type': 'application/json'},
-          ),
-        );
-        await waitForReply(store);
-        final done = host.snapshot(mode);
-        expect(done['streaming'], isFalse);
-        expect((done['messages'] as List).last['text'], 'complete reply');
-        expect(models.connections.single, same(original));
-        expect(original.streaming, isTrue);
-        store.dispose();
-      },
-    );
+    test('${mode.name} follows streaming and projects partial text', () async {
+      final response = Completer<http.Response>();
+      final requested = Completer<Map<String, dynamic>>();
+      final models = TestModels();
+      final original = models.connections.single;
+      final store = DemoStore(
+        storage: MemoryChats(),
+        settings: models,
+        api: ChatApi(
+          clientFactory: () => MockClient((r) {
+            requested.complete(jsonDecode(r.body) as Map<String, dynamic>);
+            return response.future;
+          }),
+        ),
+      );
+      await store.restore();
+      store.newChat();
+      final host = UiHostBinding(store);
+      expect(
+        host.mutate({
+          'protocol': 1,
+          'command': 'send',
+          'chatId': host.selected.id,
+          'revision': 1,
+          'text': 'whole reply',
+        }, mode: mode),
+        isNull,
+      );
+      expect((await requested.future)['stream'], isTrue);
+      store.messages.last.text = 'partial';
+      final waiting = host.snapshot(mode, force: true);
+      expect(waiting['streaming'], isTrue);
+      expect(waiting['messages'], hasLength(2));
+      expect(jsonEncode(waiting), contains('partial'));
+      store.messages.last.text = '';
+      response.complete(
+        http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'role': 'assistant', 'content': 'complete reply'},
+              },
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      );
+      await waitForReply(store);
+      final done = host.snapshot(mode, force: true);
+      expect(done['streaming'], isFalse);
+      expect((done['messages'] as List).last['text'], 'complete reply');
+      expect(models.connections.single, same(original));
+      expect(original.streaming, isTrue);
+      store.dispose();
+    });
   }
   test('the archived styling preserves its original provenance', () {
     final source =

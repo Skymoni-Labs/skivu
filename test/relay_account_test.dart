@@ -105,7 +105,6 @@ void main() {
             'input',
             'instructions',
             'stream',
-            'max_output_tokens',
             'store',
           });
           expect(body['store'], isFalse);
@@ -370,7 +369,6 @@ void main() {
             'model',
             'messages',
             'stream',
-            'max_tokens',
           });
           if (expire) return failure('APP_SESSION_INVALID', 401);
           return http.Response(

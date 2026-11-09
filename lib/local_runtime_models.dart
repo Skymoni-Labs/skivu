@@ -64,7 +64,7 @@ class LocalRuntimeModels {
           'provider': '自定义',
           'supportsTools': entry.value.protocol == ApiProtocol.chat,
         },
-    ].take(512).toList();
+    ];
   }
 
   Future<AgentChatSession> open(String? id) async {

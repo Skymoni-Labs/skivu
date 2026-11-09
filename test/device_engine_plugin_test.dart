@@ -24,7 +24,7 @@ void main() {
   }
 
   test(
-    'a full normal broker queue still admits an owned Stop request',
+    'pending host work does not block inspection or an owned Stop request',
     () async {
       final (registry, record) = setup(['device.observe']);
       final replies = <String, Completer<Map<String, dynamic>>>{};
@@ -41,6 +41,7 @@ void main() {
               });
               return {'outcome': 'cancelled', 'groupStopped': true};
             }
+            if (method == 'status') return {'enabled': true, 'system': true};
             expect(method, 'invoke');
             nativeCalls++;
             final id = args['requestId'] as String;
@@ -72,7 +73,7 @@ void main() {
         'method': 'device.engine.catalog',
         'params': <String, dynamic>{},
       });
-      expect((extra['error'] as Map)['code'], 'BUSY');
+      expect(extra['ok'], true);
       final stop = await bridge.dispatch({
         'id': '10',
         'method': 'device.engine.cancel',

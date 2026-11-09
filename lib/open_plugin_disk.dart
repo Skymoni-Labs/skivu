@@ -65,22 +65,68 @@ Future<File> _file(String id, String path) async {
 Future<Uint8List?> readFile(String id, String path) async {
   final f = await _file(id, path);
   if (!await f.exists()) return null;
-  if (await f.length() > 8 * 1024 * 1024) throw StateError('File too large');
   return f.readAsBytes();
 }
 
 Future<void> writeFile(String id, String path, Uint8List data) async {
-  if (data.length > 8 * 1024 * 1024) throw StateError('File too large');
-  final f = await _file(id, path),
-      dir = Directory('${(await _root(id)).path}/workspace');
-  var total = data.length;
-  if (await dir.exists()) {
-    await for (final item in dir.list(recursive: true, followLinks: false)) {
-      if (item is File && item.path != f.path) total += await item.length();
-    }
-  }
-  if (total > 128 * 1024 * 1024) throw StateError('Workspace full');
+  final f = await _file(id, path);
   await _atomic(f, data);
+}
+
+Future<Map<String, dynamic>> readRange(
+  String id,
+  String path,
+  int offset,
+  int length,
+) async {
+  if (offset < 0 || length < 1) throw const FormatException('Invalid range');
+  final file = await _file(id, path), input = await file.open();
+  try {
+    final bytes = await input.length();
+    await input.setPosition(offset);
+    final data = await input.read(length.clamp(1, 1024 * 1024));
+    return {
+      'base64': base64Encode(data),
+      'offset': offset,
+      'nextOffset': offset + data.length,
+      'bytes': bytes,
+      'complete': offset + data.length >= bytes,
+    };
+  } finally {
+    await input.close();
+  }
+}
+
+Future<Map<String, dynamic>> writeStream(
+  String id,
+  String path,
+  Stream<List<int>> stream,
+) async {
+  final file = await _file(id, path);
+  if (await file.exists()) throw StateError('下载目标已存在，请选择新版本路径。');
+  await file.parent.create(recursive: true);
+  final temporary = File(
+    '${file.path}.download-${DateTime.now().microsecondsSinceEpoch}',
+  );
+  final sink = temporary.openWrite();
+  var bytes = 0;
+  try {
+    await for (final chunk in stream) {
+      sink.add(chunk);
+      bytes += chunk.length;
+    }
+    await sink.flush();
+  } finally {
+    await sink.close();
+  }
+  if (await file.exists()) throw StateError('下载目标已变化；完整临时文件保留。');
+  await temporary.rename(file.path);
+  return {
+    'path': path,
+    'bytes': bytes,
+    'complete': true,
+    'storage': 'plugin_workspace',
+  };
 }
 
 Future<List<String>> listFiles(String id) async {

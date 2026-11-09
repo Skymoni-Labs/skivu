@@ -80,6 +80,7 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
         control: next['control'] == true,
         shell: next['shell'] == true,
         packages: List<String>.from(next['packages'] as List? ?? []),
+        allApplications: next['allApplications'] == true,
       );
       if (mounted) setState(() => state = result);
       saved = true;
@@ -316,6 +317,13 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text('允许操作的软件', style: Theme.of(context).textTheme.titleMedium),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('全部已安装应用'),
+                  subtitle: const Text('启用后跟随实际已安装应用；关闭时使用下方选择范围。系统权限仍按实际授权。'),
+                  value: state['allApplications'] == true,
+                  onChanged: busy ? null : (v) => update('allApplications', v),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   '已选 ${(state['packages'] as List? ?? []).length} 个 · 共 ${apps.length} 个软件',

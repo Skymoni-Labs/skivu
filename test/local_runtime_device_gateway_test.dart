@@ -65,42 +65,42 @@ void main() {
     registry.dispose();
   });
 
-  test('oversized or malformed frames never reach the host', () async {
-    final package = fixture.package(permissions: ['device.observe']);
-    final registry = OpenPluginRegistry();
-    final record = OpenPluginRecord(
-      package,
-      enabled: true,
-      grantedDigest: package.digest,
-    );
-    registry.records[package.manifest.id] = record;
-    var calls = 0;
-    final bridge = OpenPluginBridge(
-      registry: registry,
-      record: record,
-      host: (_, __) async {
-        calls++;
-        return true;
-      },
-    );
-    final gateway = LocalRuntimeDeviceGateway(bridge);
-    expect(
-      (jsonDecode(await gateway.handle('{broken')) as Map)['error']['code'],
-      'INVALID_ARGUMENT',
-    );
-    final large = jsonEncode({
-      'id': '1',
-      'method': 'device.discover',
-      'params': {'data': 'x' * 65536},
-    });
-    expect(
-      (jsonDecode(await gateway.handle(large)) as Map)['error']['code'],
-      'LIMIT_EXCEEDED',
-    );
-    expect(calls, 0);
-    bridge.close();
-    registry.dispose();
-  });
+  test(
+    'large complete frames reach host and malformed frames are rejected',
+    () async {
+      final package = fixture.package(permissions: ['device.observe']);
+      final registry = OpenPluginRegistry();
+      final record = OpenPluginRecord(
+        package,
+        enabled: true,
+        grantedDigest: package.digest,
+      );
+      registry.records[package.manifest.id] = record;
+      var calls = 0;
+      final bridge = OpenPluginBridge(
+        registry: registry,
+        record: record,
+        host: (_, __) async {
+          calls++;
+          return true;
+        },
+      );
+      final gateway = LocalRuntimeDeviceGateway(bridge);
+      expect(
+        (jsonDecode(await gateway.handle('{broken')) as Map)['error']['code'],
+        'INVALID_ARGUMENT',
+      );
+      final large = jsonEncode({
+        'id': '1',
+        'method': 'device.discover',
+        'params': {'data': 'x' * 65536},
+      });
+      expect((jsonDecode(await gateway.handle(large)) as Map)['ok'], true);
+      expect(calls, 1);
+      bridge.close();
+      registry.dispose();
+    },
+  );
 
   test('revocation discards a late host response', () async {
     final package = fixture.package(permissions: ['device.observe']);
@@ -321,7 +321,7 @@ void main() {
   );
 
   test(
-    'stream transport closes on oversized, invalid UTF-8 or partial frames',
+    'stream transport rejects invalid UTF-8 and incomplete frames regardless of size',
     () async {
       final package = fixture.package(permissions: ['device.observe']);
       final registry = OpenPluginRegistry();

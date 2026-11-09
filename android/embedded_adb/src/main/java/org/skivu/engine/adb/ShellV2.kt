@@ -4,44 +4,46 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Android shell,v2 framing: stdout/stderr and a real process exit packet. */
-class ShellV2Decoder(private val outputLimit: Int = 65536) {
-    private var pending = byteArrayOf()
+/** Incremental shell,v2 parser. A transport packet need not contain a whole
+ * shell frame. Production sinks persist every payload byte to owned log files. */
+class ShellV2Decoder(private val stdout: java.io.OutputStream? = null,
+                     private val stderr: java.io.OutputStream? = null) {
+    private val header = ByteArray(5)
+    private var headerBytes = 0
+    private var remaining = 0L
+    private var kind = 0
     private val out = ByteArrayOutputStream()
     private val err = ByteArrayOutputStream()
     var exitCode: Int? = null
         private set
-    var truncated = false
-        private set
-
     fun feed(bytes: ByteArray) {
-        require(pending.size + bytes.size <= 131072) { "Oversized shell frame" }
-        pending += bytes
-        while (pending.size >= 5) {
-            val kind = pending[0].toInt() and 255
-            val size = ByteBuffer.wrap(pending, 1, 4).order(ByteOrder.LITTLE_ENDIAN).int
-            require(size in 0..65536 && kind in 1..3) { "Invalid shell,v2 frame" }
-            if (pending.size < size + 5) return
+        var offset = 0
+        while (offset < bytes.size) {
             require(exitCode == null) { "Data after shell exit receipt" }
-            val payload = pending.copyOfRange(5, size + 5)
-            pending = pending.copyOfRange(size + 5, pending.size)
-            when (kind) {
-                1, 2 -> {
-                    val stream = if (kind == 1) out else err
-                    val remaining = (outputLimit - out.size() - err.size()).coerceAtLeast(0)
-                    stream.write(payload, 0, payload.size.coerceAtMost(remaining))
-                    if (payload.size > remaining) truncated = true
-                }
-                3 -> {
-                    require(size == 1 && exitCode == null) { "Invalid shell exit frame" }
-                    exitCode = payload[0].toInt() and 255
-                }
+            if (headerBytes < 5) {
+                val count = minOf(5-headerBytes, bytes.size-offset)
+                bytes.copyInto(header,headerBytes,offset,offset+count)
+                headerBytes += count; offset += count
+                if(headerBytes < 5)continue
+                kind=header[0].toInt() and 255
+                remaining=ByteBuffer.wrap(header,1,4).order(ByteOrder.LITTLE_ENDIAN).int.toLong() and 0xffffffffL
+                require(kind in 1..3 && (kind != 3 || remaining == 1L)) { "Invalid shell,v2 frame" }
+                if(remaining==0L){headerBytes=0;continue}
             }
+            val count=minOf(remaining,(bytes.size-offset).toLong()).toInt()
+            when (kind) {
+                1 -> (stdout ?: out).write(bytes,offset,count)
+                2 -> (stderr ?: err).write(bytes,offset,count)
+                3 -> if(count==1)exitCode=bytes[offset].toInt() and 255
+            }
+            offset+=count;remaining-=count
+            if(remaining==0L)headerBytes=0
         }
     }
     fun result(): ShellV2Result {
-        require(pending.isEmpty() && exitCode != null) { "Shell ended without a complete exit receipt" }
-        return ShellV2Result(exitCode!!, out.toString("UTF-8"), err.toString("UTF-8"), truncated)
+        require(headerBytes==0 && exitCode != null) { "Shell ended without a complete exit receipt" }
+        stdout?.flush();stderr?.flush()
+        return ShellV2Result(exitCode!!, out.toString("UTF-8"), err.toString("UTF-8"), false)
     }
 }
 

@@ -30,9 +30,6 @@ class LocalRuntimeModelGateway {
   bool _closed = false;
   AgentChatSession? _activeSession;
 
-  static const maxFrameBytes = 4 * 1024 * 1024;
-  static const maxQueuedFrames = 4;
-
   /// A host-owned transport calls this with already-authenticated bytes.
   /// EOF cancels the active request immediately, even while it is waiting on
   /// the model. Requests queued before disconnect are never dispatched.
@@ -43,7 +40,6 @@ class LocalRuntimeModelGateway {
     final done = Completer<void>();
     StreamSubscription<List<int>>? subscription;
     var frame = BytesBuilder(copy: false);
-    var queued = 0;
     var ended = false;
     Future<void> tail = Future<void>.value();
 
@@ -60,10 +56,6 @@ class LocalRuntimeModelGateway {
     }
 
     void enqueue(List<int> bytes) {
-      if (++queued > maxQueuedFrames) {
-        finish(const FormatException('Too many queued model frames'));
-        return;
-      }
       late final String text;
       try {
         text = utf8.decode(bytes);
@@ -76,11 +68,7 @@ class LocalRuntimeModelGateway {
             if (ended) return;
             final response = await handle(text);
             final encoded = utf8.encode(response);
-            if (encoded.length > maxFrameBytes) {
-              throw const FormatException('Model response frame too large');
-            }
             if (!ended) await send([...encoded, 10]);
-            queued--;
           })
           .catchError((Object error, StackTrace stack) {
             finish(error, stack);
@@ -93,19 +81,11 @@ class LocalRuntimeModelGateway {
         var start = 0;
         for (var i = 0; i < chunk.length; i++) {
           if (chunk[i] != 10) continue;
-          if (frame.length + i - start > maxFrameBytes) {
-            finish(const FormatException('Model request frame too large'));
-            return;
-          }
           frame.add(chunk.sublist(start, i));
           enqueue(frame.takeBytes());
           if (ended) return;
           frame = BytesBuilder(copy: false);
           start = i + 1;
-        }
-        if (frame.length + chunk.length - start > maxFrameBytes) {
-          finish(const FormatException('Model request frame too large'));
-          return;
         }
         frame.add(chunk.sublist(start));
       },
@@ -140,9 +120,6 @@ class LocalRuntimeModelGateway {
       if (!bridge.record.manifest.permissions.contains('ai.generate')) {
         return fail('PERMISSION_DENIED', '插件未获准使用模型。');
       }
-      if (utf8.encode(frame).length > maxFrameBytes) {
-        return fail('LIMIT_EXCEEDED', '模型请求过长。');
-      }
       final raw = jsonDecode(frame);
       if (raw is! Map ||
           raw.length != 3 ||
@@ -154,7 +131,6 @@ class LocalRuntimeModelGateway {
       }
       id = raw['id'] as String;
       if (_seen.contains(id)) return fail('DUPLICATE_REQUEST', '请求编号已使用。');
-      if (_seen.length >= 4096) return fail('LIMIT_EXCEEDED', '请求次数已达上限。');
       _seen.add(id);
       if (_busy) return fail('BUSY', '已有模型请求正在运行。');
       final params = raw['params'] as Map;

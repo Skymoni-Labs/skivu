@@ -19,6 +19,21 @@ const profile = SpeechProfile(
 );
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'synthesis preserves text beyond 10000 and audio beyond 10 MiB',
+    () async {
+      final text = '完整语音🙂' * 4000;
+      final audio = List<int>.filled(10 * 1024 * 1024 + 73, 1);
+      audio.setRange(0, 3, [73, 68, 51]);
+      final api = SpeechApi(
+        clientFactory: () => MockClient((request) async {
+          expect(jsonDecode(request.body)['input'], text);
+          return http.Response.bytes(audio, 200);
+        }),
+      );
+      expect(await api.synthesize(profile, text), orderedEquals(audio));
+    },
+  );
   test('custom Hex audio is decoded and malformed Hex is rejected', () async {
     const custom = SpeechProfile(
       id: 'hex',

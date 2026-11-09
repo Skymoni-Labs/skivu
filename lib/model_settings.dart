@@ -57,8 +57,10 @@ class ModelSettings extends ChangeNotifier {
   Future<void> save(ModelConnection profile, String key) async {
     profile.endpoint();
     final previous = connections.where((c) => c.id == profile.id).firstOrNull;
-    final credentialId =
-        '${profile.id}-${DateTime.now().microsecondsSinceEpoch}';
+    final sameKey = previous != null && await keyFor(previous.id) == key.trim();
+    final credentialId = sameKey
+        ? (previous.credentialId ?? previous.id)
+        : '${profile.id}-${DateTime.now().microsecondsSinceEpoch}';
     profile = ModelConnection.fromJson({
       ...profile.toJson(),
       'credentialId': credentialId,
@@ -67,12 +69,13 @@ class ModelSettings extends ChangeNotifier {
       ..add(profile);
     final selected = activeId ?? profile.id;
     // A failed secure write must never silently fall back to plain preferences.
-    await _secure.write(key: 'skivu.api.$credentialId', value: key.trim());
+    if (!sameKey)
+      await _secure.write(key: 'skivu.api.$credentialId', value: key.trim());
     try {
       await _write(next, selected);
     } catch (_) {
       try {
-        await _secure.delete(key: 'skivu.api.$credentialId');
+        if (!sameKey) await _secure.delete(key: 'skivu.api.$credentialId');
       } catch (_) {}
       rethrow;
     }
@@ -82,7 +85,7 @@ class ModelSettings extends ChangeNotifier {
     activeId = selected;
     error = null;
     notifyListeners();
-    if (previous != null) {
+    if (previous != null && !sameKey) {
       try {
         await _secure.delete(
           key: 'skivu.api.${previous.credentialId ?? previous.id}',

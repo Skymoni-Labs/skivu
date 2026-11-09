@@ -56,6 +56,8 @@ String planTime(dynamic milliseconds) {
 String runStateLabel(String? state) => switch (state) {
   'verified' => '已完成',
   'running' => '处理中',
+  'interrupted' => '等待续跑',
+  'stopping' => '停止中',
   'unknown' => '待核对',
   'missed' => '已跳过',
   'waiting_conditions' => '等待条件',

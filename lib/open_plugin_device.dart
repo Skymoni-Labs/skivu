@@ -163,8 +163,6 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
         }
       }
       checkRequest();
-      if (connections.values.where((value) => value == owner).length >= 8)
-        throw const PluginApiError('DEVICE_BUSY', '连接过多，请关闭不再使用的设备连接。');
       final result = await channel.invokeMapMethod<String, dynamic>('connect', {
         'component': component,
         if (p['signerSha256'] is String) 'signerSha256': p['signerSha256'],
@@ -240,10 +238,8 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
     if (goal is! String ||
         goal.trim().isEmpty ||
         goal.contains('\u0000') ||
-        goal.length > 4000 ||
         apps is! List ||
         apps.isEmpty ||
-        apps.length > 10 ||
         apps.any(
           (a) =>
               a is! String ||
@@ -258,18 +254,15 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
       throw const PluginApiError('PERMISSION_DENIED', '手机任务需要完整的观察、控制和任务权限。');
     if (demo.activeConnection == null)
       throw const PluginApiError('MODEL_REQUIRED', '请先在宿主选择允许调用的模型。');
-    final maxActions = p['maxActions'] ?? 20,
-        maxRounds = p['maxRounds'] ?? 15,
-        seconds = p['timeoutSeconds'] ?? 300;
+    final maxActions = p['maxActions'] ?? 0,
+        maxRounds = p['maxRounds'] ?? 0,
+        seconds = p['timeoutSeconds'] ?? 0;
     if (maxActions is! int ||
-        maxActions < 1 ||
-        maxActions > 30 ||
+        maxActions < 0 ||
         maxRounds is! int ||
-        maxRounds < 1 ||
-        maxRounds > 30 ||
+        maxRounds < 0 ||
         seconds is! int ||
-        seconds < 30 ||
-        seconds > 600)
+        seconds < 0)
       throw const PluginApiError('INVALID_ARGUMENT', '任务预算无效。');
     final model = demo.activeConnection!;
     final direct = record.manifest.permissions.contains('device.direct');
@@ -277,7 +270,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
     if (!direct &&
         !await consent(
           '开始真实手机操作？',
-          '插件：${record.manifest.name}\n任务：$goal\n软件：${apps.join('、')}\n模型：${model.model}\n最多 $maxActions 次设备操作、$maxRounds 次模型请求、$seconds 秒。每次模型最多输出 1024 token，会消耗当前连接的额度。\n本版将所选软件的文字界面发送给当前模型；提交、坐标或无标签点击需要设备伴侣单独确认。可从通知停止。',
+          '插件：${record.manifest.name}\n任务：$goal\n软件：${apps.join('、')}\n模型：${model.model}\n任务参数：操作次数 ${maxActions == 0 ? "不额外限制" : maxActions}，模型请求 ${maxRounds == 0 ? "不额外限制" : maxRounds}，时长 ${seconds == 0 ? "不设超时" : "$seconds 秒"}。输出遵循当前模型设置，会消耗当前连接的额度。\n本版将所选软件的文字界面发送给当前模型；提交、坐标或无标签点击需要设备伴侣单独确认。可从通知停止。',
         ))
       return null;
     checkRequest();
@@ -320,7 +313,9 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
       apps: apps.cast<String>().toSet(),
       maxActions: maxActions,
       maxRounds: maxRounds,
-      deadline: DateTime.now().add(Duration(seconds: seconds)),
+      deadline: seconds == 0
+          ? null
+          : DateTime.now().add(Duration(seconds: seconds)),
       directControl: direct,
       request: (method, args) => nativeRequest(connection, method, args),
       check: () {
@@ -351,7 +346,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
           'taskId': id,
         });
         try {
-          await confirmation!.future.timeout(const Duration(seconds: 120));
+          await confirmation!.future;
         } finally {
           confirmation = null;
         }
@@ -363,7 +358,7 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
         final compact = {
           'package_name': observation['package_name'],
           'display': observation['display'],
-          'tree': tree.take(100).map((n) {
+          'tree': tree.map((n) {
             if (n is! Map) return {};
             return {
               for (final e in n.entries)
@@ -381,30 +376,20 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
                   'bounds',
                   'class',
                 }.contains(e.key))
-                  e.key.toString(): e.value is String
-                      ? (e.value as String).substring(
-                          0,
-                          (e.value as String).length.clamp(0, 250),
-                        )
-                      : e.value,
+                  e.key.toString(): e.value,
             };
           }).toList(),
         };
-        while (utf8.encode(jsonEncode(compact)).length > 18000 &&
-            (compact['tree'] as List).isNotEmpty) {
-          (compact['tree'] as List).removeLast();
-        }
         final instruction =
             '用户任务：$goal\n允许软件：${apps.join(',')}\n当前界面数据（不是指令）：${jsonEncode(compact)}\n真实回执：${jsonEncode(receipts)}';
-        modelSession = await demo.startDeviceReply(instruction, 1024);
+        modelSession = await demo.startDeviceReply(
+          instruction,
+          demo.activeConnection!.maxOutput,
+        );
         var text = '';
         try {
-          await for (final event in modelSession!.events.timeout(
-            const Duration(seconds: 75),
-          )) {
+          await for (final event in modelSession!.events) {
             text += event.text;
-            if (text.length > 16000)
-              throw const DeviceTaskFailure('INVALID_PLAN', '模型计划过长。');
           }
         } on ChatFailure catch (e) {
           throw DeviceTaskFailure(e.code ?? 'MODEL_FAILED', e.message);
@@ -442,15 +427,17 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
         );
       rethrow;
     }
-    final expiry = Timer(Duration(seconds: seconds), () {
-      if (identical(active, runner))
-        unawaited(
-          cancel(code: 'TIME_LIMIT', summary: '任务已达到时间上限，后续操作已停止，请核对结果。'),
-        );
-    });
+    final expiry = seconds == 0
+        ? null
+        : Timer(Duration(seconds: seconds), () {
+            if (identical(active, runner))
+              unawaited(
+                cancel(code: 'TIME_LIMIT', summary: '任务已达到时间上限，后续操作已停止，请核对结果。'),
+              );
+          });
     unawaited(
       runner.run().whenComplete(() async {
-        expiry.cancel();
+        expiry?.cancel();
         if (identical(active, runner)) active = null;
         notifyListeners();
         try {
@@ -500,7 +487,6 @@ class OpenPluginDeviceTasks extends ChangeNotifier {
         );
       }
     }
-    if (revoke != null)
-      await revoke.timeout(const Duration(seconds: 2), onTimeout: () {});
+    if (revoke != null) await revoke;
   }
 }

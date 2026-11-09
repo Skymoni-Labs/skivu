@@ -16,7 +16,7 @@ class DeviceTaskJournal {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = jsonDecode(prefs.getString(key) ?? '[]');
-      if (raw is! List || raw.length > 40) return result;
+      if (raw is! List) return result;
       for (final item in raw) {
         if (item is! Map ||
             item['taskId'] is! String ||
@@ -26,13 +26,10 @@ class DeviceTaskJournal {
             item['digest'] is! String ||
             (item['digest'] as String).length > 128 ||
             item['summary'] is! String ||
-            (item['summary'] as String).length > 1600 ||
             item['actions'] is! int ||
             item['actions'] < 0 ||
-            item['actions'] > 30 ||
             item['rounds'] is! int ||
-            item['rounds'] < 0 ||
-            item['rounds'] > 30)
+            item['rounds'] < 0)
           continue;
         final data = Map<String, dynamic>.from(item);
         if (!terminal.contains(data['state'])) {
@@ -51,7 +48,6 @@ class DeviceTaskJournal {
   Future<void> save(Map<String, Map<String, dynamic>> tasks) async {
     final values = tasks.values.toList();
     final recent = values
-        .skip((values.length - 40).clamp(0, values.length))
         .map(
           (data) => {
             for (final field in [

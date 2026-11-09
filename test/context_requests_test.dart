@@ -85,7 +85,7 @@ void main() {
     });
   }
   test(
-    'account enforces 128 messages including system using complete turns',
+    'account preserves all messages when no actual model context limit is configured',
     () async {
       Map? body;
       final client = MockClient((r) async {
@@ -111,7 +111,7 @@ void main() {
         'fake',
       ).events.toList();
       final messages = body!['messages'] as List;
-      expect(messages.length, lessThanOrEqualTo(128));
+      expect(messages.length, 202);
       expect(messages[1]['role'], 'user');
       expect(messages.last['content'], 'latest');
       expect(history.length, 201);
@@ -167,7 +167,7 @@ void main() {
     );
   });
   test(
-    'account final serialized limit removes old image but keeps current media',
+    'account preserves both old and current images beyond the former serialized body quota',
     () async {
       final image =
           'data:image/png;base64,${base64Encode(List.filled(140 * 1024, 0))}';
@@ -192,22 +192,29 @@ void main() {
         'system',
         'fake',
       ).events.toList();
-      expect(utf8.encode(sent!).length, lessThanOrEqualTo(262144));
-      expect(events.first.notice, contains('历史图片'));
-      expect(sent, contains('历史图片未重发'));
+      expect(utf8.encode(sent!).length, greaterThan(262144));
+      expect(events.any((e) => e.notice != null), false);
+      expect(
+        (jsonDecode(sent!)['messages'] as List)
+            .where((m) => m['content'] is List)
+            .length,
+        2,
+      );
       expect(history.first['image'], image);
     },
   );
-  test('current queued media overflow fails before HTTP', () async {
-    var calls = 0;
-    final image =
-        'data:image/png;base64,${base64Encode(List.filled(140 * 1024, 0))}';
-    final client = MockClient((r) async {
-      calls++;
-      return http.Response('{}', 200);
-    });
-    await expectLater(
-      ChatSession.account(
+  test(
+    'multiple queued media are sent without an application body quota',
+    () async {
+      var calls = 0;
+      final image =
+          'data:image/png;base64,${base64Encode(List.filled(140 * 1024, 0))}';
+      final client = MockClient((request) async {
+        calls++;
+        expect(utf8.encode(request.body).length, greaterThan(262144));
+        return http.Response('{}', 200);
+      });
+      await ChatSession.account(
         client,
         config(ApiProtocol.responses),
         [
@@ -216,17 +223,10 @@ void main() {
         ],
         '',
         'fake',
-      ).events.toList(),
-      throwsA(
-        isA<ChatFailure>().having(
-          (e) => e.code,
-          'code',
-          'context_budget_exceeded',
-        ),
-      ),
-    );
-    expect(calls, 0);
-  });
+      ).events.toList();
+      expect(calls, 1);
+    },
+  );
   test(
     'public plaintext blocks before key or history leaves process',
     () async {
@@ -279,7 +279,7 @@ void main() {
       }
     },
   );
-  test('Beta signs the final pruned body', () async {
+  test('Beta signs the complete actual serialized body', () async {
     String? signed, sent;
     final client = MockClient((r) async {
       sent = r.body;
@@ -307,7 +307,7 @@ void main() {
     ).events.toList();
     expect(signed, sent);
     final messages = (jsonDecode(sent!) as Map)['messages'] as List;
-    expect(messages.length, lessThanOrEqualTo(128));
+    expect(messages.length, 202);
     expect(messages.first['content'], 'system');
     expect(messages.last['content'], 'latest');
   });

@@ -58,7 +58,7 @@ class _CloudExecutionPanelState extends State<CloudExecutionPanel>
                 r['phase'] == 'unknown',
           )
           .toList();
-      if (mounted) setState(() => records = next.reversed.take(8).toList());
+      if (mounted) setState(() => records = next.reversed.toList());
     } catch (_) {
     } finally {
       reading = false;

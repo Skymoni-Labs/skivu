@@ -149,10 +149,50 @@ class _TaskSchedulingPanelState extends State<TaskSchedulingPanel> {
                         style: const TextStyle(fontSize: 12),
                       ),
                     if (p.lastRun case final result?) ...[
-                      if (result['artifactIds'] is List &&
-                          (result['artifactIds'] as List).isNotEmpty)
+                      if (const {
+                        'running',
+                        'interrupted',
+                        'waiting_conditions',
+                      }.contains(result['state']))
+                        Wrap(
+                          children: [
+                            TextButton(
+                              onPressed: pending != null
+                                  ? null
+                                  : () => act(p.id, () async {
+                                      await plans.database.call(
+                                        result['paused'] == true
+                                            ? 'runs.resume'
+                                            : 'runs.pause',
+                                        {'id': result['id']},
+                                      );
+                                      await plans.refresh();
+                                    }),
+                              child: Text(
+                                result['paused'] == true ? '继续本次执行' : '暂停本次执行',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: pending != null
+                                  ? null
+                                  : () => act(p.id, () async {
+                                      await plans.database.call('runs.stop', {
+                                        'id': result['id'],
+                                      });
+                                      await plans.refresh();
+                                    }),
+                              child: const Text('停止本次执行'),
+                            ),
+                          ],
+                        ),
+
+                      if ((result['artifactIds'] as List? ?? []).isNotEmpty ||
+                          (result['artifactBatches'] as List? ?? []).isNotEmpty)
                         CloudFileCard(
-                          ids: List<String>.from(result['artifactIds']),
+                          ids: List<String>.from(result['artifactIds'] ?? []),
+                          batches: List<String>.from(
+                            result['artifactBatches'] ?? [],
+                          ),
                         ),
                       Text(
                         '最近一次：${runStateLabel(result['state'])} · ${planTime(result['dueAt'])}',
@@ -459,9 +499,9 @@ class _PlanEditorState extends State<_PlanEditor> {
           .cast<int>()
           .toSet();
   late int interval = widget.plan?.rule['intervalMinutes'] ?? 60,
-      calls = widget.plan?.data['maxRequestsPerRun'] ?? 3,
-      daily = widget.plan?.data['maxDailyRequests'] ?? 8,
-      tokens = widget.plan?.data['maxOutputTokens'] ?? 1024;
+      calls = widget.plan?.data['maxRequestsPerRun'] ?? 0,
+      daily = widget.plan?.data['maxDailyRequests'] ?? 0,
+      tokens = widget.plan?.data['maxOutputTokens'] ?? 0;
   late String missed = widget.plan?.data['missedPolicy'] ?? 'latest';
   bool saving = false, useCurrentModel = false;
   late String mode = widget.plan?.data['mode'] ?? 'summary';
@@ -494,6 +534,10 @@ class _PlanEditorState extends State<_PlanEditor> {
   late final TextEditingController project = TextEditingController(
     text: widget.plan?.data['projectId'] ?? '',
   );
+  late int maxRunSeconds = widget.plan?.data['maxRunSeconds'] ?? 0;
+  late int maxDelayMinutes = widget.plan?.data['maxDelayMinutes'] ?? 0;
+  late bool allowForeground = widget.plan?.data['allowForeground'] ?? true;
+  final invalidNumbers = <String>{};
   String? error;
   @override
   void initState() {
@@ -540,6 +584,10 @@ class _PlanEditorState extends State<_PlanEditor> {
 
   Future<void> save() async {
     if (saving) return;
+    if (invalidNumbers.isNotEmpty) {
+      setState(() => error = '请检查数值参数。');
+      return;
+    }
     if (demo.activeConnection == null &&
         (widget.plan == null || useCurrentModel)) {
       setState(() => error = '请先在小云中选择模型，再启用后台计划。');
@@ -568,13 +616,15 @@ class _PlanEditorState extends State<_PlanEditor> {
             'taskId': widget.task.id,
           'goal': goal.text.trim(),
           'mode': mode,
-          if (mode == 'coding') 'projectId': project.text.trim(),
+          'projectId': mode == 'coding' ? project.text.trim() : '',
           'rule': rule,
           'maxRequestsPerRun': calls,
           'maxDailyRequests': daily,
           'maxOutputTokens': tokens,
           'missedPolicy': missed,
-          'maxDelayMinutes': 60,
+          'maxDelayMinutes': maxDelayMinutes,
+          'maxRunSeconds': maxRunSeconds,
+          'allowForeground': allowForeground,
           if (widget.plan == null || useCurrentModel) ...{
             'modelIdentity': scheduledModelIdentity(demo),
             'modelBinding': scheduledModelBinding(demo),
@@ -593,20 +643,34 @@ class _PlanEditorState extends State<_PlanEditor> {
     }
   }
 
-  Widget choice(
+  Widget number(
     String label,
     int value,
-    List<int> options,
-    ValueChanged<int> change,
-  ) => DropdownButtonFormField<int>(
-    key: ValueKey('$label:$value'),
-    isExpanded: true,
-    initialValue: value,
-    decoration: InputDecoration(labelText: label),
-    items: [
-      for (final v in options) DropdownMenuItem(value: v, child: Text('$v')),
-    ],
-    onChanged: saving ? null : (v) => setState(() => change(v!)),
+    ValueChanged<int> change, {
+    int minimum = 0,
+    String? note,
+  }) => TextFormField(
+    key: ValueKey('plan-number-$label'),
+    initialValue: '$value',
+    enabled: !saving,
+    keyboardType: TextInputType.number,
+    decoration: InputDecoration(labelText: label, helperText: note),
+    autovalidateMode: AutovalidateMode.onUserInteraction,
+    validator: (text) {
+      final n = int.tryParse(text ?? '');
+      return n == null || n < minimum
+          ? '请输入${minimum == 0 ? '非负' : '正'}整数'
+          : null;
+    },
+    onChanged: (text) {
+      final n = int.tryParse(text);
+      if (n == null || n < minimum) {
+        invalidNumbers.add(label);
+      } else {
+        invalidNumbers.remove(label);
+        change(n);
+      }
+    },
   );
   @override
   Widget build(BuildContext context) => Padding(
@@ -631,14 +695,13 @@ class _PlanEditorState extends State<_PlanEditor> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '到时间由小云处理，允许系统延迟。不会自动打开其他软件；需要界面操作时显示等待条件。',
+              '到时间由小云处理，允许系统延迟。已授权步骤使用与前台相同的能力；界面操作条件不足时等待。',
               style: TextStyle(fontSize: 12, height: 1.7),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: goal,
               enabled: !saving,
-              maxLength: 4000,
               minLines: 2,
               maxLines: 5,
               decoration: const InputDecoration(
@@ -687,15 +750,21 @@ class _PlanEditorState extends State<_PlanEditor> {
             if (mode == 'coding')
               DropdownButtonFormField<String>(
                 key: ValueKey(codingProjects.map((p) => p['id']).join(',')),
-                initialValue: codingProjects.any((p) => p['id'] == project.text)
+                initialValue:
+                    project.text.isEmpty ||
+                        codingProjects.any((p) => p['id'] == project.text)
                     ? project.text
                     : null,
                 isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: '执行项目',
-                  helperText: '计划只在所选项目执行。没有项目时先在小云中创建。',
+                  helperText: '可按目标选择或创建项目，也可主动限定到一个现有项目。',
                 ),
                 items: [
+                  const DropdownMenuItem<String>(
+                    value: '',
+                    child: Text('按目标选择或创建项目'),
+                  ),
                   for (final p in codingProjects)
                     DropdownMenuItem<String>(
                       value: p['id'],
@@ -747,14 +816,12 @@ class _PlanEditorState extends State<_PlanEditor> {
                 ],
               ),
             if (kind == 'interval')
-              choice(
+              number(
                 '间隔（分钟）',
                 interval,
-                ({
-                  ...<int>{15, 30, 60, 120, 360, 1440},
-                  interval,
-                }.toList()..sort()),
                 (v) => interval = v,
+                minimum: 1,
+                note: '短间隔使用单次调度续排；实际触发仍受Android/OEM条件影响，不保证准点。',
               ),
             Text(
               '使用模型：${widget.plan?.data['modelName'] ?? demo.model}',
@@ -769,28 +836,29 @@ class _PlanEditorState extends State<_PlanEditor> {
                 title: const Text('改用当前选中的模型'),
                 contentPadding: EdgeInsets.zero,
               ),
-            choice('每次最多请求模型次数', calls, [1, 2, 3, 4, 5], (v) {
-              calls = v;
-              if (daily < calls) daily = calls;
-            }),
-            choice(
-              '每天最多请求模型次数',
-              daily,
-              ({
-                ...<int>{3, 5, 8, 10, 20},
-                daily,
-                calls,
-              }.where((v) => v >= calls).toList()..sort()),
-              (v) => daily = v,
+            const Text('默认无限制／跟随实际能力。下面仅在你主动填写正数时生效。'),
+            number('本次模型请求预算（0不限制）', calls, (v) => calls = v),
+            number('每日模型请求预算（0不限制）', daily, (v) => daily = v),
+            number('输出 tokens（0沿用模型配置）', tokens, (v) => tokens = v),
+            number(
+              '累计运行时长上限（秒，0不限制）',
+              maxRunSeconds,
+              (v) => maxRunSeconds = v,
+              note: '正数由执行心跳核对；不改变其他任务或程序的配置。',
             ),
-            choice(
-              '每次请求最多输出 tokens',
-              tokens,
-              ({
-                ...<int>{512, 1024, 2048, 4096},
-                tokens,
-              }.toList()..sort()),
-              (v) => tokens = v,
+            number(
+              '允许迟到分钟数（0不限制）',
+              maxDelayMinutes,
+              (v) => maxDelayMinutes = v,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('允许已授权的前台步骤'),
+              subtitle: const Text('锁屏或系统不允许时等待；不会为展示状态打开小云。'),
+              value: allowForeground,
+              onChanged: saving
+                  ? null
+                  : (v) => setState(() => allowForeground = v),
             ),
             DropdownButtonFormField<String>(
               initialValue: missed,
@@ -799,7 +867,7 @@ class _PlanEditorState extends State<_PlanEditor> {
               items: const [
                 DropdownMenuItem(
                   value: 'latest',
-                  child: Text('一小时内处理最近一次，超过则跳过'),
+                  child: Text('处理最近一次，按上方允许迟到时间判断'),
                 ),
                 DropdownMenuItem(value: 'skip', child: Text('跳过迟到超过一分钟的执行')),
               ],
@@ -807,7 +875,7 @@ class _PlanEditorState extends State<_PlanEditor> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '全局每天最多40次后台模型请求；暂停或结束计划会停止后续触发。',
+              '没有额外全局调用额度。暂停／结束计划只影响后续触发；“停止本次执行”单独控制当前任务。',
               style: TextStyle(fontSize: 12, height: 1.7),
             ),
             if (error != null)

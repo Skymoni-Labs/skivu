@@ -108,9 +108,11 @@ class EmbeddedAdbEngine(context: Context) {
         }
     }
 
-    fun execute(command: String, timeoutSeconds: Int, canExecute: () -> Boolean = { true }): Map<String, Any?> {
+    fun execute(command: String, timeoutSeconds: Long = 0,
+                stdout: java.io.OutputStream? = null, stderr: java.io.OutputStream? = null,
+                canExecute: () -> Boolean = { true }): Map<String, Any?> {
         val epoch = cancellationEpoch.get()
-        require(timeoutSeconds in 1..600 && command.toByteArray().size <= 32768)
+        require(timeoutSeconds >= 0 && timeoutSeconds <= Long.MAX_VALUE/1000)
         val port = prefs.getInt("port", -1)
         val legacy = prefs.getBoolean("legacy", false)
         // Verify identity on a separate completed stream before sending user code.
@@ -120,7 +122,7 @@ class EmbeddedAdbEngine(context: Context) {
             active = connection
             val job = OwnedAdbJob(port, legacy)
             val timedOut = java.util.concurrent.atomic.AtomicBoolean(false)
-            val timeout = timers.schedule({
+            val timeout = if(timeoutSeconds==0L)null else timers.schedule({
                 timedOut.set(true)
                 synchronized(executionLock) {
                     if (activeJob === job) scheduleCancellation(job)
@@ -133,8 +135,10 @@ class EmbeddedAdbEngine(context: Context) {
                     check(epoch == cancellationEpoch.get() && canExecute())
                     activeJob = job
                 }
-                val result = connection.executeScript(job.script(command), timeoutSeconds * 1000, job.heartbeat)
-                if (result.exitCode == 125 && (result.stderr.contains(job.expiredMarker) || result.truncated)) {
+                var leaseExpired=false
+                val observedError=object:java.io.OutputStream(){private var tail="";override fun write(value:Int){write(byteArrayOf(value.toByte()))};override fun write(bytes:ByteArray,offset:Int,length:Int){stderr?.write(bytes,offset,length);tail=(tail+String(bytes,offset,length,Charsets.ISO_8859_1));if(tail.contains(job.expiredMarker))leaseExpired=true;tail=tail.takeLast(job.expiredMarker.length)}}
+                val result = connection.executeScript(job.script(command), timeoutSeconds * 1000, job.heartbeat,stdout,if(stderr==null)null else observedError)
+                if (result.exitCode == 125 && (leaseExpired || result.stderr.contains(job.expiredMarker))) {
                     throw IllegalStateException("设备执行会话续约中断，已执行的操作需要核对。")
                 }
                 check(epoch == cancellationEpoch.get()) { "设备代码已停止，已执行的操作需要核对。" }
@@ -146,7 +150,7 @@ class EmbeddedAdbEngine(context: Context) {
                 if (epoch != cancellationEpoch.get()) throw IllegalStateException("已请求停止设备代码，已执行的操作需要核对。", e)
                 throw e
             } finally {
-                timeout.cancel(false)
+                timeout?.cancel(false)
                 synchronized(executionLock) {
                     if (activeJob === job) activeJob = null
                     if (active === connection) active = null

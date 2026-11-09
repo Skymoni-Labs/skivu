@@ -128,15 +128,17 @@ class ModelConnection {
     this.auth = 'default',
     this.streaming = true,
     this.includeUsage = true,
-    this.maxOutput = 2048,
-    this.timeoutSeconds = 120,
+    this.maxOutput = 0,
+    this.timeoutSeconds = 0,
     this.contextLimit,
     this.temperature,
     this.tokenParameter = 'max_tokens',
     this.credentialId,
+    this.legacyLimits,
   });
   final String id, name, provider, address, model, auth, tokenParameter;
   final String? credentialId;
+  final Map<String, dynamic>? legacyLimits;
   final ApiProtocol protocol;
   final bool streaming, includeUsage;
   final int maxOutput, timeoutSeconds;
@@ -160,6 +162,7 @@ class ModelConnection {
     temperature: temperature,
     tokenParameter: tokenParameter,
     credentialId: credentialId,
+    legacyLimits: legacyLimits,
   );
 
   Uri endpoint({bool models = false}) {
@@ -233,6 +236,8 @@ class ModelConnection {
     'temperature': temperature,
     'tokenParameter': tokenParameter,
     'credentialId': credentialId,
+    'limitsVersion': 2,
+    if (legacyLimits != null) 'legacyLimits': legacyLimits,
   };
 
   factory ModelConnection.fromJson(Map<String, dynamic> raw) => ModelConnection(
@@ -245,12 +250,28 @@ class ModelConnection {
     auth: raw['auth'] as String? ?? 'default',
     streaming: raw['streaming'] as bool? ?? true,
     includeUsage: raw['includeUsage'] as bool? ?? true,
-    maxOutput: (raw['maxOutput'] as int? ?? 2048).clamp(16, 131072),
-    timeoutSeconds: (raw['timeoutSeconds'] as int? ?? 120).clamp(15, 600),
+    maxOutput:
+        raw['limitsVersion'] == null &&
+            raw['maxOutput'] == 2048 &&
+            raw['protocol'] != 'anthropic'
+        ? 0
+        : raw['maxOutput'] as int? ?? 0,
+    timeoutSeconds: raw['limitsVersion'] == null && raw['timeoutSeconds'] == 120
+        ? 0
+        : raw['timeoutSeconds'] as int? ?? 0,
     contextLimit: raw['contextLimit'] as int?,
     temperature: (raw['temperature'] as num?)?.toDouble(),
     tokenParameter: raw['tokenParameter'] as String? ?? 'max_tokens',
     credentialId: raw['credentialId'] as String?,
+    legacyLimits: raw['legacyLimits'] is Map
+        ? Map<String, dynamic>.from(raw['legacyLimits'])
+        : raw['limitsVersion'] == null
+        ? {
+            'maxOutput': raw['maxOutput'],
+            'timeoutSeconds': raw['timeoutSeconds'],
+            'source': '旧版本保存的参数，默认2048/120已改为跟随实际能力，其他明确值保留。',
+          }
+        : null,
   );
 }
 

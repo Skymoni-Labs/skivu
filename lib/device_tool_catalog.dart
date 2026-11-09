@@ -39,11 +39,19 @@ Map<String, dynamic> _object(
 
 Map<String, dynamic> _text(int max, [String? description]) => {
   'type': 'string',
-  'maxLength': max,
   if (description != null) 'description': description,
 };
 
 final builtinDeviceTools = <DeviceToolDefinition>[
+  DeviceToolDefinition(
+    id: 'device.receipt',
+    description: '只读核对本任务原请求的持久回执，不重放动作；派发与业务完成分开。',
+    permission: 'device.observe',
+    parameters: _object(
+      {'originalRequestId': _text(120)},
+      ['originalRequestId'],
+    ),
+  ),
   DeviceToolDefinition(
     id: 'device.status',
     description: '读取实际授权、原生服务和 shell 后端状态；不申请或扩大权限。',
@@ -67,7 +75,12 @@ final builtinDeviceTools = <DeviceToolDefinition>[
     id: 'ui.observe',
     description: '观察当前获准软件的真实控件，返回本轮 observationId 和控件 ID。',
     permission: 'device.observe',
-    parameters: _object({}),
+    parameters: _object({
+      'observationId': _text(100),
+      'offset': {'type': 'integer'},
+      'pageSize': {'type': 'integer'},
+      'query': _text(1000),
+    }),
   ),
   DeviceToolDefinition(
     id: 'ui.wait',
@@ -112,7 +125,19 @@ final builtinDeviceTools = <DeviceToolDefinition>[
     description:
         '获取当前授权可见页面的真实截图，临时排除浮岛；仅在节点不足且确需图像时使用。图片直接传当前模型，模型不支持视觉或安全窗口截图被拒绝时如实等待，不猜内容。',
     permission: 'device.observe',
-    parameters: _object({}),
+    parameters: _object({
+      'maxWidth': {'type': 'integer'},
+      'format': {
+        'type': 'string',
+        'enum': ['png', 'jpeg'],
+      },
+      'quality': {'type': 'integer'},
+      'crop': {
+        'type': 'array',
+        'maxItems': 4,
+        'items': {'type': 'integer'},
+      },
+    }),
   ),
   DeviceToolDefinition(
     id: 'ui.longPress',
@@ -292,10 +317,45 @@ final builtinDeviceTools = <DeviceToolDefinition>[
         'command': _text(12000),
         'timeoutSeconds': {
           'type': 'integer',
-          'description': '执行超时，1 至 600 秒；省略时为 30 秒。',
+          'minimum': 0,
+          'description':
+              '用户指定的执行时长，单位秒；0 或省略不设置应用超时。完整输出落盘，用 shell.output.read 分页读取。',
         },
       },
       ['command'],
+    ),
+  ),
+  DeviceToolDefinition(
+    id: 'shell.output.read',
+    description: '只读原高权限执行的完整磁盘日志，按字节继续读取；不会重新执行命令。',
+    permission: 'device.observe',
+    parameters: _object(
+      {
+        'outputId': _text(100),
+        'stream': {
+          'type': 'string',
+          'enum': ['stdout', 'stderr'],
+        },
+        'offset': {'type': 'integer', 'minimum': 0},
+        'length': {'type': 'integer', 'minimum': 1},
+      },
+      ['outputId'],
+    ),
+  ),
+  DeviceToolDefinition(
+    id: 'shell.output.export',
+    description:
+        '封存原高权限日志的完整字节快照为内容引用，用 coding.files.write(contentId) 写文件并按需交付。',
+    permission: 'device.observe',
+    parameters: _object(
+      {
+        'outputId': _text(100),
+        'stream': {
+          'type': 'string',
+          'enum': ['stdout', 'stderr'],
+        },
+      },
+      ['outputId'],
     ),
   ),
 ];

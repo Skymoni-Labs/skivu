@@ -167,7 +167,7 @@ void main() {
       await tester.tap(find.text('发送'));
       await tester.pumpAndSettle();
       expect(chat.queuedMessages.single.text, '只加入待发送');
-      expect((store as _PresenterStore).sendModes, [false]);
+      expect((store as _PresenterStore).sendModes, [null]);
       expect(find.text('1 条待发送'), findsOneWidget);
       expect(
         tester
@@ -179,7 +179,7 @@ void main() {
       await tester.tap(find.text('确认发送'));
       await tester.pumpAndSettle();
       expect(chat.queuedMessages, hasLength(1));
-      expect((store as _PresenterStore).confirmModes, [false]);
+      expect((store as _PresenterStore).confirmModes, [null]);
       expect(find.text('请先选择可用模型，待发送消息已保留。'), findsOneWidget);
       await tester.tap(find.text('清空'));
       await tester.pumpAndSettle();
@@ -209,7 +209,7 @@ void main() {
   });
 
   testWidgets(
-    'new input is limited and oversized restored drafts remain intact on rejected send',
+    'large new input and restored drafts remain complete when queued',
     (tester) async {
       final chat = store.conversations.first..confirmBeforeReply = true;
       await tester.pumpWidget(surface());
@@ -225,7 +225,7 @@ void main() {
             .controller!
             .text
             .length,
-        10000,
+        10020,
       );
       await tester.pumpWidget(const SizedBox());
       final completeDraft = '保存的长草稿' * 2001;
@@ -234,25 +234,26 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('发送'));
       await tester.pumpAndSettle();
-      expect(chat.draft, completeDraft);
+      expect(chat.draft, isEmpty);
+      expect(chat.queuedMessages.single.text, completeDraft);
       expect(
         tester
             .widget<TextField>(find.byKey(const ValueKey('social-chat-input')))
             .controller!
             .text,
-        completeDraft,
+        isEmpty,
       );
-      expect(chat.messages, isEmpty);
-      expect(find.text('单条消息最多 10000 字符，完整草稿已保留，请分条发送。'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },
   );
 
   testWidgets(
-    'social replies remain hidden until the full reply completes and header uses role name',
+    'non-streaming replies stay hidden until completion and header uses role name',
     (tester) async {
       final chat = store.conversations.first..title = '发送自动生成的标题';
-      final pending = Message(false, '尚未完成的正文')..status = 'pending';
+      final pending = Message(false, '尚未完成的正文')
+        ..status = 'pending'
+        ..requestStreaming = false;
       chat.messages.add(pending);
       store.streaming = true;
       await tester.pumpWidget(surface());
@@ -268,6 +269,29 @@ void main() {
       store.changed();
       await tester.pumpAndSettle();
       expect(find.text('完整回复一次呈现'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'streaming reply is visible while still pending and continues updating',
+    (tester) async {
+      final pending = Message(false, '逐字到达的内容')
+        ..status = 'pending'
+        ..requestStreaming = true;
+      store.messages.add(pending);
+      store.streaming = true;
+      await tester.pumpWidget(surface());
+      await tester.pumpAndSettle();
+      expect(find.text('逐字到达的内容'), findsOneWidget);
+      pending.text = '逐字到达的内容，继续追加';
+      store.changed();
+      await tester.pumpAndSettle();
+      expect(find.text('逐字到达的内容，继续追加'), findsOneWidget);
+      store.streaming = false;
+      pending.status = 'complete';
+      store.changed();
+      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
     },
   );

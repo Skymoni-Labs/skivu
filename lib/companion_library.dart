@@ -5,7 +5,6 @@ String libraryId(String prefix) =>
 
 bool validChatImage(dynamic value) =>
     value is String &&
-    value.length <= 850000 &&
     RegExp(
       r'^data:image/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$',
     ).hasMatch(value);

@@ -21,7 +21,17 @@ class FixtureTools implements AssistantExtensions {
   int calls = 0;
   @override
   Future<List<Map<String, dynamic>>> catalog() async => [
-    {'id': 'plugin:qa/work', 'effect': effect, 'available': true},
+    {
+      'id': 'plugin:qa/work',
+      'effect': effect,
+      'available': true,
+      'parameters': {
+        'type': 'object',
+        'properties': {},
+        'required': [],
+        'additionalProperties': false,
+      },
+    },
   ];
   @override
   Future<DeviceToolReceipt> invoke(
@@ -78,6 +88,12 @@ void main() {
           engine: DeviceEngine(
             transport: (method, args) async {
               if (method == 'status') return {'enabled': true, 'system': true};
+              if (args['tool'] == 'device.receipt')
+                return {
+                  'requestId': args['requestId'],
+                  'outcome': 'verified',
+                  'value': {'found': true, 'outcome': 'dispatched'},
+                };
               if (method == 'cancelRequest') return {'outcome': 'cancelled'};
               effects++;
               return {
@@ -123,6 +139,12 @@ void main() {
           engine: DeviceEngine(
             transport: (method, args) async {
               if (method == 'status') return {'enabled': true, 'system': true};
+              if (args['tool'] == 'device.receipt')
+                return {
+                  'requestId': args['requestId'],
+                  'outcome': 'verified',
+                  'value': {'found': true, 'outcome': 'dispatched'},
+                };
               calls++;
               return {
                 'requestId': args['requestId'],
@@ -136,9 +158,10 @@ void main() {
         expect(a.phase, 'awaiting_verification');
         expect(a.messages.last['content'], isNot(contains('没有成功')));
         await a.send('聊一点别的');
-        expect(a.phase, 'confirmation');
+        expect(a.phase, 'awaiting_verification');
         expect(calls, 1);
-        expect(a.pending?['tool'], entry.key);
+        expect(a.pending, isNull);
+        expect(a.hasUnverifiedEffects, true);
       },
     );
   }
@@ -162,7 +185,7 @@ void main() {
         await a.send('第一次');
         await a.send('第二次');
         expect(tools.calls, effect == 'read' ? 2 : 1);
-        expect(a.phase, effect == 'read' ? 'done' : 'confirmation');
+        expect(a.phase, effect == 'read' ? 'done' : 'awaiting_verification');
       }
     },
   );
@@ -210,6 +233,12 @@ void main() {
       final device = DeviceEngine(
         transport: (method, args) async {
           if (method == 'status') return {'enabled': true};
+          if (args['tool'] == 'device.receipt')
+            return {
+              'requestId': args['requestId'],
+              'outcome': 'verified',
+              'value': {'found': true, 'outcome': 'dispatched'},
+            };
           if (method == 'cancelRequest') return {'outcome': 'cancelled'};
           calls++;
           requestId = args['requestId'] as String;
@@ -246,11 +275,11 @@ void main() {
       );
       await b.send('我们聊别的');
       expect(calls, 1);
-      expect(b.phase, 'confirmation');
+      expect(b.phase, 'awaiting_verification');
     },
   );
   test(
-    'dispatch ends alarm planning; user confirmation is separate evidence',
+    'dispatch permits read-only verification and user confirmation is separate evidence',
     () async {
       var plans = 0, writes = 0;
       final a = AssistantEngine(
@@ -264,6 +293,12 @@ void main() {
         engine: DeviceEngine(
           transport: (method, args) async {
             if (method == 'status') return {'enabled': true, 'system': true};
+            if (args['tool'] == 'device.receipt')
+              return {
+                'requestId': args['requestId'],
+                'outcome': 'verified',
+                'value': {'found': true, 'outcome': 'dispatched'},
+              };
             writes++;
             return {
               'requestId': args['requestId'],
@@ -276,13 +311,14 @@ void main() {
       await a.send('设置7点15分闹钟');
       expect(
         plans,
-        1,
-        reason: 'No follow-up observation/retry after clock dispatch',
+        3,
+        reason:
+            'Original dispatch, read-only receipt recovery, then no-progress stop',
       );
       expect(writes, 1);
       expect(a.phase, 'awaiting_verification');
       expect(a.pending, isNull);
-      expect(a.messages.last['content'], contains('当前尚未取得核对回执'));
+      expect(a.messages.last['content'], contains('原回执仍不能确认业务完成'));
       expect(a.canConfirmResult, true);
       await a.confirmResult();
       expect(a.phase, 'done');
@@ -297,7 +333,7 @@ void main() {
   );
 
   test(
-    'same alarm across turns/restarts waits for an explicit repeat click',
+    'same alarm across turns and restarts reads the original result without repeating',
     () async {
       var writes = 0;
       String? disk;
@@ -305,6 +341,12 @@ void main() {
       DeviceEngine device() => DeviceEngine(
         transport: (method, args) async {
           if (method == 'status') return {'enabled': true, 'system': true};
+          if (args['tool'] == 'device.receipt')
+            return {
+              'requestId': args['requestId'],
+              'outcome': 'verified',
+              'value': {'found': true, 'outcome': 'dispatched'},
+            };
           writes++;
           ids.add(args['requestId'] as String);
           return {
@@ -325,18 +367,19 @@ void main() {
       await a.send('设置闹钟');
       final b = create();
       await b.send('我们聊点别的');
-      expect(b.phase, 'confirmation');
+      expect(b.phase, 'awaiting_verification');
       expect(
         writes,
         1,
         reason: 'Even a stale model plan cannot repeat the alarm',
       );
-      expect(b.messages.last['content'], contains('本次没有重复执行'));
-      await b
-          .resume(); // The exact callback used by the explicit repeat button.
-      expect(writes, 2);
-      expect(ids.toSet(), hasLength(2));
-      expect(b.phase, 'awaiting_verification');
+      expect(b.messages.last['content'], contains('相同操作未重复执行'));
+      await b.resume();
+      expect(writes, 1);
+      expect(ids.toSet(), hasLength(1));
+      await b.confirmResult();
+      expect(writes, 1);
+      expect(b.phase, 'done');
     },
   );
 
@@ -350,6 +393,7 @@ void main() {
         write: (_) async {},
         model: (_, history) async {
           if (++round == 1) return alarm;
+          if (round == 2) return hello;
           expect(history.last['content'], '你好');
           expect(history.any((m) => m['content']!.contains('历史记录（只读背景')), true);
           return hello;
@@ -357,6 +401,12 @@ void main() {
         engine: DeviceEngine(
           transport: (method, args) async {
             if (method == 'status') return {'enabled': true, 'system': true};
+            if (args['tool'] == 'device.receipt')
+              return {
+                'requestId': args['requestId'],
+                'outcome': 'verified',
+                'value': {'found': true, 'outcome': 'dispatched'},
+              };
             writes++;
             return {
               'requestId': args['requestId'],
@@ -392,6 +442,12 @@ void main() {
         engine: DeviceEngine(
           transport: (method, args) async {
             if (method == 'status') return {'enabled': true, 'system': true};
+            if (args['tool'] == 'device.receipt')
+              return {
+                'requestId': args['requestId'],
+                'outcome': 'verified',
+                'value': {'found': true, 'outcome': 'dispatched'},
+              };
             writes++;
             throw StateError('Must not dispatch');
           },
@@ -400,7 +456,7 @@ void main() {
       await a.send('新的聊天');
       expect(lookups, 1);
       expect(writes, 0);
-      expect(a.phase, 'confirmation');
+      expect(a.phase, 'awaiting_verification');
     },
   );
 
@@ -443,6 +499,12 @@ void main() {
       store,
       (_, __) async => alarm,
       invoke: (args) async {
+        if (args['tool'] == 'device.receipt')
+          return {
+            'requestId': args['requestId'],
+            'outcome': 'verified',
+            'value': {'found': true, 'outcome': 'dispatched'},
+          };
         calls++;
         return {
           'requestId': args['requestId'],
@@ -469,7 +531,7 @@ void main() {
     store.send('我们换个话题');
     await waitForReply(store);
     expect(calls, 1);
-    expect(coordinator.engineFor(chat).phase, 'confirmation');
+    expect(coordinator.engineFor(chat).phase, 'done');
     expect(store.send('不设置了，聊别的'), true);
     await waitForReply(store);
     expect(calls, 1);

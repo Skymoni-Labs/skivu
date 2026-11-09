@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
-import 'dart:convert';
 
 /// Bounded JSON-schema subset shared by every role companion, independent of ID.
 void validatePluginSchema(Object? raw, {int depth = 0}) {
-  if (depth > 6 ||
-      raw is! Map ||
+  if (raw is! Map ||
       raw.keys.any(
         (k) => !{
           'type',
@@ -15,6 +13,8 @@ void validatePluginSchema(Object? raw, {int depth = 0}) {
           'enum',
           'maxLength',
           'maxItems',
+          'minimum',
+          'maximum',
           'description',
         }.contains(k),
       )) {
@@ -29,27 +29,28 @@ void validatePluginSchema(Object? raw, {int depth = 0}) {
     'boolean',
   }.contains(raw['type']))
     throw const FormatException('工具参数类型不受支持。');
-  if (raw['description'] != null &&
-      (raw['description'] is! String ||
-          (raw['description'] as String).length > 1000))
+  if (raw['description'] != null && raw['description'] is! String)
     throw const FormatException('参数说明过长。');
   if (raw['enum'] != null &&
       (raw['enum'] is! List ||
           (raw['enum'] as List).isEmpty ||
-          (raw['enum'] as List).length > 64 ||
           (raw['enum'] as List).any((v) => v is Map || v is List)))
     throw const FormatException('参数枚举不正确。');
   for (final key in ['maxLength', 'maxItems']) {
-    if (raw[key] != null &&
-        (raw[key] is! int ||
-            raw[key] < 1 ||
-            raw[key] > (key == 'maxItems' ? 100 : 12000)))
+    if (raw[key] != null && (raw[key] is! int || raw[key] < 0))
       throw const FormatException('参数上限不正确。');
   }
+  for (final key in ['minimum', 'maximum']) {
+    if (raw[key] != null && (raw[key] is! num || !(raw[key] as num).isFinite))
+      throw const FormatException('数值边界无效。');
+  }
+  if (raw['minimum'] is num &&
+      raw['maximum'] is num &&
+      raw['minimum'] > raw['maximum'])
+    throw const FormatException('数值范围无效。');
   if (raw['type'] == 'object') {
     final properties = raw['properties'];
     if (properties is! Map ||
-        properties.length > 30 ||
         raw['required'] is! List ||
         raw['additionalProperties'] is! bool)
       throw const FormatException('工具对象需要明确字段。');
@@ -69,8 +70,6 @@ void validatePluginSchema(Object? raw, {int depth = 0}) {
 }
 
 void validatePluginArguments(Object? value, Map schema, {int depth = 0}) {
-  if (depth > 16 || utf8.encode(jsonEncode(value)).length > 32768)
-    throw const FormatException('工具参数超过上限。');
   final valid = switch (schema['type']) {
     'object' => value is Map,
     'array' => value is List,
@@ -84,23 +83,25 @@ void validatePluginArguments(Object? value, Map schema, {int depth = 0}) {
       (schema['enum'] is List && !(schema['enum'] as List).contains(value)))
     throw const FormatException('工具参数与声明不符。');
   if (value is String &&
-      (value.length > (schema['maxLength'] ?? 12000) ||
-          value.contains('\u0000')))
+      (schema['maxLength'] is int && value.length > schema['maxLength']))
     throw const FormatException('工具文字参数过长。');
+  if (value is num &&
+      ((schema['minimum'] is num && value < schema['minimum']) ||
+          (schema['maximum'] is num && value > schema['maximum'])))
+    throw const FormatException('数值超出接口声明的有效范围。');
   if (value is List) {
-    if (value.length > (schema['maxItems'] ?? 100))
+    if (schema['maxItems'] is int && value.length > schema['maxItems'])
       throw const FormatException('工具数组过长。');
     for (final item in value)
       validatePluginArguments(item, schema['items'], depth: depth + 1);
   }
   if (value is Map) {
     final props = schema['properties'] as Map;
-    if (value.length > 100 ||
-        value.keys.any(
-          (key) =>
-              key is! String ||
-              {'__proto__', 'prototype', 'constructor'}.contains(key),
-        ))
+    if (value.keys.any(
+      (key) =>
+          key is! String ||
+          {'__proto__', 'prototype', 'constructor'}.contains(key),
+    ))
       throw const FormatException('工具对象字段不正确。');
     if ((schema['required'] as List).any((key) => !value.containsKey(key)) ||
         schema['additionalProperties'] == false &&
@@ -122,11 +123,9 @@ void validateRoleCompanion(Object? raw) {
       raw.length != 3 ||
       raw['title'] is! String ||
       (raw['title'] as String).isEmpty ||
-      (raw['title'] as String).length > 80 ||
       raw['entry'] is! String ||
       raw['tools'] is! List ||
-      (raw['tools'] as List).isEmpty ||
-      (raw['tools'] as List).length > 20)
+      (raw['tools'] as List).isEmpty)
     throw const FormatException('角色随身插件声明不正确。');
   final ids = <String>{};
   for (final tool in raw['tools']) {
@@ -137,7 +136,6 @@ void validateRoleCompanion(Object? raw) {
         !ids.add(tool['id']) ||
         tool['description'] is! String ||
         (tool['description'] as String).isEmpty ||
-        (tool['description'] as String).length > 1200 ||
         !{'read', 'write', 'external'}.contains(tool['effect']))
       throw const FormatException('角色工具声明不正确。');
     validatePluginSchema(tool['parameters']);

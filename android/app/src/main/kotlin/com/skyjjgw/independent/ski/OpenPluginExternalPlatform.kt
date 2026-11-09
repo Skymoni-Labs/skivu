@@ -8,20 +8,20 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /** Generic SDK transport; no third-party plugin IDs or app package allowlist. */
-class OpenPluginExternalPlatform(private val activity: Activity) {
+class OpenPluginExternalPlatform(private val activity: android.content.Context,private val canOpen:()->Boolean={true}) {
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "skivu/open_plugin_external").setMethodCallHandler { call, result ->
             if (call.method != "open") { result.notImplemented(); return@setMethodCallHandler }
             val raw = call.argument<String>("url")
             val uri = raw?.let { Uri.parse(it) }
-            if (raw == null || raw.length > 8192 || uri == null || uri.scheme != "https" ||
+            if (raw == null || uri == null || uri.scheme != "https" ||
                 uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null ||
                 raw.any { it <= ' ' || it == '\\' || it == '\u007f' }) {
                 result.error("INVALID_ARGUMENT", "仅支持公开 HTTPS 链接。", null)
                 return@setMethodCallHandler
             }
             try {
-                activity.startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+                require(canOpen()){"当前屏幕或用户计划配置不允许前台步骤，等待条件。"};activity.startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE).apply{if(activity !is Activity)addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)})
                 result.success("accepted")
             } catch (_: ActivityNotFoundException) {
                 result.success("not_available")

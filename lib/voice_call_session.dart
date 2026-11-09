@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 import 'state.dart';
 import 'speech_settings.dart';
 import 'speech_api.dart';
+import 'speech_recognition.dart';
+import 'speech_recognition_settings.dart';
+import 'voice_channel_lease.dart';
 
 enum VoiceCallPhase {
   preparing,
@@ -42,7 +45,7 @@ class CurrentChatVoiceBackend extends ChangeNotifier {
   bool get hasLocalVoice => false;
   bool get usesLocalVoice => false;
   String get speechDescription =>
-      '系统语音识别 · ${speechSettings.active.name}合成。对话使用当前模型与额度。';
+      '${speechSettings.recognition.label} · ${speechSettings.active.name}合成。对话使用当前模型与额度。';
   bool _ownsReply = false;
   VoidCallback? _listener;
   Completer<String>? _pending;
@@ -150,8 +153,8 @@ class VoiceCallSession extends ChangeNotifier {
   final CurrentChatVoiceBackend backend;
   final MethodChannel _channel;
   void _claim() {
+    VoiceChannelLease.claim(_channel, this, _event);
     _owner = this;
-    _channel.setMethodCallHandler(_event);
   }
 
   final level = ValueNotifier<double>(0);
@@ -161,7 +164,8 @@ class VoiceCallSession extends ChangeNotifier {
   bool muted = false, needsPermission = false, previewing = false;
   String? error;
   bool _closed = false, _disposed = false, _ready = false, _turnBusy = false;
-  int _generation = 0, _listenFailures = 0;
+  int _generation = 0;
+  SpeechRecognition? _recognition;
   Timer? _retry;
   Completer<void>? _spoken;
   bool get canSendText => !_closed && !_turnBusy;
@@ -180,13 +184,13 @@ class VoiceCallSession extends ChangeNotifier {
     if (_closed || _turnBusy) return;
     error = null;
     needsPermission = false;
-    _claim();
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       error = '语音通话请在 Android 客户端使用。';
       _change(VoiceCallPhase.error);
       return;
     }
     try {
+      _claim();
       await _prepare();
       if (_closed) return;
       _ready = true;
@@ -195,17 +199,23 @@ class VoiceCallSession extends ChangeNotifier {
     } on PlatformException catch (e) {
       error = e.message ?? '系统语音暂不可用；可以从更多中输入文字。';
       _change(VoiceCallPhase.error);
-    } catch (_) {
-      error = '系统语音暂不可用；可以从更多中输入文字。';
+    } catch (e) {
+      error = e is FormatException ? e.message : '系统语音暂不可用；可以从更多中输入文字。';
       _change(VoiceCallPhase.error);
     }
   }
 
   Future<void> _listen({bool requestPermission = false}) async {
     if (_closed || muted || _turnBusy) return;
-    final result = await _channel.invokeMethod<String>('listen', {
-      'requestPermission': requestPermission,
-    });
+    _recognition?.cancel();
+    final recognition = _recognition = SpeechRecognition(
+      _channel,
+      speech.recognition,
+      _event,
+    );
+    final result = await recognition.start(
+      requestPermission: requestPermission,
+    );
     if (_closed || muted || _turnBusy) return;
     if (result == 'permission_required') {
       needsPermission = true;
@@ -219,6 +229,7 @@ class VoiceCallSession extends ChangeNotifier {
 
   Future<void> _event(MethodCall event) async {
     if (_closed) return;
+    if (await _recognition?.handle(event) == true) return;
     final args = event.arguments is Map ? event.arguments as Map : {};
     switch (event.method) {
       case 'level':
@@ -234,23 +245,19 @@ class VoiceCallSession extends ChangeNotifier {
       case 'result':
         final text = args['text'] as String? ?? '';
         if (!muted && !_turnBusy && text.trim().isNotEmpty) {
-          _listenFailures = 0;
           unawaited(sendText(text));
         }
         break;
+      case 'transcribing':
+        if (!muted && !_turnBusy) _change(VoiceCallPhase.transcribing);
+        break;
       case 'recognitionError':
         if (muted || _turnBusy) break;
-        final code = args['code'] as int?;
-        if ([6, 7].contains(code) && _listenFailures++ < 3) {
-          _retry?.cancel();
-          _retry = Timer(const Duration(milliseconds: 500), () {
-            if (!_closed && !muted && !_turnBusy) unawaited(_resume());
-          });
-        } else {
-          error = '系统没有听清语音，请重试麦克风或输入文字。';
-          level.value = 0;
-          _change(VoiceCallPhase.error);
-        }
+        error =
+            args['message']?.toString() ??
+            recognitionErrorMessage((args['code'] as num?)?.toInt());
+        level.value = 0;
+        _change(VoiceCallPhase.error);
         break;
       case 'ttsDone':
         if (_spoken?.isCompleted == false) _spoken!.complete();
@@ -294,7 +301,7 @@ class VoiceCallSession extends ChangeNotifier {
         if (_closed || !identical(_spoken, done) || done.isCompleted) return;
         await _channel.invokeMethod('playAudio', {'bytes': bytes});
       }
-      await done.future.timeout(const Duration(minutes: 10));
+      await done.future;
     } finally {
       if (identical(_spoken, done)) _spoken = null;
       level.value = 0;
@@ -381,6 +388,7 @@ class VoiceCallSession extends ChangeNotifier {
     previewing = false;
     _retry?.cancel();
     synthesis.cancel();
+    _recognition?.cancel();
     if (_spoken?.isCompleted == false) _spoken!.complete();
     await backend.cancelReply();
     if (_ready && identical(_owner, this)) {
@@ -405,7 +413,6 @@ class VoiceCallSession extends ChangeNotifier {
       await interrupt();
     } else {
       error = null;
-      _listenFailures = 0;
       if (_ready) {
         await _resume();
       } else {
@@ -452,6 +459,10 @@ class VoiceCallSession extends ChangeNotifier {
     await interrupt();
   }
 
+  Future<void> finishInput() async {
+    if (!_closed && !muted && !_turnBusy) await _recognition?.finish();
+  }
+
   Future<void> selectLocalVoice(bool selected) async {}
   Future<void> end() async {
     if (_closed) return;
@@ -459,15 +470,18 @@ class VoiceCallSession extends ChangeNotifier {
     ++_generation;
     _retry?.cancel();
     synthesis.cancel();
+    _recognition?.cancel();
     elapsed.stop();
     if (_spoken?.isCompleted == false) _spoken!.complete();
     await backend.cancelReply();
     if (identical(_owner, this)) {
       _owner = null;
-      _channel.setMethodCallHandler(null);
       try {
         await _channel.invokeMethod('close');
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        VoiceChannelLease.release(_channel, this);
+      }
     }
     level.value = 0;
     _change(VoiceCallPhase.ended);

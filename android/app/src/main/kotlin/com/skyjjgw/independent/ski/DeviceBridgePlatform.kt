@@ -32,7 +32,6 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
                     result.success(matches.map { mapOf("component" to ComponentName(it.serviceInfo.packageName, it.serviceInfo.name).flattenToString(), "label" to it.loadLabel(context.packageManager).toString(),"signerSha256" to signer(it.serviceInfo.packageName)) })
                 }
                 "connect" -> {
-                    require(connections.size<16) { "Close an unused companion connection first" }
                     val component = ComponentName.unflattenFromString(call.argument<String>("component") ?: "") ?: error("Choose a companion")
                     val discovered = context.packageManager.queryIntentServices(Intent("org.skivu.devicebridge.V1"), 0)
                     require(discovered.any { it.serviceInfo.packageName == component.packageName && it.serviceInfo.name == component.className })
@@ -54,7 +53,6 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
                 "request" -> {
                     val c = connections[call.argument<String>("connectionId")] ?: error("Companion disconnected")
                     val request = call.argument<String>("json") ?: error("Missing request")
-                    require(request.length <= 65536)
                     c.send(request, result)
                 }
                 "openCompanion" -> {
@@ -96,7 +94,7 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
                     result.success(true)
                 }
                 else -> result.notImplemented()
-            } } catch (e: Exception) { result.error("DEVICE_UNAVAILABLE", e.message?.take(200), null) }
+            } } catch (e: Exception) { result.error("DEVICE_UNAVAILABLE", if(e is android.os.TransactionTooLargeException)"外部伴侣通信超过 Android Binder 单次传输能力，需要分块或使用小云内置操控；先核对原状态，不重放未知动作。"else e.message, null) }
         }
     }
     fun close() { connections.values.forEach { it.close() }; connections.clear(); channel.setMethodCallHandler(null) }
@@ -116,7 +114,6 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
             opening = result
             bound = context.bindService(Intent("org.skivu.devicebridge.V1").setComponent(component), this, Context.BIND_AUTO_CREATE)
             if (!bound) { opening = null; error("Cannot bind companion") }
-            main.postDelayed({ if (opening != null) { opening?.error("TIMEOUT", "Companion connection timed out", null); opening = null; close() } }, 10000)
         }
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             try {
@@ -128,14 +125,14 @@ class DeviceBridgePlatform(private val context: Context, val engine: FlutterEngi
             remote = Messenger(binder)
             opening?.success(mapOf("connectionId" to id,"signerSha256" to signer(component.packageName))); opening = null
         }
-        override fun onServiceDisconnected(name: ComponentName?) { remote = null; pending.values.forEach { it.error("DISCONNECTED", "Companion service stopped; reconcile before retrying", null) }; pending.clear();channel.invokeMethod("deviceDisconnected",mapOf("connectionId" to id)) }
+        override fun onServiceDisconnected(name: ComponentName?) { opening?.error("DISCONNECTED","Companion disconnected before ready",null);opening=null;remote = null; pending.values.forEach { it.error("DISCONNECTED", "Companion service stopped; reconcile before retrying", null) }; pending.clear();channel.invokeMethod("deviceDisconnected",mapOf("connectionId" to id)) }
+        override fun onNullBinding(name:ComponentName?){opening?.error("UNAVAILABLE","Companion returned no binder",null);opening=null;close()}
+        override fun onBindingDied(name:ComponentName?){opening?.error("DISCONNECTED","Companion binding ended",null);opening=null;close()}
         fun send(json: String, result: MethodChannel.Result) {
             val target = remote ?: error("Companion disconnected")
-            require(pending.size<8) { "Too many pending companion requests" }
             val key = ++ticket; pending[key] = result
             try { target.send(Message.obtain(null, 1, key, 0).apply { replyTo = receiver; data = Bundle().apply { putString("json", json) } }) }
             catch(e:Exception) { pending.remove(key);throw e }
-            main.postDelayed({ pending.remove(key)?.error("RESULT_UNKNOWN", "Companion did not return a receipt; do not replay an action", null) }, 65000)
         }
         fun close() { if (bound) { try {context.unbindService(this)} catch(_:IllegalArgumentException){}; bound = false }; onServiceDisconnected(null) }
     }

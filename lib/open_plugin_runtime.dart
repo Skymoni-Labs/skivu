@@ -95,6 +95,15 @@ class OpenPluginRuntime with WidgetsBindingObserver {
     unawaited(ready.catchError((Object _) {}));
     unawaited(done.catchError((Object _) => null));
     channel.setMethodCallHandler((call) async {
+      if (call.method == 'failure') {
+        final error = PluginApiError(
+          'RUNTIME_FAILED',
+          call.arguments.toString(),
+        );
+        if (!_ready.isCompleted) _ready.completeError(error);
+        if (!_done.isCompleted) _done.completeError(error);
+        return null;
+      }
       if (call.method != 'request') return null;
       try {
         check();
@@ -106,10 +115,8 @@ class OpenPluginRuntime with WidgetsBindingObserver {
         }
         if (method == 'runtime.complete') {
           final result = raw['params'];
-          if (result is! Map ||
-              utf8.encode(jsonEncode(result)).length > 32768 ||
-              !result.containsKey('result'))
-            throw const PluginApiError('INVALID_ARGUMENT', '工具结果超过限制。');
+          if (result is! Map || !result.containsKey('result'))
+            throw const PluginApiError('INVALID_ARGUMENT', '工具结果格式无效。');
           if (!_done.isCompleted) _done.complete(result['result']);
           return {'ok': true, 'result': true};
         }
@@ -142,17 +149,19 @@ class OpenPluginRuntime with WidgetsBindingObserver {
                   'device.engine.cancel',
                 }.contains(method)) &&
             !allowedDeviceCall &&
-            !(effect == 'write' && writes.contains(method)) &&
+            !({'write', 'external'}.contains(effect) &&
+                writes.contains(method)) &&
             !(effect == 'external' && method == 'ui.openExternal'))
           throw const PluginApiError('PERMISSION_DENIED', '该工具未声明这种操作。');
-        if ({'network.request', 'https.request'}.contains(method) &&
+        if (effect != 'external' &&
+            {'network.request', 'https.request'}.contains(method) &&
             !{
               'GET',
               'HEAD',
             }.contains((raw['params'] as Map?)?['method'] ?? 'GET'))
           throw const PluginApiError(
             'PERMISSION_DENIED',
-            '随聊工具仅支持只读网络请求，外部操作须在前台单独授权。',
+            '当前工具声明为只读；修改外部服务需要已授权且声明external的工具。',
           );
         return await bridge.dispatch(raw);
       } on PluginApiError catch (e) {
@@ -178,15 +187,13 @@ class OpenPluginRuntime with WidgetsBindingObserver {
         'digest': record.package.digest,
         'files': record.package.files,
       });
-      await ready.timeout(const Duration(seconds: 10));
+      await ready;
       check();
       await channel.invokeMethod('event', {
         'name': 'companion.invoke',
         'detail': {'tool': tool, 'arguments': args},
       });
-      final result = await done.timeout(
-        assistant ? const Duration(minutes: 12) : const Duration(seconds: 45),
-      );
+      final result = await done;
       check();
       return result;
     } finally {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'model_connection.dart';
@@ -169,8 +170,7 @@ class ChatSession {
 
   /// Account endpoints retain their existing service budget. Independent
   /// connections use the configured limit without the old assistant-only cap.
-  int get effectiveMaxOutput =>
-      _fixedPath == null ? config.maxOutput : config.maxOutput.clamp(1, 4096);
+  int get effectiveMaxOutput => config.maxOutput;
   final _abort = Completer<void>();
   bool cancelled = false;
 
@@ -181,6 +181,12 @@ class ChatSession {
   }
 
   Map<String, dynamic> _body(List<Map<String, String>> history) {
+    if (config.protocol == ApiProtocol.anthropic && config.maxOutput <= 0) {
+      throw const ChatFailure(
+        'Anthropic Messages 协议要求 max_tokens；请在模型参数填写该型号支持的实际输出值。此处没有应用统一封顶。',
+        code: 'required_model_output_parameter',
+      );
+    }
     Map<String, dynamic> wire(
       Map<String, String> message,
       ApiProtocol protocol,
@@ -190,8 +196,7 @@ class ChatSession {
       final match = RegExp(
         r'^data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$',
       ).firstMatch(image);
-      if (match == null || image.length > 850000)
-        throw const ChatFailure('图片数据无效，请重新选择。');
+      if (match == null) throw const ChatFailure('图片数据无效，请重新选择。');
       return {
         'role': message['role'],
         'content': switch (protocol) {
@@ -233,7 +238,7 @@ class ChatSession {
         'input': history.map((m) => wire(m, ApiProtocol.responses)).toList(),
         'instructions': system,
         'stream': config.streaming,
-        'max_output_tokens': effectiveMaxOutput,
+        if (effectiveMaxOutput > 0) 'max_output_tokens': effectiveMaxOutput,
         'store': false,
       };
     if (_betaHeaders != null)
@@ -242,14 +247,14 @@ class ChatSession {
         if (_funding == 'beta') 'funding': 'beta',
         'messages': messages,
         'stream': config.streaming,
-        'max_tokens': effectiveMaxOutput,
+        if (effectiveMaxOutput > 0) 'max_tokens': effectiveMaxOutput,
       };
     return switch (config.protocol) {
       ApiProtocol.chat => {
         'model': config.model,
         'messages': messages,
         'stream': config.streaming,
-        if (config.tokenParameter != 'none')
+        if (config.tokenParameter != 'none' && config.maxOutput > 0)
           config.tokenParameter: config.maxOutput,
         if (config.streaming && config.includeUsage)
           'stream_options': {'include_usage': true},
@@ -260,7 +265,7 @@ class ChatSession {
         'input': history.map((m) => wire(m, ApiProtocol.responses)).toList(),
         if (system.trim().isNotEmpty) 'instructions': system,
         'stream': config.streaming,
-        'max_output_tokens': config.maxOutput,
+        if (config.maxOutput > 0) 'max_output_tokens': config.maxOutput,
         'store': false,
         if (temperature != null) 'temperature': temperature,
       },
@@ -297,7 +302,7 @@ class ChatSession {
             ],
           },
         'generationConfig': {
-          'maxOutputTokens': config.maxOutput,
+          if (config.maxOutput > 0) 'maxOutputTokens': config.maxOutput,
           if (temperature != null) 'temperature': temperature,
         },
       },
@@ -356,10 +361,10 @@ class ChatSession {
             ..bodyBytes = utf8.encode(body);
       final response = await _client
           .send(request)
-          .timeout(Duration(seconds: config.timeoutSeconds));
+          .optionalTimeout(config.timeoutSeconds);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final text = await _boundedText(
-          response.stream.timeout(Duration(seconds: config.timeoutSeconds)),
+          response.stream.optionalTimeout(config.timeoutSeconds),
         );
         try {
           final raw = jsonDecode(text);
@@ -372,9 +377,7 @@ class ChatSession {
             ? _accountHttpError(response.statusCode)
             : _httpError(response.statusCode);
       }
-      final stream = response.stream.timeout(
-        Duration(seconds: config.timeoutSeconds),
-      );
+      final stream = response.stream.optionalTimeout(config.timeoutSeconds);
       if ((response.headers['content-type'] ?? '').contains(
             'application/json',
           ) ||
@@ -385,13 +388,10 @@ class ChatSession {
         return;
       }
       var data = <String>[];
-      var received = 0;
       await for (final line
           in stream.transform(utf8.decoder).transform(const LineSplitter())) {
         if (cancelled) return;
-        received += line.length;
-        if (received > 16000000)
-          throw const ChatFailure('回复超出本次接收上限，已保留收到的内容。');
+
         if (line.startsWith('data:')) {
           data.add(line.substring(5).trimLeft());
         } else if (line.isEmpty && data.isNotEmpty) {
@@ -436,8 +436,7 @@ class ChatSession {
     final bytes = <int>[];
     await for (final part in stream) {
       if (cancelled) return '{}';
-      if (bytes.length + part.length > 16000000)
-        throw const ChatFailure('服务回复过大，请减少输出长度。');
+
       bytes.addAll(part);
     }
     return utf8.decode(bytes);
@@ -623,14 +622,12 @@ class AgentChatSession {
         'messages': messages,
         'tools': tools,
         'stream': false,
-        if (_customKey == null || config.tokenParameter != 'omit')
-          (_customKey == null ? 'max_tokens' : config.tokenParameter): config
-              .maxOutput
-              .clamp(1, 4096),
+        if (config.maxOutput > 0 &&
+            (_customKey == null ||
+                !{'none', 'omit'}.contains(config.tokenParameter)))
+          (_customKey == null ? 'max_tokens' : config.tokenParameter):
+              config.maxOutput,
       });
-      if (utf8.encode(body).length > 4 * 1024 * 1024) {
-        throw const ChatFailure('编程请求超过 4 MB，请先压缩会话或减少大段工具输出。');
-      }
       final request =
           http.AbortableRequest(
               'POST',
@@ -655,17 +652,14 @@ class AgentChatSession {
             ..body = body;
       final response = await _client
           .send(request)
-          .timeout(Duration(seconds: config.timeoutSeconds));
-      final bytes = <int>[];
-      await for (final part in response.stream.timeout(
-        Duration(seconds: config.timeoutSeconds),
+          .optionalTimeout(config.timeoutSeconds);
+      final bytes = BytesBuilder(copy: false);
+      await for (final part in response.stream.optionalTimeout(
+        config.timeoutSeconds,
       )) {
-        if (bytes.length + part.length > 4 * 1024 * 1024) {
-          throw const ChatFailure('编程回复超出接收上限。');
-        }
-        bytes.addAll(part);
+        bytes.add(part);
       }
-      final raw = jsonDecode(utf8.decode(bytes));
+      final raw = jsonDecode(utf8.decode(bytes.takeBytes()));
       final known = _knownFailure(raw);
       if (known != null) throw known;
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -737,4 +731,14 @@ ChatFailure? _knownFailure(dynamic raw) {
     if (nested != null) return nested;
   }
   return null;
+}
+
+extension _OptionalFutureTimeout<T> on Future<T> {
+  Future<T> optionalTimeout(int seconds) =>
+      seconds > 0 ? timeout(Duration(seconds: seconds)) : this;
+}
+
+extension _OptionalStreamTimeout<T> on Stream<T> {
+  Stream<T> optionalTimeout(int seconds) =>
+      seconds > 0 ? timeout(Duration(seconds: seconds)) : this;
 }

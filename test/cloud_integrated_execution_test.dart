@@ -124,7 +124,7 @@ void main() {
         }),
       );
       await a.send('生成文件');
-      expect(rounds, 3);
+      expect(rounds, 2);
       expect(calls, 0);
       expect(a.phase, 'failed');
       expect(a.messages.last['content'], contains('512 tokens'));

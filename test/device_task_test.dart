@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/device_task.dart';
 
@@ -25,6 +26,91 @@ String plan({
   'evidenceIds': evidence ?? [],
 });
 void main() {
+  test(
+    'unlimited policy crosses former round and receipt limits without dropping history',
+    () async {
+      var taps = 0, maxHistory = 0;
+      final states = <String>[];
+      final runner = DeviceTaskRunner(
+        id: 'unlimited',
+        apps: {'org.example.notes'},
+        maxActions: 0,
+        maxRounds: 0,
+        deadline: null,
+        check: () {},
+        waitForConfirmation: () async {},
+        update: (state, _) async {
+          states.add(state);
+        },
+        request: (method, args) async {
+          if (method == 'begin') {
+            expect(args['maxActions'], 0);
+            expect(args['timeoutMs'], 0);
+            return {'taskCapability': 'lease'};
+          }
+          if (method == 'end') return {};
+          if (args['name'] == 'observe') return observation();
+          if (args['name'] == 'tap') taps++;
+          return {'state': 'executed', 'action_executed': true};
+        },
+        plan: (screen, history) async {
+          if (history.length > maxHistory) maxHistory = history.length;
+          return taps < 70
+              ? plan()
+              : plan(done: true, action: '', args: {}, evidence: ['1']);
+        },
+      );
+      await runner.run();
+      expect(states.last, 'completed');
+      expect(taps, 70);
+      expect(maxHistory, greaterThanOrEqualTo(70));
+      final text = '完整输入' * 5000;
+      expect(
+        DevicePlan.parse(
+          plan(
+            action: 'input_text',
+            args: {'element_id': '1', 'text': text, 'mode': 'replace'},
+          ),
+          observation(),
+          {'org.example.notes'},
+        ).arguments['text'],
+        text,
+      );
+    },
+  );
+  test(
+    'cancel interrupts an explicitly long wait without another model or device action',
+    () async {
+      final waiting = Completer<void>();
+      final states = <String>[];
+      final runner = DeviceTaskRunner(
+        id: 'wait',
+        apps: {'org.example.notes'},
+        maxActions: 0,
+        maxRounds: 0,
+        deadline: null,
+        check: () {},
+        waitForConfirmation: () async {},
+        update: (state, _) async {
+          states.add(state);
+          if (state == 'waiting' && !waiting.isCompleted) waiting.complete();
+        },
+        request: (method, args) async {
+          if (method == 'begin') return {'taskCapability': 'lease'};
+          if (method == 'end') return {};
+          if (args['name'] == 'observe') return observation();
+          return {'state': 'executed', 'action_executed': true};
+        },
+        plan: (_, __) async =>
+            plan(action: 'wait', args: {'timeout_ms': 600000}),
+      );
+      final pending = runner.run();
+      await waiting.future;
+      await runner.cancel();
+      await pending.timeout(const Duration(seconds: 1));
+      expect(states.last, 'cancelled');
+    },
+  );
   test(
     'scroll rejects missing or off-screen targets before any device call',
     () {

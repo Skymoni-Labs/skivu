@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -11,9 +12,6 @@ const extensionCatalogUrl =
     'https://skymoni.com/app-plugins/catalog/extensions.json';
 const extensionCatalogOrigin =
     'https://raw.githubusercontent.com/skyjjgw/skivu-plugins/main/catalog/extensions.json';
-const maxExtensionBytes = 768 * 1024;
-const maxActiveSkillBytes = 64 * 1024;
-const maxLibraryBytes = 16 * 1024 * 1024;
 
 bool _equal(Object? a, Object? b) {
   if (a is Map && b is Map) {
@@ -27,11 +25,11 @@ bool _equal(Object? a, Object? b) {
   return a == b;
 }
 
-String _string(Map value, String key, int max) {
+String _string(Map value, String key, [int? max]) {
   final text = value[key];
   if (text is! String ||
       text.trim().isEmpty ||
-      text.length > max ||
+      (max != null && text.length > max) ||
       text.contains('\u0000')) {
     throw const FormatException('扩展内容格式不正确。');
   }
@@ -149,8 +147,7 @@ class ExtensionInfo {
         package['sha256'] is! String ||
         !RegExp(r'^[a-f0-9]{64}$').hasMatch(package['sha256']) ||
         package['bytes'] is! int ||
-        package['bytes'] <= 0 ||
-        package['bytes'] > maxExtensionBytes) {
+        package['bytes'] <= 0) {
       throw const FormatException('扩展下载信息无效。');
     }
     return ExtensionInfo._(
@@ -178,8 +175,6 @@ class InstalledExtension extends ExtensionInfo {
   });
 
   factory InstalledExtension.parse(String raw) {
-    if (utf8.encode(raw).length > maxExtensionBytes)
-      throw const FormatException('扩展包过大。');
     final value = jsonDecode(raw);
     if (value is! Map ||
         value.length != 2 ||
@@ -189,7 +184,7 @@ class InstalledExtension extends ExtensionInfo {
     }
     final metadata = ExtensionInfo.validateMetadata(value['metadata']);
     final payload = Map<String, dynamic>.from(value['payload']);
-    _string(payload, 'licenseText', 200000);
+    _string(payload, 'licenseText');
     final allowed = metadata['kind'] == 'skill'
         ? {
             'licenseText',
@@ -203,18 +198,14 @@ class InstalledExtension extends ExtensionInfo {
         (payload['notices'] != null && payload['notices'] is! String) ||
         (payload['requirements'] != null &&
             (payload['requirements'] is! List ||
-                (payload['requirements'] as List).length > 50 ||
-                (payload['requirements'] as List).any(
-                  (v) => v is! String || v.length > 1000,
-                )))) {
+                (payload['requirements'] as List).any((v) => v is! String)))) {
       throw const FormatException('扩展包含不支持的内容。');
     }
     if (metadata['kind'] == 'skill') {
-      _string(payload, 'instruction', 256 * 1024);
+      _string(payload, 'instruction');
       final refs = payload['references'];
       if (refs != null &&
           (refs is! Map ||
-              refs.length > 100 ||
               refs.entries.any(
                 (e) =>
                     e.key is! String ||
@@ -226,7 +217,7 @@ class InstalledExtension extends ExtensionInfo {
       }
     } else {
       if (payload['endpoint'] != null) validateMcpEndpoint(payload['endpoint']);
-      _string(payload, 'setup', 100000);
+      _string(payload, 'setup');
     }
     return InstalledExtension._(metadata, payload, raw);
   }
@@ -235,18 +226,17 @@ class InstalledExtension extends ExtensionInfo {
 Uri validateMcpEndpoint(Object? value) {
   final uri = value is String ? Uri.tryParse(value.trim()) : null;
   if (uri == null ||
-      uri.scheme != 'https' ||
+      !['https', 'http'].contains(uri.scheme) ||
       uri.host.isEmpty ||
       uri.userInfo.isNotEmpty ||
       uri.hasFragment ||
-      uri.toString().length > 2000 ||
       uri.queryParameters.keys.any(
         (key) => RegExp(
           r'token|secret|key|password',
           caseSensitive: false,
         ).hasMatch(key),
       )) {
-    throw const FormatException('请填写 HTTPS MCP 地址，并将密钥放入单独的密钥栏。');
+    throw const FormatException('请填写完整 HTTP(S) MCP 地址，并将密钥放入单独的密钥栏。');
   }
   return uri;
 }
@@ -279,8 +269,6 @@ class ExtensionLibrary extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(storageKey);
       if (raw == null) return;
-      if (utf8.encode(raw).length > maxLibraryBytes)
-        throw const FormatException('扩展库过大');
       final data = jsonDecode(raw) as Map;
       final next = <String, InstalledExtension>{};
       for (final value in (data['packages'] as Map).values) {
@@ -291,13 +279,6 @@ class ExtensionLibrary extends ChangeNotifier {
           .whereType<String>()
           .where((id) => next[id]?.kind == 'skill')
           .toSet();
-      if (enabled.fold<int>(
-            0,
-            (total, id) => total + utf8.encode(next[id]!.promptContent).length,
-          ) >
-          maxActiveSkillBytes) {
-        enabled.clear();
-      }
       installed
         ..clear()
         ..addAll(next);
@@ -319,27 +300,20 @@ class ExtensionLibrary extends ChangeNotifier {
       'packages': packages.map((id, item) => MapEntry(id, item.raw)),
       'enabled': enabled.toList(),
     });
-    if (utf8.encode(raw).length > maxLibraryBytes)
-      throw StateError('本机扩展库已满，请先卸载部分扩展');
     if (!await prefs.setString(storageKey, raw)) {
       throw StateError('无法保存扩展');
     }
   }
 
-  Future<List<int>> _fetch(Uri uri, int limit) async {
+  Future<List<int>> _fetch(Uri uri) async {
     final request = http.Request('GET', uri)..followRedirects = false;
-    final response = await _client
-        .send(request)
-        .timeout(const Duration(seconds: 25));
+    final response = await _client.send(request);
     if (response.statusCode != 200) throw StateError('扩展暂时无法下载');
-    final bytes = <int>[];
-    await for (final chunk in response.stream.timeout(
-      const Duration(seconds: 25),
-    )) {
-      if (bytes.length + chunk.length > limit) throw StateError('下载内容超出上限');
-      bytes.addAll(chunk);
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in response.stream) {
+      bytes.add(chunk);
     }
-    return bytes;
+    return bytes.takeBytes();
   }
 
   Future<void> refresh() async {
@@ -350,16 +324,15 @@ class ExtensionLibrary extends ChangeNotifier {
     try {
       List<int> raw;
       try {
-        raw = await _fetch(Uri.parse(extensionCatalogUrl), 8 * 1024 * 1024);
+        raw = await _fetch(Uri.parse(extensionCatalogUrl));
       } catch (_) {
-        raw = await _fetch(Uri.parse(extensionCatalogOrigin), 8 * 1024 * 1024);
+        raw = await _fetch(Uri.parse(extensionCatalogOrigin));
       }
       final data = jsonDecode(utf8.decode(raw));
       if (data is! Map ||
           data['schemaVersion'] != 1 ||
           data['protocolVersion'] != '2.0' ||
-          data['plugins'] is! List ||
-          (data['plugins'] as List).length > 5000) {
+          data['plugins'] is! List) {
         throw const FormatException('扩展目录版本不支持。');
       }
       final next = (data['plugins'] as List)
@@ -393,10 +366,9 @@ class ExtensionLibrary extends ChangeNotifier {
           Uri.parse(
             'https://skymoni.com/app-plugins/packages/${item.digest}.json',
           ),
-          maxExtensionBytes,
         );
       } catch (_) {
-        bytes = await _fetch(item.packageUrl!, maxExtensionBytes);
+        bytes = await _fetch(item.packageUrl!);
       }
       if (bytes.length != item.bytes ||
           sha256.convert(bytes).toString() != item.digest)
@@ -405,13 +377,6 @@ class ExtensionLibrary extends ChangeNotifier {
       if (!_equal(package.metadata, item.metadata))
         throw StateError('目录与扩展内容不一致');
       final next = {...installed, item.id: package};
-      if (enabledSkills.fold<int>(
-            0,
-            (total, id) => total + utf8.encode(next[id]!.promptContent).length,
-          ) >
-          maxActiveSkillBytes) {
-        throw StateError('请先关闭部分技能，再安装更新');
-      }
       await _save(next, enabledSkills);
       installed
         ..clear()
@@ -432,16 +397,6 @@ class ExtensionLibrary extends ChangeNotifier {
     if (item == null || item.kind != 'skill') return false;
     final next = {...enabledSkills};
     enabled ? next.add(id) : next.remove(id);
-    if (next.fold<int>(
-          0,
-          (total, id) =>
-              total + utf8.encode(installed[id]!.promptContent).length,
-        ) >
-        maxActiveSkillBytes) {
-      error = '已启用的技能内容较多，请先关闭部分技能。';
-      _changed();
-      return false;
-    }
     workingId = id;
     try {
       await _save(installed, next);

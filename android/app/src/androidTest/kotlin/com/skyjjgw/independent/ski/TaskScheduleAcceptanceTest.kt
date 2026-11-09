@@ -48,6 +48,20 @@ class TaskScheduleAcceptanceTest {
         assertEquals("ended",schedules.get(p.getString("id")).getString("state"))
         assertNull(schedules.claim(p.getString("id"),1,at))
     }
+    @Test fun waitingConditionsKeepOnceOccurrenceAndCheckpointUntilConditionsReturn() {
+        val p=plan();val at=due(p);val first=schedules.claim(p.getString("id"),1,at)!!;val l=lease(first)
+        val r=db.run(l.getString("id"))!!.put("checkpoint",JSONObject().put("nextStep","verify-original-effect"));db.transaction{db.writeRun(it,r)}
+        schedules.finish(l,"waiting_conditions","屏幕不可操作；等待解锁","")
+        val waiting=schedules.get(p.getString("id"));assertEquals("enabled",waiting.getString("state"));assertEquals(at,waiting.getLong("nextAt"));assertEquals("waiting_conditions",waiting.getJSONObject("lastRun").getString("state"))
+        val resumed=schedules.claim(p.getString("id"),1,at)!!;assertEquals(l.getString("id"),resumed.getJSONObject("run").getString("id"));assertEquals("verify-original-effect",resumed.getJSONObject("run").getJSONObject("checkpoint").getString("nextStep"))
+        schedules.finish(lease(resumed),"verified","核验完成","");assertEquals("ended",schedules.get(p.getString("id")).getString("state"));assertNull(schedules.claim(p.getString("id"),1,at))
+    }
+    @Test fun userPauseAndStopBlockConditionRecoveryOfSameOccurrence() {
+        val p=plan();val at=due(p);val c=schedules.claim(p.getString("id"),1,at)!!;val id=c.getJSONObject("run").getString("id")
+        schedules.finish(lease(c),"waiting_conditions","等待屏幕","");schedules.controlRun(id,"pause");assertNull(schedules.claim(p.getString("id"),1,at))
+        schedules.controlRun(id,"resume");val resumed=schedules.claim(p.getString("id"),1,at)!!;assertEquals(id,resumed.getJSONObject("run").getString("id"))
+        schedules.finish(lease(resumed),"waiting_conditions","等待屏幕","");schedules.stopRun(id);assertNull(schedules.claim(p.getString("id"),1,at))
+    }
     @Test fun endedPlanCannotBeRecreatedAfterRecentReceiptsArePruned() {
         val args=JSONObject().put("taskId","task").put("goal","Original plan").put("modelIdentity","a".repeat(64)).put("rule",JSONObject().put("kind","once").put("at",System.currentTimeMillis()+60_000))
         val original=schedules.create(args,"original")
@@ -63,18 +77,17 @@ class TaskScheduleAcceptanceTest {
         val later=due(next,200);val second=schedules.claim(next.getString("id"),1,later)!!
         assertNotEquals(first.getJSONObject("run").getString("id"),second.getJSONObject("run").getString("id"))
     }
-    @Test fun pauseInvalidatesTheLeaseAndStaleWritesCannotCommit() {
+    @Test fun pausingFuturePlanPreservesCurrentRunAndItsSnapshot() {
         val p=plan();val at=due(p);val running=schedules.claim(p.getString("id"),1,at)!!
         schedules.mutate("pause",JSONObject().put("id",p.getString("id")).put("expectedRevision",1),"pause")
-        try {db.compareAndSet(db.document()["version"] as Int,document().toString(),lease(running));fail("cancelled lease accepted")}catch(_: IllegalArgumentException){}
+        assertTrue(db.compareAndSet(db.document()["version"] as Int,document().toString(),lease(running)));schedules.check(lease(running));schedules.finish(lease(running),"verified","current done","result")
         assertEquals("paused",schedules.get(p.getString("id")).getString("state"))
     }
-    @Test fun deadProcessIsUnknownWithoutReplayingAnUncertainOccurrence() {
+    @Test fun deadProcessRestoresOriginalOccurrenceWithNewLeaseWithoutDuplicatingRun() {
         val p=plan();val at=due(p);val c=schedules.claim(p.getString("id"),1,at)!!
         val r=c.getJSONObject("run").put("processId",-1);db.transaction {db.writeRun(it,r)}
         schedules.recover()
-        assertEquals("unknown",db.run(r.getString("id"))!!.getString("state"))
-        assertNull(schedules.claim(p.getString("id"),1,at))
+        assertEquals("interrupted",db.run(r.getString("id"))!!.getString("state"));val recovered=schedules.claim(p.getString("id"),1,at)!!;assertTrue(recovered.getBoolean("recovered"));assertEquals(r.getString("id"),recovered.getJSONObject("run").getString("id"));assertNotEquals(r.getString("token"),recovered.getJSONObject("run").getString("token"))
     }
     @Test fun modelBudgetIsReservedBeforeARequestAndRejectsTheNextCall() {
         val p=plan(calls=2);val at=due(p);val l=lease(schedules.claim(p.getString("id"),1,at)!!)
@@ -87,7 +100,7 @@ class TaskScheduleAcceptanceTest {
         val value=document();value.getJSONArray("tasks").getJSONObject(0).put("archived",true)
         assertTrue(db.compareAndSet(db.document()["version"] as Int,value.toString(),null))
         assertEquals("paused",schedules.get(p.getString("id")).getString("state"))
-        try{schedules.check(l);fail("archived plan still active")}catch(_: IllegalArgumentException){}
+        schedules.check(l);assertEquals("running",schedules.get(p.getString("id")).getJSONObject("lastRun").getString("state"))
     }
     @Test fun missedWorkSkipsWithoutCreatingABacklog() {
         val p=plan();p.put("maxDelayMinutes",1);val at=due(p,120_000)
@@ -104,7 +117,7 @@ class TaskScheduleAcceptanceTest {
         assertEquals(2,Instant.ofEpochMilli(schedules.next(fall,first)!!).atZone(zone).dayOfMonth)
     }
     @Test fun headlessHostRefusesUIActionsWithoutLaunchingAnActivity() {
-        val p=plan();val at=due(p);val l=lease(schedules.claim(p.getString("id"),1,at)!!)
+        val p=plan().put("allowForeground",false);db.transaction{db.writePlan(it,p)};val at=due(p);val l=lease(schedules.claim(p.getString("id"),1,at)!!)
         val receipt=TaskBackgroundTools(context).invoke(JSONObject().put("tool","apps.launch").put("requestId","qa").put("arguments",JSONObject().put("package","com.android.settings")),l)
         assertEquals("permission_required",receipt["outcome"])
         val original=JSONObject().put("days",org.json.JSONArray(listOf(2,3,4,5,6)))

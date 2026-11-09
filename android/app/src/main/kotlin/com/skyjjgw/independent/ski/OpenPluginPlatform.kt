@@ -58,9 +58,8 @@ internal class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messen
         browser.isSaveEnabled = false
         browser.addJavascriptInterface(object {
             @JavascriptInterface fun postMessage(raw: String) {
-                if (raw.length > 18 * 1024 * 1024) return
                 main.post {
-                    if (closed || inFlight >= 8) return@post
+                    if (closed) return@post
                     val request = try { JSONObject(raw) } catch (_: Exception) { return@post }
                     val ticket = request.optString("id")
                     if (!Regex("[0-9]{1,16}").matches(ticket)) return@post
@@ -94,12 +93,14 @@ internal class OpenPluginView(context: Context, id: Int, args: Map<*, *>, messen
             override fun onPageStarted(view: WebView, url: String, icon: Bitmap?) {
                 if (!localDocument(Uri.parse(url))) view.stopLoading()
             }
+            override fun onReceivedError(view:WebView,request:WebResourceRequest,error:WebResourceError){if(request.isForMainFrame)channel.invokeMethod("failure",error.description.toString())}
+            override fun onRenderProcessGone(view:WebView,detail:RenderProcessGoneDetail):Boolean{channel.invokeMethod("failure","插件渲染进程已退出，未重复执行。");return true}
             override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) { handler.cancel() }
         }
         browser.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
-                if (!closed) channel.invokeMethod("console", mapOf("level" to message.messageLevel().name, "message" to message.message().take(1000), "line" to message.lineNumber()))
+                if (!closed) channel.invokeMethod("console", mapOf("level" to message.messageLevel().name, "message" to message.message(), "line" to message.lineNumber()))
                 return true
             }
             override fun onShowFileChooser(webView: WebView, filePathCallback: android.webkit.ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean { filePathCallback.onReceiveValue(null); return true }
@@ -148,7 +149,7 @@ class OpenPluginRuntimePlatform(private val context: Context) {
             try {
                 when(call.method) {
                     "create" -> {
-                        require(instances.size < 4 && !instances.containsKey(id))
+                        require(!instances.containsKey(id))
                         instances[id]=OpenPluginView(context,id,call.arguments as Map<*, *>,messenger)
                         if (call.argument<Boolean>("assistant") == true) backgroundAllowed.add(id)
                         result.success(null)

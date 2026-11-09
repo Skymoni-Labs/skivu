@@ -1,6 +1,7 @@
 package com.skyjjgw.independent.ski
 
 import android.content.Context
+import java.io.File
 import android.content.ContentValues
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,6 +11,19 @@ import java.util.UUID
 /** Plan state, occurrence claims and reservations commit in the same SQLite database. */
 class TaskScheduleStore(private val context: Context) {
     private val store = TaskDatabase.get(context)
+    init{migrateImplicitLimits()}
+    private fun migrateImplicitLimits(){val preferences=context.getSharedPreferences("cloud-policy-migrations",0);if(preferences.getBoolean("unrestricted-v2",false))return
+        store.transaction{db->for(p in store.queryJson(db,"SELECT data FROM plans")){if(!p.has("limitsVersion")){p.put("legacyLimits",JSONObject().put("maxRequestsPerRun",p.optInt("maxRequestsPerRun")).put("maxDailyRequests",p.optInt("maxDailyRequests")).put("maxOutputTokens",p.optInt("maxOutputTokens")).put("allowForeground",p.optBoolean("allowForeground")))
+            if(p.optInt("maxRequestsPerRun")==3&&p.optInt("maxDailyRequests")==8&&p.optInt("maxOutputTokens")==1024){p.put("maxRequestsPerRun",0).put("maxDailyRequests",0).put("maxOutputTokens",0)}
+            p.put("allowForeground",true)
+            p.optJSONObject("modelBinding")?.let{binding->
+                val normalized=JSONObject(binding.toString());val connection=binding.optJSONObject("connection")
+                if(connection!=null){val authority=JSONObject();for(key in listOf("id","protocol","address","model","auth","credentialId"))if(connection.has(key))authority.put(key,connection.get(key));normalized.put("connection",authority)}
+                p.put("legacyModelIdentity",p.optString("modelIdentity")).put("modelIdentity",TaskDatabase.digest(canonical(normalized)))
+            }
+            p.put("limitsVersion",2);store.writePlan(db,p)
+        }}};check(preferences.edit().putBoolean("unrestricted-v2",true).commit())
+    }
     fun list(): List<JSONObject> = store.queryJson(store.readableDatabase,"SELECT data FROM plans ORDER BY rowid DESC")
     fun get(id: String): JSONObject = store.plan(id) ?: error("计划不存在。")
     private fun string(p: JSONObject,k: String,max: Int,default: String=""): String = p.optString(k,default).also { require(it.length<=max && !it.contains('\u0000')) }
@@ -25,7 +39,7 @@ class TaskScheduleStore(private val context: Context) {
             val source=raw.getJSONArray("weekdays"); require(source.length() in 1..7)
             val days=(0 until source.length()).map { source.getInt(it) }.toSortedSet();require(days.all { it in 1..7 });value.put("weekdays",JSONArray(days))
         }
-        if(kind=="interval") { val minutes=raw.getInt("intervalMinutes"); require(minutes in 15..10080) { "后台重复间隔最少15分钟，实际触发允许系统延迟。" };value.put("intervalMinutes",minutes) }
+        if(kind=="interval") { val minutes=raw.getInt("intervalMinutes"); require(minutes>0) { "间隔必须为正数；实际触发受系统调度和后台条件影响。" };value.put("intervalMinutes",minutes) }
         return value
     }
     fun next(rule: JSONObject, after: Long): Long? {
@@ -51,14 +65,14 @@ class TaskScheduleStore(private val context: Context) {
         return null
     }
     private fun validateConfig(p: JSONObject) {
-        require(p.getString("goal").trim().length in 1..4000)
+        require(p.getString("goal").isNotBlank())
         require(Regex("[a-f0-9]{64}").matches(p.getString("modelIdentity"))) { "请先选择可用模型。" }
-        require(p.getInt("maxRequestsPerRun") in 1..5 && p.getInt("maxDailyRequests") in 1..20 && p.getInt("maxRequestsPerRun")<=p.getInt("maxDailyRequests"))
-        require(p.getInt("maxOutputTokens") in 512..4096)
+        require(p.getInt("maxRequestsPerRun")>=0&&p.getInt("maxDailyRequests")>=0)
+        require(p.getInt("maxOutputTokens")>=0&&p.optLong("maxRunSeconds",0)>=0)
         require(p.getString("missedPolicy") in setOf("latest","skip"))
-        require(p.getInt("maxDelayMinutes") in 1..1440)
+        require(p.getInt("maxDelayMinutes")>=0)
         require(p.optString("mode","summary") in setOf("summary","local_tasks","device_action","coding"))
-        if(p.optString("mode")=="coding")require(Regex("project_[a-zA-Z0-9_-]{1,110}").matches(p.optString("projectId"))&&java.io.File(context.filesDir,"cloud-projects/${p.optString("projectId")}").isDirectory){"编程计划必须绑定一个现有内置项目。"}
+        if(p.has("projectId")&&p.optString("projectId").isNotBlank())require(Regex("project_[a-zA-Z0-9_-]{1,110}").matches(p.optString("projectId"))&&java.io.File(context.filesDir,"cloud-projects/${p.optString("projectId")}").isDirectory){"所选内置项目不存在。"}
     }
     fun create(args: JSONObject,operation: String): JSONObject {
         val digest=TaskDatabase.digest("create:${canonical(args)}")
@@ -75,17 +89,16 @@ class TaskScheduleStore(private val context: Context) {
             if(r.getString("kind")=="interval" && !r.has("at")) r.put("at",now+r.getLong("intervalMinutes")*60_000)
             val p=JSONObject().put("id","plan_${UUID.randomUUID().toString().replace('-','_')}").put("taskId",task.getString("id")).put("version",1)
                 .put("createdBy",operation).put("createDigest",digest)
-                .put("kind","assistant").put("goal",string(args,"goal",4000)).put("rule",r)
+                .put("limitsVersion",2).put("kind","assistant").put("goal",args.getString("goal")).put("rule",r)
                 .put("mode",args.optString("mode","summary"))
                 .put("modelIdentity",string(args,"modelIdentity",64)).put("modelName",string(args,"modelName",160))
-                .put("maxRequestsPerRun",args.optInt("maxRequestsPerRun",3)).put("maxDailyRequests",args.optInt("maxDailyRequests",8))
-                .put("maxOutputTokens",args.optInt("maxOutputTokens",1024)).put("missedPolicy",args.optString("missedPolicy","latest"))
-                .put("maxDelayMinutes",args.optInt("maxDelayMinutes",60)).put("allowForeground",args.optBoolean("allowForeground",false))
+                .put("maxRequestsPerRun",args.optInt("maxRequestsPerRun",0)).put("maxDailyRequests",args.optInt("maxDailyRequests",0))
+                .put("maxRunSeconds",args.optLong("maxRunSeconds",0)).put("maxOutputTokens",args.optInt("maxOutputTokens",0)).put("missedPolicy",args.optString("missedPolicy","latest"))
+                .put("maxDelayMinutes",args.optInt("maxDelayMinutes",0)).put("allowForeground",args.optBoolean("allowForeground",true))
                 .put("created",now).put("updated",now).put("state",if(args.optBoolean("enabled",true)) "enabled" else "paused").put("reason","")
             if(args.has("projectId"))p.put("projectId",args.getString("projectId"))
             validateConfig(p)
             if(args.has("modelBinding")) p.put("modelBinding",args.getJSONObject("modelBinding"))
-            require(store.queryJson(db,"SELECT data FROM plans WHERE state!='ended'").size<256) { "启用或暂停的计划已达上限，请先整理。" }
             val due=next(r,now);require(due!=null) { "执行时间已经过去，请选择未来时间。" };p.put("nextAt",due)
             val duplicate=store.queryJson(db,"SELECT data FROM plans WHERE task_id=? AND state!='ended'",arrayOf(task.getString("id"))).firstOrNull {
                 it.getString("goal")==p.getString("goal") && canonical(it.getJSONObject("rule"))==canonical(r) && it.getString("modelIdentity")==p.getString("modelIdentity")
@@ -103,7 +116,7 @@ class TaskScheduleStore(private val context: Context) {
             val p=store.plan(args.getString("id"),db) ?: error("计划不存在。")
             require(p.getInt("version")==args.getInt("expectedRevision")) { "计划已在其他位置修改，请重新读取。" }
             if(action=="update") {
-                for(key in listOf("goal","mode","projectId","modelIdentity","modelName","modelBinding","maxRequestsPerRun","maxDailyRequests","maxOutputTokens","missedPolicy","maxDelayMinutes","allowForeground")) if(args.has(key)) p.put(key,args.get(key))
+                for(key in listOf("goal","mode","projectId","modelIdentity","modelName","modelBinding","maxRequestsPerRun","maxDailyRequests","maxOutputTokens","missedPolicy","maxDelayMinutes","allowForeground","maxRunSeconds")) if(args.has(key)) p.put(key,args.get(key))
                 if(args.has("rule")) p.put("rule",rule(args.getJSONObject("rule")))
                 validateConfig(p)
                 p.put("nextAt",next(p.getJSONObject("rule"),System.currentTimeMillis()) ?: JSONObject.NULL)
@@ -120,75 +133,100 @@ class TaskScheduleStore(private val context: Context) {
                 if(action=="cancel") p.put("nextAt",JSONObject.NULL)
             }
             p.put("version",p.getInt("version")+1).put("updated",System.currentTimeMillis()).put("reason","")
-            val active=store.queryJson(db,"SELECT data FROM runs WHERE plan_id=? AND state='running'",arrayOf(p.getString("id"))).firstOrNull()
-            if(active!=null) p.put("lastRun",JSONObject().put("id",active.getString("id")).put("dueAt",active.getLong("dueAt")).put("state","unknown").put("summary","计划已修改或停止，已派发的结果待核对。"))
             store.writePlan(db,p);store.remember(db,operation,digest,p.getString("id"));p
         }
     }
-    fun claim(id: String,version: Int,due: Long): JSONObject? = store.transaction { db ->
-        val p=store.plan(id,db) ?: return@transaction null
-        if(p.getString("state")!="enabled" || p.getInt("version")!=version || p.optLong("nextAt",-1)!=due) return@transaction null
-        val now=System.currentTimeMillis(); if(now<due) return@transaction null
-        val runId="run_${TaskDatabase.digest("$id:$due")}"
-        if(store.run(runId,db)!=null) return@transaction null
-        val busy=store.queryJson(db,"SELECT data FROM runs WHERE state='running' AND lease_until>?",arrayOf(now.toString()))
-        if(busy.isNotEmpty()) return@transaction JSONObject().put("busy",true)
-        val r=JSONObject().put("id",runId).put("planId",id).put("planVersion",version).put("dueAt",due).put("state","running")
-            .put("token",UUID.randomUUID().toString()).put("leaseUntil",now+180_000).put("started",now).put("requests",0).put("processId",android.os.Process.myPid())
-        store.writeRun(db,r)
-        p.put("lastRun",JSONObject().put("id",runId).put("dueAt",due).put("state","running").put("summary","小云正在后台处理。"));store.writePlan(db,p)
-        if(now-due>p.getInt("maxDelayMinutes")*60_000L || p.getString("missedPolicy")=="skip" && now-due>60_000) {
-            finishInside(db,r,p,"missed","错过执行时间，已跳过本次安排。","")
-            return@transaction null
+    fun claim(id:String,version:Int,due:Long):JSONObject?=store.transaction{db->
+        val p=store.plan(id,db)?:return@transaction null;val now=System.currentTimeMillis();if(now<due)return@transaction null
+        val runId="run_${TaskDatabase.digest("$id:$due")}";val previous=store.run(runId,db)
+        if(previous!=null){
+            if(previous.optBoolean("retryOnConditionChange")&&previous.optString("failureCondition")==conditionSignature())return@transaction null
+            if(previous.optString("state") !in setOf("interrupted","waiting_conditions")||previous.optBoolean("stopRequested")||previous.optBoolean("pauseRequested"))return@transaction null
+            val snapshot=previous.optJSONObject("planSnapshot")?:return@transaction null
+            previous.put("state","running").put("token",UUID.randomUUID().toString()).put("leaseUntil",now+180_000).put("processId",android.os.Process.myPid()).put("resumedAt",now).put("lastHeartbeatAt",now)
+            store.writeRun(db,previous)
+            return@transaction JSONObject().put("plan",snapshot).put("run",previous).put("recovered",true)
         }
+        if(p.getString("state")!="enabled"||p.getInt("version")!=version||p.optLong("nextAt",-1)!=due)return@transaction null
+        val busy=store.queryJson(db,"SELECT data FROM runs WHERE state='running' AND lease_until>?",arrayOf(now.toString()))
+        val memory=android.app.ActivityManager.MemoryInfo();context.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(memory)
+        val automatic=maxOf(1,minOf(Runtime.getRuntime().availableProcessors(),(memory.availMem/(160L*1024*1024)).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()))
+        val configured=context.getSharedPreferences("cloud-execution-policy",0).getInt("maxBackgroundRuns",0)
+        if(busy.any{it.getString("planId")==id}||busy.size>=(if(configured>0)configured else automatic))return@transaction JSONObject().put("busy",true).put("reason","等待项目或实际设备资源")
+        val r=JSONObject().put("id",runId).put("planId",id).put("planVersion",version).put("dueAt",due).put("state","running").put("token",UUID.randomUUID().toString()).put("leaseUntil",now+180_000).put("started",now).put("requests",0).put("processId",android.os.Process.myPid()).put("resumeGeneration",0).put("activeMillis",0).put("lastHeartbeatAt",now).put("planSnapshot",JSONObject(p.toString()))
+        store.writeRun(db,r);p.put("lastRun",JSONObject().put("id",runId).put("dueAt",due).put("state","running").put("summary","小云正在后台处理。"));store.writePlan(db,p)
+        if(p.getInt("maxDelayMinutes")>0&&now-due>p.getInt("maxDelayMinutes")*60_000L||p.getString("missedPolicy")=="skip"&&now-due>60_000){finishInside(db,r,p,"missed","错过执行时间，已按用户策略跳过本次。","");return@transaction null}
         JSONObject().put("plan",p).put("run",r)
     }
+    fun interrupt(lease:JSONObject,reason:String){store.transaction{db->
+        val r=store.run(lease.getString("id"),db)?:return@transaction
+        if(r.optString("token")!=lease.getString("token")||r.optString("state")!="running")return@transaction
+        r.put("state","interrupted").put("leaseUntil",0).put("resumeGeneration",r.optInt("resumeGeneration")+1).put("summary",reason);store.writeRun(db,r)
+        store.plan(r.getString("planId"),db)?.let{p->p.put("lastRun",JSONObject().put("id",r.getString("id")).put("state","interrupted").put("dueAt",r.getLong("dueAt")).put("summary",reason));store.writePlan(db,p)}
+    }}
+    fun conditionSignature():String {val version=context.packageManager.getPackageInfo(context.packageName,0).lastUpdateTime;val info=android.app.ActivityManager.RunningAppProcessInfo();android.app.ActivityManager.getMyMemoryState(info);val foreground=info.importance<=android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;return TaskDatabase.digest("$version:${context.getSharedPreferences("skivu.scheduled-runtime",0).getLong("callback",0)}:$foreground:${context.getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked}:${context.getSystemService(android.os.PowerManager::class.java).isInteractive}:${android.provider.Settings.Secure.getString(context.contentResolver,android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)}")}
+    fun deferFailure(lease:JSONObject,stage:String,error:Throwable){val detail="$stage: ${error.stackTraceToString()}";val log=File(context.filesDir,"cloud-schedule-errors/${lease.getString("id")}.log");log.parentFile!!.mkdirs();log.appendText("${System.currentTimeMillis()} $detail\n");store.transaction{db->val r=store.run(lease.getString("id"),db)?:return@transaction;if(r.optString("token")!=lease.getString("token")||r.optString("state")!="running")return@transaction;val failure=TaskDatabase.digest("$stage:${error.javaClass.name}:${error.message}");val signature=conditionSignature();val noProgress=r.optString("failureFingerprint")==failure&&r.optInt("failureRequests",-1)==r.optInt("requests")&&r.optString("failureCondition")==signature;r.put("failureFingerprint",failure).put("failureRequests",r.optInt("requests")).put("failureCondition",signature).put("retryOnConditionChange",noProgress).put("state",if(noProgress)"waiting_conditions"else"interrupted").put("leaseUntil",0).put("resumeGeneration",r.optInt("resumeGeneration")+1).put("summary",if(noProgress)"启动条件没有变化，等待系统或配置变化后核对恢复。$stage: ${error.message}"else"启动中断，检查点保留。$stage: ${error.message}");store.writeRun(db,r);store.plan(r.getString("planId"),db)?.let{p->p.put("lastRun",JSONObject().put("id",r.getString("id")).put("state",r.getString("state")).put("dueAt",r.getLong("dueAt")).put("summary",r.getString("summary")));store.writePlan(db,p)}}}
+    fun stopRun(id:String):JSONObject=store.transaction{db->
+        val r=store.run(id,db)?:error("执行记录不存在。")
+        if(r.getString("state") in setOf("running","interrupted","waiting_conditions")){r.put("stopRequested",true);store.writeRun(db,r)};r
+    }
+    fun controlRun(id:String,action:String):JSONObject=store.transaction{db->require(action in setOf("pause","resume"));val r=store.run(id,db)?:error("执行记录不存在。");require(!r.optBoolean("stopRequested")&&r.optString("state") in setOf("running","interrupted","waiting_conditions")){"此执行不能暂停或继续。"};r.put("pauseRequested",action=="pause").put("resumeRequested",action=="resume");store.writeRun(db,r);store.plan(r.getString("planId"),db)?.let{p->p.optJSONObject("lastRun")?.put("paused",action=="pause");store.writePlan(db,p)};r}
     fun check(lease: JSONObject) { store.transaction { store.validateLease(it,lease) } }
+    fun heartbeat(lease:JSONObject,checkpoint:JSONObject?=null):JSONObject=store.transaction{db->
+        store.validateLease(db,lease);val run=store.run(lease.getString("id"),db)!!
+        val now=System.currentTimeMillis();val last=run.optLong("lastHeartbeatAt",now)
+        run.put("activeMillis",run.optLong("activeMillis")+if(run.optBoolean("pauseRequested"))0 else maxOf(0,now-last)).put("lastHeartbeatAt",now)
+        val policy=run.optJSONObject("planSnapshot");val seconds=policy?.optLong("maxRunSeconds",0)?:0
+        if(seconds>0&&run.optLong("activeMillis")/1000>=seconds)run.put("stopRequested",true).put("timeoutRequested",true)
+        run.put("leaseUntil",now+180_000).put("heartbeatAt",now)
+        if(checkpoint!=null)run.put("checkpoint",checkpoint)
+        store.writeRun(db,run);run
+    }
     fun reserveModel(lease: JSONObject): JSONObject = store.transaction { db ->
         store.validateLease(db,lease)
-        val run=store.run(lease.getString("id"),db)!!;val plan=store.plan(run.getString("planId"),db)!!
+        val run=store.run(lease.getString("id"),db)!!;val plan=run.optJSONObject("planSnapshot")?:store.plan(run.getString("planId"),db)!!
         val day=LocalDate.now().toString()
         fun used(id: String): Int = db.rawQuery("SELECT calls FROM budgets WHERE day=? AND plan_id=?",arrayOf(day,id)).use { if(it.moveToFirst()) it.getInt(0) else 0 }
-        require(run.getInt("requests")<plan.getInt("maxRequestsPerRun") && used(plan.getString("id"))<plan.getInt("maxDailyRequests") && used("*")<40) { "模型请求用量已达到本次或今日上限。" }
+        require((plan.getInt("maxRequestsPerRun")==0||run.getInt("requests")<plan.getInt("maxRequestsPerRun"))&&(plan.getInt("maxDailyRequests")==0||used(plan.getString("id"))<plan.getInt("maxDailyRequests"))) { "模型请求用量已达到本次或今日上限。" }
         for(id in listOf(plan.getString("id"),"*")) db.insertWithOnConflict("budgets",null,ContentValues().apply {put("day",day);put("plan_id",id);put("calls",used(id)+1)},android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE)
         run.put("requests",run.getInt("requests")+1);store.writeRun(db,run)
         JSONObject().put("reserved",true).put("requests",run.getInt("requests"))
     }
     private fun finishInside(db: android.database.sqlite.SQLiteDatabase,r: JSONObject,p: JSONObject,state: String,summary: String,result: String) {
         val now=System.currentTimeMillis()
-        r.put("state",state).put("finished",now).put("leaseUntil",0).put("summary",summary.take(400));store.writeRun(db,r)
-        if(p.getInt("version")==r.getInt("planVersion")) {
-            p.put("lastRun",JSONObject().put("id",r.getString("id")).put("dueAt",r.getLong("dueAt")).put("finished",now).put("state",state).put("summary",summary.take(400)).put("result",result.take(12000)).put("requests",r.getInt("requests")))
+        if(state=="waiting_conditions"){
+            r.put("state",state).put("leaseUntil",0).put("summary",summary).put("result",result).put("resumeGeneration",r.optInt("resumeGeneration")+1);store.writeRun(db,r)
+            p.put("lastRun",JSONObject().put("id",r.getString("id")).put("state",state).put("dueAt",r.getLong("dueAt")).put("summary",summary).put("result",result));store.writePlan(db,p);return
+        }
+        r.put("state",state).put("finished",now).put("leaseUntil",0).put("summary",summary).put("result",result);store.writeRun(db,r)
+        run {
+            p.put("lastRun",JSONObject().put("id",r.getString("id")).put("dueAt",r.getLong("dueAt")).put("finished",now).put("state",state).put("summary",summary).put("result",result).put("requests",r.getInt("requests")))
+            if(r.has("artifactBatches"))p.getJSONObject("lastRun").put("artifactBatches",r.getJSONArray("artifactBatches"))
             if(r.has("artifactIds"))p.getJSONObject("lastRun").put("artifactIds",r.getJSONArray("artifactIds"))
-            if(p.getString("state")=="enabled") {
+            if(p.getInt("version")==r.getInt("planVersion")&&p.getString("state")=="enabled") {
                 val next=next(p.getJSONObject("rule"),maxOf(now,r.getLong("dueAt")))
                 p.put("nextAt",next ?: JSONObject.NULL)
                 if(next==null) p.put("state","ended")
-                if(state=="waiting_conditions") p.put("state","needs_configuration").put("reason",summary.take(240))
+                if(state=="waiting_conditions") p.put("state","needs_configuration").put("reason",summary)
             }
             store.writePlan(db,p)
         }
     }
-    fun finish(lease: JSONObject,state: String,summary: String,result: String,artifactIds:JSONArray?=null): JSONObject? = store.transaction { db ->
+    fun finish(lease: JSONObject,state: String,summary: String,result: String,artifactIds:JSONArray?=null,artifactBatches:JSONArray?=null): JSONObject? = store.transaction { db ->
         require(state in setOf("verified","unknown","failed","missed","waiting_conditions","cancelled"))
         val r=store.run(lease.getString("id"),db) ?: return@transaction null
-        if(r.getString("token")!=lease.getString("token") || r.getString("state")!="running") return@transaction null
+        if(r.getString("token")!=lease.getString("token") || (r.getString("state")!="running"&&!(r.optBoolean("stopRequested")&&state in setOf("cancelled","unknown")))) return@transaction null
         val p=store.plan(r.getString("planId"),db) ?: return@transaction null
-        if(artifactIds!=null){require(artifactIds.length()<=40)
-            @Suppress("UNCHECKED_CAST") val actual=CloudArtifacts(context).list("cloud:${p.getString("id")}").map{it as Map<String,Any?>}.filter{it["state"]=="delivered"}.map{it["id"]}.toSet()
-            for(i in 0 until artifactIds.length())require(artifactIds.getString(i) in actual){"计划成果记录不存在或不属于此计划。"}
-            r.put("artifactIds",artifactIds)
-        }
+        val artifactStore=CloudArtifactStore(context).apply{migrateLegacy()};val artifactOwner="cloud:${p.getString("id")}"
+        if(artifactIds!=null){for(i in 0 until artifactIds.length()){val record=artifactStore.get(artifactIds.getString(i));require(record?.optString("owner")==artifactOwner){"成果不属于此计划。"}};r.put("artifactIds",artifactIds)}
+        if(artifactBatches!=null){for(i in 0 until artifactBatches.length())require(artifactStore.batch(artifactBatches.getString(i))?.optString("owner")==artifactOwner){"成果组不属于此计划。"};r.put("artifactBatches",artifactBatches)}
         finishInside(db,r,p,state,summary,result);p
     }
-    fun recover() {
-        store.transaction { db ->
-            val now=System.currentTimeMillis()
-            for(r in store.queryJson(db,"SELECT data FROM runs WHERE state='running'")) {
-                if(r.getLong("leaseUntil")>now && r.optInt("processId",-1)==android.os.Process.myPid()) continue
-                val p=store.plan(r.getString("planId"),db) ?: continue
-                finishInside(db,r,p,"unknown","上次执行中断，结果待核对；不会自动重做。","")
-            }
+    fun recover(){
+        for(r in store.queryJson(store.readableDatabase,"SELECT data FROM runs WHERE state='running'")){
+            if(r.getLong("leaseUntil")>System.currentTimeMillis()&&r.optInt("processId",-1)==android.os.Process.myPid())continue
+            if(r.has("planSnapshot"))interrupt(JSONObject().put("id",r.getString("id")).put("token",r.getString("token")),"系统中断，等待恢复检查点并核对原进程；不会重放未知副作用。")
+            else store.plan(r.getString("planId"))?.let{p->finish(JSONObject().put("id",r.getString("id")).put("token",r.getString("token")),"unknown","旧执行没有恢复检查点，结果保留待核对。","")}
         }
     }
     fun rebaseClock(): List<String> = store.transaction {db->

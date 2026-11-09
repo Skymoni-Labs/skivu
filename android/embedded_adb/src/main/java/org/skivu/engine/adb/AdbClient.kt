@@ -123,24 +123,22 @@ class AdbClient(private val host: String, private val port: Int, private val key
     }
 
     /** Feed a script through stdin, not a shell-quoted command-line wrapper. */
-    fun executeScript(command: String, timeoutMs: Int = 30000, heartbeat: String? = null): ShellV2Result {
-        require(command.toByteArray().size <= 65536 && !command.contains('\u0000'))
-        require(timeoutMs in 1000..600000)
+    fun executeScript(command: String, timeoutMs: Long = 0, heartbeat: String? = null,
+                      stdout: java.io.OutputStream? = null, stderr: java.io.OutputStream? = null): ShellV2Result {
+        require(!command.contains('\u0000'))
+        require(timeoutMs >= 0)
         require(heartbeat == null || Regex("^SKIVU_LEASE_[a-f0-9]{32}$").matches(heartbeat))
-        socket.soTimeout = timeoutMs + 3000
-        if (useTls) tlsSocket.soTimeout = timeoutMs + 3000
-        val decoder = ShellV2Decoder()
+        // Owned heartbeat detects a broken execution lease. Silence is valid
+        // program behavior, and is not a product runtime deadline.
+        val readTimeout=if(timeoutMs==0L)0 else minOf(Int.MAX_VALUE.toLong(),timeoutMs+minOf(3000L,Long.MAX_VALUE-timeoutMs)).toInt()
+        socket.soTimeout = readTimeout
+        if (useTls) tlsSocket.soTimeout = readTimeout
+        val decoder = ShellV2Decoder(stdout,stderr)
         // The owned wrapper ends with a newline. A second one would become an
         // empty lease frame after the shell has parsed the compound command.
         val script = (if (command.endsWith('\n')) command else command + "\n").toByteArray(Charsets.UTF_8)
-        val queue = java.util.ArrayDeque<ByteArray>()
         var offset = 0
-        while (offset < script.size) {
-            val end = (offset + A_MAXDATA - 5).coerceAtMost(script.size)
-            queue.add(shellFrame(0, script.copyOfRange(offset, end)))
-            offset = end
-        }
-        if (heartbeat == null) queue.add(shellFrame(4))
+        var stdinClosed=false
         val localId = 1
         val flow = Any()
         var opened = false
@@ -150,7 +148,10 @@ class AdbClient(private val host: String, private val port: Int, private val key
         var ended = false
         fun pump() {
             if (!opened || !writable || ended || closed.get()) return
-            val payload = if (queue.isNotEmpty()) queue.removeFirst() else {
+            val payload = if (offset < script.size) {
+                val end=minOf(offset+(A_MAXDATA-5),script.size)
+                shellFrame(0,script.copyOfRange(offset,end)).also{offset=end}
+            } else if(heartbeat==null&&!stdinClosed){stdinClosed=true;shellFrame(4)}else {
                 if (heartbeat == null || !beatPending) return
                 beatPending = false
                 shellFrame(0, (heartbeat + "\n").toByteArray(Charsets.UTF_8))

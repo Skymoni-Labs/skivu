@@ -29,20 +29,22 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
     });
   }
 
-  Future<List<int>> download(String url, int max) async {
+  Future<List<int>> download(String url, int? max) async {
     var uri = Uri.tryParse(url);
     final client = http.Client();
     try {
-      for (var hop = 0; hop < 4; hop++) {
+      final visited = <String>{};
+      while (true) {
+        if (!visited.add(uri.toString())) throw StateError('下载重定向循环。');
         if (uri == null ||
             uri.scheme != 'https' ||
             uri.host.isEmpty ||
             uri.userInfo.isNotEmpty ||
             uri.hasFragment)
           throw const FormatException('下载地址必须为 HTTPS。');
-        final response = await client
-            .send(http.Request('GET', uri)..followRedirects = false)
-            .timeout(const Duration(seconds: 30));
+        final response = await client.send(
+          http.Request('GET', uri)..followRedirects = false,
+        );
         if ([301, 302, 303, 307, 308].contains(response.statusCode)) {
           final next = response.headers['location'];
           await response.stream.drain<void>();
@@ -52,15 +54,13 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
         }
         if (response.statusCode != 200) throw StateError('download');
         final bytes = <int>[];
-        await for (final part in response.stream.timeout(
-          const Duration(seconds: 30),
-        )) {
-          if (bytes.length + part.length > max) throw StateError('size');
+        await for (final part in response.stream) {
+          if (max != null && bytes.length + part.length > max)
+            throw StateError('size');
           bytes.addAll(part);
         }
         return bytes;
       }
-      throw StateError('redirect');
     } finally {
       client.close();
     }
@@ -168,8 +168,6 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
       ],
     );
     if (f == null) return;
-    if (await f.length() > maxOpenPluginBytes)
-      throw const FormatException('插件包过大。');
     await previewInstall(
       OpenPluginPackage.parse(await f.readAsString()),
       '本地文件 ${f.name}',

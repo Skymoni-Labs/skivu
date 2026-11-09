@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'extension_market.dart';
 import 'mcp_client.dart';
+import 'cloud_range_reader.dart';
 import 'plugin_market.dart' show comparePluginVersions;
 
 class ExtensionsPage extends StatefulWidget {
@@ -325,6 +326,7 @@ class McpToolDialog extends StatefulWidget {
 class _McpToolDialogState extends State<McpToolDialog> {
   final endpoint = TextEditingController(),
       token = TextEditingController(),
+      timeout = TextEditingController(text: '0'),
       arguments = TextEditingController(text: '{}');
   final store = McpConnectionStore();
   McpClient? client;
@@ -347,6 +349,7 @@ class _McpToolDialogState extends State<McpToolDialog> {
           widget.extension.payload['endpoint'] as String? ??
           '';
       token.text = saved?.token ?? '';
+      timeout.text = '${saved?.timeoutSeconds ?? 0}';
       remember = saved != null;
     } catch (_) {
       error = '保存的连接读取失败，请重新填写。';
@@ -370,9 +373,14 @@ class _McpToolDialogState extends State<McpToolDialog> {
     });
     McpClient? next;
     try {
+      final seconds = int.tryParse(timeout.text.trim());
+      if (seconds == null || seconds < 0) {
+        throw const FormatException('超时请填写非负整数，0 表示不设置。');
+      }
       final config = McpConnection(
         endpoint.text.trim(),
         token: token.text.trim(),
+        timeoutSeconds: seconds,
       );
       next = McpClient(config);
       client = next;
@@ -426,6 +434,7 @@ class _McpToolDialogState extends State<McpToolDialog> {
     disconnect();
     endpoint.dispose();
     token.dispose();
+    timeout.dispose();
     arguments.dispose();
     super.dispose();
   }
@@ -445,7 +454,7 @@ class _McpToolDialogState extends State<McpToolDialog> {
               controller: endpoint,
               enabled: !busy,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: 'HTTPS MCP 地址'),
+              decoration: const InputDecoration(labelText: 'HTTP(S) MCP 地址'),
               onChanged: (_) => setState(disconnect),
             ),
             TextField(
@@ -455,6 +464,16 @@ class _McpToolDialogState extends State<McpToolDialog> {
               autocorrect: false,
               enableSuggestions: false,
               decoration: const InputDecoration(labelText: 'Bearer 访问密钥（如需要）'),
+              onChanged: (_) => setState(disconnect),
+            ),
+            TextField(
+              controller: timeout,
+              enabled: !busy,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '每次请求超时（秒）',
+                helperText: '0 表示不设置；关闭窗口可取消本机等待。',
+              ),
               onChanged: (_) => setState(disconnect),
             ),
             CheckboxListTile(
@@ -541,8 +560,35 @@ class _McpToolDialogState extends State<McpToolDialog> {
               const Text('执行结果'),
               SelectableText(
                 result!.length > 40000
-                    ? '${result!.substring(0, 40000)}\n\n结果较长，此处显示前 40,000 个字符，可复制完整结果。'
+                    ? '${result!.substring(0, 40000)}\n\n此处为预览，可查看或复制完整结果。'
                     : result!,
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  final bytes = utf8.encode(result!);
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CloudRangeReader(
+                        title: '完整执行结果',
+                        read: (offset) async {
+                          var end = (offset + 48000).clamp(0, bytes.length);
+                          while (end < bytes.length &&
+                              (bytes[end] & 0xc0) == 0x80) {
+                            end--;
+                          }
+                          return {
+                            'text': utf8.decode(bytes.sublist(offset, end)),
+                            'nextOffset': end,
+                            'bytes': bytes.length,
+                            'complete': end == bytes.length,
+                          };
+                        },
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.article_outlined),
+                label: const Text('查看完整结果'),
               ),
               TextButton.icon(
                 onPressed: () =>

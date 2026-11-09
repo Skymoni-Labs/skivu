@@ -153,7 +153,7 @@ void main() {
   });
 
   test(
-    'compares metadata structurally and refuses oversized active upgrade',
+    'compares metadata structurally and preserves complete large active upgrade',
     () async {
       final original = jsonDecode(bundle());
       original['metadata']['source'] = {
@@ -183,9 +183,12 @@ void main() {
       });
       expect(await library.install(catalog), isTrue);
       await library.enableSkill('test.editor', true);
-      raw = bundle(version: '2.0.0', instruction: 'x' * maxActiveSkillBytes);
-      expect(await library.install(entry(raw)), isFalse);
-      expect(library.installed['test.editor']!.version, '1.0.0');
+      final instruction = '完整说明🙂' * 50000;
+      raw = bundle(version: '2.0.0', instruction: instruction);
+      expect(await library.install(entry(raw)), isTrue);
+      expect(library.installed['test.editor']!.version, '2.0.0');
+      expect(library.installed['test.editor']!.instruction, instruction);
+      expect(library.skillPrompt, contains(instruction));
     },
   );
 

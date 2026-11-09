@@ -184,12 +184,7 @@ void main() {
         expect(r.headers['Authorization'], 'BetaDevice test-token');
         expect(r.followRedirects, isFalse);
         final body = jsonDecode(r.body) as Map;
-        expect(body.keys.toSet(), {
-          'model',
-          'messages',
-          'stream',
-          'max_tokens',
-        });
+        expect(body.keys.toSet(), {'model', 'messages', 'stream'});
         expect((body['messages'] as List).first['role'], 'system');
         return http.Response(
           jsonEncode({
@@ -236,7 +231,6 @@ void main() {
             'input',
             'instructions',
             'stream',
-            'max_output_tokens',
             'store',
           });
           expect(body['input'], [
