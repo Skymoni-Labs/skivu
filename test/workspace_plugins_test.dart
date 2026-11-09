@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/open_plugin.dart';
 import 'package:ski/open_plugin_page.dart';
 import 'package:ski/workspace.dart';
+import 'package:ski/speech_settings_page.dart';
 
 import 'open_plugin_test.dart' as fixtures;
 
@@ -21,6 +22,35 @@ OpenPluginPackage workspacePackage(
 }
 
 void main() {
+  testWidgets(
+    'workspace voice settings has back navigation and scrolls on a small screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final library = OpenPluginRegistry();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorkspacePanel(close: () {}, registry: library),
+          ),
+        ),
+      );
+      await tester.ensureVisible(find.text('语音输入与声音'));
+      await tester.tap(find.text('语音输入与声音'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SpeechSettingsPage), findsOneWidget);
+      expect(find.byType(BackButton), findsOneWidget);
+      await tester.ensureVisible(find.text('语音输入与识别'));
+      expect(tester.takeException(), isNull);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(WorkspacePanel), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      library.dispose();
+    },
+  );
   testWidgets('independent runtime has no role selector or role/chat context', (
     tester,
   ) async {

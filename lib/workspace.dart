@@ -91,14 +91,27 @@ class WorkspacePanel extends StatelessWidget {
                         '系统识别、自定义识别和朗读配置',
                         Scaffold(
                           appBar: AppBar(title: const Text('语音输入与声音')),
-                          body: const SpeechSettingsPage(),
+                          body: const SafeArea(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.all(16),
+                              child: SpeechSettingsPage(),
+                            ),
+                          ),
                         ),
                       ),
                       (
                         Icons.handyman_outlined,
                         '工具与技能',
                         '已安装技能和 MCP 工具',
-                        const ExtensionsPage(),
+                        Scaffold(
+                          appBar: AppBar(title: const Text('工具与技能')),
+                          body: const SafeArea(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.all(16),
+                              child: ExtensionsPage(),
+                            ),
+                          ),
+                        ),
                       ),
                     ])
                       Padding(
