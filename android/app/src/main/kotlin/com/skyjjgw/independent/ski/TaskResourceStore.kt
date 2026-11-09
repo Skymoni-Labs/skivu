@@ -87,7 +87,7 @@ class TaskResourceStore(private val context: Context) {
         return JSONObject().put("title",title).put("at",at).put("reminderMinutes",minutes).put("rrule",recurrence(args)).put("timeZone",args.optString("timeZone",TimeZone.getDefault().id))
     }
     private fun reminderSignature(values: JSONArray): List<String> = (0 until values.length()).map { TaskScheduleStore.canonical(values.getJSONObject(it)) }.sorted()
-    private fun matching(actual: JSONObject,wanted: JSONObject): Boolean = actual.getString("title")==wanted.getString("title") && actual.getLong("at")==wanted.getLong("at") && actual.getString("rrule")==wanted.getString("rrule") &&
+    private fun matching(actual: JSONObject,wanted: JSONObject): Boolean = actual.getString("title")==wanted.getString("title") && actual.getLong("at")==wanted.getLong("at") && actual.getString("timeZone")==wanted.getString("timeZone") && actual.getString("rrule")==wanted.getString("rrule") &&
         if(wanted.has("preservedReminders")) reminderSignature(actual.getJSONArray("reminders"))==reminderSignature(wanted.getJSONArray("preservedReminders"))
         else (0 until actual.getJSONArray("reminders").length()).any {
             val r=actual.getJSONArray("reminders").getJSONObject(it);r.getInt("minutes")==wanted.getInt("reminderMinutes") && r.getInt("method")==CalendarContract.Reminders.METHOD_ALERT

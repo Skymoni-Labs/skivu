@@ -107,6 +107,11 @@ class TaskScheduleAcceptanceTest {
         val p=plan();val at=due(p);val l=lease(schedules.claim(p.getString("id"),1,at)!!)
         val receipt=TaskBackgroundTools(context).invoke(JSONObject().put("tool","apps.launch").put("requestId","qa").put("arguments",JSONObject().put("package","com.android.settings")),l)
         assertEquals("permission_required",receipt["outcome"])
+        val original=JSONObject().put("days",org.json.JSONArray(listOf(2,3,4,5,6)))
+        assertEquals(setOf(2,3,4,5,6),TaskClockVerification.expectedDays(original,null))
+        assertEquals(emptySet<Int>(),TaskClockVerification.expectedDays(original,JSONObject().put("repeat","none")))
+        assertEquals(setOf(1,7),TaskClockVerification.expectedDays(original,JSONObject().put("repeat","weekly").put("weekdays",org.json.JSONArray(listOf(6,7)))))
+        assertNull(TaskClockVerification.expectedDays(original,JSONObject().put("weekdays",org.json.JSONArray(listOf(1)))))
     }
     @Test fun realCalendarReminderUsesActualIdAndUpdatesAndCancelsWithoutDuplicates() {
         for(permission in listOf("android.permission.READ_CALENDAR","android.permission.WRITE_CALENDAR")) android.os.ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("pm grant ${context.packageName} $permission")).use {it.readBytes()}

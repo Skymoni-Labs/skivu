@@ -11,6 +11,22 @@ import java.util.concurrent.TimeUnit
 
 /** Conservative current-window proof; never opens a clock or replays an action. */
 object TaskClockVerification {
+    internal fun expectedDays(locator: JSONObject,change: JSONObject?): Set<Int>? {
+        return when(change?.optString("repeat","")) {
+            "daily" -> (1..7).toSet()
+            "none" -> emptySet()
+            "weekly" -> {
+                val days=change.optJSONArray("weekdays") ?: return null
+                if(days.length() !in 1..7)return null
+                val iso=(0 until days.length()).map {days.optInt(it,0)}
+                if(iso.any {it !in 1..7})return null
+                // Plan/reminder weekdays are ISO; AlarmClock uses Sunday=1.
+                iso.map {(it%7)+1}.toSet()
+            }
+            null,"" -> if(change?.has("weekdays")==true) null else locator.optJSONArray("days")?.let {a->(0 until a.length()).map {a.getInt(it)}.toSet()} ?: emptySet()
+            else -> null
+        }
+    }
     fun read(context: Context,resource: JSONObject): JSONObject? {
         val service=SkivuAccessibilityService.connected ?: return null
         val prefs=context.getSharedPreferences("skivu.device-engine.v1",0)
@@ -30,6 +46,7 @@ object TaskClockVerification {
         }
         val locator=resource.getJSONObject("locator")
         val change=resource.optJSONObject("desiredChange")
+        val expected=expectedDays(locator,change) ?: return null
         var hour=locator.getInt("hour");var minute=locator.getInt("minute")
         if(change?.has("at")==true) {val time=java.time.Instant.ofEpochMilli(change.getLong("at")).atZone(java.time.ZoneId.systemDefault());hour=time.hour;minute=time.minute}
         val label=change?.optString("title",locator.optString("label")) ?: locator.optString("label")
@@ -48,7 +65,6 @@ object TaskClockVerification {
                 val text=children.joinToString(" "){"${it["text"]} ${it["description"]}"}
                 val switches=children.filter {it["checkable"]==true}
                 if(switches.size==1 && switches.single()["checked"]==true && text.contains(label)) {
-                    val expected=(locator.optJSONArray("days")?.let {a->(0 until a.length()).map {a.getInt(it)}.toSet()} ?: emptySet())
                     val actual=when {
                         text.contains("每天")||text.contains("Every day",true)->(1..7).toSet()
                         text.contains("工作日")||text.contains("Weekdays",true)->(2..6).toSet()
