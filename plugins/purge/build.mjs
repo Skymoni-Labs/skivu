@@ -12,10 +12,19 @@ fs.copyFileSync('upstream/LICENSE','LICENSE.txt');
 await build({entryPoints:['backend.mjs'],bundle:true,platform:'node',format:'esm',target:'node24',outfile:'../../android/app/src/main/assets/cloud/lab.mjs',alias:{'node:fs':path.resolve('scoped-fs.mjs')},banner:{js:'// Adapted from YuJunZhiXue/dsh-purge 1.1.71 (MIT, Copyright 2026 小杨). See plugins/purge/upstream/LICENSE.'}});
 fs.mkdirSync('dist',{recursive:true});
 await build({entryPoints:['ui.jsx'],bundle:true,format:'iife',platform:'browser',target:'chrome110',outfile:'dist/ui.js',minify:true,loader:{'.txt':'text'},define:{'process.env.NODE_ENV':'"production"'}});
-const drill=fs.readFileSync('upstream/lib/redteam/client.js','utf8').replace('() => h(Panel),','() => h(Panel, { embedded: true }),')
+let drill=fs.readFileSync('upstream/lib/redteam/client.js','utf8').replace('() => h(Panel),','() => h(Panel, { embedded: true }),')
  .replace(/function AgentsTab\(props\) \{[\s\S]*?(?=    function ConcurrencyCard)/, `function AgentsTab(props) { return h('div', { className: 'rt-main' }, h('div', { className: 'rt-card' }, h('h4', null, '小云统一执行'), h('p', null, '代码执行、手机操作和恢复由小云当前任务体系负责。下方保留原包角色提示词资料，不代表另一个 DSH 运行器。')), h(PromptsTab, props)); }\n\n`)
  .replace("['agents', '智能体']","['agents', '角色资料']")
  .replace("const side = h('div', { className: 'rt-side' }, sideChildren)","const side = h('details', { className: 'rt-side', open: window.innerWidth > 650 }, h('summary', null, '网段与范围'), h('div', null, sideChildren))");
+const downloadStart=drill.indexOf('const download = (text, label) => {');
+const downloadEnd=drill.indexOf('      const items = (data && data.items)',downloadStart);
+if(downloadStart<0||downloadEnd<0)throw Error('Upstream report export signature changed');
+drill=drill.slice(0,downloadStart)+`const download = async (text, label) => {
+ try { await window.__skivuSaveReport(text,label); setMsg({ok:'报告正文已保存；图片附件可通过资料库备份导出。'}); }
+ catch(e) { setMsg({err:e.message || '保存未完成'}); }
+};
+
+`+drill.slice(downloadEnd);
 fs.writeFileSync('dist/drill.js',drill);
 fs.copyFileSync('style.css','dist/style.css');
 fs.writeFileSync('dist/index.html','<!doctype html><html lang="zh-CN"><meta charset="utf-8"><link rel="stylesheet" href="style.css"><div id="root">正在连接小云资料库…</div><script src="ui.js"></script></html>');

@@ -1,7 +1,9 @@
 import React,{useState,useEffect} from 'react';
 import {createRoot} from 'react-dom/client';
 import * as ReactDOM from 'react-dom';
+import {saveReport} from './report-save.mjs';
 const h=React.createElement;
+window.__skivuSaveReport=(text,label)=>saveReport(Skivu,text,label);
 const call=async request=>{const r=await Skivu.call('lab.call',{request});if(r?.ok===false)throw Error(r.error);return r;};
 const enc=text=>{const a=new TextEncoder().encode(text);let s='';for(let i=0;i<a.length;i+=8192)s+=String.fromCharCode(...a.subarray(i,i+8192));return btoa(s);};
 const dec=base64=>new TextDecoder().decode(Uint8Array.from(atob(base64),x=>x.charCodeAt(0)));
