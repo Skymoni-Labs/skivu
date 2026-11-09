@@ -89,7 +89,10 @@ class WorkspacePanel extends StatelessWidget {
                         Icons.mic_none,
                         '语音输入与声音',
                         '系统识别、自定义识别和朗读配置',
-                        const SpeechSettingsPage(),
+                        Scaffold(
+                          appBar: AppBar(title: const Text('语音输入与声音')),
+                          body: const SpeechSettingsPage(),
+                        ),
                       ),
                       (
                         Icons.handyman_outlined,
