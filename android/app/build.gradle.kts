@@ -13,6 +13,7 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -66,6 +67,10 @@ flutter {
 dependencies { implementation(project(":skymoni_glass")) }
 dependencies { implementation(project(":embedded_adb")) }
 dependencies {
+    // 2.11.2 includes Android 15+ blocked-background-network tracking fixes.
+    implementation("androidx.work:work-runtime:2.11.2")
+    implementation("com.google.guava:guava:33.3.1-android")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     androidTestImplementation("androidx.test:runner:1.2.0")
     androidTestImplementation("junit:junit:4.12")
 }

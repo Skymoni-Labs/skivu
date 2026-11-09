@@ -565,7 +565,7 @@ class RelayAccount extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool persist = true}) async {
     if (busy || !signedIn) return;
     busy = true;
     error = null;
@@ -620,10 +620,18 @@ class RelayAccount extends ChangeNotifier {
           .where((id) => ['chat', 'responses'].contains(protocols[id]))
           .toList();
       if (!models.contains(activeModel)) activeModel = models.firstOrNull;
-      await _persist();
+      if (persist) await _persist();
     } on ChatFailure catch (e) {
       if (generation != _generation) return;
-      if (e.code == 'APP_SESSION_INVALID') await invalidate();
+      if (e.code == 'APP_SESSION_INVALID') {
+        if (persist) {
+          await invalidate();
+        } else {
+          _token = null;
+          user = null;
+          models = [];
+        }
+      }
       error = e.message;
     } catch (_) {
       if (generation == _generation) error = '账号信息暂未同步，请刷新重试。';

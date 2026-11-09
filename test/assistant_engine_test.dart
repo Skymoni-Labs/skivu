@@ -26,6 +26,30 @@ void main() {
     write: write ?? (_) async {},
   );
   test(
+    'synchronous coordinator listeners cannot recursively enter Stop',
+    () async {
+      final saved = <String>[];
+      final a = assistant(
+        native((_) async => {'outcome': 'cancelled'}),
+        (_, __) async => '',
+        write: (raw) async => saved.add(raw),
+      );
+      var notifications = 0;
+      Future<void>? reentered;
+      a.addListener(() {
+        notifications++;
+        if (a.phase == 'stopping') reentered = a.stop();
+      });
+      final stopping = a.stop();
+      expect(identical(stopping, reentered), true);
+      await stopping;
+      expect(a.phase, 'stopped');
+      expect(a.messages, hasLength(1));
+      expect(notifications, 2);
+      expect(saved, hasLength(2));
+    },
+  );
+  test(
     'model discovers interfaces, gets real receipt and uses isolated context',
     () async {
       var round = 0, calls = 0;

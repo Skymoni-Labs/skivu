@@ -5,6 +5,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'assistant_engine.dart';
 import 'assistant_plugin_tools.dart';
 import 'assistant_task_tools.dart';
+import 'assistant_plan_tools.dart';
+import 'task_plans.dart';
+import 'assistant_reminder_tools.dart';
+import 'task_model_binding.dart';
 import 'personal_space.dart';
 import 'chat_api.dart';
 import 'cloud_assistant.dart' show cloudAssistant;
@@ -86,6 +90,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
     chat,
     () {
       late final AssistantEngine engine;
+      final reminders = AssistantReminderTools(tasks, taskPlans);
       engine =
           engineFactory?.call(chat) ??
           AssistantEngine(
@@ -93,7 +98,16 @@ class CloudChatCoordinator implements CloudConversationRunner {
             beginTask: deviceEngine.beginTask,
             endTask: deviceEngine.endTask,
             extensions: AssistantPluginTools(store.plugins),
-            taskTools: AssistantTaskTools(tasks),
+            taskTools: AssistantPlanTools(
+              AssistantTaskTools(tasks),
+              taskPlans,
+              modelIdentity: () => scheduledModelIdentity(store),
+              modelBinding: () => scheduledModelBinding(store),
+              modelName: () => store.model,
+              reminders: reminders,
+            ),
+            recordEffect: reminders.capture,
+            confirmEffect: reminders.confirm,
             toolSubmissions: chat.toolSubmissions,
             persistToolSubmissions: () async {
               await store.saveChats();

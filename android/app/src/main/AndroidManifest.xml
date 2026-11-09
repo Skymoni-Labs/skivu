@@ -2,6 +2,9 @@
     <permission android:name="org.skivu.permission.RUN_RUNTIME" android:protectionLevel="signature" />
     <uses-permission android:name="org.skivu.permission.RUN_RUNTIME" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -46,6 +49,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <receiver android:name=".AppUpdateInstallReceiver" android:exported="false" />
+        <receiver android:name=".TaskRecoveryReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <service android:name=".SkivuAccessibilityService"
             android:label="Skivu 手机操控"
             android:exported="true"

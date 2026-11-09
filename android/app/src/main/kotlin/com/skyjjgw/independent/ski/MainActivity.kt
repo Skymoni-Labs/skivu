@@ -32,6 +32,7 @@ class MainActivity : FlutterActivity() {
     private val pluginRuntime by lazy { OpenPluginRuntimePlatform(this) }
     private val localRuntime by lazy { LocalRuntimePlatform(this) }
     private val embeddedDevice by lazy { EmbeddedDevicePlatform(this) }
+    private val taskPlatform by lazy { TaskPlatform(applicationContext,this) }
     private val keyWorker = Executors.newSingleThreadExecutor()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -39,6 +40,7 @@ class MainActivity : FlutterActivity() {
         deviceBridge = DeviceTaskService.platform?.takeIf { it.engine === flutterEngine }
             ?: DeviceBridgePlatform(applicationContext, flutterEngine).also { DeviceTaskService.platform = it }
         appPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
+        taskPlatform.register(flutterEngine.dartExecutor.binaryMessenger)
         chatAttachment.register(flutterEngine.dartExecutor.binaryMessenger)
         voice.register(flutterEngine.dartExecutor.binaryMessenger)
         chatBackup.register(flutterEngine.dartExecutor.binaryMessenger)
@@ -67,6 +69,10 @@ class MainActivity : FlutterActivity() {
         chatBackup.activityResult(requestCode, resultCode, data)
         chatAttachment.onResult(requestCode, resultCode, data)
         pluginFiles.onResult(requestCode, resultCode, data)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent); setIntent(intent); TaskPlatform.changed()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

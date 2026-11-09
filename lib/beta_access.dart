@@ -291,7 +291,9 @@ class BetaAccess extends ChangeNotifier {
         requestConfig ??
         (streaming == null ? connection : connection?.withStreaming(streaming));
     if (config == null) throw const ChatFailure('内测尚未配对或暂无可用模型，请先检查内测状态。');
-    final path = _chatPath;
+    final path = config.protocol == ApiProtocol.responses
+        ? '/api/app-beta/responses'
+        : '/api/app-beta/chat/completions';
     return ChatSession.beta(
       _clientFactory(),
       config,

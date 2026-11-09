@@ -1822,16 +1822,23 @@ class DemoStore extends ChangeNotifier {
     String system,
     List<Map<String, String>> history, {
     bool? streaming,
+    int? maxOutputTokens,
+    int? timeoutSeconds,
+    ModelConnection? requestConfig,
+    String? requestSource,
   }) async {
-    final active = activeConnection;
+    final active = requestConfig ?? activeConnection;
     if (active == null) throw const ChatFailure('请先选择可用模型。');
     final config = ModelConnection.fromJson({
       ...active.toJson(),
       'streaming': streaming ?? active.streaming,
-      'maxOutput': active.maxOutput.clamp(512, 4096),
+      'maxOutput': (maxOutputTokens ?? active.maxOutput).clamp(512, 4096),
+      if (timeoutSeconds != null)
+        'timeoutSeconds': timeoutSeconds.clamp(10, 120),
     });
-    if (useBeta) return beta.startChat(history, system, requestConfig: config);
-    if (useAccount)
+    if (requestSource == 'beta' || requestSource == null && useBeta)
+      return beta.startChat(history, system, requestConfig: config);
+    if (requestSource == 'account' || requestSource == null && useAccount)
       return account.startChat(history, system, requestConfig: config);
     final key = await models.keyFor(config.id);
     if (key.isEmpty &&

@@ -6,7 +6,39 @@ Map<String, String> toolResultDetails(
   Map<String, dynamic> receipt,
 ) {
   final value = receipt['value'];
-  if (tool.startsWith('tasks.') &&
+  if (tool.startsWith('tasks.plan.') &&
+      receipt['outcome'] == 'verified' &&
+      value is Map &&
+      value['taskId'] is String &&
+      value['goal'] is String) {
+    final title = value['goal'] as String;
+    return {
+      'resultTitle': title.substring(0, title.length.clamp(0, 160)),
+      'resultDetail': '小云定时计划 · ${value['state']}',
+      'managedTaskId': value['taskId'],
+      'managedPlanId': value['id'],
+    };
+  }
+  if (tool.startsWith('tasks.reminder.') &&
+      receipt['outcome'] == 'verified' &&
+      value is Map &&
+      value['managedTaskId'] is String) {
+    return {
+      'resultTitle': value['desired'] is Map
+          ? (value['desired'] as Map)['title'] as String? ?? '系统提醒'
+          : '系统提醒',
+      'resultDetail': value['state'] == 'cancelled' ? '系统提醒已取消' : '系统日历已核对',
+      'managedTaskId': value['managedTaskId'],
+      'managedResourceId': value['id'],
+    };
+  }
+  if (const {
+        'tasks.create',
+        'tasks.update',
+        'tasks.complete',
+        'tasks.archive',
+        'tasks.get',
+      }.contains(tool) &&
       receipt['outcome'] == 'verified' &&
       value is Map &&
       value['id'] is String &&

@@ -4,6 +4,8 @@ import 'appearance.dart';
 import 'cloud_companion_portrait.dart';
 import 'glass.dart';
 import 'personal_space.dart';
+import 'task_scheduling_ui.dart';
+import 'task_plans.dart';
 import 'state.dart' show demo, ink, muted, green, sceneInk, sceneMuted;
 import 'widgets.dart';
 import 'skymoni_glass.dart';
@@ -583,9 +585,7 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
   }
 
   List<Widget> tasks() {
-    final all = store.tasks
-        .where((r) => !scheduled || r.time.isNotEmpty)
-        .toList();
+    final all = store.tasks.toList();
     final day = personalDay();
     final groups = <String, List<PersonalRecord>>{
       '今天': all.where((r) => !r.done && r.date == day).toList(),
@@ -615,14 +615,11 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
         ],
       ),
       if (scheduled)
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Text(
-            '查看有时间的安排；当前不会在后台触发系统提醒。',
-            style: TextStyle(fontSize: 12, height: 1.8, color: sceneMuted),
-          ),
+        TaskSchedulesPane(
+          store: store,
+          openTask: (task) => edit(record: task),
         ),
-      if (all.isEmpty) ...[
+      if (!scheduled && all.isEmpty) ...[
         const SizedBox(height: 22),
         box([
           Text('把想做的事，放在这里', style: TextStyle(fontSize: 17, color: ink)),
@@ -631,17 +628,18 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
           link('添加任务 ＋', () => edit()),
         ]),
       ],
-      for (final e in groups.entries)
-        if (e.value.isNotEmpty) ...[
-          title(e.key),
-          box([
-            for (final r
-                in (e.value..sort(
-                  (a, b) => (a.date + a.time).compareTo(b.date + b.time),
-                )))
-              taskRow(r),
-          ], padding: 10),
-        ],
+      if (!scheduled)
+        for (final e in groups.entries)
+          if (e.value.isNotEmpty) ...[
+            title(e.key),
+            box([
+              for (final r
+                  in (e.value..sort(
+                    (a, b) => (a.date + a.time).compareTo(b.date + b.time),
+                  )))
+                taskRow(r),
+            ], padding: 10),
+          ],
     ];
   }
 
@@ -811,7 +809,7 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
   );
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: store,
+    animation: Listenable.merge([store, taskPlans]),
     builder: (context, _) => ListView(
       key: PageStorageKey('main-personal-module-${widget.module}'),
       padding: EdgeInsets.fromLTRB(15, widget.topInset, 15, widget.bottomInset),
@@ -881,6 +879,11 @@ class _RecordEditorState extends State<_RecordEditor> {
   late String date = widget.record?.date ?? widget.date,
       time = widget.record?.time ?? '';
   bool pending = false;
+  late String taskState = widget.record?.done == true
+      ? 'done'
+      : widget.record?.inProgress == true
+      ? 'working'
+      : 'pending';
   String? error;
   @override
   void dispose() {
@@ -906,6 +909,8 @@ class _RecordEditorState extends State<_RecordEditor> {
         time: time,
         category: category.text,
         expectedRevision: widget.record?.revision,
+        done: widget.memory ? null : taskState == 'done',
+        inProgress: widget.memory ? null : taskState == 'working',
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -1020,6 +1025,24 @@ class _RecordEditorState extends State<_RecordEditor> {
                     style: TextStyle(fontSize: 12, height: 1.6, color: muted),
                   ),
                 ),
+              if (!widget.memory)
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final entry in const {
+                      'pending': '待完成',
+                      'working': '进行中',
+                      'done': '已完成',
+                    }.entries)
+                      ChoiceChip(
+                        label: Text(entry.value),
+                        selected: taskState == entry.key,
+                        onSelected: pending
+                            ? null
+                            : (_) => setState(() => taskState = entry.key),
+                      ),
+                  ],
+                ),
               const SizedBox(height: 12),
               TextField(
                 controller: body,
@@ -1071,6 +1094,10 @@ class _RecordEditorState extends State<_RecordEditor> {
                   ],
                 ),
               ],
+              if (!widget.memory && widget.record != null)
+                TaskSchedulingPanel(
+                  task: widget.store.task(widget.record!.id) ?? widget.record!,
+                ),
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),

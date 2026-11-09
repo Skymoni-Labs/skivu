@@ -33,8 +33,9 @@ typedef DeviceEngineTransport =
     );
 
 class DeviceEngine {
-  DeviceEngine({DeviceEngineTransport? transport})
+  DeviceEngine({DeviceEngineTransport? transport, this.allowedTools})
     : _transport = transport ?? _native;
+  final Set<String>? allowedTools;
   static const channel = MethodChannel('skivu/device_engine');
   static int _serial = 0;
   final DeviceEngineTransport _transport;
@@ -113,28 +114,29 @@ class DeviceEngine {
     final state = await status();
     return [
       for (final tool in builtinDeviceTools)
-        {
-          ...tool.toJson(),
-          'available': switch (tool.permission) {
-            'device.observe' =>
-              tool.id == 'device.status' ||
-                  state['enabled'] == true &&
-                      (tool.id != 'ui.observe' ||
-                          state['accessibility'] == true),
-            'device.control' =>
-              state['enabled'] == true &&
-                  state['control'] == true &&
-                  (!tool.id.startsWith('ui.') ||
-                      state['accessibility'] == true),
-            'device.system' =>
-              state['enabled'] == true && state['system'] == true,
-            'device.shell' =>
-              state['enabled'] == true &&
-                  state['shell'] == true &&
-                  state['shellConnected'] == true,
-            _ => false,
+        if (allowedTools == null || allowedTools!.contains(tool.id))
+          {
+            ...tool.toJson(),
+            'available': switch (tool.permission) {
+              'device.observe' =>
+                tool.id == 'device.status' ||
+                    state['enabled'] == true &&
+                        (tool.id != 'ui.observe' ||
+                            state['accessibility'] == true),
+              'device.control' =>
+                state['enabled'] == true &&
+                    state['control'] == true &&
+                    (!tool.id.startsWith('ui.') ||
+                        state['accessibility'] == true),
+              'device.system' =>
+                state['enabled'] == true && state['system'] == true,
+              'device.shell' =>
+                state['enabled'] == true &&
+                    state['shell'] == true &&
+                    state['shellConnected'] == true,
+              _ => false,
+            },
           },
-        },
     ];
   }
 

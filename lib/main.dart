@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:ui' show PluginUtilities;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -44,7 +45,13 @@ import 'social_ui_metrics.dart';
 import 'launch.dart';
 import 'open_plugin_companion_ui.dart';
 import 'personal_space.dart';
+import 'task_plans.dart';
+import 'task_database.dart';
+import 'scheduled_task_runner.dart';
 import 'skymoni_glass.dart';
+
+@pragma('vm:entry-point')
+Future<void> scheduledTaskMain() => runScheduledTask();
 
 final appNavigator = companionNavigator;
 
@@ -116,6 +123,14 @@ Future<void> main() async {
   await relayAccount.restore();
   await demo.restore();
   await personalSpace.restore();
+  if (TaskDatabase.supported) {
+    final callback = PluginUtilities.getCallbackHandle(scheduledTaskMain);
+    if (callback != null)
+      await TaskDatabase.instance.call('runtime.registerWorker', {
+        'handle': callback.toRawHandle(),
+      });
+  }
+  await taskPlans.initialize();
   await uiPlugins.restore();
   await pluginMarket.restore();
   await extensionLibrary.restore();
@@ -191,7 +206,11 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     demo.setChatForeground(state == AppLifecycleState.resumed);
-    if (state == AppLifecycleState.resumed) _checkUpdateWhenResumed();
+    if (state == AppLifecycleState.resumed) {
+      _checkUpdateWhenResumed();
+      unawaited(personalSpace.refresh());
+      unawaited(taskPlans.refresh());
+    }
     socialActivity.setForeground(
       state == AppLifecycleState.resumed ||
           (kIsWeb && state == AppLifecycleState.inactive),

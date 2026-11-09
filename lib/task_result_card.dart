@@ -5,6 +5,7 @@ import 'cloud_execution_disclosure.dart';
 import 'state.dart';
 import 'device_tool_catalog.dart';
 import 'personal_space.dart';
+import 'task_plans.dart';
 
 /// A view of actual receipts. Rendering or restoring a card executes nothing.
 class TaskResult {
@@ -15,34 +16,64 @@ class TaskResult {
     required this.tool,
     this.target,
     this.managedTaskId,
+    this.managedPlanId,
+    this.managedResourceId,
     this.sourceKey = '',
   });
   final String title, detail, status, tool;
   final String? target;
   final String? managedTaskId;
+  final String? managedPlanId, managedResourceId;
   final String sourceKey;
 
   PersonalRecord? linkedTask(PersonalSpaceStore store) => managedTaskId != null
       ? store.task(managedTaskId!)
       : store.taskForSource(sourceKey);
 
-  TaskResult displayTask(PersonalRecord? task) =>
-      task == null || managedTaskId == null
+  TaskResult displayTask(
+    PersonalRecord? task, {
+    TaskPlan? plan,
+    Map<String, dynamic>? resource,
+  }) => task == null || managedTaskId == null
       ? this
       : TaskResult(
           title: task.title,
           detail: [
-            if (task.date.isNotEmpty) task.date,
-            if (task.time.isNotEmpty) task.time,
+            if (plan != null) ...[
+              plan.ruleLabel,
+              '下次：${planTime(plan.data['nextAt'])}',
+              if (plan.lastRun != null)
+                '最近：${runStateLabel(plan.lastRun!['state'])}',
+            ] else if (resource != null) ...[
+              resource['provider'] == 'calendar' ? '系统日历' : '手机时钟',
+              if (resource['actual'] is Map)
+                planTime((resource['actual'] as Map)['at']),
+            ] else ...[
+              if (task.date.isNotEmpty) task.date,
+              if (task.time.isNotEmpty) task.time,
+            ],
             '我的任务',
           ].join(' · '),
-          status: task.archived
+          status: plan != null
+              ? plan.stateLabel
+              : resource != null
+              ? switch (resource['state']) {
+                  'verified' => '系统提醒已核验',
+                  'cancelled' => '系统提醒已取消',
+                  'user_confirmed' => '用户已确认',
+                  _ => '系统提醒待核对',
+                }
+              : task.archived
               ? '已归档'
               : task.done
               ? '已完成'
+              : task.inProgress
+              ? '进行中'
               : '待办已保存',
           tool: tool,
           managedTaskId: task.id,
+          managedPlanId: plan?.id ?? managedPlanId,
+          managedResourceId: managedResourceId,
           sourceKey: sourceKey,
         );
 
@@ -137,6 +168,8 @@ class TaskResult {
       tool: event.tool,
       target: target,
       managedTaskId: event.managedTaskId,
+      managedPlanId: event.managedPlanId,
+      managedResourceId: event.managedResourceId,
       sourceKey:
           'execution:${sha256.convert(utf8.encode(jsonEncode([event.taskId, event.requestId])))}',
     );

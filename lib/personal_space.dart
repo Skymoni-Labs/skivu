@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'tool_execution.dart';
+import 'task_database.dart';
 
 const personalSpaceKey = 'skivu.main.personal-space.v1';
 const personalSpaceBackupKey = 'skivu.main.personal-space.backup.v1';
@@ -35,10 +36,12 @@ class PersonalRecord {
     this.sourceKey = '',
     this.sourceTarget = '',
     this.sourceDetail = '',
+    this.inProgress = false,
   });
   final String id, title, body, date, time, category;
   final int created, updated;
   final bool done, archived;
+  final bool inProgress;
   final int revision;
   final String sourceKey, sourceTarget, sourceDetail;
   PersonalRecord copy({
@@ -49,6 +52,7 @@ class PersonalRecord {
     String? category,
     bool? done,
     bool? archived,
+    bool? inProgress,
   }) => PersonalRecord(
     id: id,
     title: title ?? this.title,
@@ -58,6 +62,9 @@ class PersonalRecord {
     category: category ?? this.category,
     done: done ?? this.done,
     archived: archived ?? this.archived,
+    inProgress: (done ?? this.done)
+        ? false
+        : inProgress ?? (done != null ? false : this.inProgress),
     revision: revision + 1,
     sourceKey: sourceKey,
     sourceTarget: sourceTarget,
@@ -80,6 +87,7 @@ class PersonalRecord {
     'created': created,
     'updated': updated,
     'revision': revision,
+    if (inProgress) 'inProgress': true,
     if (sourceKey.isNotEmpty) 'sourceKey': sourceKey,
     if (sourceTarget.isNotEmpty) 'sourceTarget': sourceTarget,
     if (sourceDetail.isNotEmpty) 'sourceDetail': sourceDetail,
@@ -101,6 +109,7 @@ class PersonalRecord {
             (!RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(m['time']) ||
                 m['date'] == '')) ||
         m['done'] is! bool ||
+        m['inProgress'] != null && m['inProgress'] is! bool ||
         m['archived'] is! bool ||
         m['created'] is! int ||
         m['updated'] is! int ||
@@ -134,6 +143,7 @@ class PersonalRecord {
       sourceKey: m['sourceKey'] as String? ?? '',
       sourceTarget: m['sourceTarget'] as String? ?? '',
       sourceDetail: m['sourceDetail'] as String? ?? '',
+      inProgress: m['inProgress'] as bool? ?? false,
     );
   }
 }
@@ -142,9 +152,45 @@ typedef PersonalRead = Future<String?> Function();
 typedef PersonalWrite = Future<void> Function(String value);
 
 class PersonalSpaceStore extends ChangeNotifier {
-  PersonalSpaceStore({PersonalRead? read, PersonalWrite? write})
-    : _read = read,
-      _write = write;
+  PersonalSpaceStore({
+    PersonalRead? read,
+    PersonalWrite? write,
+    TaskPersistence? persistence,
+  }) : _read = read,
+       _write = write,
+       _persistence =
+           persistence ??
+           (read == null && write == null && TaskDatabase.supported
+               ? TaskDatabase.instance
+               : null) {
+    if (identical(_persistence, TaskDatabase.instance)) {
+      _subscription = TaskDatabase.instance.changes.listen((_) {
+        if (loaded) unawaited(refresh());
+      });
+    }
+  }
+  final TaskPersistence? _persistence;
+  StreamSubscription<void>? _subscription;
+  int _databaseVersion = 0;
+  bool _refreshQueued = false;
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> refresh() async {
+    if (_persistence == null || _refreshQueued) return;
+    _refreshQueued = true;
+    final work = _tail.then((_) => _restore());
+    _tail = work.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    try {
+      await work;
+    } finally {
+      _refreshQueued = false;
+    }
+  }
+
   final PersonalRead? _read;
   final PersonalWrite? _write;
   List<PersonalRecord> _tasks = [], _memories = [];
@@ -169,7 +215,9 @@ class PersonalSpaceStore extends ChangeNotifier {
   Future<void> restore() => _loading ??= _restore();
   Future<void> _restore() async {
     try {
-      final raw = await _readValue();
+      final snapshot = await _persistence?.read();
+      _databaseVersion = snapshot?.version ?? 0;
+      final raw = snapshot?.value ?? await _readValue();
       if (raw != null) {
         if (utf8.encode(raw).length > 4 * 1024 * 1024)
           throw const FormatException('记录过大');
@@ -214,6 +262,23 @@ class PersonalSpaceStore extends ChangeNotifier {
             throw const FormatException('回执重复');
         }
       }
+      if (_persistence != null && snapshot?.value == null) {
+        final value =
+            raw ??
+            jsonEncode({
+              'version': 2,
+              'tasks': [],
+              'memories': [],
+              'receipts': [],
+            });
+        final initialized = await _persistence.initialize(value);
+        _databaseVersion = initialized.version;
+        // Another engine may have won initialization. Load its committed value.
+        if (initialized.value != value) {
+          await _restore();
+          return;
+        }
+      }
       error = null;
     } catch (_) {
       error = '个人空间存档暂时无法读取，原有内容已保留。聊天仍可正常使用。';
@@ -232,57 +297,69 @@ class PersonalSpaceStore extends ChangeNotifier {
   }) {
     final work = _tail.then((_) async {
       await restore();
-      if (error != null) throw StateError(error!);
-      check?.call();
-      if (operationId != null) {
-        final previous = _receipts
-            .where((r) => r['id'] == operationId)
-            .firstOrNull;
-        if (previous != null) {
-          if (previous['digest'] != digest) throw StateError('同一操作编号不能用于不同内容。');
-          reuse!(_tasks.firstWhere((t) => t.id == previous['taskId']));
-          return;
+      for (var attempt = 0; attempt < 16; attempt++) {
+        if (_persistence != null) await _restore();
+        if (error != null) throw StateError(error!);
+        check?.call();
+        if (operationId != null) {
+          final previous = _receipts
+              .where((r) => r['id'] == operationId)
+              .firstOrNull;
+          if (previous != null) {
+            if (previous['digest'] != digest)
+              throw StateError('同一操作编号不能用于不同内容。');
+            reuse!(_tasks.firstWhere((t) => t.id == previous['taskId']));
+            return;
+          }
         }
-      }
-      final tasks = [..._tasks], memories = [..._memories];
-      edit(tasks, memories);
-      final receipts = [..._receipts];
-      if (operationId != null)
-        receipts.add({
-          'id': operationId,
-          'digest': digest!,
-          'taskId': resultId!(),
+        final tasks = [..._tasks], memories = [..._memories];
+        edit(tasks, memories);
+        final receipts = [..._receipts];
+        if (operationId != null)
+          receipts.add({
+            'id': operationId,
+            'digest': digest!,
+            'taskId': resultId!(),
+          });
+        final retained = receipts
+            .skip((receipts.length - 256).clamp(0, receipts.length))
+            .toList();
+        final value = jsonEncode({
+          'version': 2,
+          'tasks': tasks.map((r) => r.toJson()).toList(),
+          'memories': memories.map((r) => r.toJson()).toList(),
+          'receipts': retained,
         });
-      final retained = receipts
-          .skip((receipts.length - 256).clamp(0, receipts.length))
-          .toList();
-      final value = jsonEncode({
-        'version': 2,
-        'tasks': tasks.map((r) => r.toJson()).toList(),
-        'memories': memories.map((r) => r.toJson()).toList(),
-        'receipts': retained,
-      });
-      if (utf8.encode(value).length > 4 * 1024 * 1024)
-        throw StateError('记录空间已满，请先整理不需要的记录。');
-      if (_write != null) {
-        check?.call();
-        await _write(value);
-      } else {
-        final prefs = await SharedPreferences.getInstance();
-        check?.call();
-        if (_legacyRaw != null && !prefs.containsKey(personalSpaceBackupKey)) {
-          if (!await prefs.setString(personalSpaceBackupKey, _legacyRaw!))
-            throw StateError('旧记录备份未完成，未升级存档。');
+        if (utf8.encode(value).length > 4 * 1024 * 1024)
+          throw StateError('记录空间已满，请先整理不需要的记录。');
+        if (_persistence != null) {
           check?.call();
+          if (!await _persistence.compareAndSet(_databaseVersion, value))
+            continue;
+          _databaseVersion++;
+        } else if (_write != null) {
+          check?.call();
+          await _write(value);
+        } else {
+          final prefs = await SharedPreferences.getInstance();
+          check?.call();
+          if (_legacyRaw != null &&
+              !prefs.containsKey(personalSpaceBackupKey)) {
+            if (!await prefs.setString(personalSpaceBackupKey, _legacyRaw!))
+              throw StateError('旧记录备份未完成，未升级存档。');
+            check?.call();
+          }
+          if (!await prefs.setString(personalSpaceKey, value))
+            throw StateError('保存未完成，请重试。');
         }
-        if (!await prefs.setString(personalSpaceKey, value))
-          throw StateError('保存未完成，请重试。');
+        _tasks = tasks;
+        _memories = memories;
+        _receipts = retained;
+        _legacyRaw = null;
+        notifyListeners();
+        return;
       }
-      _tasks = tasks;
-      _memories = memories;
-      _receipts = retained;
-      _legacyRaw = null;
-      notifyListeners();
+      throw StateError('任务正在被其他进程修改，请稍后重试。');
     });
     _tail = work.then<void>((_) {}, onError: (Object _, StackTrace __) {});
     return work;
@@ -297,6 +374,8 @@ class PersonalSpaceStore extends ChangeNotifier {
     String time = '',
     String category = '生活',
     int? expectedRevision,
+    bool? done,
+    bool? inProgress,
   }) => _change((tasks, memories) {
     if (title.trim().isEmpty ||
         title.length > 160 ||
@@ -322,6 +401,8 @@ class PersonalSpaceStore extends ChangeNotifier {
         date: date,
         time: time,
         category: category.trim().isEmpty ? '生活' : category.trim(),
+        done: done,
+        inProgress: inProgress,
       );
     } else {
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -337,6 +418,8 @@ class PersonalSpaceStore extends ChangeNotifier {
           date: date,
           time: time,
           category: category.trim().isEmpty ? '生活' : category.trim(),
+          done: done ?? false,
+          inProgress: done == true ? false : inProgress ?? false,
           created: now,
           updated: now,
         ),
@@ -383,6 +466,7 @@ class PersonalSpaceStore extends ChangeNotifier {
               created: now,
               updated: now,
               done: action == 'attach',
+              inProgress: args['inProgress'] as bool? ?? false,
               sourceKey: source,
               sourceTarget: args['sourceTarget'] as String? ?? '',
               sourceDetail: args['sourceDetail'] as String? ?? '',
@@ -427,6 +511,7 @@ class PersonalSpaceStore extends ChangeNotifier {
               date: args['date'] as String?,
               time: args['time'] as String?,
               category: args['category'] as String?,
+              inProgress: args['inProgress'] as bool?,
             );
             if ([
                   next.title,
@@ -434,6 +519,7 @@ class PersonalSpaceStore extends ChangeNotifier {
                   next.date,
                   next.time,
                   next.category,
+                  next.inProgress,
                 ].join('\u0000') ==
                 [
                   current.title,
@@ -441,6 +527,7 @@ class PersonalSpaceStore extends ChangeNotifier {
                   current.date,
                   current.time,
                   current.category,
+                  current.inProgress,
                 ].join('\u0000')) {
               result = current;
               return;

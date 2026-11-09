@@ -31,6 +31,7 @@ import 'cloud_companion_motion.dart';
 import 'embedded_engine_settings.dart';
 import 'device_engine.dart';
 import 'task_result_card.dart';
+import 'task_plans.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -100,9 +101,13 @@ class _ChatPageState extends State<ChatPage>
     });
     demo.addListener(update);
     personalSpace.addListener(_personalChanged);
+    taskPlans.addListener(_plansChanged);
     _queueChatReader();
     _queueComposerMeasure();
     _reportModule();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _plansChanged();
+    });
   }
 
   void _reportModule() {
@@ -115,6 +120,39 @@ class _ChatPageState extends State<ChatPage>
 
   void _personalChanged() {
     if (mounted && _module != 0) setState(() {});
+  }
+
+  void _plansChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final requestedGoal = taskPlans.pendingAssistantGoal,
+        requestedTask = taskPlans.pendingAssistantTaskId;
+    if (requestedGoal != null && requestedTask != null) {
+      taskPlans.pendingAssistantGoal = null;
+      taskPlans.pendingAssistantTaskId = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _selectModule(4);
+          if (!demo.send(
+            requestedGoal,
+            taskReference: requestedTask,
+            immediate: true,
+          ))
+            toast(context, '当前无法开始处理，请稍后从这条任务继续。');
+        }
+      });
+    }
+    final id = taskPlans.pendingTaskId;
+    if (id == null) return;
+    taskPlans.pendingTaskId = null;
+    final task = personalSpace.task(id);
+    if (task == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _selectModule(2);
+        editPersonalRecord(context, store: personalSpace, record: task);
+      }
+    });
   }
 
   void _selectModule(int value) {
@@ -251,6 +289,7 @@ class _ChatPageState extends State<ChatPage>
     demo.setChatReader(this, null);
     demo.removeListener(update);
     personalSpace.removeListener(_personalChanged);
+    taskPlans.removeListener(_plansChanged);
     _moduleFade.dispose();
     input.dispose();
     focus.dispose();
@@ -1508,6 +1547,19 @@ class _ChatPageState extends State<ChatPage>
         ? TaskResult.fromMessages(row.messages, phase: phase, goal: question)
         : null;
     final linkedTask = result?.linkedTask(personalSpace);
+    final linkedPlan =
+        taskPlans.records
+            .where((p) => p.id == result?.managedPlanId)
+            .firstOrNull ??
+        (linkedTask == null
+            ? null
+            : taskPlans
+                  .forTask(linkedTask.id)
+                  .where((p) => p.state == 'enabled')
+                  .firstOrNull);
+    final linkedResource = taskPlans.resources
+        .where((r) => r['id'] == result?.managedResourceId)
+        .firstOrNull;
     final layout = appearance.text('assistantBubbleLayout');
     final speaker =
         demo.personas.where((p) => p.id == row.first.authorId).firstOrNull ??
@@ -1584,7 +1636,11 @@ class _ChatPageState extends State<ChatPage>
               const SizedBox(height: 10),
               TaskResultCard(
                 key: ValueKey('task-result-${row.first.id}'),
-                result: result.displayTask(linkedTask),
+                result: result.displayTask(
+                  linkedTask,
+                  plan: linkedPlan,
+                  resource: linkedResource,
+                ),
                 opening: _openingResultIds.contains(row.first.id),
                 saving: _savingTaskIds.contains(row.first.id),
                 manageLabel: linkedTask == null ? '加入任务' : '查看任务',

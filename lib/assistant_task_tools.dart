@@ -18,6 +18,7 @@ class AssistantTaskTools implements AssistantExtensions {
     'date': text(10),
     'time': text(5),
     'category': text(40),
+    'inProgress': {'type': 'boolean'},
   };
   static final identity = <String, dynamic>{
     'id': text(100),
