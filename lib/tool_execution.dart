@@ -12,6 +12,7 @@ class ToolExecutionEvent {
     this.resultDetail,
     this.resultTarget,
     this.effect,
+    this.managedTaskId,
   });
 
   final String taskId, requestId, tool, purpose;
@@ -19,6 +20,7 @@ class ToolExecutionEvent {
   final String? verification;
   final String? resultTitle, resultDetail, resultTarget;
   final String? effect;
+  final String? managedTaskId;
 
   Map<String, String> toJson() => {
     'taskId': taskId,
@@ -31,6 +33,7 @@ class ToolExecutionEvent {
     if (resultDetail != null) 'resultDetail': resultDetail!,
     if (resultTarget != null) 'resultTarget': resultTarget!,
     if (effect != null) 'effect': effect!,
+    if (managedTaskId != null) 'managedTaskId': managedTaskId!,
   };
 
   static ToolExecutionEvent? parse(dynamic raw) {
@@ -68,6 +71,11 @@ class ToolExecutionEvent {
       resultDetail: displayText(raw['resultDetail'], 240),
       effect: const {'read', 'write', 'external'}.contains(raw['effect'])
           ? raw['effect']
+          : null,
+      managedTaskId:
+          raw['managedTaskId'] is String &&
+              RegExp(r'^[a-zA-Z0-9_-]{1,100}$').hasMatch(raw['managedTaskId'])
+          ? raw['managedTaskId']
           : null,
       resultTarget: validTarget(raw['resultTarget'])
           ? raw['resultTarget']

@@ -9,6 +9,7 @@ import 'package:ski/cloud_conversations.dart';
 import 'package:ski/cloud_execution_disclosure.dart';
 import 'package:ski/device_engine.dart';
 import 'package:ski/state.dart';
+import 'package:ski/personal_space.dart';
 import 'real_chat_store_test.dart' show MemoryChats, TestModels, waitForReply;
 
 CloudChatCoordinator bind(
@@ -41,6 +42,53 @@ CloudChatCoordinator bind(
 }
 
 void main() {
+  test(
+    'queued messages preserve selected tasks for this turn without carrying them into a new topic',
+    () async {
+      final tasks = PersonalSpaceStore(
+        read: () async => null,
+        write: (_) async {},
+      );
+      final first = await tasks.applyTask('create', {'title': '第一条'}, 'first');
+      final second = await tasks.applyTask('create', {
+        'title': '第二条',
+      }, 'second');
+      final histories = <String>[];
+      final store = DemoStore(settings: TestModels(), storage: MemoryChats());
+      await store.restore();
+      final coordinator = CloudChatCoordinator(
+        store,
+        tasks: tasks,
+        engineFactory: (chat) => AssistantEngine(
+          identity: () => 'qa-model',
+          read: () async => null,
+          write: (_) async {},
+          engine: DeviceEngine(
+            transport: (method, args) async => {'enabled': false},
+          ),
+          model: (_, history) async {
+            histories.add(history.last['content']!);
+            return '{"type":"final","message":"收到"}';
+          },
+        ),
+      );
+      coordinator.attach();
+      store.newChat(personaId: cloudPersonaId);
+      store.conversations[store.conversation].confirmBeforeReply = true;
+      expect(store.send('整理第一条', taskReference: first.id), true);
+      expect(store.send('第二条也看一下', taskReference: second.id), true);
+      expect(store.send('只查询状态'), true);
+      expect(store.confirmPending(), true);
+      await waitForReply(store);
+      expect(histories.single, contains(first.id));
+      expect(histories.single, contains(second.id));
+      expect(histories.single, isNot(contains('"body"')));
+      expect(store.send('换个话题', immediate: true), true);
+      await waitForReply(store);
+      expect(histories.last, isNot(contains('用户本条消息选中的任务')));
+      store.dispose();
+    },
+  );
   test(
     'media reaches the shared transport and deleted rounds do not survive in task journals',
     () async {

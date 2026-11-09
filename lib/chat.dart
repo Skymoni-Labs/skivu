@@ -63,6 +63,7 @@ class _ChatPageState extends State<ChatPage>
   final keys = <Message, GlobalKey>{};
   final _expandedExecutionIds = <String>{};
   final _openingResultIds = <String>{};
+  final _savingTaskIds = <String>{};
   final _composerMeasureKey = GlobalKey();
   double _composerExtent = 0;
   double? _viewportExtent;
@@ -167,6 +168,15 @@ class _ChatPageState extends State<ChatPage>
     _selectModule(demo.isCloudChat ? 4 : 0);
     input.text = previous.trim().isEmpty ? text : '$previous\n\n$text';
     input.selection = TextSelection.collapsed(offset: input.text.length);
+    focus.requestFocus();
+  }
+
+  void _taskDraft(PersonalRecord task) {
+    _selectModule(4);
+    setState(() => _conversation.draftTaskId = task.id);
+    if (input.text.trim().isEmpty) input.text = '帮我处理这条任务：';
+    input.selection = TextSelection.collapsed(offset: input.text.length);
+    demo.saveChats();
     focus.requestFocus();
   }
 
@@ -399,11 +409,16 @@ class _ChatPageState extends State<ChatPage>
     if (!_chatVisible) _selectModule(demo.isCloudChat ? 4 : 0);
     hideNavigation();
     follow = true;
-    if (!demo.send(value, quotes: List.of(_conversation.draftQuotes))) {
+    if (!demo.send(
+      value,
+      quotes: List.of(_conversation.draftQuotes),
+      taskReference: _conversation.draftTaskId,
+    )) {
       if (demo.lastError != null) toast(context, demo.lastError!);
       if (demo.activeConnection == null) openModels();
       return;
     }
+    _conversation.draftTaskId = null;
     input.clear();
     if (demo.messages.lastOrNull?.status != 'queued') focus.unfocus();
     demo.saveChats();
@@ -698,6 +713,7 @@ class _ChatPageState extends State<ChatPage>
                       appToolbarHeight + 20 + MediaQuery.paddingOf(context).top,
                   bottomInset: _composerExtent + 24,
                   onDraft: _personalDraft,
+                  onTask: _taskDraft,
                   onModule: _selectModule,
                 ),
               ),
@@ -855,6 +871,36 @@ class _ChatPageState extends State<ChatPage>
                           demo.changed();
                         },
                       ),
+                    ),
+                  if (demo.isCloudChat && _conversation.draftTaskId != null)
+                    Row(
+                      key: const ValueKey('cloud-selected-task'),
+                      children: [
+                        const Icon(Icons.checklist_outlined, size: 15),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            personalSpace
+                                    .task(_conversation.draftTaskId!)
+                                    ?.title ??
+                                '所选任务已不可用',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _composerControlInk,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '移除任务关联',
+                          onPressed: () {
+                            setState(() => _conversation.draftTaskId = null);
+                            demo.saveChats();
+                          },
+                          icon: const Icon(Icons.close, size: 16),
+                        ),
+                      ],
                     ),
                   if (_conversation.draftQuotes.isNotEmpty)
                     Align(
@@ -1081,6 +1127,11 @@ class _ChatPageState extends State<ChatPage>
                 onPressed: openCloudCapabilities,
                 icon: const Icon(Icons.phonelink_setup, size: 17),
                 label: const Text('手机能力与授权'),
+              ),
+              TextButton.icon(
+                onPressed: () => _selectModule(2),
+                icon: const Icon(Icons.checklist_outlined, size: 17),
+                label: const Text('我的任务'),
               ),
               TextButton.icon(
                 onPressed: () {
@@ -1456,6 +1507,7 @@ class _ChatPageState extends State<ChatPage>
     final result = row.reply != null && (!current || !demo.streaming)
         ? TaskResult.fromMessages(row.messages, phase: phase, goal: question)
         : null;
+    final linkedTask = result?.linkedTask(personalSpace);
     final layout = appearance.text('assistantBubbleLayout');
     final speaker =
         demo.personas.where((p) => p.id == row.first.authorId).firstOrNull ??
@@ -1532,15 +1584,49 @@ class _ChatPageState extends State<ChatPage>
               const SizedBox(height: 10),
               TaskResultCard(
                 key: ValueKey('task-result-${row.first.id}'),
-                result: result,
+                result: result.displayTask(linkedTask),
                 opening: _openingResultIds.contains(row.first.id),
-                onOpen: result.target == null
+                saving: _savingTaskIds.contains(row.first.id),
+                manageLabel: linkedTask == null ? '加入任务' : '查看任务',
+                onManage: result.managedTaskId != null
+                    ? null
+                    : () async {
+                        if (linkedTask != null) {
+                          await editPersonalRecord(
+                            context,
+                            store: personalSpace,
+                            record: linkedTask,
+                          );
+                          return;
+                        }
+                        if (!_savingTaskIds.add(row.first.id)) return;
+                        setState(() {});
+                        try {
+                          await result.addToTasks(personalSpace);
+                          if (mounted) toast(context, '已加入已完成任务');
+                        } catch (_) {
+                          if (mounted) toast(context, '保存任务未完成，请重试。');
+                        } finally {
+                          _savingTaskIds.remove(row.first.id);
+                          if (mounted) setState(() {});
+                        }
+                      },
+                onOpen: result.target == null && linkedTask == null
                     ? null
                     : () async {
                         if (!_openingResultIds.add(row.first.id)) return;
                         setState(() {});
                         try {
-                          await deviceEngine.openResult(result.target!);
+                          if (result.managedTaskId != null &&
+                              linkedTask != null) {
+                            await editPersonalRecord(
+                              context,
+                              store: personalSpace,
+                              record: linkedTask,
+                            );
+                          } else if (result.target != null) {
+                            await deviceEngine.openResult(result.target!);
+                          }
                         } catch (_) {
                           if (mounted) toast(context, '暂时无法打开对应软件，请检查应用授权范围。');
                         } finally {

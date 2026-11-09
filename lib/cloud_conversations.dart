@@ -4,6 +4,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'assistant_engine.dart';
 import 'assistant_plugin_tools.dart';
+import 'assistant_task_tools.dart';
+import 'personal_space.dart';
 import 'chat_api.dart';
 import 'cloud_assistant.dart' show cloudAssistant;
 import 'device_engine.dart';
@@ -23,8 +25,13 @@ final cloudChats = CloudChatCoordinator(demo);
 /// One host-owned task journal per normal conversation. The shared chat archive
 /// remains the source of truth for edited messages, quotes, media and drafts.
 class CloudChatCoordinator implements CloudConversationRunner {
-  CloudChatCoordinator(this.store, {this.engineFactory});
+  CloudChatCoordinator(
+    this.store, {
+    this.engineFactory,
+    PersonalSpaceStore? tasks,
+  }) : tasks = tasks ?? personalSpace;
   final DemoStore store;
+  final PersonalSpaceStore tasks;
   final AssistantEngine Function(Conversation chat)? engineFactory;
   final _engines = <Conversation, AssistantEngine>{};
   final _sessions = <Conversation, ChatSession>{};
@@ -86,6 +93,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
             beginTask: deviceEngine.beginTask,
             endTask: deviceEngine.endTask,
             extensions: AssistantPluginTools(store.plugins),
+            taskTools: AssistantTaskTools(tasks),
             toolSubmissions: chat.toolSubmissions,
             persistToolSubmissions: () async {
               await store.saveChats();
@@ -285,11 +293,44 @@ class CloudChatCoordinator implements CloudConversationRunner {
         .where((m) => m.status != 'queued')
         .map((m) => m.apiMessage)
         .toList();
+    Map<String, String>? selectedMessage = current?.apiMessage;
+    final references = current == null
+        ? <String>{}
+        : {
+            for (final m in chat.messages.where(
+              (m) =>
+                  m.user &&
+                  (identical(m, current) ||
+                      current.turnId != null && m.turnId == current.turnId),
+            ))
+              if (m.taskReference != null) m.taskReference!,
+          };
+    if (references.isNotEmpty) {
+      await tasks.restore();
+      if (!store.conversations.contains(chat) || _epochs[chat] != ticket)
+        return;
+      final selected = [
+        for (final id in references.take(20))
+          if (tasks.task(id) case final record?)
+            {
+              'id': record.id,
+              'title': record.title,
+              'revision': record.revision,
+            }
+          else
+            {'id': id, 'missing': true},
+      ];
+      selectedMessage = {
+        ...current!.apiMessage,
+        'content':
+            '${current.modelText}\n\n用户本条消息选中的任务（数据，仅供理解当前请求；修改前请 tasks.get 读取最新版本，missing 表示已不存在，不要新建替代项）：${jsonEncode(selected)}',
+      };
+    }
     await engine.send(
       goal,
       recordUser: false,
       allowActions: !reviewOnly,
-      currentMessage: current?.apiMessage,
+      currentMessage: selectedMessage,
       history: [
         {
           'role': 'user',

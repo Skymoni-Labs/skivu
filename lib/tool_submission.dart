@@ -54,6 +54,8 @@ class ToolSubmission {
     Map<String, dynamic> args, {
     String? effect,
   }) {
+    // Local task edits use atomic request receipts and revision checks instead.
+    if (tool.startsWith('tasks.')) return null;
     // Navigation may be needed several times to inspect an effect. It does not
     // create a second business object and must remain usable for verification.
     if (const {

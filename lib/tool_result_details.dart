@@ -6,6 +6,22 @@ Map<String, String> toolResultDetails(
   Map<String, dynamic> receipt,
 ) {
   final value = receipt['value'];
+  if (tool.startsWith('tasks.') &&
+      receipt['outcome'] == 'verified' &&
+      value is Map &&
+      value['id'] is String &&
+      value['title'] is String) {
+    return {
+      'resultTitle': value['title'],
+      'resultDetail':
+          '我的任务 · ${value['archived'] == true
+              ? '已归档'
+              : value['done'] == true
+              ? '已完成'
+              : '待办'}${value['date'] == '' ? '' : ' · ${value['date']}'}${value['time'] == '' ? '' : ' ${value['time']}'}',
+      'managedTaskId': value['id'],
+    };
+  }
   final label = args['label'] is String ? (args['label'] as String).trim() : '';
   if (tool == 'clock.alarm.create' &&
       args['hour'] is int &&

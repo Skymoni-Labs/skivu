@@ -37,6 +37,9 @@ int _localSequence = 0;
 String _localId(String kind) =>
     '$kind-${DateTime.now().microsecondsSinceEpoch}-${_localSequence++}';
 
+bool validTaskReference(Object? value) =>
+    value is String && RegExp(r'^[a-zA-Z0-9_-]{1,100}$').hasMatch(value);
+
 class Message {
   Message(
     this.user,
@@ -59,6 +62,7 @@ class Message {
   String? contextNotice;
   bool? requestStreaming;
   String? authorId;
+  String? taskReference;
   String kind = 'text';
   String? stickerId, turnId, imageData;
   bool described = false;
@@ -100,6 +104,7 @@ class Message {
     'contextNotice': contextNotice,
     'requestStreaming': requestStreaming,
     'authorId': authorId,
+    if (taskReference != null) 'taskReference': taskReference,
     'kind': kind,
     'stickerId': stickerId,
     'turnId': turnId,
@@ -133,6 +138,9 @@ class Message {
             raw['user'] == false &&
             raw['status'] == 'complete'
         ..authorId = raw['authorId'] is String ? raw['authorId'] : null
+        ..taskReference = validTaskReference(raw['taskReference'])
+            ? raw['taskReference']
+            : null
         ..kind =
             ['text', 'voice', 'photo', 'image', 'sticker'].contains(raw['kind'])
             ? raw['kind']
@@ -296,6 +304,7 @@ class Conversation {
   ConversationUsage usage;
   int usedTokens = 0;
   String draft = '';
+  String? draftTaskId;
   List<ChatQuote> draftQuotes = [];
   int draftRevision = 0;
   List<Map<String, dynamic>> interactions = [];
@@ -321,6 +330,7 @@ class Conversation {
     'messages': messages.map((m) => m.toJson()).toList(),
     'usedTokens': usedTokens,
     'draft': draft,
+    if (draftTaskId != null) 'draftTaskId': draftTaskId,
     'draftQuotes': draftQuotes.map((q) => q.toJson()).toList(),
     'interactions': interactions,
     if (assistantJournal != null) 'assistantJournal': assistantJournal,
@@ -363,6 +373,9 @@ class Conversation {
         ..usedTokens = raw['usedTokens'] as int? ?? 0
         ..confirmBeforeReply = raw['confirmBeforeReply'] == true
         ..draft = raw['draft'] as String? ?? ''
+        ..draftTaskId = validTaskReference(raw['draftTaskId'])
+            ? raw['draftTaskId']
+            : null
         ..draftQuotes = ChatQuote.parseList(
           raw['draftQuotes'],
         ).where((q) => q.chatId == raw['id']).toList()
@@ -1416,6 +1429,7 @@ class DemoStore extends ChangeNotifier {
     String? imageData,
     bool described = false,
     List<ChatQuote> quotes = const [],
+    String? taskReference,
   }) {
     if (input.trim().isEmpty || streaming) return false;
     if (isCloudChat && cloudRunner == null) {
@@ -1455,6 +1469,9 @@ class DemoStore extends ChangeNotifier {
       }
       messages.add(
         Message(true, input.trim())
+          ..taskReference = isCloudChat && validTaskReference(taskReference)
+              ? taskReference
+              : null
           ..kind = kind
           ..stickerId = stickerId
           ..imageData = imageData
@@ -1487,6 +1504,9 @@ class DemoStore extends ChangeNotifier {
     }
     messages.add(
       Message(true, input.trim())
+        ..taskReference = isCloudChat && validTaskReference(taskReference)
+            ? taskReference
+            : null
         ..kind = kind
         ..stickerId = stickerId
         ..imageData = imageData

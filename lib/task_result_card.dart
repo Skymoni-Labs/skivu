@@ -1,7 +1,10 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'cloud_execution_disclosure.dart';
 import 'state.dart';
 import 'device_tool_catalog.dart';
+import 'personal_space.dart';
 
 /// A view of actual receipts. Rendering or restoring a card executes nothing.
 class TaskResult {
@@ -11,9 +14,49 @@ class TaskResult {
     required this.status,
     required this.tool,
     this.target,
+    this.managedTaskId,
+    this.sourceKey = '',
   });
   final String title, detail, status, tool;
   final String? target;
+  final String? managedTaskId;
+  final String sourceKey;
+
+  PersonalRecord? linkedTask(PersonalSpaceStore store) => managedTaskId != null
+      ? store.task(managedTaskId!)
+      : store.taskForSource(sourceKey);
+
+  TaskResult displayTask(PersonalRecord? task) =>
+      task == null || managedTaskId == null
+      ? this
+      : TaskResult(
+          title: task.title,
+          detail: [
+            if (task.date.isNotEmpty) task.date,
+            if (task.time.isNotEmpty) task.time,
+            '我的任务',
+          ].join(' · '),
+          status: task.archived
+              ? '已归档'
+              : task.done
+              ? '已完成'
+              : '待办已保存',
+          tool: tool,
+          managedTaskId: task.id,
+          sourceKey: sourceKey,
+        );
+
+  Future<PersonalRecord> addToTasks(PersonalSpaceStore store) {
+    if (sourceKey.isEmpty || managedTaskId != null)
+      throw StateError('此结果已有任务或缺少有效回执。');
+    return store.applyTask('attach', {
+      'title': title,
+      'body': '已完成的操作记录',
+      'sourceKey': sourceKey,
+      'sourceTarget': target ?? '',
+      'sourceDetail': '$status${detail.isEmpty ? '' : ' · $detail'}',
+    }, 'attach:$sourceKey');
+  }
 
   static TaskResult? fromMessages(
     List<Message> messages, {
@@ -93,6 +136,9 @@ class TaskResult {
       status: work.any((s) => s.outcome == 'user_confirmed') ? '你已确认完成' : '已完成',
       tool: event.tool,
       target: target,
+      managedTaskId: event.managedTaskId,
+      sourceKey:
+          'execution:${sha256.convert(utf8.encode(jsonEncode([event.taskId, event.requestId])))}',
     );
   }
 }
@@ -103,10 +149,16 @@ class TaskResultCard extends StatelessWidget {
     required this.result,
     this.onOpen,
     this.opening = false,
+    this.onManage,
+    this.manageLabel = '加入任务',
+    this.saving = false,
   });
   final TaskResult result;
   final VoidCallback? onOpen;
   final bool opening;
+  final VoidCallback? onManage;
+  final String manageLabel;
+  final bool saving;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -129,70 +181,105 @@ class TaskResultCard extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: colors.onSurface.withValues(alpha: .045),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, size: 22, color: colors.onSurfaceVariant),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    result.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontSize: 14,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                    ),
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: colors.onSurface.withValues(alpha: .045),
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      result.status,
-                      if (result.detail.isNotEmpty) result.detail,
-                    ].join(' · '),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurfaceVariant,
-                      fontSize: 12,
-                      height: 1.4,
+                  child: Icon(icon, size: 22, color: colors.onSurfaceVariant),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        result.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.onSurface,
+                          fontSize: 14,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          result.status,
+                          if (result.detail.isNotEmpty) result.detail,
+                        ].join(' · '),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onOpen != null) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: opening ? null : onOpen,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colors.onSurface,
+                      side: BorderSide(color: colors.outlineVariant),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      minimumSize: const Size(52, 36),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                    ),
+                    child: Text(
+                      opening
+                          ? '打开中'
+                          : result.managedTaskId != null
+                          ? '查看任务'
+                          : '打开',
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
-            if (result.target != null && onOpen != null) ...[
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: opening ? null : onOpen,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colors.onSurface,
-                  side: BorderSide(color: colors.outlineVariant),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  minimumSize: const Size(52, 36),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
+            if (onManage != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 50, top: 3),
+                child: TextButton.icon(
+                  onPressed: saving ? null : onManage,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                      vertical: 4,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(
+                    manageLabel == '加入任务'
+                        ? Icons.playlist_add
+                        : Icons.checklist_outlined,
+                    size: 15,
+                  ),
+                  label: Text(
+                    saving ? '正在保存' : manageLabel,
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
-                child: Text(
-                  opening ? '打开中' : '打开',
-                  style: const TextStyle(fontSize: 12),
-                ),
               ),
-            ],
           ],
         ),
       ),

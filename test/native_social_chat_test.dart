@@ -33,6 +33,7 @@ class _PresenterStore extends DemoStore {
     String? imageData,
     bool described = false,
     List<ChatQuote> quotes = const [],
+    String? taskReference,
   }) {
     sendModes.add(streamingOverride);
     return super.send(
@@ -44,6 +45,7 @@ class _PresenterStore extends DemoStore {
       imageData: imageData,
       described: described,
       quotes: quotes,
+      taskReference: taskReference,
     );
   }
 

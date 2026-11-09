@@ -18,6 +18,21 @@ const _moduleIcons = [
   Icons.cloud_outlined,
 ];
 
+Future<void> editPersonalRecord(
+  BuildContext context, {
+  required PersonalSpaceStore store,
+  bool memory = false,
+  PersonalRecord? record,
+  String date = '',
+}) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  backgroundColor: Colors.transparent,
+  builder: (_) =>
+      _RecordEditor(store: store, memory: memory, record: record, date: date),
+);
+
 class PersonalModuleBar extends StatefulWidget {
   const PersonalModuleBar({
     super.key,
@@ -323,12 +338,14 @@ class PersonalModulePage extends StatefulWidget {
     required this.onDraft,
     required this.onModule,
     this.store,
+    this.onTask,
   });
   final int module;
   final double bottomInset, topInset;
   final ValueChanged<String> onDraft;
   final ValueChanged<int> onModule;
   final PersonalSpaceStore? store;
+  final ValueChanged<PersonalRecord>? onTask;
   @override
   State<PersonalModulePage> createState() => _PersonalModulePageState();
 }
@@ -346,17 +363,12 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
   }
 
   void edit({bool memory = false, PersonalRecord? record, String date = ''}) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _RecordEditor(
-          store: store,
-          memory: memory,
-          record: record,
-          date: date,
-        ),
+      editPersonalRecord(
+        context,
+        store: store,
+        memory: memory,
+        record: record,
+        date: date,
       );
   Widget box(List<Widget> children, {double padding = 18}) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
@@ -408,7 +420,13 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
           value: r.done,
           shape: const CircleBorder(),
           activeColor: green,
-          onChanged: (_) => act(() => store.toggle(r.id)),
+          onChanged: (value) => act(() async {
+            await store.applyTask('complete', {
+              'id': r.id,
+              'expectedRevision': r.revision,
+              'done': value ?? false,
+            }, 'ui:${DateTime.now().microsecondsSinceEpoch}');
+          }),
         ),
       ),
       Expanded(
@@ -438,6 +456,12 @@ class _PersonalModulePageState extends State<PersonalModulePage> {
           ),
         ),
       ),
+      if (widget.onTask != null)
+        IconButton(
+          tooltip: '交给小云',
+          onPressed: () => widget.onTask!(r),
+          icon: const Icon(Icons.cloud_outlined, size: 19),
+        ),
     ],
   );
   List<Widget> today() {
@@ -881,13 +905,14 @@ class _RecordEditorState extends State<_RecordEditor> {
         date: date,
         time: time,
         category: category.text,
+        expectedRevision: widget.record?.revision,
       );
       if (mounted) Navigator.pop(context);
-    } catch (_) {
+    } catch (e) {
       if (mounted)
         setState(() {
           pending = false;
-          error = '保存未完成，请检查标题、内容、日期后重试。';
+          error = e is StateError ? '${e.message}' : '保存未完成，请检查标题、内容、日期后重试。';
         });
     }
   }
@@ -896,7 +921,12 @@ class _RecordEditorState extends State<_RecordEditor> {
     if (pending) return;
     setState(() => pending = true);
     try {
-      await widget.store.archive(widget.record!.id, memory: widget.memory);
+      await widget.store.archive(
+        widget.record!.id,
+        memory: widget.memory,
+        archived: !widget.record!.archived,
+        expectedRevision: widget.record!.revision,
+      );
       if (mounted) Navigator.pop(context);
     } catch (_) {
       if (mounted)
@@ -982,6 +1012,14 @@ class _RecordEditorState extends State<_RecordEditor> {
                   counterText: '',
                 ),
               ),
+              if (!widget.memory && widget.record?.sourceKey.isNotEmpty == true)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    '${widget.record!.sourceDetail}\n这是已完成操作的记录。编辑、完成或归档这条任务不会修改对应软件。',
+                    style: TextStyle(fontSize: 12, height: 1.6, color: muted),
+                  ),
+                ),
               const SizedBox(height: 12),
               TextField(
                 controller: body,
@@ -1050,7 +1088,7 @@ class _RecordEditorState extends State<_RecordEditor> {
                   if (widget.record != null)
                     TextButton(
                       onPressed: pending ? null : archive,
-                      child: const Text('移到回收站'),
+                      child: Text(widget.record!.archived ? '恢复记录' : '移到回收站'),
                     ),
                   const Spacer(),
                   FilledButton(
