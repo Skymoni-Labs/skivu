@@ -78,6 +78,60 @@ void main() {
         write: (_) async {},
       );
   test(
+    'confirmed output truncation retries a short action without dispatching partial code',
+    () async {
+      var rounds = 0, calls = 0;
+      final a = engine(
+        (_, history) async {
+          if (++rounds == 1) throw const AssistantOutputLimit(2048);
+          if (rounds == 2) {
+            expect(history.last['content'], contains('没有派发'));
+            return jsonEncode({
+              'type': 'call',
+              'tool': 'coding.workbook.create',
+              'arguments': {'projectId': 'project_a', 'path': 'blank.xlsx'},
+              'message': '创建空白表格',
+            });
+          }
+          return '{"type":"final","message":"空白表格已生成"}';
+        },
+        CodingFake((_, __, ___) async {
+          calls++;
+          return {
+            'outcome': 'verified',
+            'value': {'path': 'blank.xlsx', 'sha256': 'a'},
+          };
+        }),
+      );
+      await a.send('生成空白 Excel');
+      expect(calls, 1);
+      expect(a.phase, 'done');
+      expect(a.modelResponseIssues.single['kind'], 'output_limit');
+    },
+  );
+  test(
+    'repeated API output limits give a specific reason and never dispatch an action',
+    () async {
+      var calls = 0, rounds = 0;
+      final a = engine(
+        (_, __) async {
+          rounds++;
+          throw const AssistantOutputLimit(512);
+        },
+        CodingFake((_, __, ___) async {
+          calls++;
+          return {'outcome': 'verified'};
+        }),
+      );
+      await a.send('生成文件');
+      expect(rounds, 3);
+      expect(calls, 0);
+      expect(a.phase, 'failed');
+      expect(a.messages.last['content'], contains('512 tokens'));
+      expect(a.messages.last['content'], contains('未派发'));
+    },
+  );
+  test(
     'unmatched UI readback can be refined without repeating the action',
     () async {
       var round = 0;

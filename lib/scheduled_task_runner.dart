@@ -122,14 +122,17 @@ Future<void> runScheduledTask() async {
             requestSource: binding['kind'],
           );
           final output = StringBuffer();
+          var limited = false;
           await for (final event in session!.events) {
             if (stopped) {
               session!.cancel();
               throw StateError('计划已停止。');
             }
             output.write(event.text);
+            limited = limited || event.limited;
           }
           await active();
+          if (limited) throw AssistantOutputLimit(session!.effectiveMaxOutput);
           return output.toString();
         },
       );

@@ -166,6 +166,11 @@ class ChatSession {
   final ModelConnection config;
   final String _key, system;
   final List<Map<String, String>> history;
+
+  /// Account endpoints retain their existing service budget. Independent
+  /// connections use the configured limit without the old assistant-only cap.
+  int get effectiveMaxOutput =>
+      _fixedPath == null ? config.maxOutput : config.maxOutput.clamp(1, 4096);
   final _abort = Completer<void>();
   bool cancelled = false;
 
@@ -228,7 +233,7 @@ class ChatSession {
         'input': history.map((m) => wire(m, ApiProtocol.responses)).toList(),
         'instructions': system,
         'stream': config.streaming,
-        'max_output_tokens': config.maxOutput.clamp(1, 4096),
+        'max_output_tokens': effectiveMaxOutput,
         'store': false,
       };
     if (_betaHeaders != null)
@@ -237,7 +242,7 @@ class ChatSession {
         if (_funding == 'beta') 'funding': 'beta',
         'messages': messages,
         'stream': config.streaming,
-        'max_tokens': config.maxOutput.clamp(1, 4096),
+        'max_tokens': effectiveMaxOutput,
       };
     return switch (config.protocol) {
       ApiProtocol.chat => {
@@ -316,9 +321,7 @@ class ChatSession {
           history: history,
           system: system,
           contextLimit: config.contextLimit,
-          outputTokens: _fixedPath != null
-              ? config.maxOutput.clamp(1, 4096)
-              : config.maxOutput,
+          outputTokens: effectiveMaxOutput,
           account: _fixedPath != null,
           serialize: _body,
         );

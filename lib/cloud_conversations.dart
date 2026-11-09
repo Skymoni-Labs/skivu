@@ -174,6 +174,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
               _sessions[chat] = session;
               final output = StringBuffer();
               final thinking = StringBuffer();
+              var limited = false;
               var prefix = '';
               final stale = _drafts.remove(chat);
               if (stale != null) chat.messages.remove(stale.message);
@@ -216,6 +217,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
                     throw StateError('规划已取消或连接已更换。');
                   }
                   output.write(event.text);
+                  limited = limited || event.limited;
                   thinking.write(event.thinking);
                   if (session.config.streaming) {
                     final next = engine.hasUnverifiedEffects
@@ -238,6 +240,8 @@ class CloudChatCoordinator implements CloudConversationRunner {
                   chat.usedTokens += usage.input! + usage.output!;
                   chat.usage = ConversationUsage(totalTokens: chat.usedTokens);
                 }
+                if (limited)
+                  throw AssistantOutputLimit(session.effectiveMaxOutput);
                 return output.toString();
               } finally {
                 reveal.flush();

@@ -33,6 +33,40 @@ Stream<List<int>> fragmented(String source) async* {
 }
 
 void main() {
+  test(
+    'the reported output limit matches independent and account wire budgets',
+    () async {
+      final config = ModelConnection.fromJson({
+        ...connection(ApiProtocol.chat, streaming: false).toJson(),
+        'maxOutput': 8192,
+      });
+      final direct = ChatApi().start(config, '', [], 'test');
+      expect(direct.effectiveMaxOutput, 8192);
+      direct.cancel();
+      final account = ChatSession.account(
+        MockClient((request) async {
+          expect(jsonDecode(request.body)['max_tokens'], 4096);
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': 'ok'},
+                },
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        config,
+        [],
+        'test',
+        'test-token',
+      );
+      expect(account.effectiveMaxOutput, 4096);
+      await account.events.toList();
+    },
+  );
   test('endpoints preserve reverse-proxy prefixes, full paths and Azure query', () {
     expect(
       connection(ApiProtocol.chat).endpoint().toString(),

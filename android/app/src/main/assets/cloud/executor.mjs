@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import readline from 'node:readline';
 import {spawn, spawnSync} from 'node:child_process';
 import * as zlib from 'node:zlib';
+import {writeWorkbook} from './formats.mjs';
 
 const base = process.env.SKIVU_CLOUD_ROOT || '/root/skivu-home/cloud';
 const workspace = process.env.SKIVU_CLOUD_WORKSPACE || '/workspace';
@@ -115,6 +116,19 @@ async function invoke(tool,args,ctx){
  }
  if(tool==='coding.cancel') {const results=await Promise.all([...jobs.values()].filter(j=>j.owner===owner&&j.taskId===taskId&&['running','stopping'].includes(j.state)).map(stopJob));return {stopped:results.every(j=>j.state==='stopped'||j.state==='exited'),jobs:results};}
  const {p,root}=project(args);
+ if(tool==='coding.workbook.create'){
+   if(typeof args.path!=='string'||path.extname(args.path).toLowerCase()!=='.xlsx')throw Error('空白工作簿必须使用 .xlsx 文件名。');
+   const file=writable(root,args,owner),before=fs.existsSync(file)?fs.readFileSync(file):null;
+   const names=args.sheetNames??['Sheet1'];
+   if(!Array.isArray(names)||names.length<1||names.length>255)throw Error('工作簿至少需要一个空工作表。');
+   fs.mkdirSync(path.dirname(file),{recursive:true});const tmp=file+'.'+id()+'.tmp';
+   try{writeWorkbook(tmp,names.map(name=>({name,rows:[]})));const content=fs.readFileSync(tmp);if(!content.length)throw Error('工作簿内容为空。');
+     const history=path.join(base,'changes',p.id,hash(args.path));fs.mkdirSync(history,{recursive:true});fs.writeFileSync(path.join(history,'previous.txt'),before??'');
+     fs.renameSync(tmp,file);const b=fs.readFileSync(file);if(!b.equals(content))throw Error('工作簿写入后核对失败。');
+     atomic(path.join(history,'change.json'),{path:args.path,previousSha256:before?hash(before):null,sha256:hash(b),owner,taskId,requestId});
+     return {path:args.path,bytes:b.length,sha256:hash(b),sheets:names.length,blank:true,verified:true};
+   }finally{if(fs.existsSync(tmp))fs.unlinkSync(tmp);}
+ }
  if(tool==='coding.files.list')return walk(root,args.path||'.');
  if(tool==='coding.files.glob'){
    if(typeof args.pattern!=='string'||args.pattern.length>500)throw Error('文件匹配模式无效。');const escaped=args.pattern.replace(/[.+^${}()|[\]\\]/g,'\\$&').replaceAll('**/','\u0002').replaceAll('**','\u0001').replaceAll('*','[^/]*').replaceAll('?','[^/]').replaceAll('\u0001','.*').replaceAll('\u0002','(?:.*/)?');const re=new RegExp('^'+escaped+'$');return walk(root).filter(f=>re.test(f.path));

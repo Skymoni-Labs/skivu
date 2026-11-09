@@ -47,6 +47,18 @@ class CloudCodingTools implements AssistantExtensions {
       ),
       ('projects.create', '创建独立项目，保留其他项目。', {'name': _str}, ['name'], 'write'),
       (
+        'workbook.create',
+        '直接创建真正空白 XLSX，默认一个空工作表 Sheet1。生成空白 Excel 优先使用此工具，无需 Python、脚本或手写 ZIP/XML。返回真实文件与哈希；随后用 deliver.prepare 交付。覆盖现有文件仍需最新 SHA。',
+        {
+          'projectId': _id,
+          'path': _str,
+          'sheetNames': {'type': 'array', 'maxItems': 255, 'items': _id},
+          'expectedSha256': _str,
+        },
+        ['projectId', 'path'],
+        'write',
+      ),
+      (
         'projects.open',
         '选择项目并读取当前目录、工作目录与所属进程；恢复时先调用。',
         {'projectId': _id},

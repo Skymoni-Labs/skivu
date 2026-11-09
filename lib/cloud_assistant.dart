@@ -40,11 +40,14 @@ final AssistantEngine cloudAssistant = AssistantEngine(
     }
     _session = session;
     final output = StringBuffer();
+    var limited = false;
     try {
       await for (final event in session.events) {
         output.write(event.text);
+        limited = limited || event.limited;
       }
       if (session.cancelled) throw StateError('规划已取消。');
+      if (limited) throw AssistantOutputLimit(session.effectiveMaxOutput);
       return output.toString();
     } finally {
       if (identical(_session, session)) _session = null;

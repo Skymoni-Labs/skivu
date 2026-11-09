@@ -52,6 +52,58 @@ class SharedDocument implements TaskPersistence {
 }
 
 void main() {
+  test(
+    'assistant respects the saved output limit and the explicit scheduled budget',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final models = ModelSettings();
+      const config = ModelConnection(
+        id: 'limit',
+        name: 'limit',
+        provider: 'test',
+        protocol: ApiProtocol.chat,
+        address: 'https://limits.example/v1',
+        model: 'test',
+        auth: 'none',
+        streaming: false,
+        maxOutput: 8192,
+      );
+      models.connections.add(config);
+      models.activeId = config.id;
+      final store = DemoStore(
+        settings: models,
+        storage: MemoryChats(),
+        api: ChatApi(
+          clientFactory: () => MockClient(
+            (_) async => http.Response(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {'content': 'ok'},
+                  },
+                ],
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+          ),
+        ),
+      );
+      final foreground = await store.startAssistantReply('test', []);
+      expect(foreground.config.maxOutput, 8192);
+      await foreground.events.toList();
+      final scheduled = await store.startAssistantReply(
+        'test',
+        [],
+        maxOutputTokens: 512,
+      );
+      expect(scheduled.config.maxOutput, 512);
+      await scheduled.events.toList();
+      expect(models.active!.maxOutput, 8192);
+      store.dispose();
+      models.dispose();
+    },
+  );
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
     'a restored account loads current rights without overwriting foreground preferences',

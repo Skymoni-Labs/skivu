@@ -64,6 +64,17 @@ class CloudRuntimeAcceptanceTest {
         assertEquals("failed",request("deliver.prepare",mapOf("projectId" to p,"files" to emptyList<Any>()))["outcome"])
         assertEquals("a",call("files.read",mapOf("projectId" to p,"path" to "file.txt"))["text"])
     }
+    @Test fun blankWorkbookUsesTheRealWriterAndPreservesOverwriteGuards(){
+        val p=project();val created=call("workbook.create",mapOf("projectId" to p,"path" to "blank.xlsx"))
+        assertEquals(true,created["blank"]);assertEquals(1,(created["sheets"] as Number).toInt());assertTrue((created["bytes"] as Number).toLong()>0)
+        assertEquals("failed",request("workbook.create",mapOf("projectId" to p,"path" to "blank.xlsx"))["outcome"])
+        assertEquals(created["sha256"],call("files.read",mapOf("projectId" to p,"path" to "blank.xlsx"))["sha256"])
+        assertEquals("failed",request("workbook.create",mapOf("projectId" to p,"path" to "fake.csv"))["outcome"])
+        val manifest=call("deliver.prepare",mapOf("projectId" to p,"files" to listOf(mapOf("path" to "blank.xlsx","purpose" to "最终空白Excel"))))
+        val artifacts=CloudArtifacts(context);val delivery=artifacts.publish(manifest,owner,task,"blank_$task");val record=(delivery["artifacts"] as List<*>).single() as Map<*,*>
+        val preview=artifacts.preview(record["id"] as String);assertEquals("workbook",preview["kind"]);val sheet=(preview["sheets"] as List<*>).single() as Map<*,*>;assertEquals("Sheet1",sheet["name"]);assertTrue((sheet["rows"] as List<*>).isEmpty())
+        File(context.filesDir,"qa-blank-artifact.json").writeText(org.json.JSONObject(record).toString())
+    }
     @Test fun genuineWorkbookDocumentAndOnlyExplicitFinalFilesArePublished(){
         val p=project()
         val script="""

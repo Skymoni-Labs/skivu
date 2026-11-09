@@ -1832,7 +1832,7 @@ class DemoStore extends ChangeNotifier {
     final config = ModelConnection.fromJson({
       ...active.toJson(),
       'streaming': streaming ?? active.streaming,
-      'maxOutput': (maxOutputTokens ?? active.maxOutput).clamp(512, 4096),
+      'maxOutput': (maxOutputTokens ?? active.maxOutput).clamp(16, 131072),
       if (timeoutSeconds != null)
         'timeoutSeconds': timeoutSeconds.clamp(10, 120),
     });
