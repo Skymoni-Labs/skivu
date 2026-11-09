@@ -124,29 +124,6 @@ class _CloudFileCardState extends State<CloudFileCard>
   }
 
   Future<void> act(Map<String, dynamic> file, String action) async {
-    if (action == 'open' &&
-        const {
-          'xlsx',
-          'docx',
-          'txt',
-          'md',
-          'py',
-          'js',
-          'mjs',
-          'dart',
-          'kt',
-          'java',
-          'c',
-          'cpp',
-          'html',
-          'css',
-          'csv',
-          'yaml',
-          'yml',
-          'sh',
-          'json',
-        }.contains(file['format']))
-      action = 'preview';
     final id = file['id'] as String;
     if (!busy.add(id)) return;
     setState(() {});
@@ -170,10 +147,15 @@ class _CloudFileCardState extends State<CloudFileCard>
         final value = await cloudExecutionChannel
             .invokeMapMethod<String, dynamic>(
               'artifact.${action == 'system' ? 'open' : action}',
-              {'id': id},
+              {'id': id, if (action == 'system') 'chooser': true},
             );
         if (action == 'save')
-          notice(value?['state'] == 'cancelled' ? '已取消保存，成果仍保留。' : '已保存成果副本。');
+          notice(switch (value?['state']) {
+            'cancelled' => '已取消另存，原文件仍保留。',
+            'saved' => '已另存并回读核对文件。',
+            _ => '已写入所选位置，暂时无法回读核对。',
+          });
+        files = load();
       }
     } catch (e) {
       notice('$e');
@@ -201,6 +183,13 @@ class _CloudFileCardState extends State<CloudFileCard>
         );
       final records = snapshot.data!;
       final valid = records.where((r) => r['state'] == 'delivered').length;
+      final phoneSaved = records
+          .where(
+            (r) =>
+                r['state'] == 'delivered' &&
+                const {'saved', 'changed'}.contains(r['phoneSaveState']),
+          )
+          .length;
       return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -215,7 +204,7 @@ class _CloudFileCardState extends State<CloudFileCard>
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 11, 14, 5),
               child: Text(
-                '已交付 $valid 个文件${valid < records.length ? ' · ${records.length - valid} 个已失效' : ''}',
+                '${phoneSaved == valid && valid > 0 ? '已交付 $valid 个文件 · 已保存到下载目录' : '已生成 $valid 个文件 · $phoneSaved 个已存到下载目录'}${valid < records.length ? ' · ${records.length - valid} 个已失效' : ''}',
                 style: Theme.of(context).textTheme.labelMedium,
               ),
             ),
@@ -262,6 +251,19 @@ class _CloudFileCardState extends State<CloudFileCard>
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: scheme.onSurfaceVariant),
                             ),
+                            Text(
+                              switch (file['phoneSaveState']) {
+                                'saved' => '已保存：${file['phonePath']}',
+                                'changed' => '手机副本已修改：${file['phonePath']}',
+                                'missing' => '手机下载副本已删除；原始成果仍保留。',
+                                'unavailable' => '手机副本暂不可读；原始成果仍保留。',
+                                _ => '尚未保存到手机下载目录，可选择“另存为…”',
+                              },
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
                           ],
                         ),
                       ),
@@ -278,12 +280,12 @@ class _CloudFileCardState extends State<CloudFileCard>
                         tooltip: '成果操作',
                         onSelected: (a) => act(file, a),
                         itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'preview', child: Text('预览')),
                           PopupMenuItem(
-                            value: 'system',
-                            child: Text('用其他应用打开'),
+                            value: 'preview',
+                            child: Text('预览原始成果'),
                           ),
-                          PopupMenuItem(value: 'save', child: Text('保存到…')),
+                          PopupMenuItem(value: 'system', child: Text('选择打开方式')),
+                          PopupMenuItem(value: 'save', child: Text('另存为…')),
                           PopupMenuItem(value: 'share', child: Text('分享')),
                         ],
                       ),

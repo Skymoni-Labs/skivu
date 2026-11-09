@@ -1,6 +1,5 @@
 package com.skyjjgw.independent.ski
 
-import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -10,7 +9,6 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
-import java.util.UUID
 import java.util.zip.ZipFile
 
 /** Android's parser does not implement Apache-specific feature URIs. Decode
@@ -30,6 +28,7 @@ private fun cloudXml(bytes:ByteArray):org.w3c.dom.Document{
 /** Final manifests only. No directory discovery, extension sweep or chat parsing. */
 class CloudArtifacts(private val context:Context) {
     companion object { private val lock=Any() }
+    private val phoneFiles=CloudPhoneFiles(context)
     private val base get()=File(context.filesDir,"cloud-artifacts").apply{mkdirs()}
     private fun digest(file:File):String {val sha=MessageDigest.getInstance("SHA-256");file.inputStream().use{input->val b=ByteArray(65536);while(true){val n=input.read(b);if(n<0)break;sha.update(b,0,n)}};return sha.digest().joinToString(""){"%02x".format(it)}}
     private fun index()=File(base,"manifest.json")
@@ -85,29 +84,31 @@ class CloudArtifacts(private val context:Context) {
                 val src=File(root,path).canonicalFile;require(src.path.startsWith(root.path+"/")&&src.isFile&&src.length() in 1..(200L*1024*1024))
                 require(src.length()==(item["bytes"] as Number).toLong()&&digest(src)==item["sha256"]){"源文件已变化，请重新准备最终清单。"}
                 val name=item["name"] as String;require(safeName(name))
-                val artifactId="artifact_"+UUID.randomUUID().toString().replace("-","")
-                val folder=File(base,artifactId).apply{check(mkdir())};val dest=File(folder,name)
+                val artifactId="artifact_"+MessageDigest.getInstance("SHA-256").digest("$batchId:$project:$path".toByteArray()).joinToString(""){"%02x".format(it)}.take(32)
+                val folder=File(base,artifactId).apply{check(isDirectory||mkdir())};val dest=File(folder,name)
                 try {FileInputStream(src).use{input->dest.outputStream().use{input.copyTo(it)}};require(digest(dest)==item["sha256"]);val metadata=validate(dest)
                     val versions=(0 until all.length()).map{all.getJSONObject(it)}.filter{it.optString("projectId")==project&&it.optString("sourcePath")==path}.map{it.optInt("version")}
                     val record=mapOf("id" to artifactId,"owner" to owner,"taskId" to taskId,"requestId" to requestId,"projectId" to project,"sourcePath" to path,"name" to name,"bytes" to dest.length(),"sha256" to item["sha256"],"purpose" to item["purpose"],"version" to ((versions.maxOrNull()?:0)+1),"createdAt" to System.currentTimeMillis(),"state" to "delivered")+metadata
-                    all.put(JSONObject(record));published+=record
+                    val phone=try{phoneFiles.export(dest,artifactId,item["sha256"] as String,mime(dest))}catch(e:Exception){mapOf("phoneSaveState" to "failed","phoneSaveError" to (e.message?:"手机文件保存未完成。"))}
+                    if(phone["phoneSaveState"] !in setOf("saved","changed"))failed+=mapOf("path" to path,"stage" to "phone_save","error" to (phone["phoneSaveError"]?:"手机文件保存尚未核对。"))
+                    val finalRecord=record+phone;all.put(JSONObject(finalRecord));published+=finalRecord
                 }catch(e:Exception){dest.delete();folder.delete();throw e}
             }catch(e:Exception){failed+=mapOf("path" to item["path"],"error" to (e.message?:"交付检查失败。"))}
         }
-        save(all);val result=mapOf("artifacts" to published,"failed" to failed,"count" to published.size);val tmp=File(base,"batch-$batchId.tmp");tmp.writeText(JSONObject(result).toString());check(tmp.renameTo(batch));result
+        save(all);val result=mapOf("artifacts" to published,"failed" to failed,"count" to published.size,"phoneSavedCount" to published.count{it["phoneSaveState"] in setOf("saved","changed")});val tmp=File(base,"batch-$batchId.tmp");tmp.writeText(JSONObject(result).toString());check(tmp.renameTo(batch));result
     }
     fun list(owner:String?=null,taskId:String?=null):List<Any?> = synchronized(lock) {
         val all=records();(0 until all.length()).map{all.getJSONObject(it)}.filter{(owner==null||it.optString("owner")==owner)&&(taskId==null||it.optString("taskId")==taskId)}.map{r->
             val file=File(base,"${r.getString("id")}/${r.getString("name")}")
             val current=JSONObject(r.toString());if(!file.isFile)current.put("state","missing")else if(file.length()!=r.getLong("bytes")||digest(file)!=r.getString("sha256"))current.put("state","changed")
-            plain(current)
+            plain(current) as Map<String,Any?> + phoneFiles.inspect(r.getString("id"))
         }
     }
     fun file(id:String):Pair<File,JSONObject> = synchronized(lock) {
         require(Regex("artifact_[a-f0-9]{32}").matches(id));val all=records();val record=(0 until all.length()).map{all.getJSONObject(it)}.first{it.getString("id")==id};val file=File(base,"$id/${record.getString("name")}")
         require(file.isFile&&digest(file)==record.getString("sha256")){"文件已缺失或变化，未打开其他版本。"};file to record
     }
-    fun mime(file:File):String=when(file.extension.lowercase()){"xlsx"->"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";"docx"->"application/vnd.openxmlformats-officedocument.wordprocessingml.document";"pptx"->"application/vnd.openxmlformats-officedocument.presentationml.presentation";"pdf"->"application/pdf";"zip"->"application/zip";"png"->"image/png";"jpg","jpeg"->"image/jpeg";"json"->"application/json";"txt","md","py","js","mjs","dart","kt","java","c","cpp","html","css","csv","yaml","yml","sh"->"text/plain";else->"application/octet-stream"}
+    fun mime(file:File):String=when(file.extension.lowercase()){"xlsx"->"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";"docx"->"application/vnd.openxmlformats-officedocument.wordprocessingml.document";"pptx"->"application/vnd.openxmlformats-officedocument.presentationml.presentation";"pdf"->"application/pdf";"zip"->"application/zip";"png"->"image/png";"jpg","jpeg"->"image/jpeg";"json"->"application/json";"csv"->"text/csv";"webp"->"image/webp";"gif"->"image/gif";"txt","md","py","js","mjs","dart","kt","java","c","cpp","html","css","yaml","yml","sh"->"text/plain";else->android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase())?:"application/octet-stream"}
     fun preview(id:String):Map<String,Any?>{
         val(file,record)=file(id)
         fun texts(node:org.w3c.dom.Element,tag:String):String{val all=node.getElementsByTagNameNS("*",tag);return (0 until all.length).joinToString(""){all.item(it).textContent}}
@@ -130,10 +131,16 @@ class CloudArtifacts(private val context:Context) {
         require(mime(file).startsWith("text/")||file.extension=="json"){"此格式请用系统打开或保存。"};require(file.length()<=2*1024*1024)
         return mapOf("kind" to "text","name" to file.name,"text" to file.readText(),"version" to record.getInt("version"))
     }
-    fun open(activity:Activity,id:String,share:Boolean){
-        val (file,_)=file(id);val uri=FileProvider.getUriForFile(context,"${context.packageName}.cloud_files",file)
+    fun openIntent(id:String,share:Boolean,chooser:Boolean=false):Intent {
+        val (file,record)=file(id)
+        val phone=phoneFiles.export(file,id,record.getString("sha256"),mime(file))
+        val uri=if(phone["phoneSaveState"] in setOf("saved","changed"))android.net.Uri.parse(phone["phoneUri"] as String)
+            else if(android.os.Build.VERSION.SDK_INT<29)FileProvider.getUriForFile(context,"${context.packageName}.cloud_files",file)
+            else error(phone["phoneSaveError"]?.toString()?:"文件尚未保存到手机下载目录。")
         val intent=if(share)Intent(Intent.ACTION_SEND).setType(mime(file)).putExtra(Intent.EXTRA_STREAM,uri)else Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime(file))
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);intent.clipData=ClipData.newRawUri(file.name,uri)
-        activity.startActivity(Intent.createChooser(intent,if(share)"分享成果" else "打开成果"))
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if(!share&&phone["phoneSaveState"] in setOf("saved","changed"))intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        intent.clipData=ClipData.newRawUri(phone["phoneName"]?.toString()?:file.name,uri)
+        return if(share||chooser)Intent.createChooser(intent,if(share)"分享成果" else "选择打开方式")else intent
     }
 }

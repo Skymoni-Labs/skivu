@@ -42,6 +42,8 @@ class CloudRuntimeAcceptanceTest {
         val again=call("deliver.prepare",mapOf("projectId" to p,"files" to listOf(mapOf("path" to "result.txt","purpose" to "新版本"),mapOf("path" to "missing.txt","purpose" to "不存在的成果"))))
         val version=artifacts.publish(again,owner,task,"deliver_second_$task");assertEquals(1,(version["artifacts"] as List<*>).size);assertEquals(1,(version["failed"] as List<*>).size)
         assertEquals(2,((version["artifacts"] as List<*>).single() as Map<*,*>)["version"])
+        val nextRecord=(version["artifacts"] as List<*>).single() as Map<*,*>;assertNotEquals(record["phoneUri"],nextRecord["phoneUri"])
+        assertTrue(CloudPhoneFiles(context).verifySavedCopy(android.net.Uri.parse(record["phoneUri"] as String),artifacts.file(record["id"] as String).first))
     }
     @Test fun cancellationIsOwnedOutputContinuesAndRequestsDoNotReplay(){
         val p=project();val other=project()
@@ -74,6 +76,16 @@ class CloudRuntimeAcceptanceTest {
         val artifacts=CloudArtifacts(context);val delivery=artifacts.publish(manifest,owner,task,"blank_$task");val record=(delivery["artifacts"] as List<*>).single() as Map<*,*>
         val preview=artifacts.preview(record["id"] as String);assertEquals("workbook",preview["kind"]);val sheet=(preview["sheets"] as List<*>).single() as Map<*,*>;assertEquals("Sheet1",sheet["name"]);assertTrue((sheet["rows"] as List<*>).isEmpty())
         File(context.filesDir,"qa-blank-artifact.json").writeText(org.json.JSONObject(record).toString())
+        assertEquals("saved",record["phoneSaveState"]);assertTrue(record["phonePath"].toString().startsWith("Download/Skivu/"))
+        val uri=android.net.Uri.parse(record["phoneUri"] as String);assertTrue(CloudPhoneFiles(context).verifySavedCopy(uri,artifacts.file(record["id"] as String).first))
+        val again=artifacts.publish(manifest,owner,task,"blank_$task");assertEquals(record["phoneUri"],((again["artifacts"] as List<*>).single() as Map<*,*>)["phoneUri"])
+        val intent=artifacts.openIntent(record["id"] as String,false);assertEquals(android.content.Intent.ACTION_VIEW,intent.action);assertEquals(uri,intent.data);assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",intent.type);assertTrue(intent.flags and android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION!=0)
+        context.contentResolver.openOutputStream(uri,"w")!!.use{it.write("edited phone copy".toByteArray())}
+        assertEquals("changed",CloudPhoneFiles(context).inspect(record["id"] as String)["phoneSaveState"])
+        assertEquals(uri,artifacts.openIntent(record["id"] as String,false).data)
+        assertTrue(artifacts.preview(record["id"] as String)["kind"]=="workbook")
+        assertEquals(1,context.contentResolver.delete(uri,null,null));assertEquals("missing",CloudPhoneFiles(context).inspect(record["id"] as String)["phoneSaveState"])
+        try{artifacts.openIntent(record["id"] as String,false);fail("deleted phone file was silently recreated")}catch(_:IllegalStateException){}
     }
     @Test fun genuineWorkbookDocumentAndOnlyExplicitFinalFilesArePublished(){
         val p=project()

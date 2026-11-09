@@ -26,7 +26,9 @@ class CloudPlatform(private val context:Context,private val activity:Activity?=n
                 return@setMethodCallHandler
             }
             if(call.method=="artifact.open"||call.method=="artifact.share"){
-                try{artifacts.open(activity?:error("当前没有可打开成果的界面。"),args["id"] as String,call.method=="artifact.share");result.success(mapOf("state" to "opened"))}catch(e:Exception){result.error("CLOUD_FILE",e.message,null)}
+                worker.execute{try{val intent=artifacts.openIntent(args["id"] as String,call.method=="artifact.share",args["chooser"]==true)
+                    Handler(Looper.getMainLooper()).post{try{(activity?:error("当前没有可打开成果的界面。")).startActivity(intent);result.success(mapOf("state" to "opened"))}catch(_:android.content.ActivityNotFoundException){result.error("CLOUD_FILE","手机没有可打开此格式的应用；文件已保存到 下载/Skivu，可选择安装对应查看器。",null)}catch(e:Exception){result.error("CLOUD_FILE",e.message,null)}}
+                }catch(e:Exception){Handler(Looper.getMainLooper()).post{result.error("CLOUD_FILE",e.message,null)}}}
                 return@setMethodCallHandler
             }
             if(call.method=="artifact.save"){
@@ -54,7 +56,7 @@ class CloudPlatform(private val context:Context,private val activity:Activity?=n
                             val receipt=CloudRuntime.invoke(context,tool,parameters,owner,task,request)
                             if(tool=="coding.deliver.prepare"&&receipt["outcome"]=="verified"){
                                 @Suppress("UNCHECKED_CAST") val manifest=receipt["value"] as Map<String,Any?>
-                                val delivery=artifacts.publish(manifest,owner,task,request);receipt+mapOf("outcome" to if((delivery["artifacts"] as List<*>).isEmpty())"failed" else "verified","value" to delivery,"message" to "最终清单已核对；只交付成功的成果，失败项保留具体原因。")
+                                val delivery=artifacts.publish(manifest,owner,task,request);receipt+mapOf("outcome" to if((delivery["artifacts"] as List<*>).isEmpty())"failed" else "verified","value" to delivery,"message" to "最终清单已核对；成功文件已保存到手机 下载/Skivu，未完成的手机保存单独说明。")
                             }else receipt
                         }
                         "artifacts"->artifacts.list(args["owner"] as? String,args["taskId"] as? String)
@@ -76,6 +78,6 @@ class CloudPlatform(private val context:Context,private val activity:Activity?=n
         if(code!=SAVE)return;val id=saving;val reply=saveReply;saving=null;saveReply=null
         if(id==null||reply==null)return
         if(resultCode!=Activity.RESULT_OK||data?.data==null){reply.success(mapOf("state" to "cancelled"));return}
-        worker.execute{try{val(file,_)=artifacts.file(id);context.contentResolver.openOutputStream(data.data!!,"wt")!!.use{output->file.inputStream().use{it.copyTo(output)}};Handler(Looper.getMainLooper()).post{reply.success(mapOf("state" to "saved"))}}catch(e:Exception){Handler(Looper.getMainLooper()).post{reply.error("CLOUD_SAVE",e.message,null)}}}
+        worker.execute{try{val(file,_)=artifacts.file(id);context.contentResolver.openOutputStream(data.data!!,"wt")!!.use{output->file.inputStream().use{it.copyTo(output)}};val verified=runCatching{CloudPhoneFiles(context).verifySavedCopy(data.data!!,file)}.getOrDefault(false);Handler(Looper.getMainLooper()).post{reply.success(mapOf("state" to if(verified)"saved" else "saved_unverified"))}}catch(e:Exception){Handler(Looper.getMainLooper()).post{reply.error("CLOUD_SAVE",e.message,null)}}}
     }
 }

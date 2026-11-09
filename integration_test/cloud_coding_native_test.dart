@@ -196,7 +196,7 @@ console.log('CHECK_OK');
         expect(find.byType(CloudFileCard), findsOneWidget);
         await tester.ensureVisible(find.byType(CloudFileCard));
         await tester.pump(const Duration(milliseconds: 600));
-        expect(find.text('已交付 2 个文件'), findsOneWidget);
+        expect(find.text('已交付 2 个文件 · 已保存到下载目录'), findsOneWidget);
         expect(find.text('final.xlsx'), findsOneWidget);
         expect(find.text('final.docx'), findsOneWidget);
         expect(find.text('process-0.txt'), findsNothing);
@@ -209,7 +209,9 @@ console.log('CHECK_OK');
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(seconds: 3)),
         );
-        await tester.tap(find.text('打开').first);
+        await tester.tap(find.byTooltip('成果操作').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('预览原始成果'));
         for (var i = 0; i < 10; i++)
           await tester.pump(const Duration(milliseconds: 120));
         expect(find.text('数据 · 4 行'), findsOneWidget);
