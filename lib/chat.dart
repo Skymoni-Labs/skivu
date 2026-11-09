@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'cloud_storage_page.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'state.dart';
@@ -616,10 +617,16 @@ class _ChatPageState extends State<ChatPage>
             await showStickerPicker(context);
           },
         ),
-        const ListTile(
+        ListTile(
           leading: Icon(Icons.attach_file),
-          title: Text('文件'),
-          trailing: Text('即将开放'),
+          title: const Text('手机文件'),
+          subtitle: const Text('导入已授权文件到小云项目'),
+          onTap: () {
+            Navigator.pop(sheet);
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CloudStoragePage()),
+            );
+          },
         ),
       ],
     ),

@@ -5,6 +5,9 @@ import 'widgets.dart';
 import 'state.dart';
 import 'cloud_integration.dart';
 import 'cloud_coding_page.dart';
+import 'cloud_storage_page.dart';
+import 'speech_settings_page.dart';
+import 'extensions_page.dart';
 
 class WorkspacePanel extends StatelessWidget {
   const WorkspacePanel({
@@ -75,26 +78,38 @@ class WorkspacePanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    for (final item in [
-                      (Icons.folder_outlined, '文件'),
-                      (Icons.handyman_outlined, '工具'),
-                      (Icons.language, '浏览器'),
-                      (Icons.terminal, '终端'),
+                    for (final item in <(IconData, String, String, Widget)>[
+                      (
+                        Icons.folder_outlined,
+                        '手机文件',
+                        '授权目录、导入与自动保存位置',
+                        const CloudStoragePage(),
+                      ),
+                      (
+                        Icons.mic_none,
+                        '语音输入与声音',
+                        '系统识别、自定义识别和朗读配置',
+                        const SpeechSettingsPage(),
+                      ),
+                      (
+                        Icons.handyman_outlined,
+                        '工具与技能',
+                        '已安装技能和 MCP 工具',
+                        const ExtensionsPage(),
+                      ),
                     ])
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Pane(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Icon(item.$1, color: ink),
-                              const SizedBox(width: 14),
-                              Expanded(child: label(item.$2)),
-                              Text(
-                                '即将开放',
-                                style: TextStyle(color: ink, fontSize: 12),
-                              ),
-                            ],
+                          padding: EdgeInsets.zero,
+                          child: ListTile(
+                            leading: Icon(item.$1, color: ink),
+                            title: Text(item.$2),
+                            subtitle: Text(item.$3),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(builder: (_) => item.$4),
+                            ),
                           ),
                         ),
                       ),
@@ -129,7 +144,7 @@ class WorkspacePanel extends StatelessWidget {
                           ),
                         ),
                     ],
-                    label('更多能力正在准备中。', size: 12),
+                    label('执行进度、文件和程序保留在对应的小云对话与项目中。', size: 12),
                   ],
                 );
               },
