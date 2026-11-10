@@ -8,6 +8,7 @@ import 'open_plugin.dart';
 import 'open_plugin_bridge.dart';
 import 'open_plugin_page.dart';
 import 'cloud_integration.dart';
+import 'plugin_market_widgets.dart';
 
 class OpenPluginsPage extends StatefulWidget {
   const OpenPluginsPage({super.key});
@@ -20,6 +21,7 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
   bool busy = false;
   String? error;
   String query = '';
+  bool onlyInstalled = false;
   @override
   void initState() {
     super.initState();
@@ -290,6 +292,69 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
     if (erase) await eraseOpenPluginData(r.manifest.id);
   }
 
+  Widget glyph(OpenPluginManifest m) => MarketGlyph(
+    icon: m.permissions.contains('prompt')
+        ? Icons.auto_awesome_rounded
+        : m.chatSurface
+        ? Icons.forum_rounded
+        : Icons.extension_rounded,
+    color: m.permissions.contains('prompt')
+        ? const Color(0xff8670c7)
+        : m.chatSurface
+        ? const Color(0xff2589d8)
+        : const Color(0xff358b8a),
+  );
+
+  void details(OpenPluginManifest m, OpenPluginRecord? record) {
+    showMarketDetails(
+      context,
+      name: m.name,
+      description: m.description,
+      icon: glyph(m),
+      details: [
+        ('版本', m.version),
+        ('开发者', m.author),
+        ('开源许可', m.license),
+        ('项目来源', m.source),
+        if (record != null) ('安装来源', record.origin),
+        ('插件标识', m.id),
+        ('适用版本', 'Skivu ${m.raw['minHostVersion']} 及以上'),
+        (
+          '使用权限',
+          m.permissions.isEmpty
+              ? '无需额外权限'
+              : m.permissions
+                    .map((p) => openPluginPermissions[p] ?? p)
+                    .join('\n'),
+        ),
+      ],
+      actions: [
+        if (record != null)
+          TextButton.icon(
+            onPressed: () => showLicense(record.package),
+            icon: const Icon(Icons.description_outlined, size: 18),
+            label: const Text('查看许可原文'),
+          ),
+      ],
+    );
+  }
+
+  Future<void> toggle(OpenPluginRecord record) => task(() async {
+    if (!record.authorized && !await confirmOpenPlugin(context, record)) return;
+    await openPlugins.setEnabled(record.manifest.id, !record.authorized);
+  });
+
+  Future<void> selectSurface(OpenPluginRecord record) => task(() async {
+    if (!record.authorized) {
+      if (!await confirmOpenPlugin(context, record)) return;
+      await openPlugins.setEnabled(record.manifest.id, true);
+    }
+    final id = record.manifest.id;
+    await openPlugins.selectChatSurface(
+      openPlugins.selectedChatSurface == id ? '' : id,
+    );
+  });
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: openPlugins,
@@ -299,170 +364,254 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
       };
       final ids = {...openPlugins.records.keys, ...available.keys}.where((id) {
         if (id == 'org.skivu.dsh' && cloudIntegration.migrated) return false;
+        if (onlyInstalled && !openPlugins.records.containsKey(id)) return false;
         final m =
             openPlugins.records[id]?.manifest ??
             OpenPluginManifest.parse(available[id]!['manifest']);
         return '${m.name} ${m.description} ${m.author}'.toLowerCase().contains(
-          query.toLowerCase(),
+          query.trim().toLowerCase(),
         );
       }).toList();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '开放插件',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          const Text('开发者可编写独立页面和聊天动作，自带界面、逻辑与资源。插件从目录或本地安装，启用前由你确认权限。'),
-          Wrap(
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                onPressed: busy ? null : () => task(localImport),
-                icon: const Icon(Icons.file_open_outlined),
-                label: const Text('导入插件'),
-              ),
-              TextButton.icon(
-                onPressed: busy ? null : editCatalogs,
-                icon: const Icon(Icons.rss_feed),
-                label: const Text('管理目录'),
-              ),
-              TextButton.icon(
+          MarketHeader(
+            title: '工具箱',
+            subtitle: '发现提示词、聊天工具和更多玩法。',
+            actions: [
+              IconButton(
+                tooltip: '刷新工具箱',
                 onPressed: busy ? null : refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('刷新'),
+                icon: const Icon(Icons.refresh_rounded, size: 22),
+              ),
+              PopupMenuButton<String>(
+                tooltip: '更多选项',
+                icon: const Icon(Icons.more_horiz_rounded),
+                enabled: !busy,
+                onSelected: (value) {
+                  if (value == 'import') task(localImport);
+                  if (value == 'catalogs') editCatalogs();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'import', child: Text('从文件导入')),
+                  PopupMenuItem(value: 'catalogs', child: Text('管理插件来源')),
+                ],
               ),
             ],
           ),
+          const SizedBox(height: 22),
           TextField(
-            decoration: const InputDecoration(
-              labelText: '搜索开放插件',
-              prefixIcon: Icon(Icons.search),
-            ),
+            decoration: marketSearchDecoration(context, '搜索插件'),
             onChanged: (v) => setState(() => query = v),
           ),
-          if (busy) const LinearProgressIndicator(),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final installed in [false, true])
+                ChoiceChip(
+                  label: Text(installed ? '已安装' : '全部'),
+                  selected: onlyInstalled == installed,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => onlyInstalled = installed),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (busy)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
           if (error != null)
             Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(error!, style: const TextStyle(color: Colors.red)),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: MarketPanel(
+                child: Text(
+                  error!,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    height: 1.6,
+                  ),
+                ),
+              ),
             ),
-          Text('${ids.length} 个项目 · ${openPlugins.records.length} 个已安装'),
           if (ids.isEmpty && !busy)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('目录暂无匹配项目。可导入自己编写的 .skivu.json 包，或添加第三方目录。'),
+            MarketPanel(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.extension_outlined,
+                      size: 36,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      query.trim().isNotEmpty
+                          ? '没有找到相关插件'
+                          : onlyInstalled
+                          ? '还没有安装插件'
+                          : '暂时没有可用插件',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      query.trim().isNotEmpty
+                          ? '试试其他关键词。'
+                          : onlyInstalled
+                          ? '到“全部”看看有什么新玩法。'
+                          : '稍后刷新再来看看。',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
             ),
           for (final id in ids)
             Builder(
               builder: (context) {
-                final r = openPlugins.records[id],
-                    e = available[id],
-                    m = r?.manifest ?? OpenPluginManifest.parse(e!['manifest']);
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
+                final r = openPlugins.records[id], e = available[id];
+                final m =
+                    r?.manifest ?? OpenPluginManifest.parse(e!['manifest']);
+                final upgrade =
+                    r != null && e != null && e['sha256'] != r.package.digest;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: MarketPanel(
+                    onTap: () => details(m, r),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Row(
+                          children: [
+                            glyph(m),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    m.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  if (r != null)
+                                    MarketBadge(r.authorized ? '已启用' : '已安装')
+                                  else
+                                    Text(
+                                      m.author,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            MarketAction(
+                              label: r == null ? '安装' : '打开',
+                              onPressed: busy || !m.compatible
+                                  ? null
+                                  : r == null
+                                  ? () => task(() => installCatalog(e!))
+                                  : () => launchOpenPlugin(context, r),
+                            ),
+                            if (r != null)
+                              PopupMenuButton<String>(
+                                tooltip: '${m.name}管理',
+                                padding: EdgeInsets.zero,
+                                icon: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 20,
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'details') details(m, r);
+                                  if (value == 'toggle') toggle(r);
+                                  if (value == 'surface') selectSurface(r);
+                                  if (value == 'update')
+                                    task(() => installCatalog(e!));
+                                  if (value == 'remove') task(() => remove(r));
+                                  if (value == 'license')
+                                    showLicense(r.package);
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(
+                                    value: 'details',
+                                    child: Text('插件详情'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'toggle',
+                                    enabled: !busy,
+                                    child: Text(r.authorized ? '停用插件' : '启用插件'),
+                                  ),
+                                  if (m.chatSurface)
+                                    PopupMenuItem(
+                                      value: 'surface',
+                                      enabled: !busy,
+                                      child: Text(
+                                        openPlugins.selectedChatSurface == id
+                                            ? '恢复默认聊天界面'
+                                            : '设为聊天界面',
+                                      ),
+                                    ),
+                                  if (upgrade)
+                                    PopupMenuItem(
+                                      value: 'update',
+                                      enabled: !busy,
+                                      child: const Text('更新插件'),
+                                    ),
+                                  const PopupMenuItem(
+                                    value: 'license',
+                                    child: Text('许可与来源'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'remove',
+                                    enabled: !busy,
+                                    child: const Text('卸载插件'),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
                         Text(
-                          m.name,
-                          style: const TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w600,
+                          m.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.65,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        Text(m.description),
-                        Text('${m.author} · ${m.license} · ${m.version}'),
-                        SelectableText(
-                          m.source,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        if (r != null) Text('安装来源：${r.origin}'),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            if (r == null && e != null)
-                              FilledButton(
+                        if (upgrade)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
                                 onPressed: busy
                                     ? null
                                     : () => task(() => installCatalog(e)),
-                                child: const Text('安装'),
-                              ),
-                            if (r != null) ...[
-                              if (m.chatSurface)
-                                TextButton(
-                                  onPressed: busy
-                                      ? null
-                                      : () => task(() async {
-                                          if (!r.authorized) {
-                                            if (!await confirmOpenPlugin(
-                                              context,
-                                              r,
-                                            ))
-                                              return;
-                                            await openPlugins.setEnabled(
-                                              id,
-                                              true,
-                                            );
-                                          }
-                                          await openPlugins.selectChatSurface(
-                                            openPlugins.selectedChatSurface ==
-                                                    id
-                                                ? ''
-                                                : id,
-                                          );
-                                        }),
-                                  child: Text(
-                                    openPlugins.selectedChatSurface == id
-                                        ? '恢复宿主聊天界面'
-                                        : '设为聊天界面',
-                                  ),
+                                icon: const Icon(
+                                  Icons.upgrade_rounded,
+                                  size: 18,
                                 ),
-                              FilledButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => launchOpenPlugin(context, r),
-                                child: const Text('打开'),
+                                label: const Text('有新版本'),
                               ),
-                              TextButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => task(() async {
-                                        if (!r.authorized &&
-                                            !await confirmOpenPlugin(
-                                              context,
-                                              r,
-                                            ))
-                                          return;
-                                        await openPlugins.setEnabled(
-                                          id,
-                                          !r.authorized,
-                                        );
-                                      }),
-                                child: Text(r.authorized ? '停用' : '启用'),
-                              ),
-                              if (e != null && e['sha256'] != r.package.digest)
-                                TextButton(
-                                  onPressed: busy
-                                      ? null
-                                      : () => task(() => installCatalog(e)),
-                                  child: const Text('更新'),
-                                ),
-                              TextButton(
-                                onPressed: busy
-                                    ? null
-                                    : () => task(() => remove(r)),
-                                child: const Text('卸载'),
-                              ),
-                              TextButton(
-                                onPressed: () => showLicense(r.package),
-                                child: const Text('许可'),
-                              ),
-                            ],
-                          ],
-                        ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

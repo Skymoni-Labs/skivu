@@ -6,6 +6,7 @@ import 'extension_market.dart';
 import 'mcp_client.dart';
 import 'cloud_range_reader.dart';
 import 'plugin_market.dart' show comparePluginVersions;
+import 'plugin_market_widgets.dart';
 
 class ExtensionsPage extends StatefulWidget {
   const ExtensionsPage({super.key, this.library, this.autoRefresh = true});
@@ -131,33 +132,21 @@ class _ExtensionsPageState extends State<ExtensionsPage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  '技能与工具',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-                ),
-              ),
+          MarketHeader(
+            title: '技能与工具',
+            subtitle: '为对话添加技能，连接你常用的服务。',
+            actions: [
               IconButton(
                 tooltip: '刷新技能与工具',
                 onPressed: library.loading || busy ? null : library.refresh,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh_rounded, size: 22),
               ),
             ],
           ),
-          const Text(
-            '技能开启后会用于新的对话请求。MCP 工具需配置服务地址，并由你选择工具执行。',
-            style: TextStyle(height: 1.7),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
           TextField(
             key: const ValueKey('extension-search'),
-            decoration: const InputDecoration(
-              labelText: '搜索名称、作者或用途',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-            ),
+            decoration: marketSearchDecoration(context, '搜索技能与工具'),
             onChanged: (value) => setState(() {
               query = value;
               visible = 30;
@@ -222,10 +211,15 @@ class _ExtensionsPageState extends State<ExtensionsPage> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(item.description),
+                        Text(
+                          item.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, height: 1.65),
+                        ),
                         const SizedBox(height: 8),
                         Text(
-                          '${item.kind == 'skill' ? '技能指导' : 'MCP 工具'} · ${item.author} · ${item.license}',
+                          '${item.kind == 'skill' ? '对话技能' : 'MCP 工具'} · ${item.author}',
                           style: const TextStyle(fontSize: 12),
                         ),
                         if (installed != null)

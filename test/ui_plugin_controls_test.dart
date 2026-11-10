@@ -165,9 +165,10 @@ void main() {
     },
   );
   testWidgets(
-    'plugin market contains exactly two toggles and no classic card',
+    'compact market keeps controls, categories and package details accessible',
     (tester) async {
       final model = UiPluginSettings();
+      final routes = <String>[];
       final market = (await tester.runAsync(installedMarket))!;
       await tester.pumpWidget(
         MaterialApp(
@@ -175,11 +176,16 @@ void main() {
             body: SingleChildScrollView(
               child: SizedBox(
                 width: 260,
-                child: UiPluginsPage(
-                  preferences: model,
-                  market: market,
-                  autoRefresh: false,
-                  go: (_) {},
+                child: MediaQuery(
+                  data: const MediaQueryData(
+                    textScaler: TextScaler.linear(1.4),
+                  ),
+                  child: UiPluginsPage(
+                    preferences: model,
+                    market: market,
+                    autoRefresh: false,
+                    go: routes.add,
+                  ),
                 ),
               ),
             ),
@@ -190,6 +196,16 @@ void main() {
       expect(find.text('QQ'), findsOneWidget);
       expect(find.text('微信'), findsOneWidget);
       expect(find.text('Skivu 原版'), findsNothing);
+      expect(find.textContaining('GPL-3.0-only'), findsNothing);
+      await tester.tap(find.text('工具箱'));
+      expect(routes, ['/open-plugins']);
+      await tester.tap(find.text('QQ'));
+      await tester.pumpAndSettle();
+      expect(find.text('开源许可'), findsOneWidget);
+      expect(find.text('GPL-3.0-only'), findsOneWidget);
+      expect(find.text('1.0.0'), findsOneWidget);
+      await tester.tap(find.byTooltip('关闭详情'));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       model.dispose();

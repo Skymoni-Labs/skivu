@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'ui_plugins.dart';
 import 'plugin_market.dart';
+import 'plugin_market_widgets.dart';
 
 Future<void> _removePlugin(
   BuildContext context,
@@ -238,6 +239,7 @@ class UiPluginsPage extends StatefulWidget {
 class _UiPluginsPageState extends State<UiPluginsPage> {
   PluginMarket get market => widget.market ?? pluginMarket;
   UiPluginSettings get settings => widget.preferences ?? uiPlugins;
+
   @override
   void initState() {
     super.initState();
@@ -247,243 +249,309 @@ class _UiPluginsPageState extends State<UiPluginsPage> {
   Future<void> remove(ChatUiMode mode) =>
       _removePlugin(context, mode, market, settings);
 
+  Color accent(ChatUiMode mode) =>
+      mode == ChatUiMode.qq ? const Color(0xff2589d8) : const Color(0xff22a879);
+
+  Widget glyph(ChatUiMode mode) => MarketGlyph(
+    icon: mode == ChatUiMode.qq
+        ? Icons.forum_rounded
+        : Icons.chat_bubble_rounded,
+    color: accent(mode),
+  );
+
+  void details(ChatUiMode mode, MarketPlugin? item) {
+    if (item == null) return;
+    showMarketDetails(
+      context,
+      name: item.name,
+      description: item.description,
+      icon: glyph(mode),
+      guidance:
+          '共用现有角色与聊天记录，无需额外设备权限。一次使用一种聊天界面，卸载后仍保留聊天记录。左右滑动可切换插件页面，从右侧中部向内拉出控制栏可返回原版。',
+      details: [
+        ('版本', item.version),
+        ('开发者', '${item.metadata['author']}'),
+        ('开源许可', '${item.metadata['license']}'),
+        ('项目来源', '${item.metadata['repository']}'),
+        ('适用版本', 'Skivu ${item.minHostVersion} 及以上'),
+      ],
+    );
+  }
+
+  Future<void> install(MarketPlugin available) async {
+    final ok = await market.install(available);
+    if (ok && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('插件已安装，可开启使用。')));
+    }
+  }
+
+  Widget category({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required String route,
+  }) => MarketPanel(
+    padding: const EdgeInsets.all(16),
+    onTap: () => widget.go(route),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MarketGlyph(icon: icon, color: color, size: 38),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_rounded, size: 17),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.5,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget pluginCard(ChatUiMode mode) {
+    final installed = market.installedFor(mode);
+    final available = market.catalog.where((p) => p.mode == mode).firstOrNull;
+    final item = available ?? installed;
+    final active = settings.mode == mode;
+    final busy = market.workingId != null || market.loading || settings.busy;
+    final upgrade =
+        available != null &&
+        installed != null &&
+        comparePluginVersions(available.version, installed.version) > 0;
+    final description = mode == ChatUiMode.qq
+        ? '消息、联系人与动态空间，找回熟悉的聊天节奏。'
+        : '聊天、朋友圈与个人主页，让角色融入日常。';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: MarketPanel(
+        onTap: item == null ? null : () => details(mode, item),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                glyph(mode),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mode == ChatUiMode.qq ? 'QQ' : '微信',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        active
+                            ? '正在使用'
+                            : installed != null
+                            ? '已安装'
+                            : '聊天界面',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: active
+                              ? accent(mode)
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (installed == null || upgrade)
+                  MarketAction(
+                    key: ValueKey('plugin-install-${mode.name}'),
+                    label: available != null && !available.compatible
+                        ? '需更新'
+                        : upgrade
+                        ? '更新'
+                        : '安装',
+                    busy:
+                        market.workingId == item?.id &&
+                        market.workingId != null,
+                    onPressed:
+                        busy || available == null || !available.compatible
+                        ? null
+                        : () => install(available),
+                  )
+                else
+                  PopupMenuButton<String>(
+                    key: ValueKey('plugin-menu-${mode.name}'),
+                    tooltip: '${mode.title}管理',
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onSelected: (value) {
+                      if (value == 'details') details(mode, item);
+                      if (value == 'remove') remove(mode);
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: Text('插件详情'),
+                      ),
+                      PopupMenuItem(
+                        value: 'remove',
+                        enabled: !busy,
+                        child: const Text('卸载插件'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              description,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.65,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (installed != null) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              SwitchListTile.adaptive(
+                key: ValueKey('plugin-toggle-${mode.name}'),
+                activeTrackColor: accent(mode),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text('使用此界面', style: TextStyle(fontSize: 13)),
+                value: active,
+                onChanged: busy
+                    ? null
+                    : (v) async {
+                        if (await settings.setEnabled(mode, v) && mounted)
+                          widget.go('/chat');
+                      },
+              ),
+            ],
+            if (available != null && !available.compatible) ...[
+              const SizedBox(height: 8),
+              Text(
+                '需要 Skivu ${available.minHostVersion} 及以上',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: Listenable.merge([market, settings]),
-    builder: (context, _) {
-      final modes = [ChatUiMode.qq, ChatUiMode.wechat];
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    builder: (context, _) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MarketHeader(
+          title: '插件市场',
+          subtitle: '发现新的聊天方式和实用工具。',
+          actions: [
+            IconButton(
+              tooltip: '刷新插件市场',
+              onPressed: market.loading || market.workingId != null
+                  ? null
+                  : market.refresh,
+              icon: const Icon(Icons.refresh_rounded, size: 22),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Expanded(
-                child: Text(
-                  '插件市场',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+              Expanded(
+                child: category(
+                  title: '工具箱',
+                  subtitle: '提示词与更多玩法',
+                  icon: Icons.widgets_rounded,
+                  color: const Color(0xff8670c7),
+                  route: '/open-plugins',
                 ),
               ),
-              IconButton(
-                tooltip: '刷新插件市场',
-                onPressed: market.loading || market.workingId != null
-                    ? null
-                    : market.refresh,
-                icon: const Icon(Icons.refresh),
+              const SizedBox(width: 12),
+              Expanded(
+                child: category(
+                  title: '技能与工具',
+                  subtitle: '让任务更得心应手',
+                  icon: Icons.auto_awesome_rounded,
+                  color: const Color(0xffbb8551),
+                  route: '/extensions',
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '从社区目录安装，选择你喜欢的聊天方式。',
-            style: TextStyle(fontSize: 13, height: 1.7),
+        ),
+        const SizedBox(height: 28),
+        const Text(
+          '聊天外观',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          '熟悉的界面，同样的陪伴。',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: 18),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.hub_outlined),
-              title: const Text('技能与 MCP 工具'),
-              subtitle: const Text('安装任务技能，或连接自己的 MCP 服务'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => widget.go('/extensions'),
-            ),
+        ),
+        const SizedBox(height: 16),
+        if (market.loading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: LinearProgressIndicator(minHeight: 2),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.extension_outlined),
-              title: const Text('开放插件与开发者'),
-              subtitle: const Text('独立应用、聊天动作、本地导入与第三方目录'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => widget.go('/open-plugins'),
-            ),
-          ),
-          if (market.loading) const LinearProgressIndicator(),
-          if (market.error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                market.error!,
-                style: const TextStyle(color: Color(0xffa62f28), height: 1.6),
-              ),
-            ),
-          for (final mode in modes)
-            Builder(
-              builder: (context) {
-                final installed = market.installedFor(mode),
-                    available = market.catalog
-                        .where((p) => p.mode == mode)
-                        .firstOrNull;
-                final item = available ?? installed,
-                    active = settings.mode == mode,
-                    busy =
-                        market.workingId != null ||
-                        market.loading ||
-                        settings.busy;
-                final upgrade =
-                    available != null &&
-                    installed != null &&
-                    comparePluginVersions(
-                          available.version,
-                          installed.version,
-                        ) >
-                        0;
-                return Card(
-                  elevation: 0,
-                  color: Colors.white.withValues(alpha: .70),
-                  margin: const EdgeInsets.only(bottom: 14),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: mode == ChatUiMode.qq
-                                    ? const Color(0xffe5f4ff)
-                                    : const Color(0xffe7f8ed),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                Icons.chat_bubble_outline,
-                                color: mode == ChatUiMode.qq
-                                    ? const Color(0xff0099ff)
-                                    : const Color(0xff07c160),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    mode == ChatUiMode.qq ? 'QQ' : '微信',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    installed != null
-                                        ? '已安装 ${installed.version}'
-                                        : available != null
-                                        ? '版本 ${available.version}'
-                                        : '等待获取目录',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xff64717b),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          item?.description ?? '正在获取社区插件信息，连接后可安装。',
-                          style: const TextStyle(fontSize: 13, height: 1.7),
-                        ),
-                        if (item != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(
-                              '${item.metadata['author']} · ${item.metadata['license']}\n共用本机角色与对话 · 无额外设备权限',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                height: 1.8,
-                                color: Color(0xff64717b),
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                        if (installed != null)
-                          SwitchListTile.adaptive(
-                            key: ValueKey('plugin-toggle-${mode.name}'),
-                            activeTrackColor: const Color(0xff76a9bd),
-                            activeThumbColor: const Color(0xfff8fcff),
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(
-                              '启用',
-                              style: TextStyle(fontSize: 15),
-                            ),
-                            value: active,
-                            onChanged: busy
-                                ? null
-                                : (v) async {
-                                    if (await settings.setEnabled(mode, v) &&
-                                        mounted)
-                                      widget.go('/chat');
-                                  },
-                          ),
-                        if (installed == null || upgrade)
-                          FilledButton.icon(
-                            key: ValueKey('plugin-install-${mode.name}'),
-                            onPressed:
-                                busy ||
-                                    available == null ||
-                                    !available.compatible
-                                ? null
-                                : () async {
-                                    final ok = await market.install(available);
-                                    if (ok && context.mounted)
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('插件已安装，可开启使用。'),
-                                        ),
-                                      );
-                                  },
-                            icon: market.workingId == item?.id
-                                ? const SizedBox(
-                                    width: 17,
-                                    height: 17,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.download_outlined, size: 19),
-                            label: Text(
-                              available != null && !available.compatible
-                                  ? '需更新 App 至 ${available.minHostVersion}'
-                                  : upgrade
-                                  ? '更新插件'
-                                  : '安装',
-                            ),
-                          ),
-                        if (installed != null)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: busy ? null : () => remove(mode),
-                              child: const Text('卸载'),
-                            ),
-                          ),
-                      ],
+        if (market.error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: MarketPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    market.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      height: 1.6,
                     ),
                   ),
-                );
-              },
-            ),
-          const Text(
-            '同时启用一种界面。左右滑动切换插件页面；从右侧中部向内拉出控制栏可返回原版。卸载不删除聊天记录。',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.7,
-              color: Color(0xff64717b),
+                  TextButton.icon(
+                    onPressed: market.loading || market.workingId != null
+                        ? null
+                        : market.refresh,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('重试'),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'Skivu 社区 · github.com/skyjjgw/skivu-plugins',
-            style: TextStyle(fontSize: 11, color: Color(0xff64717b)),
-          ),
-        ],
-      );
-    },
+        for (final mode in [ChatUiMode.qq, ChatUiMode.wechat]) pluginCard(mode),
+      ],
+    ),
   );
 }

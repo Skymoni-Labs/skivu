@@ -11,7 +11,7 @@ void main() {
             as Map;
     final manifest = package['manifest'] as Map;
     expect(manifest['id'], 'org.skivu.purge');
-    expect(manifest['version'], '1.1.1');
+    expect(manifest['version'], '1.2.0');
     expect((manifest['permissions'] as List).toSet(), {'prompt', 'storage'});
     expect((package['files'] as Map).length, 4);
   });

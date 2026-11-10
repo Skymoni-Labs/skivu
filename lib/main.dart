@@ -577,7 +577,7 @@ class _SkiShellState extends State<SkiShell>
     '/plugins' => '插件',
     '/market' => '插件市场',
     '/extensions' => '技能与工具',
-    '/open-plugins' => '开放插件',
+    '/open-plugins' => '工具箱',
     '/settings' => '设置',
     _ =>
       settingsSections
