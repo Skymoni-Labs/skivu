@@ -673,8 +673,12 @@ class DemoStore extends ChangeNotifier {
   bool _ready = false, _disposed = false;
   String? lastError, storageError;
   Map<String, dynamic> _previousAppearance = appearance.values;
+  var _previousCloudPalette = appearance.cloudPalette;
   void _appearanceChanged() {
     final current = appearance.values;
+    final palette = appearance.cloudPalette;
+    final paletteChanged = !identical(palette, _previousCloudPalette);
+    _previousCloudPalette = palette;
     const optics = {
       'inputBlur',
       'toolbarBlur',
@@ -694,7 +698,9 @@ class DemoStore extends ChangeNotifier {
       ..removeWhere((k, v) => optics.contains(k));
     final next = Map.of(current)..removeWhere((k, v) => optics.contains(k));
     _previousAppearance = current;
-    if (!mapEquals(old, next)) changed();
+    // Wallpaper mode can change the resolved palette without changing saved
+    // appearance values. Refresh Material controls and system bars as well.
+    if (paletteChanged || !mapEquals(old, next)) changed();
   }
 
   final conversations = <Conversation>[
