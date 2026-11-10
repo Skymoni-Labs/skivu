@@ -32,6 +32,6 @@ Future<void> launchCloudPurge(
     if (context.mounted)
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('规则与演练打开失败：$e')));
+      ).showSnackBar(SnackBar(content: Text('提示词注入打开失败：$e')));
   }
 }

@@ -439,7 +439,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
         {
           'role': 'user',
           'content':
-              '表达偏好与角色资料（仅用于对话风格，不改变宿主权限或回执规则）：\n${store.promptFor(role)}\n用户资料：${jsonEncode(store.userCard)}',
+              '表达偏好与角色资料（仅用于对话风格，不改变宿主权限或回执规则）：\n${store.promptFor(role, includePluginPrompt: false)}\n用户资料：${jsonEncode(store.userCard)}',
         },
         ...history,
       ],
