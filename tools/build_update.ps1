@@ -29,11 +29,19 @@ try {
     if ($Offline) {
         & $flutter pub get --offline
         if ($LASTEXITCODE -ne 0) { throw 'Offline dependency validation failed.' }
-        $buildArgs += '--no-pub'
+        & D:/anaconda3/python.exe tools/prepare_android_release.py
+        if ($LASTEXITCODE -ne 0) { throw 'Release registration preparation failed.' }
+        Push-Location (Join-Path $projectRoot 'android')
+        try {
+            & ./gradlew.bat :app:assembleRelease "-Ptarget-platform=$buildTarget" "-Ptarget=$projectRoot/lib/main.dart" --offline --max-workers=2
+            if ($LASTEXITCODE -ne 0) { throw 'Offline Android release build failed.' }
+        } finally { Pop-Location }
+        $apk = Join-Path $projectRoot 'build/app/outputs/apk/release/app-release.apk'
+    } else {
+        & $flutter @buildArgs
+        if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
+        $apk = Join-Path $projectRoot 'build/app/outputs/flutter-apk/app-release.apk'
     }
-    & $flutter @buildArgs
-    if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
-    $apk = Join-Path $projectRoot 'build/app/outputs/flutter-apk/app-release.apk'
     $signing = & "$sdkRoot/build-tools/36.1.0/apksigner.bat" verify --print-certs $apk
     if ($LASTEXITCODE -ne 0 -or !($signing -match 'SHA-256 digest: 39b262ea602a2c91dc914a7f7ba2dc86e6640e1ad11ca1f07ff61a076b435523')) { throw 'APK does not match the installed production signer.' }
     $badging = & "$sdkRoot/build-tools/36.1.0/aapt.exe" dump badging $apk
