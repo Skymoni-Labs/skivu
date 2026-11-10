@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'appearance.dart';
 import 'state.dart';
 import 'ui_plugins.dart';
+import 'character_avatar.dart';
 
 /// The hosted social portrait, including its original local SVG fallback.
 /// Real user/role pictures always take precedence over the fallback artwork.
@@ -62,6 +63,9 @@ class NativeSocialPortrait extends StatelessWidget {
   }
 
   Widget _fallback() {
+    if (!user && persona?.isCloud == true) {
+      return DefaultCloudRoleAvatar(size: size);
+    }
     if (!user && persona != null) {
       return ColoredBox(
         color: persona!.color.withAlpha(31),

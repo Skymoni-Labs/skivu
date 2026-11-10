@@ -258,10 +258,17 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
                   appearance.cloudPalette?.surface.withValues(alpha: 1) ??
                   Colors.white,
             ).copyWith(
+              primary: appearance.cloudPalette?.accent,
+              primaryContainer: appearance.cloudPalette?.tint,
+              secondary: appearance.cloudPalette?.secondary,
+              secondaryContainer: appearance.cloudPalette?.secondarySoft,
+              onPrimaryContainer: appearance.cloudPalette?.ink,
+              onSecondaryContainer: appearance.cloudPalette?.onSecondary,
+              outline: appearance.cloudPalette?.line,
               onSurface: ink,
               onSurfaceVariant: muted,
-              onPrimary: ink,
-              onSecondary: ink,
+              onPrimary: appearance.cloudPalette?.onAccent ?? ink,
+              onSecondary: appearance.cloudPalette?.onSecondary ?? ink,
               onError: ink,
             ),
         scaffoldBackgroundColor:

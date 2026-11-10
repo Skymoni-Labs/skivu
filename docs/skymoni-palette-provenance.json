@@ -15,7 +15,13 @@
     "onButton",
     "glassStrong",
     "glassSoft",
-    "glassRim"
+    "glassRim",
+    "onAccent",
+    "solidButton",
+    "onSolidButton",
+    "secondary",
+    "secondarySoft",
+    "onSecondary"
   ],
   "variants": [
     "light",
@@ -33,18 +39,5 @@
     "jade",
     "gold",
     "ruby"
-  ],
-  "skivuLightOverrides": {
-    "ruby": {
-      "background": "#FFFAFB",
-      "soft": "#FAF2F4",
-      "ink": "#4B3C43",
-      "muted": "#7F6C74",
-      "line": "#EADDE1AA",
-      "accent": "#9A6D78",
-      "tint": "#F2E3E7",
-      "button": "#EDDDE1",
-      "onButton": "#654A53"
-    }
-  }
+  ]
 }

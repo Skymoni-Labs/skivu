@@ -6,6 +6,24 @@ import 'package:image_picker/image_picker.dart';
 import 'media_picker_session.dart';
 import 'state.dart';
 
+const defaultCloudRoleAvatarAsset =
+    'assets/branding/skivu-cloud-role-avatar.png';
+
+class DefaultCloudRoleAvatar extends StatelessWidget {
+  const DefaultCloudRoleAvatar({super.key, required this.size});
+  final double size;
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    defaultCloudRoleAvatarAsset,
+    width: size,
+    height: size,
+    fit: BoxFit.cover,
+    semanticLabel: '小云头像',
+    cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).ceil(),
+    errorBuilder: (_, _, _) => Icon(Icons.cloud_outlined, size: size * .56),
+  );
+}
+
 /// Store a small, metadata-free image with the role so backups stay portable.
 Future<Uint8List> normalizeCharacterAvatar(Uint8List bytes) async {
   if (bytes.isEmpty || bytes.length > 3 * 1024 * 1024) {
@@ -97,10 +115,12 @@ class CharacterAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final picture = showDefault ? null : bytes ?? persona.avatar;
-    Widget fallback() => ColoredBox(
-      color: persona.color.withValues(alpha: .12),
-      child: Icon(persona.icon, size: size * .56, color: ink),
-    );
+    Widget fallback() => persona.isCloud
+        ? DefaultCloudRoleAvatar(size: size)
+        : ColoredBox(
+            color: persona.color.withValues(alpha: .12),
+            child: Icon(persona.icon, size: size * .56, color: ink),
+          );
     return ClipRRect(
       borderRadius: BorderRadius.circular(square ? 7 : size / 2),
       child: SizedBox.square(

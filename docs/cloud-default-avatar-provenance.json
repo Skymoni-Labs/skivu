@@ -1,0 +1,10 @@
+{
+  "source": "User-provided image, 2026-11-10",
+  "asset": "assets/branding/skivu-cloud-role-avatar.png",
+  "sha256": "35df91655cacac2b696bea2bbb1736073e63221945631a021d8b7dc910c8ebc8",
+  "bytes": 1551574,
+  "width": 1254,
+  "height": 1254,
+  "transformation": "None; original PNG copied without editing",
+  "use": "Default cloud role portrait; custom role avatars take precedence"
+}

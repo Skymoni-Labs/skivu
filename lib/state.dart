@@ -26,7 +26,7 @@ const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
 Color get green => appearance.color('accent');
 Color get mist =>
-    appearance.cloudPalette?.soft ?? Color.lerp(green, Colors.white, .86)!;
+    appearance.cloudPalette?.tint ?? Color.lerp(green, Colors.white, .86)!;
 Color get paper =>
     appearance.cloudPalette?.background ??
     Color.lerp(green, Colors.white, .965)!;

@@ -2,7 +2,7 @@ name: ski
 description: Skivu mobile chat app with multiple model APIs and a liquid glass interface.
 repository: https://github.com/skyjjgw/skivu
 publish_to: none
-version: 0.3.0+4107
+version: 0.3.0+4108
 environment:
   sdk: '>=3.11.0 <4.0.0'
 dependencies:
@@ -36,6 +36,7 @@ flutter:
     - shaders/skymoni_glass.frag
     - shaders/cloud_motion.frag
   assets:
+    - assets/branding/skivu-cloud-role-avatar.png
     - licenses/RadixColors-MIT.txt
     # Empty document at the historical origin; one-time localStorage import only.
     - assets/social_ui/index.html
