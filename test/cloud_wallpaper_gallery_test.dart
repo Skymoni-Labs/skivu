@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ski/cloud_wallpapers.dart';
 import 'package:ski/cloud_wallpaper_gallery.dart';
 import 'package:ski/wallpaper.dart';
+import 'package:ski/appearance.dart';
+import 'appearance_test.dart' show MemoryAppearance;
 import 'cloud_wallpapers_test.dart' show wallpaperRow, catalogueData;
 import 'wallpaper_test.dart' show MemoryPersistence, imageBytes;
 
@@ -31,7 +33,12 @@ class GalleryService extends CloudWallpaperService {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  late AppearancePreferences preferences;
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    preferences = AppearancePreferences(persistence: MemoryAppearance());
+  });
+  tearDown(() => preferences.dispose());
   testWidgets(
     'opening and refreshing the shared list never changes local wallpaper',
     (tester) async {
@@ -48,6 +55,7 @@ void main() {
               child: CloudWallpaperGallery(
                 controller: controller,
                 service: service,
+                preferences: preferences,
               ),
             ),
           ),
@@ -87,6 +95,7 @@ void main() {
               child: CloudWallpaperGallery(
                 controller: controller,
                 service: service,
+                preferences: preferences,
               ),
             ),
           ),
@@ -126,6 +135,7 @@ void main() {
             child: CloudWallpaperGallery(
               controller: controller,
               service: service,
+              preferences: preferences,
             ),
           ),
         ),
@@ -150,6 +160,8 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(controller.data!.id, isNot(previousId));
     expect(disk.saved!.bytes, bytes);
+    expect(disk.saved!.mode, 'dark');
+    expect(preferences.text('colorTheme'), 'blue');
     await tester.pumpWidget(const SizedBox());
     service.close();
     controller.dispose();

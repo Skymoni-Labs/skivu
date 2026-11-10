@@ -1,0 +1,37 @@
+{
+  "source": "Skymoni mobile src/data/palettes.ts",
+  "sourceSha256": "9fa8fec974a9b1c5120ef999d8493d3802cdc984a02b74b50da46012c5e6be54",
+  "radixColorsVersion": "3.0.0",
+  "roles": [
+    "background",
+    "surface",
+    "soft",
+    "ink",
+    "muted",
+    "line",
+    "accent",
+    "tint",
+    "button",
+    "onButton",
+    "glassStrong",
+    "glassSoft",
+    "glassRim"
+  ],
+  "variants": [
+    "light",
+    "dark",
+    "starry"
+  ],
+  "themes": [
+    "cobalt",
+    "coral",
+    "mint",
+    "porcelain",
+    "silver",
+    "blue",
+    "iris",
+    "jade",
+    "gold",
+    "ruby"
+  ]
+}

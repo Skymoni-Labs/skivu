@@ -96,7 +96,7 @@ class ChatBubbleSurface extends StatelessWidget {
                       ? appearance
                             .color(user ? 'userColor' : 'assistantColor')
                             .withValues(alpha: glass ? alpha : 1)
-                      : Colors.white.withValues(alpha: glass ? alpha : .96),
+                      : appearance.messageSurface.withValues(alpha: glass ? alpha : .96),
                   image: image == null
                       ? null
                       : DecorationImage(

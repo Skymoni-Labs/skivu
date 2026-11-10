@@ -648,6 +648,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         TextButton(
           onPressed: () => model.resetSection([
             'accent',
+            'colorTheme',
             'mode',
             'uiScale',
             'textScale',
@@ -668,6 +669,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       ]),
       panel('wallpapers', '图片壁纸', [
         WallpaperSettings(
+          preferences: model,
           onChosen: () {
             model.set('videoAsset', '');
             model.set('backgroundEnabled', true);

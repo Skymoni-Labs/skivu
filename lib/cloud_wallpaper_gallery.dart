@@ -4,15 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_wallpapers.dart';
 import 'wallpaper.dart';
+import 'appearance.dart';
+import 'skymoni_palette.dart';
+import 'cloud_wallpaper_application.dart';
 
 class CloudWallpaperGallery extends StatefulWidget {
   const CloudWallpaperGallery({
     super.key,
     required this.controller,
     this.service,
+    this.preferences,
   });
   final WallpaperController controller;
   final CloudWallpaperService? service;
+  final AppearancePreferences? preferences;
   @override
   State<CloudWallpaperGallery> createState() => _CloudWallpaperGalleryState();
 }
@@ -123,11 +128,15 @@ class _CloudWallpaperGalleryState extends State<CloudWallpaperGallery> {
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(item.description),
                     ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 10),
                     child: Text(
-                      '只更换本 App 的背景，文字配色和另一个 App 的选择保持不变。',
-                      style: TextStyle(fontSize: 12),
+                      '${skymoniThemeNames[item.colorTheme]} · ${item.mode == 'dark'
+                          ? '深色'
+                          : item.mode == 'light'
+                          ? '浅色'
+                          : '跟随外观'}\n同时应用壁纸附带的主题配色与明暗效果。',
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
                   if (error != null)
@@ -172,7 +181,17 @@ class _CloudWallpaperGalleryState extends State<CloudWallpaperGallery> {
                             !dialogContext.mounted ||
                             generation != _generation)
                           return;
-                        await widget.controller.importImage(bytes);
+                        final applied = await applyCloudWallpaper(
+                          item: item,
+                          bytes: bytes,
+                          background: widget.controller,
+                          preferences: widget.preferences ?? appearance,
+                          isCurrent: () =>
+                              mounted &&
+                              dialogContext.mounted &&
+                              generation == _generation,
+                        );
+                        if (!applied) return;
                         _selectedCloud = item.id;
                         _selectedLocal = widget.controller.data?.id;
                         try {
@@ -192,7 +211,7 @@ class _CloudWallpaperGalleryState extends State<CloudWallpaperGallery> {
                           Navigator.of(dialogContext).pop();
                       } catch (_) {
                         if (dialogContext.mounted)
-                          update(() => error = '图片未能下载或保存，已保留当前背景，请重试。');
+                          update(() => error = '壁纸或主题未能保存，请重试。');
                       } finally {
                         if (dialogContext.mounted)
                           update(() => pending = false);
@@ -212,10 +231,7 @@ class _CloudWallpaperGalleryState extends State<CloudWallpaperGallery> {
     key: const ValueKey('cloud-wallpaper-gallery'),
     tilePadding: EdgeInsets.zero,
     title: const Text('云端壁纸'),
-    subtitle: const Text(
-      '与 Skymoni 同步列表，背景各自选择',
-      style: TextStyle(fontSize: 12),
-    ),
+    subtitle: const Text('与 Skymoni 同步壁纸及主题配色', style: TextStyle(fontSize: 12)),
     onExpansionChanged: (expanded) {
       if (expanded && !_opened) {
         _opened = true;

@@ -64,10 +64,10 @@ class UiChatAppearance {
       'background': hasBackground,
       'userColor': p.flag('customMessageColors')
           ? p.color('userColor').toARGB32() & 0xffffff
-          : 0xffffff,
+          : p.messageSurface.toARGB32() & 0xffffff,
       'assistantColor': p.flag('customMessageColors')
           ? p.color('assistantColor').toARGB32() & 0xffffff
-          : 0xffffff,
+          : p.messageSurface.toARGB32() & 0xffffff,
       'userText': p.textColor('userText').toARGB32() & 0xffffff,
       'assistantText': p.textColor('assistantText').toARGB32() & 0xffffff,
       'userFont': p.text('userFont'),

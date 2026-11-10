@@ -90,6 +90,9 @@ Future<void> main() async {
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
   if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'Radix Colors · Skymoni theme palettes',
+    ], await rootBundle.loadString('licenses/RadixColors-MIT.txt'));
     yield LicenseEntryWithLineBreaks(
       [appName],
       '${await rootBundle.loadString('COPYRIGHT')}\n${await rootBundle.loadString('LICENSE')}',
@@ -236,7 +239,9 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
       ),
       theme: ThemeData(
         useMaterial3: true,
-        brightness: Brightness.light,
+        brightness: appearance.cloudPalette != null && demo.dark
+            ? Brightness.dark
+            : Brightness.light,
         fontFamily: appearance.fontFamily(),
         fontFamilyFallback: const ['SkiSans'],
         textTheme: ThemeData.light().textTheme.apply(
@@ -246,8 +251,12 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         colorScheme:
             ColorScheme.fromSeed(
               seedColor: green,
-              brightness: Brightness.light,
-              surface: Colors.white,
+              brightness: appearance.cloudPalette != null && demo.dark
+                  ? Brightness.dark
+                  : Brightness.light,
+              surface:
+                  appearance.cloudPalette?.surface.withValues(alpha: 1) ??
+                  Colors.white,
             ).copyWith(
               onSurface: ink,
               onSurfaceVariant: muted,
@@ -255,17 +264,21 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
               onSecondary: ink,
               onError: ink,
             ),
-        scaffoldBackgroundColor: demo.dark ? const Color(0xff17231f) : paper,
+        scaffoldBackgroundColor:
+            appearance.cloudPalette?.background ??
+            (demo.dark ? const Color(0xff17231f) : paper),
         dividerColor: muted.withValues(alpha: .18),
         dialogTheme: DialogThemeData(
-          backgroundColor: Colors.white.withValues(alpha: .94),
+          backgroundColor: (appearance.cloudPalette?.surface ?? Colors.white)
+              .withValues(alpha: .94),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
         ),
         bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: Colors.white.withValues(alpha: .94),
+          backgroundColor: (appearance.cloudPalette?.surface ?? Colors.white)
+              .withValues(alpha: .94),
           surfaceTintColor: Colors.transparent,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
@@ -274,8 +287,8 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         ),
         filledButtonTheme: FilledButtonThemeData(
           style: FilledButton.styleFrom(
-            backgroundColor: mist,
-            foregroundColor: ink,
+            backgroundColor: appearance.cloudPalette?.button ?? mist,
+            foregroundColor: appearance.cloudPalette?.onButton ?? ink,
             padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 19),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),

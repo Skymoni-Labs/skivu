@@ -25,11 +25,14 @@ import 'tool_submission.dart';
 const appToolbarHeight = 64.0;
 Color get ink => appearance.textColor('interfaceText');
 Color get green => appearance.color('accent');
-Color get mist => Color.lerp(green, Colors.white, .86)!;
-Color get paper => Color.lerp(green, Colors.white, .965)!;
+Color get mist =>
+    appearance.cloudPalette?.soft ?? Color.lerp(green, Colors.white, .86)!;
+Color get paper =>
+    appearance.cloudPalette?.background ??
+    Color.lerp(green, Colors.white, .965)!;
 Color get muted => appearance.textColorEnabled('interfaceText')
     ? appearance.textColor('interfaceText')
-    : const Color(0xff39434f);
+    : appearance.cloudPalette?.muted ?? const Color(0xff39434f);
 Color get sceneInk => ink;
 Color get sceneMuted => muted;
 Color get sceneAccent => green;

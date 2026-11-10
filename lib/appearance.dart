@@ -7,12 +7,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'media_picker_session.dart';
 import 'wallpaper.dart';
+import 'skymoni_palette.dart';
 import 'appearance_files.dart'
     if (dart.library.io) 'appearance_files_io.dart'
     as files;
 
 const appearanceDefaults = <String, dynamic>{
   'accent': 0xff347da3,
+  'colorTheme': '',
   'mode': 'light',
   'font': 'sans',
   'fontAsset': '',
@@ -96,7 +98,8 @@ const _limits = <String, (double, double)>{
   'inputOpacity': (0, 1),
   'toolbarOpacity': (0, 1),
 };
-const _choices = <String, List<String>>{
+final _choices = <String, List<String>>{
+  'colorTheme': ['', ...skymoniThemeNames.keys],
   'mode': ['light', 'dark', 'system'],
   'font': ['sans', 'serif', 'mono', 'custom'],
   'userFont': ['inherit', 'sans', 'serif', 'mono', 'custom'],
@@ -224,23 +227,52 @@ class AppearanceAssets {
 final appearanceAssets = AppearanceAssets();
 
 class AppearancePreferences extends ChangeNotifier {
-  AppearancePreferences({AppearancePersistence? persistence})
-    : _disk = persistence ?? LocalAppearancePersistence();
+  AppearancePreferences({
+    AppearancePersistence? persistence,
+    WallpaperController? background,
+  }) : _disk = persistence ?? LocalAppearancePersistence(),
+       _background = background ?? wallpaper {
+    _background.addListener(notifyListeners);
+  }
   final AppearancePersistence _disk;
+  final WallpaperController _background;
+  @override
+  void dispose() {
+    _background.removeListener(notifyListeners);
+    super.dispose();
+  }
+
   Map<String, dynamic> _values = Map.of(appearanceDefaults);
   Map<String, dynamic> get values => Map.of(_values);
   bool flag(String key) => _values[key] as bool;
   double number(String key) => (_values[key] as num).toDouble();
   String text(String key) => _values[key] as String;
-  Color color(String key) => Color(_values[key] as int);
+  Color color(String key) => key == 'accent' && cloudPalette != null
+      ? cloudPalette!.accent
+      : Color(_values[key] as int);
   bool textColorEnabled(String key) => flag('${key}Enabled');
-  Color textColor(String key) =>
-      textColorEnabled(key) ? color(key) : const Color(0xff17212b);
+  Color textColor(String key) => textColorEnabled(key)
+      ? color(key)
+      : cloudPalette?.ink ?? const Color(0xff17212b);
+  Color get messageSurface => cloudPalette?.surface ?? Colors.white;
+  SkymoniPalette? get cloudPalette => text('colorTheme').isEmpty
+      ? null
+      : skymoniPalette(
+          text('colorTheme'),
+          dark: dark,
+          starry: _wallpaperMode == 'dark',
+        );
   String? error;
   bool busy = false;
   Future<void>? _writes;
   int _generation = 0;
+  String get _wallpaperMode =>
+      flag('backgroundEnabled') && text('videoAsset').isEmpty
+      ? _background.data?.mode ?? 'system'
+      : 'system';
   bool get dark =>
+      _wallpaperMode == 'dark' || (_wallpaperMode != 'light' && preferredDark);
+  bool get preferredDark =>
       text('mode') == 'dark' ||
       (text('mode') == 'system' &&
           WidgetsBinding.instance.platformDispatcher.platformBrightness ==
@@ -273,6 +305,7 @@ class AppearancePreferences extends ChangeNotifier {
     final next = cleanAppearance({
       ..._values,
       key: value,
+      if (key == 'accent') 'colorTheme': '',
       if (textAppearanceModules.containsKey(key)) '${key}Enabled': true,
     });
     if (mapEquals(next, _values)) return;
@@ -315,6 +348,7 @@ class AppearancePreferences extends ChangeNotifier {
   }
 
   Future<void> apply(Map<String, dynamic> values) async {
+    error = null;
     _values = cleanAppearance(values);
     await hydrateAssets();
     notifyListeners();

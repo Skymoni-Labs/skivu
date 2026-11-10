@@ -107,6 +107,7 @@ class AppearanceProfiles extends ChangeNotifier {
           'wallpaper': image,
           'blur': data?.blur ?? 0,
           'dim': data?.dim ?? .12,
+          'wallpaperMode': data?.mode ?? 'system',
         },
       ];
       active = id;
@@ -178,6 +179,7 @@ class AppearanceProfiles extends ChangeNotifier {
           await _assets.read(image),
           blur: (p['blur'] as num).toDouble(),
           dim: (p['dim'] as num).toDouble(),
+          mode: p['wallpaperMode'] as String? ?? 'system',
         );
       }
       if (_wallpaper.error != null) throw StateError('Wallpaper save failed');

@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'wallpaper.dart';
 import 'widgets.dart';
 import 'cloud_wallpaper_gallery.dart';
+import 'appearance.dart';
 
 class WallpaperSettings extends StatelessWidget {
-  const WallpaperSettings({super.key, this.controller, this.onChosen});
+  const WallpaperSettings({
+    super.key,
+    this.controller,
+    this.onChosen,
+    this.preferences,
+  });
   final WallpaperController? controller;
   final VoidCallback? onChosen;
+  final AppearancePreferences? preferences;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +27,7 @@ class WallpaperSettings extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CloudWallpaperGallery(controller: model),
+            CloudWallpaperGallery(controller: model, preferences: preferences),
             const SizedBox(height: 12),
             label('本机图片', size: 14, weight: FontWeight.w500, color: ink),
             const SizedBox(height: 8),

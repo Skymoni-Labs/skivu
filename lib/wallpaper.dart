@@ -18,15 +18,18 @@ class WallpaperData {
     required this.bytes,
     this.blur = 0,
     this.dim = .12,
+    this.mode = 'system',
   });
   final String id;
   final Uint8List bytes;
   final double blur, dim;
+  final String mode;
   WallpaperData styled({double? blur, double? dim}) => WallpaperData(
     id: id,
     bytes: bytes,
     blur: blur ?? this.blur,
     dim: dim ?? this.dim,
+    mode: mode,
   );
 }
 
@@ -53,6 +56,9 @@ class LocalWallpaperPersistence implements WallpaperPersistence {
           : await files.readWallpaperFile(value['id'] as String),
       blur: ((value['blur'] as num?)?.toDouble() ?? 0).clamp(0, 18),
       dim: ((value['dim'] as num?)?.toDouble() ?? .12).clamp(0, .65),
+      mode: {'light', 'dark', 'system'}.contains(value['mode'])
+          ? value['mode'] as String
+          : 'system',
     );
   }
 
@@ -69,6 +75,7 @@ class LocalWallpaperPersistence implements WallpaperPersistence {
           'id': data.id,
           'blur': data.blur,
           'dim': data.dim,
+          'mode': data.mode,
           if (kIsWeb) 'image': base64Encode(data.bytes),
         }),
       );
@@ -162,13 +169,22 @@ class WallpaperController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _import(Uint8List bytes, {double? blur, double? dim}) async {
+  Future<void> _import(
+    Uint8List bytes, {
+    double? blur,
+    double? dim,
+    String mode = 'system',
+  }) async {
+    if (!{'light', 'dark', 'system'}.contains(mode)) {
+      throw const FormatException('Invalid wallpaper mode');
+    }
     await validateImage(bytes);
     final next = WallpaperData(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       bytes: bytes,
       blur: blur?.isFinite == true ? blur!.clamp(0, 18) : _data?.blur ?? 0,
       dim: dim?.isFinite == true ? dim!.clamp(0, .65) : _data?.dim ?? .12,
+      mode: mode,
     );
     await _save(next);
     _data = next;
@@ -202,13 +218,18 @@ class WallpaperController extends ChangeNotifier {
     }
   }
 
-  Future<void> importImage(Uint8List bytes, {double? blur, double? dim}) async {
+  Future<void> importImage(
+    Uint8List bytes, {
+    double? blur,
+    double? dim,
+    String mode = 'system',
+  }) async {
     if (busy) throw StateError('Wallpaper busy');
     busy = true;
     error = null;
     notifyListeners();
     try {
-      await _import(bytes, blur: blur, dim: dim);
+      await _import(bytes, blur: blur, dim: dim, mode: mode);
     } catch (_) {
       error = '壁纸未能恢复，请重试。';
       rethrow;

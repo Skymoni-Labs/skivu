@@ -310,8 +310,10 @@ LiquidGlassStyle skiLensStyle(
   blur: blur,
   saturation: 1.12,
   color: accent
-      ? const Color(0xff4386aa).withValues(alpha: demo.dark ? .55 : .26)
-      : Colors.white.withValues(alpha: opacity ?? (demo.dark ? .50 : .23)),
+      ? green.withValues(alpha: demo.dark ? .55 : .26)
+      : (appearance.cloudPalette?.surface ?? Colors.white).withValues(
+          alpha: opacity ?? (demo.dark ? .50 : .23),
+        ),
   specular: const LiquidGlassLight.specular(
     thickness: 2.3,
     intensity: 1.2,
@@ -597,7 +599,7 @@ class GlassSurface extends StatelessWidget {
       );
     }
     final alpha = enabled ? opacity : .96;
-    const base = Colors.white;
+    final base = appearance.cloudPalette?.surface ?? Colors.white;
     final painted = DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
