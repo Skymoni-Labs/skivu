@@ -16,7 +16,7 @@ Future<void> launchCloudPurge(
       );
       await registry.install(
         OpenPluginPackage.parse(source),
-        origin: '随 Skivu 内置 · 原作 YuJunZhiXue/dsh-purge',
+        origin: 'Skivu 内置',
       );
       record = registry.records['org.skivu.purge'];
     }
