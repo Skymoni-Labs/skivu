@@ -27,8 +27,10 @@ Future<void> showTaskPlanEditor(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  builder: (_) =>
-      _PlanEditor(task: task, plan: plan, plans: plans ?? taskPlans),
+  builder: (_) => SafeArea(
+    top: false,
+    child: _PlanEditor(task: task, plan: plan, plans: plans ?? taskPlans),
+  ),
 );
 
 class TaskSchedulingPanel extends StatefulWidget {
@@ -650,28 +652,31 @@ class _PlanEditorState extends State<_PlanEditor> {
     ValueChanged<int> change, {
     int minimum = 0,
     String? note,
-  }) => TextFormField(
-    key: ValueKey('plan-number-$label'),
-    initialValue: '$value',
-    enabled: !saving,
-    keyboardType: TextInputType.number,
-    decoration: InputDecoration(labelText: label, helperText: note),
-    autovalidateMode: AutovalidateMode.onUserInteraction,
-    validator: (text) {
-      final n = int.tryParse(text ?? '');
-      return n == null || n < minimum
-          ? '请输入${minimum == 0 ? '非负' : '正'}整数'
-          : null;
-    },
-    onChanged: (text) {
-      final n = int.tryParse(text);
-      if (n == null || n < minimum) {
-        invalidNumbers.add(label);
-      } else {
-        invalidNumbers.remove(label);
-        change(n);
-      }
-    },
+  }) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 8),
+    child: TextFormField(
+      key: ValueKey('plan-number-$label'),
+      initialValue: '$value',
+      enabled: !saving,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(labelText: label, helperText: note),
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (text) {
+        final n = int.tryParse(text ?? '');
+        return n == null || n < minimum
+            ? '请输入${minimum == 0 ? '非负' : '正'}整数'
+            : null;
+      },
+      onChanged: (text) {
+        final n = int.tryParse(text);
+        if (n == null || n < minimum) {
+          invalidNumbers.add(label);
+        } else {
+          invalidNumbers.remove(label);
+          change(n);
+        }
+      },
+    ),
   );
   @override
   Widget build(BuildContext context) => Padding(
@@ -710,6 +715,7 @@ class _PlanEditorState extends State<_PlanEditor> {
                 counterText: '',
               ),
             ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: kind,
               isExpanded: true,
@@ -725,6 +731,7 @@ class _PlanEditorState extends State<_PlanEditor> {
               ],
               onChanged: saving ? null : (v) => setState(() => kind = v!),
             ),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: mode,
               isExpanded: true,
@@ -742,6 +749,7 @@ class _PlanEditorState extends State<_PlanEditor> {
                       if (v == 'coding') loadCodingProjects();
                     },
             ),
+            const SizedBox(height: 16),
             if (mode == 'coding')
               DropdownButtonFormField<String>(
                 key: ValueKey(codingProjects.map((p) => p['id']).join(',')),
@@ -879,6 +887,7 @@ class _PlanEditorState extends State<_PlanEditor> {
                         ? null
                         : (v) => setState(() => allowForeground = v),
                   ),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: missed,
                     isExpanded: true,
@@ -897,6 +906,7 @@ class _PlanEditorState extends State<_PlanEditor> {
                         ? null
                         : (v) => setState(() => missed = v!),
                   ),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
