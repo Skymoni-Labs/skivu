@@ -16,7 +16,7 @@ void main() {
   setUp(() {
     calls.clear();
     final p = OpenPluginPackage.parse(
-      File('assets/plugins/skivu-purge.skivu.json').readAsStringSync(),
+      File('test/fixtures/legacy-plugin-lab.skivu.json').readAsStringSync(),
     );
     record = OpenPluginRecord(p)
       ..enabled = true
@@ -34,7 +34,7 @@ void main() {
     () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null),
   );
-  test('current package declares only library, prompt, files and 小云 tools', () {
+  test('legacy authorized package retains its library and tool contract', () {
     expect(record.manifest.compatible, true);
     expect(record.manifest.permissions.toSet(), {
       'cloud.lab',

@@ -125,6 +125,13 @@ void main() {
     },
   );
   test(
+    'release metadata accepts complete APKs above the former 250 MB ceiling',
+    () {
+      final data = release()..['size'] = 351380215;
+      expect(AppRelease.parse(data, device, 'arm64-v8a').size, 351380215);
+    },
+  );
+  test(
     'native preparation receives the release identity for separate APK paths',
     () async {
       const channel = MethodChannel('skivu/app_platform');
@@ -180,7 +187,7 @@ void main() {
         {'min_sdk': 40},
         {'abi': 'x86_64'},
         {'package_name': 'different.app'},
-        {'size': 300000000},
+        {'size': 0},
         {'sha256': 'bad'},
       ]) {
         expect(

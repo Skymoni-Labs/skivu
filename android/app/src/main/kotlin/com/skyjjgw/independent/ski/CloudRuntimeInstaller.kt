@@ -9,7 +9,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.zip.GZIPInputStream
 
-/** Installs the APK's hash-pinned archive. Never extracts across symlink boundaries. */
+/** Installs the archive pinned by the APK, bundled or downloaded. */
 class CloudRuntimeInstaller(private val context: Context) {
     private val abi = android.os.Build.SUPPORTED_ABIS.first { it == "arm64-v8a" || it == "x86_64" }
     private fun text(bytes: ByteArray): String = Charsets.UTF_8.newDecoder()
@@ -68,7 +68,11 @@ class CloudRuntimeInstaller(private val context: Context) {
             }
         })
     }
-    @Synchronized fun install(progress:(Int)->Unit={}): File {
+    @Synchronized fun install(
+        cancelled:()->Boolean={false},
+        downloadProgress:(Long,Long)->Unit={_,_->},
+        progress:(Int)->Unit={},
+    ): File {
         android.util.Log.i("SkivuRuntime","archive metadata")
         val metadata = JSONObject(context.assets.open("cloud-runtime/$abi/runtime.json").bufferedReader().use { it.readText() })
         val sha = metadata.getString("sha256"); require(Regex("[0-9a-f]{64}").matches(sha))
@@ -81,18 +85,23 @@ class CloudRuntimeInstaller(private val context: Context) {
         val marker = File(target,".installed")
         if (marker.isFile && marker.readText() == sha) return target
         require(!target.exists())
+        val bundled=context.assets.list("cloud-runtime/$abi").orEmpty().contains("runtime.bin")
+        val downloaded=if(bundled)null else VerifiedRuntimeArchive(File(context.noBackupFilesDir,"cloud-runtime-archives"))
+            .obtain(abi,sha,metadata.getLong("size"),metadata.getString("download_url"),cancelled,downloadProgress)
+        fun archive():InputStream=downloaded?.inputStream() ?: context.assets.open("cloud-runtime/$abi/runtime.bin")
         android.util.Log.i("SkivuRuntime","archive verify")
         val digest = MessageDigest.getInstance("SHA-256")
-        context.assets.open("cloud-runtime/$abi/runtime.bin").use { input ->
-            val buffer=ByteArray(65536); while (true) { val n=input.read(buffer); if(n<0) break; digest.update(buffer,0,n) }
+        archive().use { input ->
+            val buffer=ByteArray(65536); while (true) { check(!cancelled()){"环境准备已停止。"};val n=input.read(buffer); if(n<0) break; digest.update(buffer,0,n) }
         }
         require(digest.digest().joinToString("") { "%02x".format(it) } == sha)
         android.util.Log.i("SkivuRuntime","archive extracting")
         val staging=File(base,"stage-"+UUID.randomUUID()).apply { check(mkdir()) }
         try {
             val names=HashSet<String>(); var total=0L; var extended=emptyMap<String,String>()
-            GZIPInputStream(context.assets.open("cloud-runtime/$abi/runtime.bin"),65536).use { input ->
+            GZIPInputStream(archive(),65536).use { input ->
                 while (true) {
+                    check(!cancelled()){"环境准备已停止，已校验资源保留。"}
                     val header=exact(input,512)
                     if(header.all { it==0.toByte() }) break
                     val checksum=octal(field(header,148,8))

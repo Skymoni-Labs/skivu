@@ -103,8 +103,13 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
       children: [
         const Text('直接在小云对话中提出编程需求。运行环境由小云自动准备和管理，无需独立 DSH 插件。'),
         const SizedBox(height: 12),
+        const Text('首次准备需要联网下载编程环境；已经安装的环境会继续复用。'),
+        if (status['phase'] == 'downloading')
+          Text(
+            '${((status['downloadedBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} / ${((status['downloadBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} MB',
+          ),
         Text(
-          '环境：${const {'not_prepared': '待自动启动', 'verifying': '正在校验资源', 'extracting': '正在解压资源', 'starting': '正在启动', 'ready': '已就绪', 'interrupted': '需要恢复', 'unavailable': '当前不可用'}[status['phase']] ?? '尚未检查'}${status['installedFiles'] != null && status['phase'] == 'extracting' ? ' · 已处理 ${status['installedFiles']} 个资源文件' : ''}',
+          '环境：${const {'not_prepared': '待自动启动', 'verifying': '正在校验资源', 'downloading': '正在下载编程环境', 'extracting': '正在解压资源', 'starting': '正在启动', 'ready': '已就绪', 'interrupted': '需要恢复', 'unavailable': '当前不可用'}[status['phase']] ?? '尚未检查'}${status['installedFiles'] != null && status['phase'] == 'extracting' ? ' · 已处理 ${status['installedFiles']} 个资源文件' : ''}',
         ),
         if (status['migration'] is Map)
           Text(

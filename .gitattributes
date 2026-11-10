@@ -3,3 +3,5 @@ legacy/social_ui/vendor/weui-light.css -text
 assets/plugin_sdk/skivu-sdk.js text eol=lf
 
 plugins/purge/upstream/** -text
+assets/plugins/*.skivu.json -text
+test/fixtures/*.skivu.json -text

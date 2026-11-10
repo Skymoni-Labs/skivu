@@ -41,8 +41,10 @@ object CloudRuntime {
     @Volatile private var pid=-1
     @Volatile var phase="not_prepared"; private set
     @Volatile var installedFiles=0;private set
+    @Volatile var downloadedBytes=0L;private set
+    @Volatile var downloadBytes=0L;private set
     private var generation=0
-    fun status()=mapOf("phase" to phase,"installedFiles" to installedFiles,"running" to (writer!=null),"embedded" to true,"network" to CloudNetworkConfiguration.status())
+    fun status()=mapOf("phase" to phase,"installedFiles" to installedFiles,"running" to (writer!=null),"embedded" to true,"downloadedBytes" to downloadedBytes,"downloadBytes" to downloadBytes,"network" to CloudNetworkConfiguration.status())
 
     private fun start(context:Context,taskKey:String) = synchronized(startLock) {
         CloudNetworkConfiguration.refresh(context.applicationContext)
@@ -52,7 +54,10 @@ object CloudRuntime {
         phase="verifying"
         val lockFile=File(app.filesDir,"cloud-install.lock")
         val root=RandomAccessFile(lockFile,"rw").use { file -> file.channel.lock().use {
-            CloudRuntimeInstaller(app).install { count -> check(taskKey !in cancelledTasks){"环境准备已停止，已校验资源保留。"};phase="extracting";installedFiles=count }
+            CloudRuntimeInstaller(app).install(
+                cancelled={taskKey in cancelledTasks},
+                downloadProgress={received,total->phase="downloading";downloadedBytes=received;downloadBytes=total},
+            ) { count -> check(taskKey !in cancelledTasks){"环境准备已停止，已校验资源保留。"};phase="extracting";installedFiles=count }
         } }
         val scripts=File(app.filesDir,"cloud-executor").apply { mkdirs() }
         for(name in app.assets.list("cloud").orEmpty().filter{it.endsWith(".mjs")})app.assets.open("cloud/$name").use { input -> File(scripts,name).outputStream().use { input.copyTo(it) } }

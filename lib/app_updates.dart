@@ -53,8 +53,7 @@ class AppRelease {
         versionCode <= device.versionCode ||
         minSdk < 21 ||
         minSdk > device.sdk ||
-        size <= 0 ||
-        size > 262144000) {
+        size <= 0) {
       throw const FormatException('更新信息不适用于当前安装版本。');
     }
     return AppRelease(
