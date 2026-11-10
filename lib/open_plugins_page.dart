@@ -130,6 +130,19 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
     }
   }
 
+  Future<void> showLicense(OpenPluginPackage p) => showDialog<void>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('${p.manifest.name} · 许可与来源'),
+      content: SingleChildScrollView(
+        child: SelectableText('${p.notices}\n\n${p.licenseText}'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('关闭')),
+      ],
+    ),
+  );
+
   Future<void> previewInstall(OpenPluginPackage p, String origin) async {
     final old = openPlugins.records[p.manifest.id];
     if (!mounted) return;
@@ -139,10 +152,11 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
         title: Text('${old == null ? '安装' : '更新'} ${p.manifest.name}？'),
         content: SingleChildScrollView(
           child: SelectableText(
-            '${p.manifest.id}\n${p.manifest.author} · ${p.manifest.license}\n${p.manifest.source}\n来源：$origin\n\n${p.manifest.description}\n\n安装后保持关闭，启用前须确认权限。${old != null ? '更新将重置权限授权，自己的存档保留。' : ''}\n\n${p.licenseText}',
+            '${p.manifest.id}\n${p.manifest.author} · ${p.manifest.license}\n${p.manifest.source}\n来源：$origin\n\n${p.manifest.description}\n\n安装后保持关闭，启用前须确认权限。${old != null ? '更新将重置权限授权，自己的存档保留。' : ''}',
           ),
         ),
         actions: [
+          TextButton(onPressed: () => showLicense(p), child: const Text('许可')),
           TextButton(
             onPressed: () => Navigator.pop(c, false),
             child: const Text('取消'),
@@ -443,23 +457,7 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
                                 child: const Text('卸载'),
                               ),
                               TextButton(
-                                onPressed: () => showDialog<void>(
-                                  context: context,
-                                  builder: (c) => AlertDialog(
-                                    title: Text('${m.name} · 许可与来源'),
-                                    content: SingleChildScrollView(
-                                      child: SelectableText(
-                                        '${r.package.notices}\n\n${r.package.licenseText}',
-                                      ),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(c),
-                                        child: const Text('关闭'),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                onPressed: () => showLicense(r.package),
                                 child: const Text('许可'),
                               ),
                             ],

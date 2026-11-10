@@ -632,7 +632,7 @@ void main() {
       );
       expect(find.text('即将开放'), findsNothing);
       expect(find.text('小云项目'), findsOneWidget);
-      expect(find.text('小云 · 规则与演练'), findsOneWidget);
+      expect(find.text('小云 · 提示词注入'), findsOneWidget);
       expect(
         tester
             .widgetList<ListTile>(find.byType(ListTile))

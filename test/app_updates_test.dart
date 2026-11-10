@@ -132,6 +132,28 @@ void main() {
     },
   );
   test(
+    'already-installed releases retain their complete matching release notes',
+    () async {
+      final notes = List.filled(6000, 'x').join();
+      final data = release()
+        ..['available'] = false
+        ..['version'] = device.version
+        ..['version_code'] = device.versionCode
+        ..['notes'] = notes;
+      final updates = AppUpdates(
+        platform: UpdatePlatform(),
+        clientFactory: () => MockClient((_) async => manifest(data)),
+      );
+      await updates.check();
+      expect(updates.release, isNull);
+      expect(updates.latestNotes, notes);
+      data['version_code'] = device.versionCode - 1;
+      await updates.check();
+      expect(updates.latestNotes, isEmpty);
+      updates.dispose();
+    },
+  );
+  test(
     'native preparation receives the release identity for separate APK paths',
     () async {
       const channel = MethodChannel('skivu/app_platform');

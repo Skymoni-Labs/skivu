@@ -130,7 +130,7 @@ void main() {
       await _open(tester, updates, onBack: () => backs++);
       expect(updates.checks, 1);
       expect(find.text('已是最新版本'), findsOneWidget);
-      expect(find.text('星空下的新版本'), findsOneWidget);
+      expect(find.text('检查更新后可查看此版本的更新说明。'), findsOneWidget);
       expect(
         find.textContaining('Skivu $appVersion (34)  |  67.3 MB'),
         findsOneWidget,
@@ -139,17 +139,17 @@ void main() {
       final openHeight = tester.getSize(card).height;
       await tester.tap(find.text('更新说明'));
       await tester.pump();
-      expect(find.text('星空下的新版本'), findsOneWidget);
+      expect(find.text('检查更新后可查看此版本的更新说明。'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 200));
       final midHeight = tester.getSize(card).height;
       expect(midHeight, lessThan(openHeight));
       await tester.pumpAndSettle();
       expect(tester.getSize(card).height, lessThan(midHeight));
-      expect(find.text('星空下的新版本'), findsNothing);
+      expect(find.text('检查更新后可查看此版本的更新说明。'), findsNothing);
       expect(find.byKey(const ValueKey('update-version-size')), findsOneWidget);
       await tester.tap(find.text('更新说明'));
       await tester.pumpAndSettle();
-      expect(find.text('星空下的新版本'), findsOneWidget);
+      expect(find.text('检查更新后可查看此版本的更新说明。'), findsOneWidget);
       await tester.tap(find.byTooltip('返回设置'));
       expect(backs, 1);
       expect(tester.takeException(), isNull);
@@ -282,7 +282,7 @@ void main() {
       await _open(tester, updates, reduceMotion: true);
       await tester.tap(find.text('更新说明'));
       await tester.pump();
-      expect(find.text('星空下的新版本'), findsNothing);
+      expect(find.text('检查更新后可查看此版本的更新说明。'), findsNothing);
       expect(find.textContaining('67.3 MB'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

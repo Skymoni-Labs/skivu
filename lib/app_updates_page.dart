@@ -487,23 +487,11 @@ class _AppUpdatesPageState extends State<AppUpdatesPage>
         release.notes.trim().isEmpty ? '此版本暂未提供详细更新说明。' : release.notes.trim(),
         style: _body,
       );
+    if (update.latestNotes.trim().isNotEmpty)
+      return Text(update.latestNotes.trim(), style: _body);
     if (update.device != null && update.device!.version != appVersion)
       return const Text('当前版本暂未提供详细更新说明。', style: _body);
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('星空下的新版本', style: _heading),
-        SizedBox(height: 10),
-        Text('软件版本与真实安装包大小集中展示，星空背景陪你查看本次更新。', style: _body),
-        SizedBox(height: 20),
-        Text('更自然的更新流程', style: _heading),
-        SizedBox(height: 10),
-        Text(
-          '检测完成后，版本信息平滑收拢，更新卡片与悬浮按钮依次出现。说明展开与收起都有过渡，长内容可完整滚动查看。',
-          style: _body,
-        ),
-      ],
-    );
+    return const Text('检查更新后可查看此版本的更新说明。', style: _body);
   }
 
   Widget _header() => Align(

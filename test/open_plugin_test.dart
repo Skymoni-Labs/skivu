@@ -349,7 +349,7 @@ void main() {
     () async {
       final b = await bridge(permissions: ['prompt']);
       await registry.setPrompt(b.id, 'r1', 'special instruction');
-      expect(registry.promptFor('r1'), contains('special instruction'));
+      expect(registry.promptFor('r1'), 'special instruction');
       expect(registry.promptFor('r2'), '');
       await registry.setEnabled(b.id, false);
       expect(registry.promptFor('r1'), '');

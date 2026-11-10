@@ -16,7 +16,7 @@ Future<void> launchCloudPurge(
       );
       await registry.install(
         OpenPluginPackage.parse(source),
-        origin: '随 Skivu 内置 · 原作 YuJunZhiXue/dsh-purge',
+        origin: 'Skivu 内置',
       );
       record = registry.records['org.skivu.purge'];
     }
@@ -32,6 +32,6 @@ Future<void> launchCloudPurge(
     if (context.mounted)
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('规则与演练打开失败：$e')));
+      ).showSnackBar(SnackBar(content: Text('提示词注入打开失败：$e')));
   }
 }

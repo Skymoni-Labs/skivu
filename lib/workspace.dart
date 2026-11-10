@@ -82,8 +82,8 @@ class WorkspacePanel extends StatelessWidget {
                     ),
                     ListTile(
                       leading: const Icon(Icons.rule_folder_outlined),
-                      title: const Text('小云 · 规则与演练'),
-                      subtitle: const Text('提示词、技能、资产、证据和报告'),
+                      title: const Text('小云 · 提示词注入'),
+                      subtitle: const Text('原包提示词注入与状态核验'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => launchCloudPurge(context, library),
                     ),

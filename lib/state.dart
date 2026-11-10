@@ -543,12 +543,19 @@ class DemoStore extends ChangeNotifier {
       worlds.where((w) => w.id == role.worldId).firstOrNull;
   StickerAsset? stickerFor(String? id) =>
       stickers.where((s) => s.id == id).firstOrNull;
-  String promptFor(Persona role) => [
+  String promptFor(Persona role, {bool includePluginPrompt = true}) => [
+    if (includePluginPrompt) openPlugins.promptFor(role.id),
     role.compiledPrompt,
     if (worldFor(role) case final world?) world.prompt(role.sceneId),
     extensionLibrary.skillPrompt,
-    openPlugins.promptFor(role.id),
   ].where((v) => v.isNotEmpty).join('\n\n');
+
+  String _assistantPrompt(String system) {
+    final prefix = openPlugins.promptFor(cloudPersonaId);
+    if (prefix.isEmpty || system.startsWith(prefix)) return system;
+    return '$prefix\n\n$system';
+  }
+
   void saveLibrary() {
     libraryRevision++;
     changed();
@@ -1827,17 +1834,18 @@ class DemoStore extends ChangeNotifier {
       'maxOutput': maxOutputTokens ?? active.maxOutput,
       if (timeoutSeconds != null) 'timeoutSeconds': timeoutSeconds,
     });
+    final prompt = _assistantPrompt(system);
     if (requestSource == 'beta' || requestSource == null && useBeta)
-      return beta.startChat(history, system, requestConfig: config);
+      return beta.startChat(history, prompt, requestConfig: config);
     if (requestSource == 'account' || requestSource == null && useAccount)
-      return account.startChat(history, system, requestConfig: config);
+      return account.startChat(history, prompt, requestConfig: config);
     final key = await models.keyFor(config.id);
     if (key.isEmpty &&
         config.auth != 'none' &&
         !['Ollama', 'LM Studio'].contains(config.provider)) {
       throw const ChatFailure('请先配置可用的模型连接。');
     }
-    return _api.start(config, key, history, system);
+    return _api.start(config, key, history, prompt);
   }
 
   void assistantProgressChanged() {
@@ -1864,15 +1872,16 @@ class DemoStore extends ChangeNotifier {
     final history = [
       {'role': 'user', 'content': instruction},
     ];
-    if (useBeta) return beta.startChat(history, system, requestConfig: config);
+    final prompt = _assistantPrompt(system);
+    if (useBeta) return beta.startChat(history, prompt, requestConfig: config);
     if (useAccount)
-      return account.startChat(history, system, requestConfig: config);
+      return account.startChat(history, prompt, requestConfig: config);
     final key = await models.keyFor(config.id);
     if (key.isEmpty &&
         config.auth != 'none' &&
         !['Ollama', 'LM Studio'].contains(config.provider))
       throw const ChatFailure('请先配置可用的模型连接。');
-    return _api.start(config, key, history, system);
+    return _api.start(config, key, history, prompt);
   }
 
   void _begin(ModelConnection config) {

@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet('arm64-v8a', 'x86_64')][string]$Abi,
     [string]$OutputDirectory,
-    [switch]$Legacy096
+    [switch]$Legacy096,
+    [switch]$Offline
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -22,8 +23,15 @@ try {
     $label = if ($Abi -eq 'x86_64') { 'x64' } else { 'arm64' }
     & D:/anaconda3/python.exe tools/prepare_cloud_runtime.py --abi $Abi --delivery download
     if ($LASTEXITCODE -ne 0) { throw 'Runtime identity validation failed.' }
-    # Refresh registration: a preceding Flutter test can register dev-only plugins.
-    & $flutter build apk --release --target-platform $buildTarget --build-number=$releaseBuildCode --build-name=$releaseVersion
+    # Refresh dependencies offline when requested; release mode regenerates
+    # registration with dev-only plugins excluded.
+    $buildArgs = @('build', 'apk', '--release', '--target-platform', $buildTarget, "--build-number=$releaseBuildCode", "--build-name=$releaseVersion")
+    if ($Offline) {
+        & $flutter pub get --offline
+        if ($LASTEXITCODE -ne 0) { throw 'Offline dependency validation failed.' }
+        $buildArgs += '--no-pub'
+    }
+    & $flutter @buildArgs
     if ($LASTEXITCODE -ne 0) { throw 'Release build failed.' }
     $apk = Join-Path $projectRoot 'build/app/outputs/flutter-apk/app-release.apk'
     $signing = & "$sdkRoot/build-tools/36.1.0/apksigner.bat" verify --print-certs $apk

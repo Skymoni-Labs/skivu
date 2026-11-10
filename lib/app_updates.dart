@@ -64,10 +64,7 @@ class AppRelease {
       url: url,
       hash: hash,
       size: size,
-      notes: (raw['notes'] as String? ?? '').substring(
-        0,
-        (raw['notes'] as String? ?? '').length.clamp(0, 5000),
-      ),
+      notes: raw['notes'] as String? ?? '',
       packageName: raw['package_name'] as String,
       signerSha256: signer,
     );
@@ -98,6 +95,7 @@ class AppUpdates extends ChangeNotifier {
   AppDeviceInfo? device;
   AppRelease? release;
   String? error, downloadedPath, message;
+  String latestNotes = '';
   bool checking = false, downloading = false, installing = false;
   int downloadedBytes = 0;
   http.Client? _downloadClient;
@@ -160,6 +158,15 @@ class AppUpdates extends ChangeNotifier {
       if (data['available'] != true) {
         release = null;
         downloadedPath = null;
+        latestNotes =
+            data['version'] == info.version &&
+                data['version_code'] == info.versionCode &&
+                data['package_name'] == info.packageName &&
+                data['abi'] == abi &&
+                data['signer_sha256'] == info.signerSha256 &&
+                data['notes'] is String
+            ? data['notes'] as String
+            : '';
         message = '当前已是最新版本';
       } else {
         final next = AppRelease.parse(data, info, abi);
@@ -169,6 +176,7 @@ class AppUpdates extends ChangeNotifier {
           downloadedBytes = 0;
         }
         release = next;
+        latestNotes = next.notes;
         error = null;
         message = info.installMessage;
       }
