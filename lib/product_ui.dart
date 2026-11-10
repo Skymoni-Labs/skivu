@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'glass.dart' show AuroraBackdrop;
 import 'state.dart' show demo;
 import 'plugin_market_widgets.dart';
@@ -21,6 +22,10 @@ class ProductScaffold extends StatelessWidget {
     extendBodyBehindAppBar: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     appBar: AppBar(
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarIconBrightness: demo.dark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: demo.dark ? Brightness.dark : Brightness.light,
+      ),
       title: Text(
         title,
         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
