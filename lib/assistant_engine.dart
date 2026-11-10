@@ -307,16 +307,19 @@ class AssistantEngine extends ChangeNotifier {
           : Map<String, dynamic>.from(value['pending'] as Map);
       phase = value['phase'] as String;
       if (canResume && account != identity()) {
+        final alreadyChanged = phase == 'model_changed';
         checkpointPending = pending == null
             ? checkpointPending
             : jsonEncode(pending);
         pending = null;
         phase = 'model_changed';
         recoveryRequired = true;
-        messages.add({
-          'role': 'assistant',
-          'content': '连接已变化，目标与检查点保留；继续时先核对原执行结果。',
-        });
+        if (!alreadyChanged) {
+          messages.add({
+            'role': 'assistant',
+            'content': '连接已变化，目标与检查点保留；继续时先核对原执行结果。',
+          });
+        }
       }
       if (phase == 'executing' || phase == 'stopping') {
         final signature = pending?['arguments'] is Map
@@ -362,17 +365,20 @@ class AssistantEngine extends ChangeNotifier {
 
   void identityChanged() {
     if (phase != 'stopping' &&
+        phase != 'model_changed' &&
         (running || canResume) &&
         account != identity()) {
       ++epoch;
-      cancelModel?.call();
-      continuePaused(resumeProcesses: false);
       checkpointPending = pending == null
           ? checkpointPending
           : jsonEncode(pending);
       pending = null;
       phase = 'model_changed';
       recoveryRequired = true;
+      // Publish the terminal transition before cancellation or listeners can
+      // synchronously re-enter through the host conversation coordinator.
+      cancelModel?.call();
+      continuePaused(resumeProcesses: false);
       messages.add({
         'role': 'assistant',
         'content': '模型或账号已更换；目标、文件、进程和检查点已保留。继续时先核对原执行，再使用当前连接。',

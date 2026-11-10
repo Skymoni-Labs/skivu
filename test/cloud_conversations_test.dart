@@ -43,6 +43,88 @@ CloudChatCoordinator bind(
 
 void main() {
   test(
+    'cold restore with a changed model terminates and never replays the old task',
+    () async {
+      final disk = MemoryChats();
+      var models = 0, tools = 0;
+      CloudChatCoordinator coordinatorFor(DemoStore store) {
+        final coordinator = CloudChatCoordinator(
+          store,
+          engineFactory: (chat) => AssistantEngine(
+            identity: () => 'new-model',
+            model: (_, __) async {
+              models++;
+              return '';
+            },
+            engine: DeviceEngine(
+              transport: (_, __) async {
+                tools++;
+                return {};
+              },
+            ),
+            read: () async => jsonEncode(chat.assistantJournal),
+            write: (raw) async {
+              chat.assistantJournal = jsonDecode(raw) as Map<String, dynamic>;
+              await store.saveChats();
+            },
+          ),
+        );
+        coordinator.attach();
+        return coordinator;
+      }
+
+      final store = DemoStore(settings: TestModels(), storage: disk);
+      await store.restore();
+      store.newChat(personaId: cloudPersonaId);
+      final chat = store.conversations.first;
+      chat.messages.add(Message(true, 'Original task'));
+      chat.assistantJournal = {
+        'version': 1,
+        'messages': [
+          {'role': 'user', 'content': 'Original task'},
+        ],
+        'phase': 'confirmation',
+        'goal': 'Original task',
+        'taskId': 'old-task',
+        'account': 'old-model',
+        'serial': 1,
+        'pending': {
+          'tool': 'clock.alarm.create',
+          'requestId': 'old-request',
+          'arguments': {},
+        },
+      };
+      final coordinator = coordinatorFor(store);
+      await coordinator.restoreChat(chat);
+      final engine = coordinator.engineFor(chat);
+      expect(engine.phase, 'model_changed');
+      expect(engine.messages, hasLength(2));
+      expect(chat.messages, hasLength(2));
+      for (var i = 0; i < 10; i++) {
+        store.changed();
+      }
+      expect(engine.messages, hasLength(2));
+      expect(chat.messages, hasLength(2));
+      expect(engine.checkpointPending, contains('old-request'));
+      await store.saveChats();
+      final restarted = DemoStore(settings: TestModels(), storage: disk);
+      await restarted.restore();
+      final original = restarted.conversations.firstWhere(
+        (c) => c.id == chat.id,
+      );
+      final restoredCoordinator = coordinatorFor(restarted);
+      await restoredCoordinator.restoreChat(original);
+      expect(restoredCoordinator.engineFor(original).phase, 'model_changed');
+      expect(restoredCoordinator.engineFor(original).messages, hasLength(2));
+      expect(original.messages, hasLength(2));
+      expect(original.messages.first.text, 'Original task');
+      expect(models, 0);
+      expect(tools, 0);
+      store.dispose();
+      restarted.dispose();
+    },
+  );
+  test(
     'queued messages preserve selected tasks for this turn without carrying them into a new topic',
     () async {
       final tasks = PersonalSpaceStore(

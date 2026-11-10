@@ -26,6 +26,51 @@ void main() {
     write: write ?? (_) async {},
   );
   test(
+    'identity transitions tolerate synchronous cancellation and coordinator reentry',
+    () async {
+      var cancelled = 0, notifications = 0, saved = 0;
+      late final AssistantEngine a;
+      a =
+          AssistantEngine(
+              identity: () => 'new-model',
+              model: (_, __) async =>
+                  throw StateError('No automatic model request'),
+              read: () async => null,
+              write: (_) async {
+                saved++;
+              },
+              cancelModel: () {
+                cancelled++;
+                if (cancelled < 4) a.identityChanged();
+              },
+            )
+            ..account = 'old-model'
+            ..goal = 'Keep the original task'
+            ..phase = 'confirmation'
+            ..pending = {'tool': 'clock.alarm.create', 'requestId': 'original'};
+      a.addListener(() {
+        notifications++;
+        if (notifications < 5) a.identityChanged();
+      });
+      a.identityChanged();
+      for (var i = 0; i < 10; i++) {
+        a.identityChanged();
+      }
+      await a.save();
+      expect(a.phase, 'model_changed');
+      expect(a.account, 'old-model');
+      expect(a.goal, 'Keep the original task');
+      expect(a.checkpointPending, contains('original'));
+      expect(a.pending, isNull);
+      expect(a.messages, hasLength(1));
+      expect(a.epoch, 1);
+      expect(cancelled, 1);
+      expect(notifications, 1);
+      expect(saved, 2);
+      a.dispose();
+    },
+  );
+  test(
     'synchronous coordinator listeners cannot recursively enter Stop',
     () async {
       final saved = <String>[];
