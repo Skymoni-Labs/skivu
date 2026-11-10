@@ -342,7 +342,7 @@ Future<void> showChatControls(BuildContext context) async {
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('显示底部统计'),
+              title: const Text('显示会话信息入口'),
               value: appearance.flag('showUsage'),
               onChanged: (v) {
                 appearance.set('showUsage', v);

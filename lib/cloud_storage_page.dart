@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'cloud_coding_tools.dart';
 import 'cloud_range_reader.dart';
+import 'product_ui.dart';
 
 class CloudStoragePage extends StatefulWidget {
   const CloudStoragePage({super.key});
@@ -188,15 +189,16 @@ class _CloudStoragePageState extends State<CloudStoragePage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('手机文件与保存位置')),
+  Widget build(BuildContext context) => ProductScaffold(
+    title: '手机文件与保存位置',
     body: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const Text(
           '最终成果默认保存到 下载/Skivu。选择一个授权目录后，可设为以后的自动保存位置。授权文件可导入项目；原文件保留。',
         ),
-        if (error != null) SelectableText(error!),
+        if (error != null)
+          ProductError(message: '文件信息暂时无法加载', detail: error!, onRetry: refresh),
         if (busy) ...[
           const LinearProgressIndicator(),
           for (final row in progress)

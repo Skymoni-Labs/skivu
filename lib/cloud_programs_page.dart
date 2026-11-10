@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'product_ui.dart';
 import 'cloud_coding_tools.dart';
 import 'cloud_project_browser.dart';
 import 'cloud_range_reader.dart';
@@ -18,6 +19,7 @@ class _CloudProgramsPageState extends State<CloudProgramsPage> {
   int? next;
   final previous = <int>[];
   String? error;
+  bool loading = true;
   @override
   void initState() {
     super.initState();
@@ -25,6 +27,7 @@ class _CloudProgramsPageState extends State<CloudProgramsPage> {
   }
 
   Future<void> load() async {
+    if (mounted) setState(() => loading = true);
     try {
       final page = await cloudExecutionChannel.invokeMapMethod<String, dynamic>(
         'programs.page',
@@ -39,71 +42,184 @@ class _CloudProgramsPageState extends State<CloudProgramsPage> {
       });
     } catch (e) {
       if (mounted) setState(() => error = '$e');
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('全部程序与完整输出'),
-      actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))],
+  void openJob(Map<String, dynamic> job) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => job['backend'] == 'adb'
+          ? CloudShellLogPage(job: job, call: widget.callForOwner(job['owner']))
+          : CloudJobLogPage(job: job, call: widget.callForOwner(job['owner'])),
     ),
+  );
+
+  void jobDetails(Map<String, dynamic> job) => showMarketDetails(
+    context,
+    name: '运行详情',
+    description: '查看这次运行的状态与来源。打开记录不会重新执行。',
+    icon: MarketGlyph(
+      icon: Icons.history_rounded,
+      color: Theme.of(context).colorScheme.primary,
+    ),
+    details: [
+      ('状态', programStateLabel(job['state'])),
+      ('类型', programKindLabel(job['backend'])),
+      ('执行命令', '${job['commandPreview'] ?? '暂无记录'}'),
+      ('运行标识', '${job['id'] ?? '暂无记录'}'),
+      ('所属项目', '${job['owner'] ?? '暂无记录'}'),
+      ('原始状态', '${job['backend']} / ${job['state']}'),
+    ],
+    actions: [
+      TextButton.icon(
+        onPressed: () {
+          Navigator.pop(context);
+          openJob(job);
+        },
+        icon: const Icon(Icons.article_outlined, size: 18),
+        label: const Text('查看完整输出'),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => ProductScaffold(
+    title: '运行记录',
+    actions: [
+      IconButton(
+        onPressed: load,
+        tooltip: '刷新运行记录',
+        icon: const Icon(Icons.refresh_rounded),
+      ),
+    ],
     body: Column(
       children: [
-        if (error != null) SelectableText(error!),
-        Text('共 $total 个程序 · 原执行与输出保留，打开记录不会重跑'),
-        Expanded(
-          child: ListView.builder(
-            itemCount: rows.length,
-            itemBuilder: (c, i) {
-              final job = Map<String, dynamic>.from(rows[i]);
-              return ListTile(
-                leading: const Icon(Icons.terminal),
-                title: Text('${job['backend']} · ${job['state']}'),
-                subtitle: Text(
-                  '${job['commandPreview'] ?? job['id']}\n${job['owner']}',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+            child: ProductError(
+              message: '运行记录暂时无法加载',
+              detail: error!,
+              onRetry: load,
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$total 条运行记录',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => job['backend'] == 'adb'
-                        ? CloudShellLogPage(
-                            job: job,
-                            call: widget.callForOwner(job['owner']),
-                          )
-                        : CloudJobLogPage(
-                            job: job,
-                            call: widget.callForOwner(job['owner']),
-                          ),
-                  ),
-                ),
-              );
-            },
+              ),
+              const Text('查看记录不会重跑', style: TextStyle(fontSize: 12)),
+            ],
           ),
         ),
-        Wrap(
-          children: [
-            TextButton(
-              onPressed: previous.isEmpty
-                  ? null
-                  : () {
-                      offset = previous.removeLast();
-                      load();
-                    },
-              child: const Text('上一页'),
+        Expanded(
+          child: loading && rows.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : rows.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ProductEmpty(
+                      title: '还没有运行记录',
+                      description: '小云执行的程序会保留在这里，方便查看进度和结果。',
+                      icon: Icons.history_rounded,
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  itemCount: rows.length,
+                  itemBuilder: (c, i) {
+                    final job = Map<String, dynamic>.from(rows[i]);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: MarketPanel(
+                        onTap: () => openJob(job),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                MarketGlyph(
+                                  icon: job['backend'] == 'adb'
+                                      ? Icons.phone_android_rounded
+                                      : Icons.code_rounded,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 42,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    '${job['name'] ?? job['title'] ?? '${programKindLabel(job['backend'])} ${offset + i + 1}'}',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: '运行详情',
+                                  onPressed: () => jobDetails(job),
+                                  icon: const Icon(Icons.more_horiz_rounded),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                MarketBadge(programStateLabel(job['state'])),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    '查看输出与结果',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: previous.isEmpty
+                      ? null
+                      : () {
+                          offset = previous.removeLast();
+                          load();
+                        },
+                  child: const Text('上一页'),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: next == null
+                      ? null
+                      : () {
+                          previous.add(offset);
+                          offset = next!;
+                          load();
+                        },
+                  child: const Text('下一页'),
+                ),
+              ],
             ),
-            TextButton(
-              onPressed: next == null
-                  ? null
-                  : () {
-                      previous.add(offset);
-                      offset = next!;
-                      load();
-                    },
-              child: const Text('下一页'),
-            ),
-          ],
+          ),
         ),
       ],
     ),
@@ -277,46 +393,91 @@ class _CloudExecutionPolicyPageState extends State<CloudExecutionPolicyPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('执行资源策略')),
+  Widget build(BuildContext context) => ProductScaffold(
+    title: '并发与资源',
     body: ListView(
       padding: const EdgeInsets.all(18),
       children: [
-        const Text(
-          '默认跟随实际能力：不添加模型调用次数、程序时长、文件总量或输出保留额度。每个任务可单独设置超时，定时计划可单独设置预算。',
-        ),
-        const SizedBox(height: 12),
-        const Text('并发数填 0：按实际 CPU 和可用内存调度。正数：使用你设置的并发策略；有冲突的写入和手机界面操作仍会排队。'),
-        if (policy != null)
-          Text(
-            '当前 ${policy!['processors']} 核，可用内存 ${((policy!['availableMemoryBytes'] as num) / 1024 / 1024).round()} MiB。Linux / Android 程序自动并发参考值 ${policy!['automaticParallelJobs']}；后台计划 ${policy!['automaticBackgroundRuns'] ?? policy!['automaticParallelJobs']}。',
-          ),
-        const Text(
-          '自动排队按每个程序约 64 MiB、每个后台计划约 160 MiB 的内存参考量结合 CPU 计算。你填写正数可覆盖自动并发值；实际资源不足时会保留队列。',
-        ),
-        for (final entry in fields.entries)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: TextField(
-              controller: entry.value,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: const {
-                  'maxParallelJobs': 'Linux 程序并发',
-                  'maxAndroidJobs': '普通 Android 程序并发',
-                  'maxBackgroundRuns': '后台计划并发',
-                }[entry.key],
-                helperText: '0 自动；正数由你指定',
-              ),
+        ProductSection(
+          title: '根据设备安排任务',
+          icon: Icons.tune_rounded,
+          subtitle: '默认根据手机的处理器和可用内存安排同时运行的任务。',
+          children: [
+            MarketBadge(
+              policy != null &&
+                      fields.values.every(
+                        (c) => (int.tryParse(c.text) ?? 0) == 0,
+                      )
+                  ? '自动管理'
+                  : policy == null
+                  ? '设置待读取'
+                  : '已使用自定义并发',
             ),
-          ),
-        const Text(
-          '原始 stdout / stderr 完整保留在应用磁盘，可分页、搜索和导出。Android 后台调度、进程回收、磁盘空间和服务商模型边界仍以实际结果为准。',
+            const SizedBox(height: 12),
+            const Text(
+              '这里仅调整并发数量。任务预算、运行时长和输出保存规则保持各自的设置。',
+              style: TextStyle(fontSize: 13, height: 1.65),
+            ),
+          ],
         ),
-        if (error != null) SelectableText(error!),
-        FilledButton(
-          onPressed: saving ? null : save,
-          child: Text(saving ? '正在保存' : '保存策略'),
+        if (error != null)
+          ProductError(
+            message: '资源设置暂时无法读取或保存',
+            detail: error!,
+            onRetry: saving ? null : load,
+          ),
+        MarketPanel(
+          key: const ValueKey('resource-custom-panel'),
+          child: ExpansionTile(
+            key: const ValueKey('resource-advanced-settings'),
+            tilePadding: EdgeInsets.zero,
+            title: const Text(
+              '自定义并发',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            subtitle: const Text(
+              '需要时再调整，0 表示自动',
+              style: TextStyle(fontSize: 12),
+            ),
+            children: [
+              for (final entry in fields.entries)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: TextField(
+                    controller: entry.value,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: const {
+                        'maxParallelJobs': '编程任务并发',
+                        'maxAndroidJobs': '手机程序并发',
+                        'maxBackgroundRuns': '后台计划并发',
+                      }[entry.key],
+                      helperText: '0 自动；填写正数指定数量',
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: saving ? null : save,
+                child: Text(saving ? '正在保存…' : '保存并发设置'),
+              ),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('设备与调度详情', style: TextStyle(fontSize: 13)),
+                children: [
+                  if (policy != null)
+                    Text(
+                      '处理器 ${policy!['processors']} 核 · 可用内存 ${((policy!['availableMemoryBytes'] as num) / 1024 / 1024).round()} MiB。编程/手机程序自动并发参考值 ${policy!['automaticParallelJobs']}；后台计划 ${policy!['automaticBackgroundRuns'] ?? policy!['automaticParallelJobs']}。',
+                      style: const TextStyle(fontSize: 12, height: 1.7),
+                    ),
+                  const Text(
+                    '自动调度按每个程序约 64 MiB、每个后台计划约 160 MiB 的内存参考量结合 CPU 计算。填写正数可覆盖自动并发值；资源不足或操作冲突时仍会排队。原始 stdout / stderr 保留在磁盘，可在运行记录中查看与导出。',
+                    style: TextStyle(fontSize: 12, height: 1.7),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     ),

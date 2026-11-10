@@ -526,11 +526,14 @@ void main() {
       );
       await tester.tap(find.text('打开计划'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('高级选项'));
+      await tester.tap(find.text('高级选项'));
+      await tester.pumpAndSettle();
       Finder input(String label) => find.widgetWithText(TextFormField, label);
       for (final entry in {
-        '本次模型请求预算（0不限制）': '125',
-        '每日模型请求预算（0不限制）': '0',
-        '输出 tokens（0沿用模型配置）': '262144',
+        '每次模型请求预算（0 不限制）': '125',
+        '每日模型请求预算（0 不限制）': '0',
+        '回复长度（Token，0 沿用模型配置）': '262144',
       }.entries) {
         await tester.ensureVisible(input(entry.key));
         await tester.pumpAndSettle();

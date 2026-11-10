@@ -277,7 +277,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         dividerColor: muted.withValues(alpha: .18),
         dialogTheme: DialogThemeData(
           backgroundColor: (appearance.cloudPalette?.surface ?? Colors.white)
-              .withValues(alpha: .94),
+              .withValues(alpha: 1),
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
@@ -285,7 +285,7 @@ class _SkiAppState extends State<SkiApp> with WidgetsBindingObserver {
         ),
         bottomSheetTheme: BottomSheetThemeData(
           backgroundColor: (appearance.cloudPalette?.surface ?? Colors.white)
-              .withValues(alpha: .94),
+              .withValues(alpha: 1),
           surfaceTintColor: Colors.transparent,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),

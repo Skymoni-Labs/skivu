@@ -20,6 +20,9 @@ import 'social_settings_page.dart';
 import 'world_library_page.dart';
 import 'sticker_library_page.dart';
 import 'device_settings_page.dart';
+import 'cloud_coding_page.dart';
+import 'cloud_storage_page.dart';
+import 'product_ui.dart';
 
 const settingsSections = <(String, String, String, IconData)>[
   ('account', '中转站账号', '登录、模型与额度同步', Icons.account_circle_outlined),
@@ -31,8 +34,8 @@ const settingsSections = <(String, String, String, IconData)>[
   ('appearance', '外观', '壁纸、主题与文字大小', Icons.palette_outlined),
   ('permissions', '隐私与权限', '了解数据如何使用', Icons.shield_outlined),
   ('data', '聊天记录', '本地保存、备份与清理', Icons.history),
-  ('workspace', '工作区', '文件与工作空间偏好', Icons.folder_outlined),
-  ('devices', '访问设备', '本机状态与配对流程', Icons.devices_outlined),
+  ('workspace', '工作区', '项目、文件与保存位置', Icons.folder_outlined),
+  ('devices', '手机操控与设备', '管理使用范围与连接', Icons.devices_outlined),
   ('about', '关于 Skivu', '版本信息与开源许可', Icons.info_outline),
 ];
 
@@ -651,8 +654,6 @@ class SettingsDetail extends StatefulWidget {
 }
 
 class _SettingsDetailState extends State<SettingsDetail> {
-  String workspace = demo.workspaceName;
-  bool autoSave = demo.prefs['草稿自动保留'] ?? true;
   @override
   Widget build(BuildContext context) {
     final section = settingsSections
@@ -680,13 +681,14 @@ class _SettingsDetailState extends State<SettingsDetail> {
           icon: const Icon(Icons.arrow_back, size: 18),
           label: const Text('所有设置'),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 4, 18),
-          child: Text(
-            section?.$3 ?? '选择你的偏好。',
-            style: TextStyle(fontSize: 12, height: 1.5, color: ink),
+        if (!const {'devices', 'workspace'}.contains(widget.section))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 18),
+            child: Text(
+              section?.$3 ?? '选择你的偏好。',
+              style: TextStyle(fontSize: 12, height: 1.5, color: ink),
+            ),
           ),
-        ),
         switch (widget.section) {
           'account' => RelayAccountPage(go: widget.go),
           'beta' => AccountBetaPage(go: widget.go),
@@ -704,161 +706,40 @@ class _SettingsDetailState extends State<SettingsDetail> {
     );
   }
 
-  Widget toggle(String key, String detail, {IconData? icon}) => SettingRow(
-    key,
-    detail,
-    icon: icon,
-    trailing: Switch(
-      value: demo.prefs[key] ?? false,
-      onChanged: (v) {
-        demo.prefs[key] = v;
-        demo.changed();
-      },
-    ),
-  );
   Widget models() => const ModelSettingsPage();
   Widget speech() => const SpeechSettingsPage();
   Widget appearance() => const AppearanceSettings();
-  Widget permissions() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Pane(
-        child: Column(
-          children: [
-            toggle('文件读取', '只模拟偏好，不授予磁盘访问', icon: Icons.folder_outlined),
-            const Divider(),
-            toggle('浏览器访问', '只模拟偏好，不连接外部网页', icon: Icons.language),
-            const Divider(),
-            toggle('终端执行', '只模拟偏好，不执行系统指令', icon: Icons.terminal),
-          ],
-        ),
-      ),
-      const SizedBox(height: 22),
-      Pane(
-        color: demo.dark ? null : mist,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.shield_outlined, color: green),
-            const SizedBox(width: 15),
-            Expanded(
-              child: label(
-                '权限边界由你决定。\n这里的开关只改变 UI 状态；真实权限系统将在后续模块接入时逐项确认。',
-                size: 12,
-                color: muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
   Widget data() => const ChatDataSettings();
-  Widget workspacePage() => Pane(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          initialValue: workspace,
-          decoration: const InputDecoration(labelText: '演示工作区名称'),
-          onChanged: (v) => workspace = v,
-        ),
-        const SizedBox(height: 16),
-        SettingRow(
-          '草稿自动保留',
-          '示例笔记保留于当前会话内存，刷新后重置',
-          trailing: Switch(
-            value: autoSave,
-            onChanged: (v) => setState(() => autoSave = v),
-          ),
-        ),
-        const Divider(),
-        const SettingRow(
-          '演示文件数',
-          '3 个示例文件 · 未连接实际目录',
-          icon: Icons.description_outlined,
-          trailing: TinyTag('隔离'),
-        ),
-        const SizedBox(height: 14),
-        actionButton('保存工作区偏好', Icons.check, () {
-          demo.workspaceName = workspace.trim().isEmpty
-              ? '灵感空间'
-              : workspace.trim();
-          demo.prefs['草稿自动保留'] = autoSave;
-          demo.changed();
-          toast(context, '已保存「${demo.workspaceName}」的演示偏好');
-        }, filled: true),
-      ],
-    ),
-  );
-  Widget devices() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
+  Widget workspacePage() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Pane(
-        child: Column(
-          children: [
-            const SettingRow(
-              '当前浏览器',
-              '本地 UI 预览 · 不采集设备标识',
-              icon: Icons.laptop_mac,
-              trailing: TinyTag('当前'),
+      const MarketHeader(title: '工作区', subtitle: '管理小云项目、手机文件和保存位置。'),
+      const SizedBox(height: 22),
+      ProductSection(
+        title: '项目与文件',
+        icon: Icons.folder_outlined,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('小云项目'),
+            subtitle: const Text('浏览编程项目和已交付成果'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CloudCodingPage()),
             ),
-            const Divider(),
-            toggle('允许本机访问', '仅显示状态，不改变网络监听范围'),
-            const Divider(),
-            SettingRow(
-              '配对新设备',
-              '体验配对界面，不创建真实连接',
-              icon: Icons.add_to_queue,
-              onTap: () => showDialog(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text('设备配对演示'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
-                          color: mist,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Icon(
-                          Icons.devices_other,
-                          size: 52,
-                          color: green,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      label(
-                        'S K I  ·  0 2 1',
-                        size: 23,
-                        color: green,
-                        weight: FontWeight.w600,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        '这是示例配对码，不可用于登录。\n没有开放远程访问或创建真实配对。',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    FilledButton(
-                      onPressed: () => Navigator.pop(c),
-                      child: const Text('完成演示'),
-                    ),
-                  ],
-                ),
-              ),
+          ),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('手机文件与保存位置'),
+            subtitle: const Text('导入文件，选择成果的保存目录'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const CloudStoragePage()),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      const SizedBox(height: 20),
-      label('已连接设备：0 · 本阶段不提供远程访问服务。', size: 11, color: muted),
     ],
   );
   Widget about() => const SkivuAbout();

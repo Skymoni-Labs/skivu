@@ -51,10 +51,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('UID 2000'), findsNothing);
+      await tester.ensureVisible(find.text('高级能力'));
+      await tester.tap(find.text('高级能力'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('代码执行 · 无线配对'));
       await tester.tap(find.text('代码执行 · 无线配对'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(TextField).at(0));
       await tester.enterText(find.byType(TextField).at(0), '37001');
       await tester.enterText(find.byType(TextField).at(1), '123456');
+      await tester.ensureVisible(find.text('完成系统配对'));
       await tester.tap(find.text('完成系统配对'));
       await tester.pumpAndSettle();
       expect(paired, true);

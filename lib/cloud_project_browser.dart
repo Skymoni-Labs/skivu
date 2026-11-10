@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'product_ui.dart';
 import 'cloud_range_reader.dart';
 import 'cloud_file_card.dart';
 
@@ -65,24 +66,22 @@ class _CloudProjectBrowserState extends State<CloudProjectBrowser> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(widget.project['name']),
-      actions: [
-        IconButton(
-          tooltip: '刷新文件与进程',
-          onPressed: busy ? null : refresh,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => ProductScaffold(
+    title: '${widget.project['name']}',
+    actions: [
+      IconButton(
+        tooltip: '刷新文件与进程',
+        onPressed: busy ? null : refresh,
+        icon: const Icon(Icons.refresh),
+      ),
+    ],
     body: Column(
       children: [
         if (busy) const LinearProgressIndicator(),
-        if (error != null) SelectableText(error!),
+        if (error != null) ProductError(message: '内容暂时无法加载', detail: error!),
         if (jobs.isNotEmpty)
           ExpansionTile(
-            title: Text('项目进程 · ${jobs.length}'),
+            title: Text('运行任务 · ${jobs.length}'),
             children: [
               SizedBox(
                 height: 180,
@@ -91,7 +90,7 @@ class _CloudProjectBrowserState extends State<CloudProjectBrowser> {
                   itemBuilder: (c, i) {
                     final job = Map<String, dynamic>.from(jobs[i]);
                     return ListTile(
-                      title: Text('${job['state']} · ${job['id']}'),
+                      title: Text(programStateLabel(job['state'])),
                       subtitle: Text(
                         job['command'] ?? '',
                         maxLines: 2,
@@ -126,7 +125,7 @@ class _CloudProjectBrowserState extends State<CloudProjectBrowser> {
                 ),
                 title: Text(file['path']),
                 subtitle: Text(
-                  '${file['type']}${file['bytes'] != null ? ' · ${file['bytes']} B' : ''}',
+                  '${file['type'] == 'file' ? '文件' : '文件夹'}${file['bytes'] != null ? ' · ${file['bytes']} 字节' : ''}',
                 ),
                 onTap: file['type'] != 'file'
                     ? null
@@ -491,7 +490,7 @@ class _CloudLogStreamState extends State<CloudLogStream> {
           onSubmitted: (_) => find(),
         ),
       ),
-      if (error != null) SelectableText(error!),
+      if (error != null) ProductError(message: '内容暂时无法加载', detail: error!),
       if (matches != null) ...[
         Text('共 $total 条匹配'),
         Expanded(

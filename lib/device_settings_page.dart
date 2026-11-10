@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'open_plugin_device.dart';
 import 'open_plugin_external.dart';
-import 'widgets.dart';
 import 'embedded_engine_settings.dart';
+import 'product_ui.dart';
 
 class DeviceSettingsPage extends StatefulWidget {
   const DeviceSettingsPage({super.key, required this.go});
@@ -18,6 +18,7 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage>
   static const channel = MethodChannel('skivu/device_tasks');
   List<Map> companions = [];
   bool loading = false;
+  bool unsupported = false;
   String? error;
   @override
   void initState() {
@@ -41,15 +42,26 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage>
     if (loading) return;
     setState(() {
       loading = true;
+      unsupported = false;
       error = null;
     });
     try {
       final list = await channel.invokeListMethod<dynamic>('discover') ?? [];
       if (mounted) setState(() => companions = list.whereType<Map>().toList());
     } on MissingPluginException {
-      if (mounted) setState(() => error = '真实手机操控需要在 Android 11 或更新系统中使用。');
+      if (mounted)
+        setState(() {
+          unsupported = true;
+          error = '手机操控需要 Android 11 或更新系统';
+        });
     } on PlatformException catch (e) {
-      if (mounted) setState(() => error = e.message ?? '设备信息暂不可用，请重试。');
+      if (mounted)
+        setState(() {
+          error = e.message ?? '设备信息暂不可用，请重试。';
+          unsupported =
+              e.code == 'ANDROID_VERSION_UNSUPPORTED' ||
+              error!.contains('Android 11');
+        });
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -88,78 +100,122 @@ class _DeviceSettingsPageState extends State<DeviceSettingsPage>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.phonelink_setup),
-            title: const Text('内置手机引擎'),
-            subtitle: const Text('小云与插件共用 · 权限和系统接口'),
-            trailing: const Icon(Icons.chevron_right),
+          const MarketHeader(title: '手机操控与设备', subtitle: '让小云协助完成手机上的操作。'),
+          const SizedBox(height: 22),
+          MarketPanel(
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => const EmbeddedEngineSettings(),
               ),
             ),
+            child: Row(
+              children: [
+                MarketGlyph(
+                  icon: Icons.phonelink_setup_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '设置手机操控',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text('管理使用范围与所需授权', style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
           ),
-          const Text('下方保留原设备伴侣连接，供已有操控插件使用。'),
           const SizedBox(height: 16),
           if (current != null)
-            Pane(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('当前任务：${current['summary']}'),
-                  TextButton.icon(
-                    onPressed: () => deviceTasks.cancel(),
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('停止当前手机任务'),
-                  ),
-                ],
-              ),
+            ProductSection(
+              title: '正在进行',
+              icon: Icons.play_circle_outline,
+              children: [
+                Text(
+                  '${current['summary']}',
+                  style: const TextStyle(height: 1.6),
+                ),
+                TextButton.icon(
+                  onPressed: () => deviceTasks.cancel(),
+                  icon: const Icon(Icons.stop_circle_outlined),
+                  label: const Text('停止当前手机任务'),
+                ),
+              ],
             ),
-          if (loading) const LinearProgressIndicator(),
           if (error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(error!),
+            ProductError(
+              message: unsupported ? error! : '设备信息暂时无法读取',
+              detail: error!,
+              onRetry: loading ? null : load,
             ),
-          if (!loading && companions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('未发现已安装的设备伴侣。安装后返回此页刷新；不会创建演示配对。'),
+          MarketPanel(
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text(
+                '兼容设备连接',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text('连接已有的设备伴侣', style: TextStyle(fontSize: 12)),
+              children: [
+                if (loading) const LinearProgressIndicator(minHeight: 2),
+                if (!loading && companions.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      '还没有连接设备伴侣。使用内置手机操控时，无需另行安装。',
+                      style: TextStyle(fontSize: 13, height: 1.6),
+                    ),
+                  ),
+                for (final companion in companions)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${companion['label']}'),
+                    subtitle: const Text('查看连接与信任设置'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => open(companion),
+                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: loading ? null : load,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('刷新连接'),
+                    ),
+                    TextButton.icon(
+                      onPressed: download,
+                      icon: const Icon(Icons.download_outlined, size: 18),
+                      label: const Text('获取设备伴侣'),
+                    ),
+                    TextButton(
+                      onPressed: () => widget.go('/open-plugins'),
+                      child: const Text('管理相关插件'),
+                    ),
+                  ],
+                ),
+                const ExpansionTile(
+                  title: Text('下载来源', style: TextStyle(fontSize: 12)),
+                  tilePadding: EdgeInsets.zero,
+                  children: [
+                    SelectableText(
+                      'https://github.com/skyjjgw/skivu-device-bridge/releases',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          for (final companion in companions)
-            ListTile(
-              title: Text(
-                '${companion['label']}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: const Text('在伴侣中查看无障碍状态、客户端信任和撤销设置'),
-              trailing: const Icon(Icons.open_in_new),
-              onTap: () => open(companion),
-            ),
-          Wrap(
-            spacing: 12,
-            children: [
-              TextButton.icon(
-                onPressed: loading ? null : load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('刷新设备伴侣'),
-              ),
-              TextButton.icon(
-                onPressed: download,
-                icon: const Icon(Icons.download_outlined),
-                label: const Text('下载设备伴侣'),
-              ),
-              TextButton.icon(
-                onPressed: () => widget.go('/open-plugins'),
-                icon: const Icon(Icons.extension_outlined),
-                label: const Text('管理操控插件'),
-              ),
-            ],
-          ),
-          const SelectableText(
-            'https://github.com/skyjjgw/skivu-device-bridge/releases',
           ),
         ],
       );

@@ -6,7 +6,8 @@ import 'extension_market.dart';
 import 'mcp_client.dart';
 import 'cloud_range_reader.dart';
 import 'plugin_market.dart' show comparePluginVersions;
-import 'plugin_market_widgets.dart';
+import 'product_ui.dart';
+import 'mcp_arguments_editor.dart';
 
 class ExtensionsPage extends StatefulWidget {
   const ExtensionsPage({super.key, this.library, this.autoRefresh = true});
@@ -328,6 +329,11 @@ class _McpToolDialogState extends State<McpToolDialog> {
   McpTool? selected;
   bool busy = true, remember = false;
   String? error, result;
+  Object? resultData;
+  bool editingConnection = false;
+  bool connected = false;
+  GlobalKey<McpArgumentsEditorState> argumentsKey =
+      GlobalKey<McpArgumentsEditorState>();
   @override
   void initState() {
     super.initState();
@@ -355,8 +361,10 @@ class _McpToolDialogState extends State<McpToolDialog> {
     client?.close();
     client = null;
     tools = [];
+    connected = false;
     selected = null;
     result = null;
+    resultData = null;
   }
 
   Future<void> connect() async {
@@ -391,6 +399,8 @@ class _McpToolDialogState extends State<McpToolDialog> {
       }
       client = next;
       tools = list;
+      connected = true;
+      editingConnection = false;
     } catch (failure) {
       next?.close();
       client = null;
@@ -410,10 +420,12 @@ class _McpToolDialogState extends State<McpToolDialog> {
       result = null;
     });
     try {
-      final params = jsonDecode(arguments.text);
+      final params =
+          argumentsKey.currentState?.read() ?? jsonDecode(arguments.text);
       if (params is! Map<String, dynamic>)
         throw const FormatException('请填写 JSON 对象，例如 {}。');
       final output = await connection.callTool(tool, params);
+      resultData = output;
       result = const JsonEncoder.withIndent('  ').convert(output);
     } catch (failure) {
       error = failure is McpFailure || failure is FormatException
@@ -433,165 +445,269 @@ class _McpToolDialogState extends State<McpToolDialog> {
     super.dispose();
   }
 
+  String get resultSummary {
+    final value = resultData;
+    if (value is Map && value['content'] is List) {
+      final text = (value['content'] as List)
+          .whereType<Map>()
+          .where((c) => c['type'] == 'text')
+          .map((c) => c['text'])
+          .whereType<String>()
+          .join('\n\n');
+      if (text.isNotEmpty)
+        return text.length > 800 ? '${text.substring(0, 800)}…' : text;
+    }
+    return '工具已返回内容，可打开完整结果查看。';
+  }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.extension.name),
+    backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 1),
     content: SizedBox(
       width: 640,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.extension.payload['setup']),
-            const SizedBox(height: 12),
-            TextField(
-              controller: endpoint,
-              enabled: !busy,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: 'HTTP(S) MCP 地址'),
-              onChanged: (_) => setState(disconnect),
-            ),
-            TextField(
-              controller: token,
-              enabled: !busy,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: const InputDecoration(labelText: 'Bearer 访问密钥（如需要）'),
-              onChanged: (_) => setState(disconnect),
-            ),
-            TextField(
-              controller: timeout,
-              enabled: !busy,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '每次请求超时（秒）',
-                helperText: '0 表示不设置；关闭窗口可取消本机等待。',
-              ),
-              onChanged: (_) => setState(disconnect),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('在本机记住连接'),
-              subtitle: const Text('密钥保存在设备安全存储中。'),
-              value: remember,
-              onChanged: busy ? null : (v) => setState(() => remember = v!),
-            ),
-            FilledButton(
-              onPressed: busy ? null : connect,
-              child: const Text('连接并获取工具'),
-            ),
-            if (busy)
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: LinearProgressIndicator(),
-              ),
-            if (client != null && !busy && tools.isEmpty)
-              const Text('服务目前没有可用工具。'),
-            if (tools.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: selected?.name,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: '选择工具'),
-                items: [
-                  for (final tool in tools)
-                    DropdownMenuItem(
-                      value: tool.name,
-                      child: Text(tool.name, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: busy
-                    ? null
-                    : (name) => setState(() {
-                        selected = tools.firstWhere(
-                          (tool) => tool.name == name,
-                        );
-                        result = null;
-                      }),
-              ),
-              if (selected != null) ...[
-                const SizedBox(height: 12),
-                Text(selected!.description),
-                ExpansionTile(
-                  title: const Text('参数格式'),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .68,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!connected || editingConnection)
+                ProductSection(
+                  title: '连接服务',
+                  icon: Icons.link_rounded,
+                  subtitle: '填写服务地址，连接后选择要使用的工具。',
                   children: [
-                    SelectableText(
-                      const JsonEncoder.withIndent(
-                        '  ',
-                      ).convert(selected!.inputSchema),
+                    TextField(
+                      controller: endpoint,
+                      enabled: !busy,
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        labelText: '服务地址',
+                        hintText: 'https://…',
+                      ),
+                      onChanged: (_) => setState(disconnect),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: token,
+                      enabled: !busy,
+                      obscureText: true,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(labelText: '访问密钥（可选）'),
+                      onChanged: (_) => setState(disconnect),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        '记住此连接',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      subtitle: const Text(
+                        '密钥单独保存在设备安全存储中。',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                      value: remember,
+                      onChanged: busy
+                          ? null
+                          : (v) => setState(() => remember = v!),
+                    ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text('连接选项', style: TextStyle(fontSize: 13)),
+                      children: [
+                        TextField(
+                          controller: timeout,
+                          enabled: !busy,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '请求超时（秒）',
+                            helperText: '0 不设置；关闭窗口可取消等待。',
+                          ),
+                          onChanged: (_) => setState(disconnect),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          widget.extension.payload['setup'],
+                          style: const TextStyle(fontSize: 12, height: 1.6),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: busy ? null : connect,
+                      icon: const Icon(Icons.link_rounded, size: 18),
+                      label: const Text('连接服务'),
+                    ),
+                  ],
+                )
+              else
+                ProductSection(
+                  title: '服务已连接',
+                  icon: Icons.check_circle_outline_rounded,
+                  children: [
+                    Text(
+                      '${tools.length} 个可用工具',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: busy
+                            ? null
+                            : () => setState(() => editingConnection = true),
+                        child: const Text('修改连接'),
+                      ),
                     ),
                   ],
                 ),
-                TextField(
-                  controller: arguments,
-                  enabled: !busy,
-                  minLines: 3,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    labelText: '工具参数（JSON 对象）',
-                    border: OutlineInputBorder(),
-                  ),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: LinearProgressIndicator(minHeight: 2),
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  '点击执行会将这些参数发送给上面配置的服务。请检查工具用途和参数。',
-                  style: TextStyle(fontSize: 12),
+              if (client != null && !busy && tools.isEmpty)
+                const ProductEmpty(
+                  title: '服务暂未提供工具',
+                  description: '可以稍后重新连接，或检查服务端设置。',
+                  icon: Icons.extension_outlined,
                 ),
-                FilledButton(
-                  onPressed: busy ? null : run,
-                  child: const Text('执行所选工具'),
-                ),
-              ],
-            ],
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(error!, style: const TextStyle(color: Colors.red)),
-              ),
-            if (result != null) ...[
-              const SizedBox(height: 12),
-              const Text('执行结果'),
-              SelectableText(
-                result!.length > 40000
-                    ? '${result!.substring(0, 40000)}\n\n此处为预览，可查看或复制完整结果。'
-                    : result!,
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  final bytes = utf8.encode(result!);
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CloudRangeReader(
-                        title: '完整执行结果',
-                        read: (offset) async {
-                          var end = (offset + 48000).clamp(0, bytes.length);
-                          while (end < bytes.length &&
-                              (bytes[end] & 0xc0) == 0x80) {
-                            end--;
-                          }
-                          return {
-                            'text': utf8.decode(bytes.sublist(offset, end)),
-                            'nextOffset': end,
-                            'bytes': bytes.length,
-                            'complete': end == bytes.length,
-                          };
-                        },
-                      ),
+              if (tools.isNotEmpty && !editingConnection)
+                ProductSection(
+                  title: '选择并使用工具',
+                  icon: Icons.handyman_outlined,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: selected?.name,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: '选择工具'),
+                      items: [
+                        for (final tool in tools)
+                          DropdownMenuItem(
+                            value: tool.name,
+                            child: Text(
+                              tool.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: busy
+                          ? null
+                          : (name) => setState(() {
+                              selected = tools.firstWhere(
+                                (tool) => tool.name == name,
+                              );
+                              result = null;
+                              resultData = null;
+                              arguments.text = '{}';
+                              argumentsKey =
+                                  GlobalKey<McpArgumentsEditorState>();
+                            }),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.article_outlined),
-                label: const Text('查看完整结果'),
-              ),
-              TextButton.icon(
-                onPressed: () =>
-                    Clipboard.setData(ClipboardData(text: result!)),
-                icon: const Icon(Icons.copy),
-                label: const Text('复制结果'),
-              ),
+                    if (selected != null) ...[
+                      const SizedBox(height: 14),
+                      Text(
+                        selected!.description,
+                        style: const TextStyle(fontSize: 13, height: 1.6),
+                      ),
+                      const SizedBox(height: 14),
+                      McpArgumentsEditor(
+                        key: argumentsKey,
+                        schema: selected!.inputSchema,
+                        controller: arguments,
+                        enabled: !busy,
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        '执行时会把填写的参数发送到已连接的服务。',
+                        style: TextStyle(fontSize: 12, height: 1.6),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: busy ? null : run,
+                        icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                        label: const Text('执行工具'),
+                      ),
+                    ],
+                  ],
+                ),
+              if (error != null)
+                ProductError(message: '操作未完成，请检查连接或参数', detail: error!),
+              if (result != null)
+                ProductSection(
+                  title: '工具返回的结果',
+                  icon: Icons.task_alt_rounded,
+                  children: [
+                    SelectableText(
+                      resultSummary,
+                      style: const TextStyle(fontSize: 13, height: 1.65),
+                    ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text(
+                        '查看原始数据',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      children: [
+                        SelectableText(
+                          result!.length > 4000
+                              ? '${result!.substring(0, 4000)}\n此处为预览，可打开完整结果。'
+                              : result!,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            final bytes = utf8.encode(result!);
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => CloudRangeReader(
+                                  title: '完整执行结果',
+                                  read: (offset) async {
+                                    var end = (offset + 48000).clamp(
+                                      0,
+                                      bytes.length,
+                                    );
+                                    while (end < bytes.length &&
+                                        (bytes[end] & 0xc0) == 0x80) {
+                                      end--;
+                                    }
+                                    return {
+                                      'text': utf8.decode(
+                                        bytes.sublist(offset, end),
+                                      ),
+                                      'nextOffset': end,
+                                      'bytes': bytes.length,
+                                      'complete': end == bytes.length,
+                                    };
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.article_outlined),
+                          label: const Text('查看完整结果'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () =>
+                              Clipboard.setData(ClipboardData(text: result!)),
+                          icon: const Icon(Icons.copy),
+                          label: const Text('复制结果'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
             ],
-          ],
+          ),
         ),
       ),
     ),

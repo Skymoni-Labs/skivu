@@ -874,7 +874,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         toggle('squareAvatars', '使用方形头像'),
       ]),
       panel('composer', '输入框', [
-        toggle('showUsage', '显示输入框下方统计', note: '轮次、速度、用量与占用率保持一行。'),
+        toggle('showUsage', '显示会话信息入口', note: '点开查看轮次、速度与用量；空会话不显示。'),
         choices('inputStyle', '输入布局', {'expanded': '展开工具栏', 'compact': '紧凑单行'}),
         toggle('floatingInput', '悬浮输入框'),
       ]),

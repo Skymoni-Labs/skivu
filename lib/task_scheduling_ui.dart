@@ -5,6 +5,7 @@ import 'state.dart' show demo;
 import 'task_plans.dart';
 import 'cloud_file_card.dart';
 import 'cloud_coding_tools.dart';
+import 'product_ui.dart';
 
 String _operation() => 'ui:${DateTime.now().microsecondsSinceEpoch}';
 String _error(Object e) => e is StateError ? '${e.message}' : '$e';
@@ -695,7 +696,7 @@ class _PlanEditorState extends State<_PlanEditor> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '到时间由小云处理，允许系统延迟。已授权步骤使用与前台相同的能力；界面操作条件不足时等待。',
+              '安排好任务和时间，小云会在条件允许时处理，并保存执行结果。',
               style: TextStyle(fontSize: 12, height: 1.7),
             ),
             const SizedBox(height: 12),
@@ -730,15 +731,9 @@ class _PlanEditorState extends State<_PlanEditor> {
               decoration: const InputDecoration(labelText: '任务方式'),
               items: const [
                 DropdownMenuItem(value: 'summary', child: Text('整理／生成内容')),
-                DropdownMenuItem(
-                  value: 'local_tasks',
-                  child: Text('管理待办（需要实际修改回执）'),
-                ),
-                DropdownMenuItem(
-                  value: 'device_action',
-                  child: Text('操作手机能力（需要实际核验）'),
-                ),
-                DropdownMenuItem(value: 'coding', child: Text('内置项目编程与最终交付')),
+                DropdownMenuItem(value: 'local_tasks', child: Text('管理待办')),
+                DropdownMenuItem(value: 'device_action', child: Text('操作手机')),
+                DropdownMenuItem(value: 'coding', child: Text('编程与文件交付')),
               ],
               onChanged: saving
                   ? null
@@ -821,7 +816,7 @@ class _PlanEditorState extends State<_PlanEditor> {
                 interval,
                 (v) => interval = v,
                 minimum: 1,
-                note: '短间隔使用单次调度续排；实际触发仍受Android/OEM条件影响，不保证准点。',
+                note: '实际执行时间可能受手机的后台管理影响。',
               ),
             Text(
               '使用模型：${widget.plan?.data['modelName'] ?? demo.model}',
@@ -836,46 +831,78 @@ class _PlanEditorState extends State<_PlanEditor> {
                 title: const Text('改用当前选中的模型'),
                 contentPadding: EdgeInsets.zero,
               ),
-            const Text('默认无限制／跟随实际能力。下面仅在你主动填写正数时生效。'),
-            number('本次模型请求预算（0不限制）', calls, (v) => calls = v),
-            number('每日模型请求预算（0不限制）', daily, (v) => daily = v),
-            number('输出 tokens（0沿用模型配置）', tokens, (v) => tokens = v),
-            number(
-              '累计运行时长上限（秒，0不限制）',
-              maxRunSeconds,
-              (v) => maxRunSeconds = v,
-              note: '正数由执行心跳核对；不改变其他任务或程序的配置。',
-            ),
-            number(
-              '允许迟到分钟数（0不限制）',
-              maxDelayMinutes,
-              (v) => maxDelayMinutes = v,
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('允许已授权的前台步骤'),
-              subtitle: const Text('锁屏或系统不允许时等待；不会为展示状态打开小云。'),
-              value: allowForeground,
-              onChanged: saving
-                  ? null
-                  : (v) => setState(() => allowForeground = v),
-            ),
-            DropdownButtonFormField<String>(
-              initialValue: missed,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: '错过时间时'),
-              items: const [
-                DropdownMenuItem(
-                  value: 'latest',
-                  child: Text('处理最近一次，按上方允许迟到时间判断'),
+            const SizedBox(height: 16),
+            MarketPanel(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: ExpansionTile(
+                key: const ValueKey('plan-advanced-settings'),
+                tilePadding: EdgeInsets.zero,
+                title: const Text(
+                  '高级选项',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
-                DropdownMenuItem(value: 'skip', child: Text('跳过迟到超过一分钟的执行')),
-              ],
-              onChanged: saving ? null : (v) => setState(() => missed = v!),
+                subtitle: Text(
+                  (calls > 0 ||
+                          daily > 0 ||
+                          tokens > 0 ||
+                          maxRunSeconds > 0 ||
+                          maxDelayMinutes > 0)
+                      ? '已配置预算或执行限制'
+                      : '预算、执行时长与错过时间的处理',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                children: [
+                  const Text(
+                    '不填写时沿用当前配置。以下设置仅影响本计划。',
+                    style: TextStyle(fontSize: 12, height: 1.6),
+                  ),
+                  number('每次模型请求预算（0 不限制）', calls, (v) => calls = v),
+                  number('每日模型请求预算（0 不限制）', daily, (v) => daily = v),
+                  number('回复长度（Token，0 沿用模型配置）', tokens, (v) => tokens = v),
+                  number(
+                    '累计运行时长上限（秒，0不限制）',
+                    maxRunSeconds,
+                    (v) => maxRunSeconds = v,
+                    note: '仅在填写正数时限制本计划的累计运行时间。',
+                  ),
+                  number(
+                    '允许迟到分钟数（0不限制）',
+                    maxDelayMinutes,
+                    (v) => maxDelayMinutes = v,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('允许已授权的前台步骤'),
+                    subtitle: const Text('锁屏或系统不允许时等待；不会为展示状态打开小云。'),
+                    value: allowForeground,
+                    onChanged: saving
+                        ? null
+                        : (v) => setState(() => allowForeground = v),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: missed,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: '错过时间时'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'latest',
+                        child: Text('处理最近一次，按上方允许迟到时间判断'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'skip',
+                        child: Text('跳过迟到超过一分钟的执行'),
+                      ),
+                    ],
+                    onChanged: saving
+                        ? null
+                        : (v) => setState(() => missed = v!),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
-              '没有额外全局调用额度。暂停／结束计划只影响后续触发；“停止本次执行”单独控制当前任务。',
+              '暂停计划会停止后续安排。正在进行的任务可通过“停止本次执行”结束。',
               style: TextStyle(fontSize: 12, height: 1.7),
             ),
             if (error != null)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'state.dart';
+import 'product_ui.dart';
 
 /// Compact usage readout below the composer; missing provider data uses a dash.
 class ChatStatusBar extends StatelessWidget {
@@ -13,65 +14,46 @@ class ChatStatusBar extends StatelessWidget {
     final rounds = conversation.messages
         .where((message) => message.user)
         .length;
-    final color = ink;
-    final content = DefaultTextStyle.merge(
-      style: TextStyle(fontSize: 10, height: 1.4, color: color),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 8,
-            children: [
-              _item(
-                '当前会话轮次、执行步数与生成速度；— 表示暂无统计',
-                Icon(Icons.speed_outlined, size: 13, color: color),
-                '$rounds 轮 ${_count(usage.steps)} 步 · '
-                    '${_speed(usage.tokensPerSecond)} tok/s',
-              ),
-              _item(
-                '当前会话 Token 用量与缓存命中率；— 表示暂无统计',
-                CustomPaint(
-                  size: const Size(12, 13),
-                  painter: _TokenStackPainter(color),
-                ),
-                '${_count(usage.totalTokens)} tok · '
-                    '缓存命中 ${_percent(usage.cacheHitRate)}',
-              ),
-              _item(
-                '上下文占用；— 表示暂无统计',
-                SizedBox.square(
-                  dimension: 11,
-                  child: CircularProgressIndicator(
-                    value: _ratio(usage.contextUsage) ?? 0,
-                    strokeWidth: 1.7,
-                    color: color,
-                    backgroundColor: color.withValues(alpha: .25),
-                  ),
-                ),
-                _percent(usage.contextUsage),
-              ),
-            ],
-          ),
+    if (conversation.messages.isEmpty) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        key: const ValueKey('conversation-statistics'),
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          minimumSize: const Size(0, 24),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          textStyle: const TextStyle(fontSize: 11),
         ),
+        onPressed: () => showMarketDetails(
+          context,
+          name: '会话统计',
+          description: '查看这段对话的用量与生成速度。缺少服务商统计时显示“暂无数据”。',
+          icon: MarketGlyph(
+            icon: Icons.insights_rounded,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          details: [
+            ('对话轮次', '$rounds 轮'),
+            ('执行步数', _count(usage.steps)),
+            (
+              '生成速度',
+              usage.tokensPerSecond == null
+                  ? '暂无数据'
+                  : '${_speed(usage.tokensPerSecond)} Token / 秒',
+            ),
+            ('Token 用量', _count(usage.totalTokens)),
+            ('缓存命中率', _percent(usage.cacheHitRate)),
+            ('上下文占用', _percent(usage.contextUsage)),
+          ],
+        ),
+        icon: const Icon(Icons.insights_rounded, size: 14),
+        label: const Text('会话信息'),
       ),
     );
-    return content;
   }
-
-  Widget _item(String hint, Widget icon, String text) => Tooltip(
-    message: hint,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        icon,
-        const SizedBox(width: 3),
-        Text(text, maxLines: 1, softWrap: false),
-      ],
-    ),
-  );
 
   static String _count(int? value) {
     if (value == null || value < 0) return '—';
@@ -92,40 +74,4 @@ class ChatStatusBar extends StatelessWidget {
     final ratio = _ratio(value);
     return ratio == null ? '—' : '${(ratio * 100).round()}%';
   }
-}
-
-class _TokenStackPainter extends CustomPainter {
-  const _TokenStackPainter(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final top = Rect.fromLTWH(.5, .5, size.width - 1, 4);
-    canvas.drawOval(top, paint);
-    final path = Path()
-      ..moveTo(.5, 2.5)
-      ..lineTo(.5, size.height - 2.5)
-      ..arcToPoint(
-        Offset(size.width - .5, size.height - 2.5),
-        radius: Radius.elliptical((size.width - 1) / 2, 2),
-        clockwise: false,
-      )
-      ..lineTo(size.width - .5, 2.5);
-    canvas.drawPath(path, paint);
-    canvas.drawArc(
-      top.shift(const Offset(0, 4)),
-      0,
-      3.141592653589793,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_TokenStackPainter oldDelegate) =>
-      oldDelegate.color != color;
 }

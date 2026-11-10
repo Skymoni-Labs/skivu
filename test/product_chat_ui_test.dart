@@ -354,31 +354,30 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
-  testWidgets(
-    'composer usage stays on one line and can be hidden on a small phone',
-    (tester) async {
-      tester.view.physicalSize = const Size(320, 760);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      appearance.set('showUsage', true);
-      await tester.pumpWidget(const SkiApp());
-      await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(ChatStatusBar)).height, lessThan(20));
-      expect(
-        find.descendant(
-          of: find.byType(ChatStatusBar),
-          matching: find.byType(DecoratedBox),
-        ),
-        findsNothing,
-      );
-      appearance.set('showUsage', false);
-      await tester.pumpAndSettle();
-      expect(find.byType(ChatStatusBar), findsNothing);
-      expect(find.byKey(const ValueKey('chat-composer-field')), findsOneWidget);
-      appearance.set('showUsage', true);
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('composer keeps statistics behind a compact information entry', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    appearance.set('showUsage', true);
+    await tester.pumpWidget(const SkiApp());
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(ChatStatusBar)).height, lessThan(32));
+    expect(find.textContaining('tok/s'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('conversation-statistics')));
+    await tester.pumpAndSettle();
+    expect(find.text('会话统计'), findsOneWidget);
+    expect(find.text('Token 用量'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭详情'));
+    await tester.pumpAndSettle();
+    appearance.set('showUsage', false);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatStatusBar), findsNothing);
+    expect(find.byKey(const ValueKey('chat-composer-field')), findsOneWidget);
+    appearance.set('showUsage', true);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'typing appears in capsule and rectangular glass extends behind status bar',
     (tester) async {

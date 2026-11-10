@@ -152,9 +152,38 @@ class _OpenPluginsPageState extends State<OpenPluginsPage> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text('${old == null ? '安装' : '更新'} ${p.manifest.name}？'),
+        backgroundColor: Theme.of(c).colorScheme.surface.withValues(alpha: 1),
         content: SingleChildScrollView(
-          child: SelectableText(
-            '${p.manifest.id}\n${p.manifest.author} · ${p.manifest.license}\n${p.manifest.source}\n来源：$origin\n\n${p.manifest.description}\n\n安装后保持关闭，启用前须确认权限。${old != null ? '更新将重置权限授权，自己的存档保留。' : ''}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                p.manifest.description,
+                style: const TextStyle(fontSize: 14, height: 1.7),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '由 ${p.manifest.author} 提供 · 版本 ${p.manifest.version}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '安装后保持关闭，启用前由你确认权限。${old != null ? '更新会重新确认授权，自己的存档保留。' : ''}',
+                style: const TextStyle(fontSize: 13, height: 1.6),
+              ),
+              const SizedBox(height: 8),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('版本与来源', style: TextStyle(fontSize: 13)),
+                children: [
+                  SelectableText(
+                    '插件标识：${p.manifest.id}\n开源许可：${p.manifest.license}\n项目来源：${p.manifest.source}\n安装来源：$origin',
+                    style: const TextStyle(fontSize: 12, height: 1.7),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         actions: [

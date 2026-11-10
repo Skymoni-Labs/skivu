@@ -38,12 +38,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Test companion'), findsNothing);
+      await tester.tap(find.text('兼容设备连接'));
+      await tester.pumpAndSettle();
       expect(find.text('Test companion'), findsOneWidget);
       expect(find.text('设备配对演示'), findsNothing);
       await tester.tap(find.text('Test companion'));
       await tester.pumpAndSettle();
       expect(method, 'openCompanionSettings');
-      await tester.tap(find.text('管理操控插件'));
+      await tester.ensureVisible(find.text('管理相关插件'));
+      await tester.tap(find.text('管理相关插件'));
       expect(route, '/open-plugins');
     },
   );
@@ -72,7 +76,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('Android 11'), findsWidgets);
-      expect(find.text('刷新设备伴侣'), findsOneWidget);
+      await tester.ensureVisible(find.text('兼容设备连接'));
+      await tester.tap(find.text('兼容设备连接'));
+      await tester.pumpAndSettle();
+      expect(find.text('刷新连接'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

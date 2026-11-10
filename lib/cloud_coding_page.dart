@@ -5,6 +5,7 @@ import 'cloud_integration.dart';
 import 'cloud_storage_page.dart';
 import 'cloud_project_browser.dart';
 import 'cloud_programs_page.dart';
+import 'product_ui.dart';
 
 class CloudCodingPage extends StatefulWidget {
   const CloudCodingPage({super.key});
@@ -87,140 +88,261 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('小云项目与运行环境'),
-      actions: [
-        IconButton(
-          onPressed: busy ? null : refresh,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
+  String get environmentLabel =>
+      const {
+        'not_prepared': '尚未准备',
+        'verifying': '正在校验',
+        'downloading': '正在下载',
+        'extracting': '正在准备',
+        'starting': '正在启动',
+        'ready': '已就绪',
+        'interrupted': '需要恢复',
+        'unavailable': '暂不可用',
+      }[status['phase']] ??
+      (busy ? '正在检查' : '尚未检查');
+
+  Future<void> checkMigration() async {
+    try {
+      var r = await cloudExecutionChannel.invokeMapMethod<String, dynamic>(
+        'migration',
+      );
+      if (r?['state'] == 'bridge_required')
+        r = await cloudExecutionChannel.invokeMapMethod<String, dynamic>(
+          'migration.activate',
+        );
+      if (r?['state'] == 'verified') {
+        await cloudIntegration.initialize();
+        projects = List.from(await call('coding.projects.list', {}));
+        status =
+            await cloudExecutionChannel.invokeMapMethod<String, dynamic>(
+              'status',
+            ) ??
+            {};
+        if (mounted) setState(() => status['migration'] = r);
+      }
+      if (mounted)
+        await showDialog<void>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('迁移核对'),
+            content: Text(
+              r?['state'] == 'verified'
+                  ? '已备份并核对 ${r?['files']} 个文件。旧项目、配置和会话已迁入小云，原组件数据继续保留。${(r?['retainedLinkMetadata'] as num? ?? 0) > 0 ? '\n部分外部链接仅保留原始元数据与备份，请在项目中重新指定对应资源。' : ''}'
+                  : r?['message'] ?? '迁移尚未完成，原数据保留。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
+        );
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    }
+  }
+
+  void environmentDetails() => showMarketDetails(
+    context,
+    name: '运行环境',
+    description: '编程时由小云自动准备和管理。首次准备需要下载资源，之后会复用已有环境。',
+    icon: MarketGlyph(
+      icon: Icons.code_rounded,
+      color: Theme.of(context).colorScheme.primary,
     ),
+    details: [
+      ('当前状态', environmentLabel),
+      if (status['phase'] == 'downloading')
+        (
+          '下载进度',
+          '${((status['downloadedBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} / ${((status['downloadBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} MB',
+        ),
+      if (status['migration'] is Map)
+        (
+          '历史数据',
+          const {
+                'verified': '已迁移并核对',
+                'not_present': '没有旧组件数据',
+                'bridge_required': '需要完成迁移连接',
+                'not_checked': '尚未检查',
+              }[(status['migration'] as Map)['state']] ??
+              '待检查',
+        ),
+    ],
+    actions: [
+      FilledButton.icon(
+        onPressed: busy
+            ? null
+            : () {
+                Navigator.pop(context);
+                prepare();
+              },
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: const Text('检查运行环境'),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => ProductScaffold(
+    title: '小云项目',
+    actions: [
+      IconButton(
+        onPressed: busy ? null : refresh,
+        tooltip: '刷新项目',
+        icon: const Icon(Icons.refresh_rounded),
+      ),
+      PopupMenuButton<String>(
+        tooltip: '项目选项',
+        onSelected: (value) {
+          if (value == 'environment') environmentDetails();
+          if (value == 'programs')
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => CloudProgramsPage(
+                  callForOwner: (owner) => scopedCalls(owner: owner),
+                ),
+              ),
+            );
+          if (value == 'policy')
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const CloudExecutionPolicyPage(),
+              ),
+            );
+          if (value == 'legacy') legacy();
+          if (value == 'migration') checkMigration();
+          if (value == 'overlay')
+            cloudExecutionChannel.invokeMethod('overlay.restore');
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'environment', child: Text('运行环境')),
+          const PopupMenuItem(value: 'programs', child: Text('运行记录')),
+          const PopupMenuItem(value: 'policy', child: Text('并发与资源设置')),
+          PopupMenuItem(
+            value: 'legacy',
+            enabled: !busy,
+            child: const Text('旧项目与会话'),
+          ),
+          PopupMenuItem(
+            value: 'migration',
+            enabled: !busy,
+            child: const Text('检查历史数据迁移'),
+          ),
+          const PopupMenuItem(value: 'overlay', child: Text('显示手机操控浮岛')),
+        ],
+      ),
+    ],
     body: ListView(
       padding: const EdgeInsets.all(18),
       children: [
-        const Text('直接在小云对话中提出编程需求。运行环境由小云自动准备和管理，无需独立 DSH 插件。'),
-        const SizedBox(height: 12),
-        const Text('首次准备需要联网下载编程环境；已经安装的环境会继续复用。'),
-        if (status['phase'] == 'downloading')
-          Text(
-            '${((status['downloadedBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} / ${((status['downloadBytes'] as num? ?? 0) / 1048576).toStringAsFixed(1)} MB',
-          ),
-        Text(
-          '环境：${const {'not_prepared': '待自动启动', 'verifying': '正在校验资源', 'downloading': '正在下载编程环境', 'extracting': '正在解压资源', 'starting': '正在启动', 'ready': '已就绪', 'interrupted': '需要恢复', 'unavailable': '当前不可用'}[status['phase']] ?? '尚未检查'}${status['installedFiles'] != null && status['phase'] == 'extracting' ? ' · 已处理 ${status['installedFiles']} 个资源文件' : ''}',
+        const Text(
+          '把想法交给小云，在这里查看项目、文件和成果。',
+          style: TextStyle(fontSize: 14, height: 1.7),
         ),
-        if (status['migration'] is Map)
-          Text(
-            '旧数据迁移：${const {'verified': '已备份并核对', 'not_present': '没有旧组件', 'bridge_required': '等待一次性迁移连接', 'not_checked': '尚未核对'}[(status['migration'] as Map)['state']] ?? '等待核对'}',
+        const SizedBox(height: 18),
+        MarketPanel(
+          onTap: environmentDetails,
+          child: Row(
+            children: [
+              Icon(
+                status['phase'] == 'ready'
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.code_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '运行环境',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              MarketBadge(environmentLabel),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded, size: 20),
+            ],
           ),
-        if (error != null) SelectableText(error!),
+        ),
         if (busy)
           const Padding(
-            padding: EdgeInsets.all(16),
-            child: LinearProgressIndicator(),
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(minHeight: 2),
           ),
-        FilledButton(
-          onPressed: busy ? null : prepare,
-          child: const Text('检查并准备内置环境'),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: ProductError(
+              message: '项目暂时无法加载',
+              detail: error!,
+              onRetry: busy ? null : refresh,
+            ),
+          ),
+        const SizedBox(height: 24),
+        const Text(
+          '我的项目',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         ),
-        const SizedBox(height: 16),
-        ListTile(
-          title: const Text('全部程序与完整输出'),
-          subtitle: const Text('Linux、普通 Android、高权限执行的原始记录与日志。'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CloudProgramsPage(
-                callForOwner: (owner) => scopedCalls(owner: owner),
+        const SizedBox(height: 14),
+        if (projects.isEmpty && !busy)
+          const ProductEmpty(
+            title: '还没有项目',
+            description: '在小云对话中提出编程需求，创建的项目会保存在这里。',
+          ),
+        for (final project in projects)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: MarketPanel(
+              onTap: () => browse(project),
+              child: Row(
+                children: [
+                  MarketGlyph(
+                    icon: Icons.folder_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 44,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          project['name'],
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text('查看文件与成果', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded),
+                ],
               ),
             ),
           ),
-        ),
-        ListTile(
-          title: const Text('执行资源策略'),
-          subtitle: const Text('默认跟随设备资源；查看来源或自行调整并发。'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const CloudExecutionPolicyPage(),
+        const SizedBox(height: 20),
+        ProductSection(
+          title: '手机文件',
+          icon: Icons.folder_copy_outlined,
+          subtitle: '导入已有文件，或选择成果的保存位置。',
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CloudStoragePage(),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('浏览手机文件'),
+              ),
             ),
-          ),
-        ),
-        ListTile(
-          title: const Text('手机文件与自动保存位置'),
-          subtitle: const Text('授权目录、导入文件，以及最终成果的保存位置。'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const CloudStoragePage()),
-          ),
-        ),
-        const Text('已保存项目'),
-        for (final project in projects)
-          ListTile(
-            leading: const Icon(Icons.folder_outlined),
-            title: Text(project['name']),
-            subtitle: const Text('已保存 · 点击检查文件与进程'),
-            onTap: () => browse(project),
-          ),
-        const Divider(),
-        ListTile(
-          title: const Text('旧 DSH 会话与历史'),
-          subtitle: const Text('读取迁移后的原会话，不重放历史工具或任务。'),
-          onTap: busy ? null : legacy,
-        ),
-        ListTile(
-          title: const Text('恢复手机操控浮岛'),
-          subtitle: const Text('恢复紧凑模式；不启动或重跑任务。'),
-          onTap: () async {
-            await cloudExecutionChannel.invokeMethod('overlay.restore');
-          },
-        ),
-        ListTile(
-          title: const Text('核对旧 DSH 数据迁移'),
-          subtitle: const Text('保留旧组件原数据及私有原始备份。'),
-          onTap: busy
-              ? null
-              : () async {
-                  try {
-                    var r = await cloudExecutionChannel
-                        .invokeMapMethod<String, dynamic>('migration');
-                    if (r?['state'] == 'bridge_required')
-                      r = await cloudExecutionChannel
-                          .invokeMapMethod<String, dynamic>(
-                            'migration.activate',
-                          );
-                    if (r?['state'] == 'verified') {
-                      await cloudIntegration.initialize();
-                      projects = List.from(
-                        await call('coding.projects.list', {}),
-                      );
-                      status =
-                          await cloudExecutionChannel
-                              .invokeMapMethod<String, dynamic>('status') ??
-                          {};
-                      if (mounted) setState(() => status['migration'] = r);
-                    }
-                    if (mounted)
-                      await showDialog<void>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('迁移核对'),
-                          content: Text(
-                            r?['state'] == 'verified'
-                                ? '已备份并核对 ${r?['files']} 个文件。旧项目、配置和会话已迁入小云，原组件数据继续保留。${(r?['retainedLinkMetadata'] as num? ?? 0) > 0 ? '\n部分外部链接仅保留原始元数据与备份，请在项目中重新指定对应资源。' : ''}'
-                                : r?['message'] ?? '迁移尚未完成，原数据保留。',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(c),
-                              child: const Text('关闭'),
-                            ),
-                          ],
-                        ),
-                      );
-                  } catch (e) {
-                    if (mounted) setState(() => error = '$e');
-                  }
-                },
+          ],
         ),
       ],
     ),
