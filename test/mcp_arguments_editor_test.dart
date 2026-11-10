@@ -20,6 +20,46 @@ Map<String, dynamic> schema() => {
 };
 
 void main() {
+  testWidgets('malformed third-party field metadata falls back to JSON', (
+    tester,
+  ) async {
+    final key = GlobalKey<McpArgumentsEditorState>();
+    final controller = TextEditingController(
+      text: '{"query":"kept","extra":7}',
+    );
+    addTearDown(controller.dispose);
+    for (final malformed in [
+      {...schema(), 'required': 'query'},
+      {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string', 'enum': 'bad'},
+        },
+      },
+      {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string', 'title': []},
+        },
+      },
+    ]) {
+      expect(supportsMcpForm(malformed), isFalse);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: McpArgumentsEditor(
+              key: key,
+              schema: malformed,
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+      expect(key.currentState!.read(), {'query': 'kept', 'extra': 7});
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   test(
     'form produces typed parameters and preserves additional properties',
     () {

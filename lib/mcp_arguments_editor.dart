@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 bool supportsMcpForm(Map<String, dynamic> schema) {
   if (schema['type'] != 'object' || schema['properties'] is! Map) return false;
+  if (schema['required'] != null && schema['required'] is! List) return false;
   const complex = {
     'oneOf',
     'anyOf',
@@ -24,6 +25,9 @@ bool supportsMcpForm(Map<String, dynamic> schema) {
     (p) =>
         p is Map &&
         !p.keys.any(complex.contains) &&
+        (p['enum'] == null || p['enum'] is List) &&
+        (p['title'] == null || p['title'] is String) &&
+        (p['description'] == null || p['description'] is String) &&
         (p['enum'] is List ||
             const {
               'string',
@@ -184,7 +188,9 @@ class McpArgumentsEditorState extends State<McpArgumentsEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final required = (widget.schema['required'] as List? ?? []).toSet();
+    final required = widget.schema['required'] is List
+        ? (widget.schema['required'] as List).toSet()
+        : <Object?>{};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
