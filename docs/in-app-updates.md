@@ -45,6 +45,9 @@ product limit. The helper stages downloadable runtime metadata, refreshes
 Flutter plugin registration, verifies the original production certificate and
 normal package ID, and writes a source/hash manifest. The standalone staging
 tool still offers `--delivery embedded` for complete offline builds.
+The committed `tools/cloud-runtime-lock.json` lets a download-mode source build
+run without the author's local runtime cache. Available local archives are
+checked against the same lock before staging.
 
 Publish the exact ABI-specific APKs to the official Skivu release, verify the
 remote asset digests, and append both identities to the existing update

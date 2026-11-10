@@ -1,0 +1,36 @@
+{
+  "runtimes": {
+    "arm64-v8a": {
+      "version": 1,
+      "dshVersion": "0.2.1-rc.2",
+      "nodeVersion": "24.18.1",
+      "abi": "arm64-v8a",
+      "sha256": "bf62dfcd6b4d3b350146c5f4626dbcb221bb2cc6afc56ee823e725bceadd2595",
+      "inputs": {
+        "base": "a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2",
+        "node": "7201e3a09dc825bac57867c81913e2b8f0ef87d04cb9082af4cda82f6ff3d88c",
+        "npmLock": "c67d0d3b6423db35faae8d91d6054e7d0fa7cb9e197bede42438326f123ca8a7"
+      },
+      "hostAdapterVersion": "0.1.6-dev",
+      "deviceEngineSdk": 1,
+      "size": 259303022,
+      "download_url": "https://skymoni.com/skivu-runtime/cloud/bf62dfcd6b4d3b350146c5f4626dbcb221bb2cc6afc56ee823e725bceadd2595/arm64-v8a/runtime.bin"
+    },
+    "x86_64": {
+      "version": 1,
+      "dshVersion": "0.2.1-rc.2",
+      "nodeVersion": "24.18.1",
+      "abi": "x86_64",
+      "sha256": "0e79160c5d16ac4804ab02b181cf5b0deb7943845b11f67fd2fbfedcf3a2e201",
+      "inputs": {
+        "base": "e77b6f10c2590cef872b33ee9f635a0e3fd1f57fb074c0e52b5c7f56147a0c86",
+        "node": "d6c664df3f3f61458e8c277585571328522d705166723a7c7823a9253a4d15a0",
+        "npmLock": "c67d0d3b6423db35faae8d91d6054e7d0fa7cb9e197bede42438326f123ca8a7"
+      },
+      "hostAdapterVersion": "0.1.6-dev",
+      "deviceEngineSdk": 1,
+      "size": 258595267,
+      "download_url": "https://skymoni.com/skivu-runtime/cloud/0e79160c5d16ac4804ab02b181cf5b0deb7943845b11f67fd2fbfedcf3a2e201/x86_64/runtime.bin"
+    }
+  }
+}
