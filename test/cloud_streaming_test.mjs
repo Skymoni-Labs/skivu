@@ -5,8 +5,8 @@ import crypto from 'node:crypto';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {range,rangeFiles,logSources,hashFile,ContentStore,QueryStore,readLines,readLogLines} from '../android/app/src/main/assets/cloud/streaming.mjs';
-// Fixtures stay in this request's workspace; no user directories are removed.
-const root=fs.mkdtempSync('E:/zzz/ops/skivu-unified-unrestricted-20261109/host-streaming-');
+// Each run gets an isolated fixture directory on Windows and Linux runners.
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'skivu-host-streaming-'));
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function full(files,length){let offset=0,text='';for(;;){const p=rangeFiles(files,offset,length);assert(p.complete||p.nextOffset>offset);text+=p.text;offset=p.nextOffset;if(p.complete)return text;}}
 test('every Unicode scalar survives tiny and large byte transport pages',()=>{const text='中文😀 عربى\r\nαβ🚀'.repeat(180000),file=path.join(root,'unicode.txt');fs.writeFileSync(file,text);for(const size of [4,7,48000,1024*1024])assert.equal(full([file],size),text);assert.equal(hashFile(file),hash(Buffer.from(text)));});
