@@ -22,7 +22,7 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
   @override
   void initState() {
     super.initState();
-    prepare();
+    refresh();
   }
 
   Future<dynamic> call(
@@ -58,7 +58,25 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
     };
   }
 
-  Future<void> refresh() => prepare();
+  Future<void> refresh() async {
+    setState(() => busy = true);
+    try {
+      status =
+          await cloudExecutionChannel.invokeMapMethod<String, dynamic>(
+            'status',
+          ) ??
+          {};
+      // Listing projects requires the runtime. Opening this page only reads its
+      // current state; first-time downloads stay behind an explicit action.
+      if (status['phase'] == 'ready')
+        projects = List.from(await call('coding.projects.list', {}));
+      error = null;
+    } catch (e) {
+      error = '$e';
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
 
   Future<void> prepare() async {
     setState(() => busy = true);
@@ -285,10 +303,32 @@ class _CloudCodingPageState extends State<CloudCodingPage> {
           style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 14),
-        if (projects.isEmpty && !busy)
+        if (projects.isEmpty &&
+            !busy &&
+            error == null &&
+            status['phase'] == 'ready')
           const ProductEmpty(
             title: '还没有项目',
             description: '在小云对话中提出编程需求，创建的项目会保存在这里。',
+          ),
+        if (projects.isEmpty &&
+            !busy &&
+            error == null &&
+            status['phase'] != 'ready')
+          ProductSection(
+            title: '准备后查看项目',
+            icon: Icons.code_rounded,
+            subtitle: '首次使用需要下载编程环境。已有项目会在环境就绪后显示，原有文件继续保留。',
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.icon(
+                  onPressed: prepare,
+                  icon: const Icon(Icons.download_outlined, size: 18),
+                  label: const Text('准备并查看项目'),
+                ),
+              ),
+            ],
           ),
         for (final project in projects)
           Padding(

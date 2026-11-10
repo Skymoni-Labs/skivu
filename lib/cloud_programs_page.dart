@@ -121,6 +121,8 @@ class _CloudProgramsPageState extends State<CloudProgramsPage> {
         Expanded(
           child: loading && rows.isEmpty
               ? const Center(child: CircularProgressIndicator())
+              : rows.isEmpty && error != null
+              ? const SizedBox.shrink()
               : rows.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(18),

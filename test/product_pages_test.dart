@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ski/cloud_coding_page.dart';
 import 'package:ski/cloud_coding_tools.dart';
@@ -7,14 +8,18 @@ import 'package:ski/cloud_programs_page.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final calls = <String>[];
+  final tools = <String>[];
+  var phase = 'ready';
   setUp(() {
     calls.clear();
+    tools.clear();
+    phase = 'ready';
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(cloudExecutionChannel, (call) async {
           calls.add(call.method);
           if (call.method == 'status')
             return {
-              'phase': 'ready',
+              'phase': phase,
               'migration': {'state': 'not_present'},
             };
           if (call.method == 'resource.policy')
@@ -40,6 +45,7 @@ void main() {
               ],
             };
           final args = call.arguments as Map?;
+          if (args?['tool'] is String) tools.add(args!['tool'] as String);
           if (args?['tool'] == 'coding.projects.list')
             return {
               'outcome': 'verified',
@@ -61,6 +67,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CloudCodingPage()));
     await tester.pumpAndSettle();
     expect(find.text('我的项目'), findsNWidgets(2));
+    expect(tools, ['coding.projects.list']);
     expect(find.text('检查历史数据迁移'), findsNothing);
     await tester.tap(find.byTooltip('项目选项'));
     await tester.pumpAndSettle();
@@ -70,6 +77,37 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'opening a cold project page does not prepare or download a runtime',
+    (tester) async {
+      phase = 'not_prepared';
+      await tester.pumpWidget(const MaterialApp(home: CloudCodingPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('准备并查看项目'), findsOneWidget);
+      expect(find.text('还没有项目'), findsNothing);
+      expect(calls, ['status']);
+      expect(tools, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'failed project loading never claims that existing projects are empty',
+    (tester) async {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        cloudExecutionChannel,
+        (_) async => throw PlatformException(
+          code: 'unavailable',
+          message: 'temporary failure',
+        ),
+      );
+      await tester.pumpWidget(const MaterialApp(home: CloudCodingPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('项目暂时无法加载'), findsOneWidget);
+      expect(find.text('还没有项目'), findsNothing);
+      expect(find.text('准备并查看项目'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   testWidgets('program records hide internal IDs until details are opened', (
     tester,
   ) async {
