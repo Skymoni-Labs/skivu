@@ -359,7 +359,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
-        '$selectedFont · ${model.textColorEnabled(key) ? '自定义颜色' : '默认深色'}',
+        '$selectedFont · ${model.textColorEnabled(key) ? '自定义颜色' : '跟随主题'}',
         style: const TextStyle(fontSize: 11),
       ),
       leading: Container(
@@ -373,7 +373,7 @@ class _AppearanceSettingsState extends State<AppearanceSettings> {
       ),
       children: [
         font(module.font, '$name字体'),
-        toggle('${key}Enabled', '自定义$name颜色', note: '仅影响$name，关闭后使用默认深色。'),
+        toggle('${key}Enabled', '自定义$name颜色', note: '仅影响$name，关闭后跟随主题配色。'),
         colorRow(key, '$name文字颜色'),
         Align(
           alignment: Alignment.centerLeft,
