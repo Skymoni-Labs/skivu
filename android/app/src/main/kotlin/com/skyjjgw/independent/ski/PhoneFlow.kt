@@ -15,6 +15,11 @@ internal object PhoneFlow {
         fun snapshot(pkg: String): Snapshot
         // Implementations resolve the semantic target again atomically with dispatch.
         fun perform(step: Map<String, Any?>, pkg: String, requestId: String): Dispatch
+        fun performPrepared(step: Map<String, Any?>, pkg: String, requestId: String, prepared: Snapshot): Dispatch =
+            perform(step, pkg, requestId)
+        // The backend checks whether the previous observation covers the newly prepared step.
+        fun reuse(snapshot: Snapshot, pkg: String): Snapshot? = null
+        fun metrics(): Map<String, Long> = emptyMap()
         fun awaitChange(milliseconds: Long)
     }
     data class Result(val outcome: String, val summary: String, val value: Map<String, Any?>)
@@ -184,16 +189,21 @@ internal object PhoneFlow {
             old.forEachIndexed { i, item -> val record = map(item, "checkpoint"); require(record["id"] == steps[i]["id"]); records[i].putAll(record) }
         }
         val started = backend.now()
+        val metricsAtStart = backend.metrics()
         val previousElapsed = (checkpoint?.get("elapsedMs") as? Number)?.toLong() ?: 0
         var observations = 0
         var latest: Snapshot? = null
+        var reusable: Snapshot? = null
         fun state(outcome: String, reason: String, current: Int?): Map<String, Any?> = mapOf(
             "flowVersion" to 1, "rootRequestId" to rootId, "plan" to plan,
             "steps" to records.map { it.toMap() }, "state" to outcome, "reason" to reason,
             "currentStep" to current, "completedSteps" to records.count { it["state"] in setOf("verified", "skipped") },
             "totalSteps" to steps.size, "elapsedMs" to previousElapsed + backend.now() - started,
             "hasUnverifiedActions" to records.any { (it["attempted"] == true || it["dispatched"] == true) && it["state"] !in setOf("verified", "rejected") },
-            "observationCount" to observations, "modelRequestsDuringExecution" to 0)
+            "observationCount" to observations, "modelRequestsDuringExecution" to 0,
+            "performance" to backend.metrics().mapValues { (name, value) ->
+                (value - (metricsAtStart[name] ?: 0L)).coerceAtLeast(0L)
+            })
         fun snapshot(): Snapshot { backend.check(); return backend.snapshot(pkg).also { latest = it; observations++ } }
         fun finish(outcome: String, reason: String, index: Int?): Result {
             val stored = state(outcome, reason, index); save(stored)
@@ -214,7 +224,12 @@ internal object PhoneFlow {
                 backend.check()
                 val expect = map(step["expect"], "expect")
                 if(inFlight)backend.awaitingResult()
-                var observed = snapshot()
+                val previousObservation = reusable
+                reusable = null
+                var observed = if (!inFlight && step["action"] != "wait" && previousObservation != null) {
+                    backend.reuse(previousObservation, pkg)?.also { latest = it } ?: snapshot()
+                } else snapshot()
+                backend.check()
                 val before = if (inFlight) record["before"] else evidence(observed, expect)
                 val whenCondition = step["when"]?.let { map(it, "when") }
                 if (!inFlight && whenCondition != null && !satisfied(observed, whenCondition)) {
@@ -227,7 +242,7 @@ internal object PhoneFlow {
                         record["state"] = "in_flight"
                         record["attempted"] = true
                         save(state("running", "执行前检查点已保存。", index))
-                        val dispatch = backend.perform(step, pkg, "${rootId}_$index")
+                        val dispatch = backend.performPrepared(step, pkg, "${rootId}_$index", observed)
                         record["dispatched"] = dispatch.dispatched
                         record["attempted"] = dispatch.dispatched
                         if (!dispatch.accepted) {
@@ -259,6 +274,7 @@ internal object PhoneFlow {
                     backend.awaitChange(if (timeout > 0) minOf(100, (timeout - (now - stepStarted)).coerceAtLeast(1)) else 100)
                 }
                 record["state"] = "verified"
+                reusable = observed
                 record["elapsedMs"] = previousStepElapsed + backend.now() - stepStarted
                 record["waitMs"] = (record["elapsedMs"] as Long) - (record["dispatchMs"] as Long)
                 save(state("running", "步骤 ${step["id"]} 已核验。", index))

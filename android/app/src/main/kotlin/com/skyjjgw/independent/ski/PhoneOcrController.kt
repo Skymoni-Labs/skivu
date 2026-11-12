@@ -16,7 +16,8 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
     private val recognizer by recognizerDelegate
     @Volatile private var closed=false
     private data class Observation(val owner:String,val pkg:String,val window:Int,val rotation:Int,val width:Int,val height:Int,
-        val token:String,val rows:List<Map<String,Any?>>,val patches:Map<String,String>,val imageHash:String,val region:Any?)
+        val token:String,val rows:List<Map<String,Any?>>,val imageHash:String,val region:Any?,val mode:String,
+        val epoch:Long,val capturedAt:Long)
     private var last:Observation?=null
     private var cachedKey=""
     private var cachedRows=emptyList<Map<String,Any?>>()
@@ -38,16 +39,6 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         bitmap.getPixels(pixels,0,bitmap.width,0,0,bitmap.width,bitmap.height)
         val bytes=java.nio.ByteBuffer.allocate(pixels.size*4);bytes.asIntBuffer().put(pixels)
         return digest(bytes.array())
-    }
-    private fun patch(bitmap:Bitmap,b:List<Int>):String {
-        val x1=b[0].coerceIn(0,bitmap.width-1);val y1=b[1].coerceIn(0,bitmap.height-1)
-        val x2=b[2].coerceIn(x1+1,bitmap.width);val y2=b[3].coerceIn(y1+1,bitmap.height)
-        val values=ByteArray(24*12*3);var offset=0
-        for(y in 0 until 12)for(x in 0 until 24) {
-            val pixel=bitmap.getPixel(x1+(x2-x1-1)*x/23,y1+(y2-y1-1)*y/11)
-            values[offset++]=((pixel shr 16 and 255)/16).toByte();values[offset++]=((pixel shr 8 and 255)/16).toByte();values[offset++]=((pixel and 255)/16).toByte()
-        }
-        return digest(values)
     }
     @Suppress("UNCHECKED_CAST")
     private fun box(row:Map<String,Any?>)=(row["bounds"] as List<Number>).map{it.toInt()}
@@ -110,23 +101,30 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
             return base!!+mapOf("elements" to selected,"nextOffset" to if(next<(base["total"] as Number).toInt())next else null,"complete" to (next>=(base["total"] as Number).toInt()),"recognition" to mapOf("mode" to mode,"source" to "accessibility","elapsedMs" to SystemClock.uptimeMillis()-started,"ocrAvailable" to (android.os.Build.VERSION.SDK_INT>=30)))
         }
         service.captureVision(allowed){checkAlive(check)}.use { frame ->
-            val captureMs=SystemClock.uptimeMillis()-started
             require(current==(frame.pkg to frame.window)){"读取期间窗口发生变化。"}
-            val imageHash=hash(frame.bitmap);val key="${frame.pkg}:${frame.window}:${frame.rotation}:${frame.bitmap.width}:${frame.bitmap.height}:$imageHash:${args["region"]}"
-            val hit=key==cachedKey
-            val ocrStarted=SystemClock.uptimeMillis()
-            val recognized=if(hit)cachedRows else recognize(frame,args["region"]){checkAlive(check)}.also{cachedRows=it;cachedKey=key}
-            val ocrMs=SystemClock.uptimeMillis()-ocrStarted
-            val ocrRows=recognized.mapIndexed{i,row->row+mapOf("id" to "v_$i","parentId" to null)}
-            val combined=if(mode=="auto")PhoneVision.merge(nativeRows,ocrRows)else ocrRows
-            val token="ocr:"+UUID.randomUUID()
-            val observed=Observation(owner,frame.pkg,frame.window,frame.rotation,frame.bitmap.width,frame.bitmap.height,token,combined,
-                combined.associate{it["id"].toString() to patch(frame.bitmap,box(it))},imageHash,args["region"])
-            checkAlive(check);visionUi{service.assertVisualFrame(frame,allowed)}
-            last=observed;if(mode=="auto")visualWindow=frame.pkg to frame.window
-            return page(observed,args,mapOf("mode" to mode,"source" to if(nativeRows.isEmpty())"ocr" else "hybrid","captureMs" to captureMs,
-                "ocrMs" to ocrMs,"elapsedMs" to SystemClock.uptimeMillis()-started,"recognitionCacheHit" to hit,"modelRequests" to 0))
+            return observeFrame(frame,allowed,args,mode,owner,check,nativeRows,started)
         }
+    }
+
+    /** All text and coordinates belong to this frame, including a changed pre-dispatch frame. */
+    private fun observeFrame(frame:PhoneOcrFrame,allowed:Set<String>,args:Map<String,Any?>,mode:String,owner:String,
+                             check:()->Unit,nativeRows:List<Map<String,Any?>>,started:Long,imageHash:String=hash(frame.bitmap)):Map<String,Any?> {
+        val captureMs=SystemClock.uptimeMillis()-started
+        val key="${frame.pkg}:${frame.window}:${frame.rotation}:${frame.bitmap.width}:${frame.bitmap.height}:$imageHash:${args["region"]}"
+        val hit=key==cachedKey
+        val ocrStarted=SystemClock.uptimeMillis()
+        val recognized=try {
+            if(hit)cachedRows else recognize(frame,args["region"]){checkAlive(check)}.also{cachedRows=it;cachedKey=key}
+        } finally { service.visionMetrics.recordOcr(SystemClock.uptimeMillis()-ocrStarted,hit) }
+        val ocrMs=SystemClock.uptimeMillis()-ocrStarted
+        val ocrRows=recognized.mapIndexed{i,row->row+mapOf("id" to "v_$i","parentId" to null)}
+        val combined=if(mode=="auto")PhoneVision.merge(nativeRows,ocrRows)else ocrRows
+        val observed=Observation(owner,frame.pkg,frame.window,frame.rotation,frame.bitmap.width,frame.bitmap.height,
+            "ocr:"+UUID.randomUUID(),combined,imageHash,args["region"],mode,frame.epoch,frame.capturedAt)
+        checkAlive(check);visionUi{service.assertVisualFrame(frame,allowed)}
+        last=observed;if(mode=="auto")visualWindow=frame.pkg to frame.window
+        return page(observed,args,mapOf("mode" to mode,"source" to if(nativeRows.isEmpty())"ocr" else "hybrid","captureMs" to captureMs,
+            "ocrMs" to ocrMs,"elapsedMs" to SystemClock.uptimeMillis()-started,"recognitionCacheHit" to hit,"modelRequests" to 0))
     }
     private fun page(saved:Observation,args:Map<String,Any?>,timing:Map<String,Any?>):Map<String,Any?> {
         val query=args["query"] as? String
@@ -136,7 +134,7 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         val selected=rows.drop(offset).take(minOf(limit,1000));val next=offset+selected.size
         return mapOf("observationId" to saved.token,"package" to saved.pkg,"windowId" to saved.window,"elements" to selected,"total" to rows.size,
             "nextOffset" to if(next<rows.size)next else null,"complete" to (next>=rows.size),"screenWidth" to saved.width,"screenHeight" to saved.height,
-            "rotation" to saved.rotation,"recognition" to timing,"scope" to "真实可访问控件与本地识别文字；OCR 不推断可编辑或勾选状态")
+            "rotation" to saved.rotation,"capturedAtMs" to saved.capturedAt,"recognition" to timing,"scope" to "真实可访问控件与本地识别文字；OCR 不推断可编辑或勾选状态")
     }
     @Suppress("UNCHECKED_CAST")
     fun snapshot(allowed:Set<String>,pkg:String,mode:String,owner:String,check:()->Unit,step:Map<String,Any?>,beforeAction:Boolean=true,allowMissingFallback:Boolean=true):PhoneFlow.Snapshot {
@@ -145,41 +143,102 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         fun collect(value:Any?){if(value==null)return;val c=PhoneFlow.map(value,"condition");c["selector"]?.let{selectors.add(PhoneFlow.map(it,"selector"))};(c["conditions"] as? List<*>)?.forEach{collect(it)}}
         if(beforeAction)collect(step["guard"])
         if(!beforeAction||step["action"]=="wait"||step["selector"]==null)collect(step["expect"])
-        val needNative=step["action"]=="input"||step["expect"].toString().contains("checked")||step["expect"].toString().contains("selected")||selectors.any{it["viewId"]!=null||it["editable"]!=null}
+        val needNative=requiresNative(step)
         val observed=observe(allowed,mapOf("pageSize" to 1000),mode,owner,check,selectors,needNative,allowMissingFallback)
         require(observed["package"]==pkg){"当前页面不属于流程指定的软件。"}
         if(!(observed["observationId"] as String).startsWith("ocr:"))return visionUi{service.flowSnapshot(allowed,pkg,observed)}
         return PhoneFlow.Snapshot(pkg,(observed["windowId"] as Number).toInt(),rows(observed),observed)
     }
-    fun perform(step:Map<String,Any?>,pkg:String,allowed:Set<String>,mode:String,owner:String,requestId:String,check:()->Unit,dispatchOnly:Boolean=false,before:()->Unit):PhoneFlow.Dispatch {
-        val snapshot=snapshot(allowed,pkg,mode,owner,check,step)
-        step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"当前画面不满足前置条件。"}}
-        if(!dispatchOnly && PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
+    private fun requiresNative(step:Map<String,Any?>):Boolean {
+        if(step["action"]=="input")return true
+        fun condition(value:Any?):Boolean {
+            if(value==null)return false
+            val c=PhoneFlow.map(value,"condition")
+            if(c["kind"] in setOf("checked","selected","changed"))return true
+            val selector=c["selector"]?.let{PhoneFlow.map(it,"selector")}
+            if(selector!=null && nativeSelector(selector))return true
+            return (c["conditions"] as? List<*>)?.any{condition(it)}==true
+        }
+        return step["selector"]?.let{nativeSelector(PhoneFlow.map(it,"selector"))}==true ||
+            listOf("guard","expect","when").any{condition(step[it])}
+    }
+    private fun nativeSelector(selector:Map<String,Any?>):Boolean =
+        selector["source"]=="accessibility" || selector.keys.any{it in setOf("viewId","className","description","descriptionContains","clickable","editable","scrollable","checked","selected","enabled","within")}
+
+    private fun prepared(snapshot:PhoneFlow.Snapshot?,pkg:String,mode:String,owner:String,step:Map<String,Any?>,
+                         allowed:Set<String>,check:()->Unit):PhoneFlow.Snapshot? {
+        checkAlive(check)
+        val saved=last?:return null
+        if(snapshot==null || snapshot.observation["observationId"]!=saved.token || saved.owner!=owner ||
+            saved.pkg!=pkg || saved.mode!=mode || saved.region!=null || snapshot.observation["complete"]!=true ||
+            saved.rows.any{it["source"]!="ocr"} || requiresNative(step) ||
+            step["action"] !in setOf("tap","scroll","swipe") ||
+            SystemClock.uptimeMillis()-saved.capturedAt !in 0L..1000L)return null
+        return visionUi {
+            val size=service.visualMetrics()
+            if(window(allowed)!=(saved.pkg to saved.window) || size!=Triple(saved.width,saved.height,saved.rotation) ||
+                service.visualScrollEpoch!=saved.epoch)null else snapshot
+        }
+    }
+
+    /** Only an immediately preceding, complete visual result can prepare another action. */
+    fun reuseSnapshot(snapshot:PhoneFlow.Snapshot,pkg:String,mode:String,owner:String,step:Map<String,Any?>,
+                      allowed:Set<String>,check:()->Unit):PhoneFlow.Snapshot? {
+        if(step["when"]!=null)return null
+        val candidate=prepared(snapshot,pkg,mode,owner,step,allowed,check)?:return null
+        // Fresh reading is needed for decisions that would skip or reject the next action.
+        if(step["guard"]?.let{!PhoneFlow.satisfied(candidate,PhoneFlow.map(it,"guard"))}==true ||
+            PhoneFlow.satisfied(candidate,PhoneFlow.map(step["expect"],"expect")) ||
+            PhoneFlow.targets(candidate,PhoneFlow.map(step["selector"],"selector")).size!=1)return null
+        service.visionMetrics.recordReuse()
+        return candidate
+    }
+
+    fun perform(step:Map<String,Any?>,pkg:String,allowed:Set<String>,mode:String,owner:String,requestId:String,check:()->Unit,
+                dispatchOnly:Boolean=false,preparedSnapshot:PhoneFlow.Snapshot?=null,before:()->Unit):PhoneFlow.Dispatch {
+        var snapshot=prepared(preparedSnapshot,pkg,mode,owner,step,allowed,check)
+            ?:snapshot(allowed,pkg,mode,owner,check,step)
         if(!(snapshot.observation["observationId"] as String).startsWith("ocr:"))return visionUi{service.flowPerform(step,pkg,allowed,before,requestId,owner)}
         val action=step["action"] as String
-        if(action=="back")return visionUi{service.flowPerform(step - "guard",pkg,allowed,before,requestId,owner)}
-        val target=PhoneFlow.unique(snapshot,PhoneFlow.map(step["selector"],"selector"))
-        require(action!="input" || target["source"]=="accessibility"){"文字识别不能确认输入框，请使用实际可编辑控件。"}
-        if(action=="input")return visionUi{service.flowPerform(step-"guard",pkg,allowed,before,requestId,owner)}
+        if(action in setOf("back","input")) {
+            step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"当前画面不满足前置条件。"}}
+            if(!dispatchOnly && PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
+            if(action=="input")require(PhoneFlow.unique(snapshot,PhoneFlow.map(step["selector"],"selector"))["source"]=="accessibility"){"文字识别不能确认输入框，请使用实际可编辑控件。"}
+            return visionUi{service.flowPerform(step-"guard",pkg,allowed,before,requestId,owner)}
+        }
         require(action in setOf("tap","scroll","swipe")){"此视觉动作尚不支持。"}
         val saved=last?:error("识别结果不可用。")
+        val started=SystemClock.uptimeMillis()
         service.captureVision(allowed){checkAlive(check)}.use { frame ->
             require(saved.owner==owner && saved.pkg==frame.pkg && saved.window==frame.window && saved.rotation==frame.rotation && saved.width==frame.bitmap.width && saved.height==frame.bitmap.height){"定位期间画面已变化。"}
-            val proofRows=mutableListOf(target)
-            fun guards(value:Any?) {
-                if(value==null)return
-                val c=PhoneFlow.map(value,"guard")
-                if(c["kind"]=="absent")require(hash(frame.bitmap)==saved.imageHash){"否定前置条件的画面已变化，请重新识别。"}
-                c["selector"]?.let{proofRows.addAll(PhoneFlow.targets(snapshot,PhoneFlow.map(it,"selector")))}
-                (c["conditions"] as? List<*>)?.forEach{guards(it)}
+            val imageHash=hash(frame.bitmap)
+            if(imageHash!=saved.imageHash) {
+                service.visionMetrics.recordRefresh()
+                val nativeRows=if(mode=="auto" && saved.rows.any{it["source"]!="ocr"})
+                    rows(native(allowed,mapOf("pageSize" to 1000)))else emptyList()
+                val observed=observeFrame(frame,allowed,mapOf("pageSize" to 1000),mode,owner,check,nativeRows,started,imageHash)
+                snapshot=PhoneFlow.Snapshot(pkg,frame.window,rows(observed),observed)
             }
-            guards(step["guard"])
-            for(row in proofRows)require(saved.patches[row["id"]]==patch(frame.bitmap,box(row))){"目标或前置文字区域已移动或变化，请重新识别。"}
+            step["when"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"when"))){"当前画面不满足分支条件。"}}
+            step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"当前画面不满足前置条件。"}}
+            if(!dispatchOnly && PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
+            val target=PhoneFlow.unique(snapshot,PhoneFlow.map(step["selector"],"selector"))
             val direction=if(action in setOf("scroll","swipe"))step["direction"] as String else null
-            var dispatched=false
-            val accepted=visionUi { checkAlive(check);service.visualGesture(frame,box(target),direction,allowed,{checkAlive(check);before();dispatched=true}) }
-            last=null
-            return PhoneFlow.Dispatch(accepted,dispatched)
+            fun dispatch(currentFrame:PhoneOcrFrame):PhoneFlow.Dispatch {
+                var dispatched=false
+                last=null
+                val accepted=visionUi { checkAlive(check);service.visualGesture(currentFrame,box(target),direction,allowed,{checkAlive(check);before();dispatched=true}) }
+                return PhoneFlow.Dispatch(accepted,dispatched)
+            }
+            if(imageHash==saved.imageHash)return dispatch(frame)
+            // Canvas changes may emit no accessibility events while OCR is running.
+            // Reuse its recognized text only after a new frame confirms the exact pixels.
+            service.captureVision(allowed){checkAlive(check)}.use { confirmed ->
+                require(confirmed.pkg==frame.pkg && confirmed.window==frame.window && confirmed.rotation==frame.rotation &&
+                    confirmed.epoch==frame.epoch && confirmed.bitmap.width==frame.bitmap.width && confirmed.bitmap.height==frame.bitmap.height &&
+                    hash(confirmed.bitmap)==imageHash){"页面在识别期间继续变化，请重新观察。"}
+                return dispatch(confirmed)
+            }
         }
     }
     fun act(tool:String,args:Map<String,Any?>,allowed:Set<String>,owner:String,requestId:String,mode:String,check:()->Unit,before:()->Unit):Boolean {

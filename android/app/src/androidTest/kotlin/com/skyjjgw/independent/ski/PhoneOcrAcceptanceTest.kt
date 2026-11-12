@@ -50,6 +50,8 @@ class PhoneOcrAcceptanceTest {
     private fun call(tool:String,args:Map<String,Any?>,id:String="ocr_${System.nanoTime()}",asOwner:String=owner)=platform.invokeLeased(mapOf("version" to 1,"owner" to asOwner,"requestId" to id,"tool" to tool,"arguments" to args),{})
     private fun value(result:Map<String,Any?>)=PhoneFlow.map(result["value"],"value")
     private fun report(name:String,data:Map<String,Any?>){instrumentation.sendStatus(0,android.os.Bundle().apply{putString("phoneOcr_$name",org.json.JSONObject(data).toString())})}
+    private fun metrics()=SkivuAccessibilityService.connected!!.visionMetrics.snapshot()
+    private fun metricDelta(before:Map<String,Long>)=metrics().mapValues{(key,value)->value-(before[key]?:0L)}
     private fun condition(text:String,region:List<Double>?=null)=mapOf("kind" to "exists","selector" to (mapOf("textContains" to text)+if(region==null)emptyMap()else mapOf("region" to region)))
     private val headingRegion=listOf(0.1,0.15,0.9,0.35)
     private fun next(i:Int)=mapOf("id" to "next_$i","action" to "tap","selector" to mapOf("textContains" to "下一"),"guard" to condition(i.toString(),headingRegion),"expect" to condition((i+1).toString(),headingRegion),"timeoutMs" to 15000,"stableMs" to 100)
@@ -70,10 +72,98 @@ class PhoneOcrAcceptanceTest {
         assertEquals(warm.toString(),true,PhoneFlow.map(warm["recognition"],"recognition")["recognitionCacheHit"])
     }
     @Test fun localOcrFlowNavigatesFourRasterPagesWithoutModelRoundTrips(){
+        val before=metrics()
         val result=call("ui.flow",plan((1..3).map{next(it)}));assertEquals(result.toString(),"verified",result["outcome"])
         assertEquals(4,fixture().getInt("page"));assertEquals(3,fixture().getInt("taps"))
         val v=value(result);assertEquals(0,v["modelRequestsDuringExecution"]);assertEquals(false,v["hasUnverifiedActions"])
-        report("flow",v.filterKeys{it in setOf("elapsedMs","completedSteps","observationCount","modelRequestsDuringExecution")})
+        val counts=metricDelta(before)
+        val observationCount=(v["observationCount"] as Number).toLong()
+        val refreshCount=counts.getValue("preDispatchRefreshCount")
+        report("flow",v.filterKeys{it in setOf("elapsedMs","completedSteps","observationCount","modelRequestsDuringExecution")}+
+            mapOf("performance" to counts,"unchangedFrameCaptureBudget" to 10,
+                "additionalResultSamples" to (observationCount-7L).coerceAtLeast(0),
+                "freshDispatchChecks" to 3,"changedPreDispatchConfirmations" to refreshCount))
+        assertTrue(counts.toString(),counts.getValue("reusedObservationCount")>=2L)
+        assertTrue(counts.toString(),observationCount>=7L)
+        assertEquals(counts.toString(),observationCount+3L+refreshCount,counts.getValue("captureCount"))
+    }
+    @Test fun preparedObservationDetectsDuplicateOutsideTheOriginalTarget(){
+        val service=SkivuAccessibilityService.connected!!
+        val step=next(1)
+        val prepared=service.vision.snapshot(setOf(pkg),pkg,"visual",owner,{},step)
+        assertEquals(1,PhoneFlow.targets(prepared,PhoneFlow.map(step["selector"],"selector")).size)
+        fixture("duplicateNext");Thread.sleep(100)
+        val before=metrics()
+        var dispatched=false
+        val failure=runCatching {
+            service.vision.perform(step,pkg,setOf(pkg),"visual",owner,"duplicate_${System.nanoTime()}",{},
+                preparedSnapshot=prepared,before={dispatched=true})
+        }.exceptionOrNull()
+        val counts=metricDelta(before)
+        val diagnostic=service.vision.snapshot(setOf(pkg),pkg,"visual",owner,{},step)
+        val targets=PhoneFlow.targets(diagnostic,PhoneFlow.map(step["selector"],"selector"))
+        report("preparedDuplicate",mapOf("newDuplicateBlocked" to (failure!=null),"originalTargetUnmoved" to true,
+            "noGesture" to !dispatched,"freshTargetCount" to targets.size,
+            "freshTargets" to targets.map{mapOf("text" to it["text"],"bounds" to it["bounds"])},
+            "failure" to failure?.message,"performance" to counts))
+        assertEquals("The independently read frame must expose both actual raster targets",2,targets.size)
+        assertNotNull("A new second target must make the prepared selection ambiguous",failure)
+        assertFalse(dispatched)
+        assertEquals(0,fixture().getInt("taps"))
+        assertEquals(counts.toString(),1L,counts.getValue("captureCount"))
+        assertEquals(counts.toString(),1L,counts.getValue("ocrCount"))
+    }
+    @Test fun preparedObservationRelocatesMovedTargetAndConfirmsItsRecognizedFrameBeforeDispatch(){
+        val service=SkivuAccessibilityService.connected!!
+        val step=next(1)
+        val prepared=service.vision.snapshot(setOf(pkg),pkg,"visual",owner,{},step)
+        fixture("move");Thread.sleep(100)
+        val before=metrics()
+        var dispatched=false
+        val result=service.vision.perform(step,pkg,setOf(pkg),"visual",owner,"relocated_${System.nanoTime()}",{},
+            preparedSnapshot=prepared,before={dispatched=true})
+        assertTrue(result.accepted);assertTrue(result.dispatched);assertTrue(dispatched)
+        val touchDeadline=android.os.SystemClock.uptimeMillis()+2000
+        var touched=fixture()
+        while(touched.getInt("taps")==0 && android.os.SystemClock.uptimeMillis()<touchDeadline) {
+            Thread.sleep(25);touched=fixture()
+        }
+        val counts=metricDelta(before)
+        report("preparedMoved",mapOf("freshSemanticRelocation" to true,"recognizedFrameConfirmedBeforeDispatch" to true,
+            "pageAdvanced" to (touched.getInt("page")==2),"actualTaps" to touched.getInt("taps"),"performance" to counts))
+        assertEquals(1,touched.getInt("taps"));assertEquals(2,touched.getInt("page"))
+        assertEquals(counts.toString(),2L,counts.getValue("captureCount"))
+        assertEquals(counts.toString(),1L,counts.getValue("ocrCount"))
+    }
+    @Test fun rasterRedrawAfterRecognitionIsRejectedBeforeDispatch(){
+        val service=SkivuAccessibilityService.connected!!
+        val step=next(1)
+        val prepared=service.vision.snapshot(setOf(pkg),pkg,"visual",owner,{},step)
+        fixture("move");Thread.sleep(100)
+        val before=metrics()
+        val redrawn=java.util.concurrent.atomic.AtomicBoolean(false)
+        var dispatched=false
+        val check={
+            if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper() &&
+                metrics().getValue("ocrCount")>before.getValue("ocrCount") && redrawn.compareAndSet(false,true)) {
+                // The fixture only invalidates its raster surface, whose accessible tree has no text nodes.
+                fixture("duplicateNext");Thread.sleep(80)
+            }
+            Unit
+        }
+        val failure=runCatching {
+            service.vision.perform(step,pkg,setOf(pkg),"visual",owner,"redrawn_${System.nanoTime()}",check,
+                preparedSnapshot=prepared,before={dispatched=true})
+        }.exceptionOrNull()
+        assertTrue("The fixture must redraw after the changed-frame OCR has completed",redrawn.get())
+        assertNotNull(failure)
+        assertTrue(failure.toString(),failure?.message?.contains("识别期间") == true)
+        assertFalse(dispatched);assertEquals(0,fixture().getInt("taps"))
+        val counts=metricDelta(before)
+        assertEquals(counts.toString(),2L,counts.getValue("captureCount"))
+        assertEquals(counts.toString(),1L,counts.getValue("ocrCount"))
+        report("redrawnDuringRecognition",mapOf("rasterChangedAfterRecognition" to true,
+            "freshConfirmationRejected" to true,"noGesture" to true,"performance" to counts))
     }
     @Test fun ambiguousTextIsBlockedAndRegionSelectsTheRightActualTouchTarget(){
         val ambiguous=next(1)+mapOf("selector" to mapOf("text" to "确定"),"expect" to condition("右侧"))

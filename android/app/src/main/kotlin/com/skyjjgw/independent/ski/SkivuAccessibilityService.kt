@@ -26,6 +26,9 @@ class SkivuAccessibilityService : AccessibilityService() {
     @Volatile internal var visualScrollEpoch = 0L
         private set
     internal val vision by lazy { PhoneOcrController(this) }
+    internal val visionMetrics = PhoneVisionMetrics()
+    private val visionCaptureSlot = java.util.concurrent.Semaphore(1, true)
+    private val visionCaptureTiming = PhoneCaptureTiming()
     private val flowChanges = Object()
     fun awaitFlowChange(milliseconds: Long) { synchronized(flowChanges) { flowChanges.wait(milliseconds.coerceAtLeast(1)) } }
     private data class Proof(val tool:String,val owner:String,val pkg:String,val viewId:String,val text:String,val checked:Boolean,val selected:Boolean,val checkable:Boolean,val originalNodes:Set<String>)
@@ -170,6 +173,7 @@ class SkivuAccessibilityService : AccessibilityService() {
     internal fun flowPerform(step:Map<String,Any?>,pkg:String,allowed:Set<String>,beforeDispatch:()->Unit,requestId:String,owner:String):PhoneFlow.Dispatch {
         // Fresh lookup and dispatch run in the same main-thread turn. No model-held IDs survive here.
         val snapshot=flowSnapshot(allowed,pkg)
+        step["when"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"when"))){"页面分支条件已变化，未派发动作。"}}
         step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"页面前置条件已变化，未派发动作。"}}
         if(PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
         val action=step["action"] as String
@@ -256,24 +260,80 @@ class SkivuAccessibilityService : AccessibilityService() {
     /** Raw in-memory pixels for local OCR. No compression, base64, files or model upload. */
     internal fun captureVision(allowed:Set<String>,check:()->Unit):PhoneOcrFrame {
         require(android.os.Build.VERSION.SDK_INT>=30) { "本地屏幕识别需要 Android 11 或以上。" }
+        require(Looper.myLooper()!=Looper.getMainLooper()) { "屏幕识别必须在工作线程执行。" }
+        val queuedAt=SystemClock.uptimeMillis()
+        val deadline=queuedAt+15_000
+        fun checkDeadline() {
+            check()
+            require(SystemClock.uptimeMillis()<deadline) { "本地截图等待超时。" }
+        }
+        var queueFinishedAt=queuedAt
+        try {
+            while(true) {
+                checkDeadline()
+                if(visionCaptureSlot.tryAcquire(50,java.util.concurrent.TimeUnit.MILLISECONDS))break
+            }
+        } finally {
+            queueFinishedAt=SystemClock.uptimeMillis()
+            visionMetrics.recordCaptureQueue(queueFinishedAt-queuedAt)
+        }
+        val acquiredAt=queueFinishedAt
         val future=java.util.concurrent.CompletableFuture<PhoneOcrFrame>()
         val handler=Handler(Looper.getMainLooper());val hidden=java.util.concurrent.atomic.AtomicBoolean(false)
+        var inFlight=false
+        var released=false
+        val timingLock=Any()
+        var throttleStarted:Long?=null
+        var throttleMs=0L
+        var timingClosed=false
+        fun beginThrottle() = synchronized(timingLock) {
+            if(!timingClosed)throttleStarted=SystemClock.uptimeMillis()
+        }
+        fun finishThrottle() {
+            synchronized(timingLock) {
+                throttleStarted?.let { throttleMs+=SystemClock.uptimeMillis()-it }
+                throttleStarted=null
+            }
+        }
         fun restore(){if(hidden.compareAndSet(true,false))overlay?.restoreAfterScreenshot()}
+        // Called only on the main looper. A cancelled request keeps its slot until
+        // its system callback arrives, so a late callback cannot hide/restore a new capture.
+        fun release() {
+            if(inFlight||released)return
+            released=true
+            finishThrottle()
+            try { restore() } finally { visionCaptureSlot.release() }
+        }
         var attempts=0
         lateinit var capture:Runnable
         capture=Runnable {
-            if(future.isDone){restore();return@Runnable}
+            finishThrottle()
+            if(future.isDone){release();return@Runnable}
             try {
-                check();val root=current(allowed)
+                checkDeadline()
+                val delay=visionCaptureTiming.delayMs(SystemClock.uptimeMillis())
+                if(delay>0) {
+                    beginThrottle()
+                    handler.postDelayed(capture,delay);return@Runnable
+                }
+                val root=current(allowed)
                 val pkg=root.packageName.toString();val window=root.windowId
                 @Suppress("DEPRECATION") root.recycle()
                 require(pkg!=packageName) { "不能识别控制器自身页面。" }
                 val size=visualMetrics();val epoch=visualScrollEpoch
                 val privacyBefore=visualPrivacy(allowed)
+                checkDeadline()
+                if(future.isDone){release();return@Runnable}
+                visionCaptureTiming.attempted(SystemClock.uptimeMillis())
+                visionMetrics.recordCaptureAttempt(attempts>0)
+                attempts++
+                inFlight=true
                 takeScreenshot(android.view.Display.DEFAULT_DISPLAY,mainExecutor,object:TakeScreenshotCallback {
                     override fun onSuccess(shot:ScreenshotResult) {
+                        visionMetrics.recordCaptureSuccess()
                         var pixels:Bitmap?=null
                         try {
+                            if(future.isDone)return
                             val hardware=Bitmap.wrapHardwareBuffer(shot.hardwareBuffer,shot.colorSpace)?:error("截图不可读取。")
                             try { pixels=hardware.copy(Bitmap.Config.ARGB_8888,true) } finally { hardware.recycle() }
                             val bitmap=pixels?:error("截图不可复制。")
@@ -283,23 +343,59 @@ class SkivuAccessibilityService : AccessibilityService() {
                             val canvas=android.graphics.Canvas(bitmap);val paint=android.graphics.Paint().apply{color=android.graphics.Color.BLACK}
                             masks.forEach { canvas.drawRect(it,paint) }
                             val frame=PhoneOcrFrame(bitmap,pkg,window,size.third,epoch,shot.timestamp,privacyBefore.second||privacyAfter.second)
-                            assertVisualFrame(frame,allowed);check()
+                            assertVisualFrame(frame,allowed);checkDeadline()
                             if(!future.complete(frame))frame.close()
                             pixels=null
                         } catch(e:Exception){future.completeExceptionally(e)}
-                        finally { pixels?.recycle();shot.hardwareBuffer.close();restore() }
+                        finally {
+                            try { pixels?.recycle();shot.hardwareBuffer.close() }
+                            finally { inFlight=false;release() }
+                        }
                     }
                     override fun onFailure(errorCode:Int) {
-                        if(errorCode==ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT && attempts++<12 && !future.isDone) handler.postDelayed(capture,120)
-                        else { future.completeExceptionally(IllegalStateException("截图不可用（系统代码 $errorCode），请核对当前页面。"));restore() }
+                        inFlight=false
+                        if(errorCode==ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT && attempts<=12 && !future.isDone) {
+                            visionCaptureTiming.intervalRejected()
+                            beginThrottle()
+                            handler.postDelayed(capture,visionCaptureTiming.delayMs(SystemClock.uptimeMillis()))
+                        } else {
+                            future.completeExceptionally(IllegalStateException("截图不可用（系统代码 $errorCode），请核对当前页面。"))
+                            release()
+                        }
                     }
                 })
-            } catch(e:Exception){future.completeExceptionally(e);restore()}
+            } catch(e:Exception){inFlight=false;future.completeExceptionally(e);release()}
+        }
+        val start=Runnable {
+            finishThrottle()
+            try {
+                if(future.isDone)release()
+                else { checkDeadline();overlay?.suspendForScreenshot();hidden.set(true);handler.postDelayed(capture,32) }
+            } catch(e:Exception){future.completeExceptionally(e);release()}
         }
         handler.post {
-            if(!future.isDone) { overlay?.suspendForScreenshot();hidden.set(true);handler.postDelayed(capture,32) }
+            val delay=(visionCaptureTiming.delayMs(SystemClock.uptimeMillis())-32).coerceAtLeast(0)
+            if(delay>0)beginThrottle()
+            handler.postDelayed(start,delay)
         }
-        return try { visionAwait(future,check) } finally { handler.post { restore() } }
+        return try { visionAwait(future,::checkDeadline) } finally {
+            // Freeze this call's timing at return, even when cancellation cleanup
+            // or a system callback will run later on the main looper.
+            val (endedAt,queuedMs)=synchronized(timingLock) {
+                val end=SystemClock.uptimeMillis()
+                throttleStarted?.let { throttleMs+=(end-it).coerceAtLeast(0) }
+                throttleStarted=null
+                timingClosed=true
+                end to throttleMs
+            }
+            visionMetrics.recordCaptureQueue(queuedMs)
+            visionMetrics.recordCapture(endedAt-acquiredAt-queuedMs)
+            handler.post {
+                handler.removeCallbacks(capture)
+                handler.removeCallbacks(start)
+                release()
+            }
+        }
     }
 
     internal fun visualGesture(frame:PhoneOcrFrame,box:List<Int>,direction:String?,allowed:Set<String>,beforeDispatch:()->Unit):Boolean {

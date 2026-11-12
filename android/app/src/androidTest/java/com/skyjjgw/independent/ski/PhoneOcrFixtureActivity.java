@@ -17,6 +17,7 @@ public class PhoneOcrFixtureActivity extends Activity {
     public volatile int leftTaps = 0;
     public volatile int rightTaps = 0;
     public volatile boolean moved = false;
+    public volatile boolean duplicateNext = false;
     public volatile String confirmation = "";
     public View surface;
     @Override public void onCreate(Bundle state) {
@@ -40,6 +41,7 @@ public class PhoneOcrFixtureActivity extends Activity {
                 button.set(getWidth()*.2f,getHeight()*y,getWidth()*.8f,getHeight()*(y+.10f));
                 paint.setColor(Color.rgb(30,100,210));c.drawRoundRect(button,16,16,paint);
                 text(c,"下一页",button.centerY()+getWidth()/54f,Color.WHITE);
+                if(duplicateNext)text(c,"下一页",getHeight()*.58f,Color.BLACK);
             }
             @Override public boolean onTouchEvent(MotionEvent e) {
                 if(e.getAction()==MotionEvent.ACTION_UP) {
@@ -53,5 +55,6 @@ public class PhoneOcrFixtureActivity extends Activity {
         setContentView(surface);
     }
     public void moveButton(){moved=true;surface.invalidate();}
+    public void addDuplicateNext(){duplicateNext=true;surface.invalidate();}
     @Override public void onDestroy(){if(instance==this)instance=null;super.onDestroy();}
 }

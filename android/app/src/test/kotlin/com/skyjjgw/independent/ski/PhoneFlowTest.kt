@@ -27,6 +27,14 @@ class PhoneFlowTest {
         var saved: Map<String, Any?>? = null
         var beforePerform: (() -> Unit)? = null
         var afterPerform: (() -> Unit)? = null
+        var beforeSnapshot: ((Int) -> Unit)? = null
+        var beforeReuse: (() -> Unit)? = null
+        var preparedEnabled = false
+        var reuseEnabled = false
+        var snapshotCalls = 0
+        var reuseCalls = 0
+        val capturedIds = mutableListOf<String>()
+        val preparedIds = mutableListOf<String>()
         override fun check() {
             if (time >= cancelAt) throw PhoneFlow.Blocked("cancelled", "user stopped")
             if (!permission) throw PhoneFlow.Blocked("permission_required", "revoked")
@@ -35,6 +43,8 @@ class PhoneFlowTest {
         override fun awaitChange(milliseconds: Long) { time += milliseconds; tick++ }
         override fun snapshot(pkg: String): PhoneFlow.Snapshot {
             check(); tick++
+            snapshotCalls++
+            beforeSnapshot?.invoke(snapshotCalls)
             val root = "root_$tick"
             fun row(id: String, text: String, checked: Boolean = false, parent: String? = root) =
                 mapOf<String, Any?>("id" to "${id}_$tick", "parentId" to parent, "text" to text, "viewId" to id, "class" to "Button", "checked" to checked, "selected" to checked, "password" to false)
@@ -43,13 +53,29 @@ class PhoneFlowTest {
                 row("question", "Question $question"), row("a", "Option A", "A" in selected), row("b", "Option B", "B" in selected),
                 row("next", "Next"), row("clock", "Timer $tick", parent = null),
             ) + if (duplicate) listOf(row("duplicate", "Option A")) else emptyList()
-            return PhoneFlow.Snapshot(pkg, 1, rows, mapOf("observationId" to "observation_$tick", "package" to pkg, "elements" to rows))
+            val id = "observation_$tick"
+            capturedIds.add(id)
+            return PhoneFlow.Snapshot(pkg, 1, rows, mapOf("observationId" to id, "package" to pkg, "elements" to rows))
         }
-        override fun perform(step: Map<String, Any?>, pkg: String, requestId: String): PhoneFlow.Dispatch {
+        override fun perform(step: Map<String, Any?>, pkg: String, requestId: String): PhoneFlow.Dispatch =
+            performUsing(step) { snapshot(pkg) }
+        override fun performPrepared(step: Map<String, Any?>, pkg: String, requestId: String, prepared: PhoneFlow.Snapshot): PhoneFlow.Dispatch {
+            if (!preparedEnabled) return super<PhoneFlow.Backend>.performPrepared(step, pkg, requestId, prepared)
+            preparedIds.add(prepared.observation["observationId"] as String)
+            return performUsing(step) { prepared }
+        }
+        override fun reuse(snapshot: PhoneFlow.Snapshot, pkg: String): PhoneFlow.Snapshot? {
+            reuseCalls++
+            beforeReuse?.invoke()
+            check()
+            return if (reuseEnabled) snapshot else null
+        }
+        override fun metrics() = mapOf("captures" to snapshotCalls.toLong(), "waitMs" to time)
+        private fun performUsing(step: Map<String, Any?>, read: () -> PhoneFlow.Snapshot): PhoneFlow.Dispatch {
             assertEquals("in_flight", (saved!!["steps"] as List<*>).map { PhoneFlow.map(it, "step") }.first { it["id"] == step["id"] }["state"])
             val target = try {
                 beforePerform?.invoke()
-                val snapshot = snapshot(pkg)
+                val snapshot = read()
                 step["guard"]?.let { require(PhoneFlow.satisfied(snapshot, PhoneFlow.map(it, "guard"))) }
                 PhoneFlow.unique(snapshot, PhoneFlow.map(step["selector"], "selector"))
             } catch(error:Exception) { throw PhoneFlow.NotDispatched(error) }
@@ -83,6 +109,92 @@ class PhoneFlowTest {
         assertEquals(60, result.value["completedSteps"])
         assertEquals(0, result.value["modelRequestsDuringExecution"])
         assertEquals(false, result.value["hasUnverifiedActions"])
+    }
+
+    @Test fun preparedObservationAvoidsAnExtraReadInsideEachAction() {
+        val actions = plan(step("a", "Option A", condition("checked", "Option A", true)),
+            step("b", "Option B", condition("checked", "Option B", true)))
+        val legacy = Device()
+        assertEquals("verified", legacy.run(actions).outcome)
+        assertEquals(6, legacy.snapshotCalls)
+        val prepared = Device(); prepared.preparedEnabled = true
+        assertEquals("verified", prepared.run(actions).outcome)
+        assertEquals(4, prepared.snapshotCalls)
+        assertEquals(listOf(prepared.capturedIds[0], prepared.capturedIds[2]), prepared.preparedIds)
+        assertEquals(legacy.taps, prepared.taps)
+    }
+
+    @Test fun nextStepUsesTheLastVerifiedObservationWhenBackendAllowsIt() {
+        val device = Device(); device.preparedEnabled = true; device.reuseEnabled = true
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true)),
+            step("b", "Option B", condition("checked", "Option B", true))))
+        assertEquals("verified", result.outcome)
+        assertEquals(3, device.snapshotCalls)
+        assertEquals(1, device.reuseCalls)
+        assertEquals(listOf(device.capturedIds[0], device.capturedIds[1]), device.preparedIds)
+        assertEquals(2, device.taps)
+    }
+
+    @Test fun invalidatedObservationIsReadAgainBeforeCheckingTheNextGuard() {
+        val device = Device(); device.preparedEnabled = true; device.reuseEnabled = true
+        device.beforeReuse = { device.reuseEnabled = false; device.question = 2 }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true)),
+            step("b", "Option B", condition("checked", "Option B", true), condition("exists", "Question 1"))))
+        assertEquals("failed", result.outcome)
+        assertEquals(3, device.snapshotCalls)
+        assertEquals(1, device.reuseCalls)
+        assertEquals(1, device.taps)
+    }
+
+    @Test fun waitStepStartsWithANewObservation() {
+        val device = Device(); device.preparedEnabled = true; device.reuseEnabled = true
+        val wait = mapOf("id" to "wait", "action" to "wait", "expect" to condition("checked", "Option A", true),
+            "stableMs" to 0, "timeoutMs" to 300)
+        assertEquals("verified", device.run(plan(step("a", "Option A", condition("checked", "Option A", true)), wait)).outcome)
+        assertEquals(4, device.snapshotCalls)
+        assertEquals(0, device.reuseCalls)
+        assertEquals(1, device.taps)
+    }
+
+    @Test fun stableChecksUseNewObservationsAndResetAfterATransientMismatch() {
+        val device = Device(); device.preparedEnabled = true; device.reuseEnabled = true
+        device.beforeSnapshot = { capture ->
+            if (capture == 3) device.selected.clear() else device.selected.add("A")
+        }
+        val action = step("a", "Option A", condition("checked", "Option A", true)) +
+            mapOf("stableMs" to 200, "timeoutMs" to 1000)
+        assertEquals("verified", device.run(plan(action)).outcome)
+        assertEquals(400L, device.time)
+        assertEquals(6, device.snapshotCalls)
+        assertEquals(6, device.capturedIds.toSet().size)
+        assertEquals(0, device.reuseCalls)
+    }
+
+    @Test fun resumedUnknownActionGetsFreshEvidenceWithoutDispatchingAgain() {
+        val device = Device(); device.preparedEnabled = true; device.reuseEnabled = true
+        device.acceptedWithoutEffect = true
+        val actions = plan(step("a", "Option A", condition("checked", "Option A", true)))
+        assertEquals("unknown", device.run(actions).outcome)
+        val checkpoint = device.saved!!
+        val capturesBeforeResume = device.snapshotCalls
+        device.selected.add("A")
+        val result = device.run(actions, checkpoint)
+        assertEquals("verified", result.outcome)
+        assertEquals(capturesBeforeResume + 2, device.snapshotCalls)
+        assertEquals(0, device.reuseCalls)
+        assertEquals(1, device.taps)
+        assertEquals(1, device.preparedIds.size)
+        assertEquals(2L, PhoneFlow.map(result.value["performance"], "performance")["captures"])
+    }
+
+    @Test fun performanceReportsOnlyCountersAccumulatedDuringThisRun() {
+        val device = Device(); device.preparedEnabled = true
+        device.snapshot(pkg)
+        device.awaitChange(50)
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        val performance = PhoneFlow.map(result.value["performance"], "performance")
+        assertEquals(2L, performance["captures"])
+        assertEquals(0L, performance["waitMs"])
     }
 
     @Test fun alreadySelectedDoesNotToggleAgain() {

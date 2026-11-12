@@ -557,6 +557,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         val root=previous?.get("rootRequestId") as? String?:id
         val rootKey=digest("$owner:$root")
         val rootFingerprint=if(root==id)fingerprint else receipts.read(rootKey)?.getString("fingerprint")?:error("流程原记录丢失。")
+        val flowService=SkivuAccessibilityService.connected?:throw PhoneFlow.Blocked("permission_required","无障碍服务未连接。")
         val backend=object:PhoneFlow.Backend {
             private var stepContext=emptyMap<String,Any?>()
             private var waitingAt:Long?=null
@@ -567,20 +568,30 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 leaseCheck()
                 if(!enabled("enabled")||!enabled("control"))throw PhoneFlow.Blocked("permission_required","手机操控授权已关闭。")
                 if(plan["package"] !in packages())throw PhoneFlow.Blocked("permission_required","流程软件已不在授权范围内。")
-                if(SkivuAccessibilityService.connected==null)throw PhoneFlow.Blocked("permission_required","无障碍服务未连接。")
+                if(SkivuAccessibilityService.connected!==flowService)throw PhoneFlow.Blocked("cancelled","无障碍连接已变化，本次流程已停止，请核对后继续。")
             }
             override fun now()=android.os.SystemClock.uptimeMillis()
+            override fun metrics()=flowService.visionMetrics.snapshot()
+            override fun reuse(snapshot:PhoneFlow.Snapshot,pkg:String):PhoneFlow.Snapshot? {
+                check()
+                val mode=PhoneVision.mode(plan["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
+                return flowService.vision.reuseSnapshot(snapshot,pkg,mode,owner,stepContext,packages(),::check)
+            }
             override fun snapshot(pkg:String):PhoneFlow.Snapshot {
                 check()
                 val mode=PhoneVision.mode(plan["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
-                return SkivuAccessibilityService.connected!!.vision.snapshot(packages(),pkg,mode,owner,::check,stepContext,waitingAt==null,waitingAt==null||now()-waitingAt!!>=500)
+                return flowService.vision.snapshot(packages(),pkg,mode,owner,::check,stepContext,waitingAt==null,waitingAt==null||now()-waitingAt!!>=500)
             }
-            override fun perform(step:Map<String,Any?>,pkg:String,requestId:String):PhoneFlow.Dispatch {
+            override fun perform(step:Map<String,Any?>,pkg:String,requestId:String)=performWithSnapshot(step,pkg,requestId,null)
+            override fun performPrepared(step:Map<String,Any?>,pkg:String,requestId:String,prepared:PhoneFlow.Snapshot)=
+                performWithSnapshot(step,pkg,requestId,prepared)
+            private fun performWithSnapshot(step:Map<String,Any?>,pkg:String,requestId:String,prepared:PhoneFlow.Snapshot?):PhoneFlow.Dispatch {
                 var dispatched=false
                 try {
                     check()
                     val mode=PhoneVision.mode(plan["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
-                    return SkivuAccessibilityService.connected!!.vision.perform(step,pkg,packages(),mode,owner,"flow_${digest("$owner:$requestId")}",::check,before={check();beforeAction();dispatched=true})
+                    return flowService.vision.perform(step,pkg,packages(),mode,owner,"flow_${digest("$owner:$requestId")}",::check,
+                        preparedSnapshot=prepared,before={check();beforeAction();dispatched=true})
                 } catch(error:Exception) {
                     val cause=(error as? java.util.concurrent.ExecutionException)?.cause as? Exception?:error
                     if(!dispatched)throw PhoneFlow.NotDispatched(cause)
@@ -588,7 +599,10 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 }
             }
             override fun awaitChange(milliseconds:Long) {
-                check();SkivuAccessibilityService.connected?.awaitFlowChange(milliseconds)
+                check()
+                val started=now()
+                try { flowService.awaitFlowChange(milliseconds) }
+                finally { flowService.visionMetrics.recordWait(now()-started) }
             }
         }
         val result=PhoneFlow.run(plan,root,backend,previous){checkpoint ->
