@@ -9,12 +9,23 @@ class ModelSettings extends ChangeNotifier {
     : _secure = secure ?? const FlutterSecureStorage();
   final FlutterSecureStorage _secure;
   final List<ModelConnection> connections = [];
+  Future<void> _mutations = Future.value();
+  int _pendingThinkingUpdates = 0;
   String? activeId, error;
   static const _prefsKey = 'skivu.models.v1';
   ModelConnection? get active =>
       connections.where((c) => c.id == activeId).firstOrNull;
+  bool get thinkingUpdatePending => _pendingThinkingUpdates > 0;
 
-  Future<void> restore() async {
+  Future<void> _mutate(Future<void> Function() operation) {
+    final result = _mutations.then((_) => operation());
+    _mutations = result.catchError((Object _) {});
+    return result;
+  }
+
+  Future<void> restore() => _mutate(_restore);
+
+  Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final text = prefs.getString(_prefsKey);
@@ -43,18 +54,29 @@ class ModelSettings extends ChangeNotifier {
 
   Future<void> _write(List<ModelConnection> profiles, String? selected) async {
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(
-      _prefsKey,
-      jsonEncode({
-        'connections': profiles.map((p) => p.toJson()).toList(),
-        'activeId': selected,
-      }),
-    )) {
-      throw StateError('无法保存模型配置');
+    try {
+      if (!await prefs.setString(
+        _prefsKey,
+        jsonEncode({
+          'connections': profiles.map((p) => p.toJson()).toList(),
+          'activeId': selected,
+        }),
+      )) {
+        throw StateError('无法保存模型配置');
+      }
+    } catch (_) {
+      // SharedPreferences updates its memory cache before the platform commit.
+      try {
+        await prefs.reload();
+      } catch (_) {}
+      rethrow;
     }
   }
 
-  Future<void> save(ModelConnection profile, String key) async {
+  Future<void> save(ModelConnection profile, String key) =>
+      _mutate(() => _save(profile, key));
+
+  Future<void> _save(ModelConnection profile, String key) async {
     profile.endpoint();
     final previous = connections.where((c) => c.id == profile.id).firstOrNull;
     final sameKey = previous != null && await keyFor(previous.id) == key.trim();
@@ -94,14 +116,44 @@ class ModelSettings extends ChangeNotifier {
     }
   }
 
-  Future<void> select(String id) async {
+  Future<void> select(String id) => _mutate(() => _select(id));
+
+  Future<void> _select(String id) async {
     if (!connections.any((c) => c.id == id)) return;
     await _write(connections, id);
     activeId = id;
     notifyListeners();
   }
 
-  Future<void> remove(String id) async {
+  Future<void> setThinkingEnabled(String id, bool? value) {
+    _pendingThinkingUpdates++;
+    notifyListeners();
+    return _mutate(() async {
+      final index = connections.indexWhere((c) => c.id == id);
+      if (index < 0) throw StateError('模型连接已不存在。');
+      final previous = connections[index];
+      if (value != null && !previous.supportsThinking) {
+        throw StateError('当前模型连接暂不支持深度思考开关。');
+      }
+      if (previous.thinkingEnabled == value) return;
+      final profile = ModelConnection.fromJson({
+        ...previous.toJson(),
+        'thinkingEnabled': value,
+      });
+      final next = connections.toList()..[index] = profile;
+      await _write(next, activeId);
+      connections[index] = profile;
+      error = null;
+      notifyListeners();
+    }).whenComplete(() {
+      _pendingThinkingUpdates--;
+      notifyListeners();
+    });
+  }
+
+  Future<void> remove(String id) => _mutate(() => _remove(id));
+
+  Future<void> _remove(String id) async {
     final previous = connections.where((c) => c.id == id).firstOrNull;
     final next = connections.where((c) => c.id != id).toList();
     final selected = activeId == id ? next.firstOrNull?.id : activeId;

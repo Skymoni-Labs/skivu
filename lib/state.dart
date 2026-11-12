@@ -660,6 +660,8 @@ class DemoStore extends ChangeNotifier {
       : useAccount
       ? account.connection
       : models.active;
+  bool get thinkingUpdatePending =>
+      !useAccount && !useBeta && models.thinkingUpdatePending;
   ChatSession? _session;
   StreamReveal? _reveal;
   Message? _pending;
@@ -1430,6 +1432,7 @@ class DemoStore extends ChangeNotifier {
   }
 
   void resumeCloud() {
+    if (thinkingUpdatePending) return;
     final chat = conversations[conversation];
     if (isCloudChat && !streaming && cloudRunner?.canResume(chat.id) == true) {
       _beginCloud('', resume: true);
@@ -1448,6 +1451,11 @@ class DemoStore extends ChangeNotifier {
     String? taskReference,
   }) {
     if (input.trim().isEmpty || streaming) return false;
+    if (thinkingUpdatePending) {
+      lastError = '正在保存思考设置，请稍候';
+      changed();
+      return false;
+    }
     if (isCloudChat && cloudRunner == null) {
       lastError = '小云正在准备，请稍后重试。';
       changed();
@@ -1533,6 +1541,11 @@ class DemoStore extends ChangeNotifier {
   }
 
   bool confirmPending({bool? streamingOverride}) {
+    if (thinkingUpdatePending) {
+      lastError = '正在保存思考设置，请稍候';
+      changed();
+      return false;
+    }
     final target = conversations[conversation],
         queued = conversations[conversation].queuedMessages;
     if (streaming || queued.isEmpty) return false;
@@ -1708,6 +1721,7 @@ class DemoStore extends ChangeNotifier {
 
   void regenerate() {
     if (streaming ||
+        thinkingUpdatePending ||
         activeConnection == null ||
         messages.isEmpty ||
         messages.last.user)

@@ -211,6 +211,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
   late ApiProtocol protocol = widget.profile?.protocol ?? ApiProtocol.chat;
   late bool streaming = widget.profile?.streaming ?? true,
       includeUsage = widget.profile?.includeUsage ?? true;
+  late bool? thinkingEnabled = widget.profile?.thinkingEnabled;
   bool busy = false, loadingKey = false, hidden = true;
   String? result;
   bool success = false;
@@ -270,6 +271,7 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
     auth: auth,
     streaming: streaming,
     includeUsage: includeUsage,
+    thinkingEnabled: thinkingEnabled,
     tokenParameter: tokenParameter,
     maxOutput: int.tryParse(maxOutput.text) ?? 0,
     timeoutSeconds: int.tryParse(timeout.text) ?? 0,
@@ -405,6 +407,13 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
 
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
+    final saved = modelSettings.connections
+        .where((profile) => profile.id == widget.profile?.id)
+        .firstOrNull;
+    if (demo.streaming && thinkingEnabled != saved?.thinkingEnabled) {
+      toast(context, '本次运行结束后可修改深度思考');
+      return;
+    }
     setState(() {
       busy = true;
       result = null;
@@ -597,6 +606,53 @@ class _ConnectionEditorState extends State<_ConnectionEditor> {
                         onChanged: busy
                             ? null
                             : (v) => setState(() => streaming = v),
+                      ),
+                      ListenableBuilder(
+                        listenable: Listenable.merge([address, model, demo]),
+                        builder: (context, _) =>
+                            DropdownButtonFormField<String>(
+                              key: ValueKey('thinking-mode-$thinkingEnabled'),
+                              initialValue: thinkingEnabled == null
+                                  ? 'default'
+                                  : thinkingEnabled!
+                                  ? 'enabled'
+                                  : 'disabled',
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                labelText: '深度思考',
+                                helperText: config().supportsThinking
+                                    ? '保存后用于此连接的后续请求'
+                                    : '当前连接暂未适配思考开关',
+                                helperMaxLines: 2,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'default',
+                                  child: Text('跟随服务商'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'enabled',
+                                  child: Text('开启'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'disabled',
+                                  child: Text('关闭'),
+                                ),
+                              ],
+                              onChanged:
+                                  busy ||
+                                      loadingKey ||
+                                      demo.streaming ||
+                                      !config().supportsThinking
+                                  ? null
+                                  : (value) => setState(() {
+                                      thinkingEnabled = switch (value) {
+                                        'enabled' => true,
+                                        'disabled' => false,
+                                        _ => null,
+                                      };
+                                    }),
+                            ),
                       ),
                       ExpansionTile(
                         tilePadding: EdgeInsets.zero,

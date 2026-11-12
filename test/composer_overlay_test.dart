@@ -57,8 +57,11 @@ void main() {
       }
     });
     // This used to be a black row where the message viewport was clipped.
+    // Sample the bubble padding so changing composer height cannot hit a glyph.
+    final sampleX =
+        tester.getTopLeft(find.byType(ChatBubbleSurface)).dx.ceil() + 12;
     for (final y in [top.floor() - 2, top.floor() + 2]) {
-      final red = bytes!.getUint8((y * 390 + 220) * 4);
+      final red = bytes!.getUint8((y * 390 + sampleX) * 4);
       expect(red, greaterThan(220));
     }
     final controller = tester

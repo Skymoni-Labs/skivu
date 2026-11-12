@@ -11,6 +11,7 @@ import 'chat_backdrop.dart';
 import 'chat_status_bar.dart';
 import 'appearance.dart';
 import 'chat_controls.dart';
+import 'chat_thinking_toggle.dart';
 import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
@@ -1015,6 +1016,10 @@ class _ChatPageState extends State<ChatPage>
                     ],
                   ),
                   const SizedBox(height: 5),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: ChatThinkingToggle(),
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -1096,16 +1101,24 @@ class _ChatPageState extends State<ChatPage>
     ),
   );
 
-  Widget sendControl() => SkiGlassButton(
-    skymoni: true,
-    accent: true,
-    onPressed: demo.streaming ? demo.stop : send,
-    icon: demo.streaming ? Icons.stop_rounded : Icons.arrow_upward,
-    tooltip: demo.streaming
-        ? '停止生成'
-        : demo.conversations[demo.conversation].confirmBeforeReply
-        ? '暂存这条消息'
-        : '发送消息',
+  Widget sendControl() => IgnorePointer(
+    ignoring: demo.thinkingUpdatePending && !demo.streaming,
+    child: Opacity(
+      opacity: demo.thinkingUpdatePending && !demo.streaming ? .45 : 1,
+      child: SkiGlassButton(
+        skymoni: true,
+        accent: true,
+        onPressed: demo.streaming ? demo.stop : send,
+        icon: demo.streaming ? Icons.stop_rounded : Icons.arrow_upward,
+        tooltip: demo.streaming
+            ? '停止生成'
+            : demo.thinkingUpdatePending
+            ? '正在保存思考设置'
+            : demo.conversations[demo.conversation].confirmBeforeReply
+            ? '暂存这条消息'
+            : '发送消息',
+      ),
+    ),
   );
 
   Widget cloudTaskStatus() {

@@ -254,6 +254,10 @@ class ChatSession {
         'model': config.model,
         'messages': messages,
         'stream': config.streaming,
+        if (config.supportsThinking && config.thinkingEnabled != null)
+          'thinking': {
+            'type': config.thinkingEnabled! ? 'enabled' : 'disabled',
+          },
         if (config.tokenParameter != 'none' && config.maxOutput > 0)
           config.tokenParameter: config.maxOutput,
         if (config.streaming && config.includeUsage)
@@ -622,6 +626,12 @@ class AgentChatSession {
         'messages': messages,
         'tools': tools,
         'stream': false,
+        if (_customKey != null &&
+            config.supportsThinking &&
+            config.thinkingEnabled != null)
+          'thinking': {
+            'type': config.thinkingEnabled! ? 'enabled' : 'disabled',
+          },
         if (config.maxOutput > 0 &&
             (_customKey == null ||
                 !{'none', 'omit'}.contains(config.tokenParameter)))

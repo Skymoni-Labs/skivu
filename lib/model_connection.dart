@@ -132,6 +132,7 @@ class ModelConnection {
     this.timeoutSeconds = 0,
     this.contextLimit,
     this.temperature,
+    this.thinkingEnabled,
     this.tokenParameter = 'max_tokens',
     this.credentialId,
     this.legacyLimits,
@@ -144,6 +145,27 @@ class ModelConnection {
   final int maxOutput, timeoutSeconds;
   final int? contextLimit;
   final double? temperature;
+  final bool? thinkingEnabled;
+
+  /// Provider extensions are sent only to the documented direct endpoint.
+  bool get supportsThinking {
+    if (protocol != ApiProtocol.chat ||
+        !const {'deepseek-flash', 'deepseek-v4-pro'}.contains(model)) {
+      return false;
+    }
+    try {
+      final uri = endpoint();
+      return uri.scheme == 'https' &&
+          uri.host.toLowerCase() == 'api.deepseek.com' &&
+          uri.port == 443;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  /// Null preserves the provider default for connections without this capability.
+  bool? get effectiveThinkingEnabled =>
+      supportsThinking ? thinkingEnabled ?? true : null;
 
   /// A request-local policy; does not change the saved model connection.
   ModelConnection withStreaming(bool value) => ModelConnection(
@@ -160,6 +182,7 @@ class ModelConnection {
     timeoutSeconds: timeoutSeconds,
     contextLimit: contextLimit,
     temperature: temperature,
+    thinkingEnabled: thinkingEnabled,
     tokenParameter: tokenParameter,
     credentialId: credentialId,
     legacyLimits: legacyLimits,
@@ -234,6 +257,7 @@ class ModelConnection {
     'timeoutSeconds': timeoutSeconds,
     'contextLimit': contextLimit,
     'temperature': temperature,
+    if (thinkingEnabled != null) 'thinkingEnabled': thinkingEnabled,
     'tokenParameter': tokenParameter,
     'credentialId': credentialId,
     'limitsVersion': 2,
@@ -261,6 +285,9 @@ class ModelConnection {
         : raw['timeoutSeconds'] as int? ?? 0,
     contextLimit: raw['contextLimit'] as int?,
     temperature: (raw['temperature'] as num?)?.toDouble(),
+    thinkingEnabled: raw['thinkingEnabled'] is bool
+        ? raw['thinkingEnabled'] as bool
+        : null,
     tokenParameter: raw['tokenParameter'] as String? ?? 'max_tokens',
     credentialId: raw['credentialId'] as String?,
     legacyLimits: raw['legacyLimits'] is Map
