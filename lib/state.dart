@@ -1868,7 +1868,7 @@ class DemoStore extends ChangeNotifier {
         !['Ollama', 'LM Studio'].contains(config.provider)) {
       throw const ChatFailure('请先配置可用的模型连接。');
     }
-    return _api.start(config, key, history, prompt);
+    return _api.start(config, key, history, prompt, jsonOutput: true);
   }
 
   void assistantProgressChanged() {
@@ -1904,7 +1904,7 @@ class DemoStore extends ChangeNotifier {
         config.auth != 'none' &&
         !['Ollama', 'LM Studio'].contains(config.provider))
       throw const ChatFailure('请先配置可用的模型连接。');
-    return _api.start(config, key, history, prompt);
+    return _api.start(config, key, history, prompt, jsonOutput: true);
   }
 
   void _begin(ModelConnection config) {

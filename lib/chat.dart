@@ -11,7 +11,6 @@ import 'chat_backdrop.dart';
 import 'chat_status_bar.dart';
 import 'appearance.dart';
 import 'chat_controls.dart';
-import 'chat_thinking_toggle.dart';
 import 'relay_account.dart';
 import 'chat_message_dial.dart';
 import 'character_avatar.dart';
@@ -1016,10 +1015,6 @@ class _ChatPageState extends State<ChatPage>
                     ],
                   ),
                   const SizedBox(height: 5),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: ChatThinkingToggle(),
-                  ),
                   Row(
                     children: [
                       Expanded(

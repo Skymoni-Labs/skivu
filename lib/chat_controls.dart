@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'appearance.dart';
-import 'model_connection.dart';
 import 'model_settings.dart';
 import 'relay_account.dart';
 import 'state.dart';
@@ -266,8 +266,12 @@ Future<void> editUserCard(BuildContext context) async {
 
 Future<void> showChatControls(BuildContext context) async {
   final config = demo.activeConnection;
+  final accountSource = demo.useAccount, betaSource = demo.useBeta;
+  final connectionSnapshot = jsonEncode(config?.toJson());
   double maximum = (config?.maxOutput ?? 0).toDouble();
   bool streaming = config?.streaming ?? true;
+  bool? thinkingEnabled = config?.thinkingEnabled;
+  bool saving = false;
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -385,34 +389,88 @@ Future<void> showChatControls(BuildContext context) async {
                   ? null
                   : (v) => change(() => streaming = v),
             ),
-            FilledButton(
-              onPressed: demo.streaming || config == null
-                  ? null
-                  : () async {
-                      try {
-                        if (demo.useAccount) {
-                          await relayAccount.setGeneration(
-                            maximum.round(),
-                            streaming,
-                          );
-                        } else if (!demo.useBeta) {
-                          final updated = ModelConnection.fromJson({
-                            ...config.toJson(),
-                            'maxOutput': maximum.round(),
-                            'streaming': streaming,
-                          });
-                          await modelSettings.save(
-                            updated,
-                            await modelSettings.keyFor(config.id),
-                          );
+            ListenableBuilder(
+              listenable: demo,
+              builder: (context, _) => DropdownButtonFormField<String>(
+                key: ValueKey('chat-thinking-mode-$thinkingEnabled'),
+                initialValue: thinkingEnabled == null
+                    ? 'default'
+                    : thinkingEnabled!
+                    ? 'enabled'
+                    : 'disabled',
+                decoration: InputDecoration(
+                  labelText: '深度思考',
+                  helperText:
+                      !accountSource &&
+                          !betaSource &&
+                          config?.supportsThinking == true
+                      ? '用于当前模型连接的后续请求'
+                      : '当前连接暂未适配思考开关',
+                  helperMaxLines: 2,
+                ),
+                isExpanded: true,
+                items: const [
+                  DropdownMenuItem(value: 'default', child: Text('跟随服务商')),
+                  DropdownMenuItem(value: 'enabled', child: Text('开启')),
+                  DropdownMenuItem(value: 'disabled', child: Text('关闭')),
+                ],
+                onChanged:
+                    saving ||
+                        demo.streaming ||
+                        accountSource ||
+                        betaSource ||
+                        config?.supportsThinking != true
+                    ? null
+                    : (value) => change(() {
+                        thinkingEnabled = switch (value) {
+                          'enabled' => true,
+                          'disabled' => false,
+                          _ => null,
+                        };
+                      }),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListenableBuilder(
+              listenable: demo,
+              builder: (context, _) => FilledButton(
+                onPressed: saving || demo.streaming || config == null
+                    ? null
+                    : () async {
+                        if (saving || demo.streaming) return;
+                        if (demo.useAccount != accountSource ||
+                            demo.useBeta != betaSource ||
+                            jsonEncode(demo.activeConnection?.toJson()) !=
+                                connectionSnapshot) {
+                          toast(sheet, '模型连接已变化，请重新打开对话参数');
+                          return;
                         }
-                        demo.changed();
-                        if (sheet.mounted) Navigator.pop(sheet);
-                      } catch (_) {
-                        if (sheet.mounted) toast(sheet, '参数未保存，请重试');
-                      }
-                    },
-              child: const Text('保存对话参数'),
+                        change(() => saving = true);
+                        try {
+                          if (demo.useAccount) {
+                            await relayAccount.setGeneration(
+                              maximum.round(),
+                              streaming,
+                            );
+                          } else if (!demo.useBeta) {
+                            await demo.models.setGeneration(
+                              config.id,
+                              maxOutput: maximum.round(),
+                              streaming: streaming,
+                              thinkingEnabled: thinkingEnabled,
+                            );
+                          }
+                          demo.changed();
+                          if (sheet.mounted) Navigator.pop(sheet);
+                        } catch (_) {
+                          if (sheet.mounted) {
+                            change(() => saving = false);
+                            toast(sheet, '参数未保存，请重试');
+                          }
+                        }
+                      },
+                child: const Text('保存对话参数'),
+              ),
             ),
           ],
         ),

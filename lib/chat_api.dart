@@ -48,8 +48,16 @@ class ChatApi {
     ModelConnection config,
     String key,
     List<Map<String, String>> history,
-    String system,
-  ) => ChatSession(_clientFactory(), config, key, history, system);
+    String system, {
+    bool jsonOutput = false,
+  }) => ChatSession(
+    _clientFactory(),
+    config,
+    key,
+    history,
+    system,
+    jsonOutput: jsonOutput,
+  );
 
   Future<List<String>> models(ModelConnection config, String key) async {
     final client = _clientFactory();
@@ -132,17 +140,24 @@ ChatFailure _accountHttpError(int status) => switch (status) {
 };
 
 class ChatSession {
-  ChatSession(this._client, this.config, this._key, this.history, this.system)
-    : _funding = 'relay',
-      _betaHeaders = null,
-      _fixedPath = null;
+  ChatSession(
+    this._client,
+    this.config,
+    this._key,
+    this.history,
+    this.system, {
+    this.jsonOutput = false,
+  }) : _funding = 'relay',
+       _betaHeaders = null,
+       _fixedPath = null;
   ChatSession.beta(
     this._client,
     this.config,
     this.history,
     this.system,
     this._betaHeaders,
-  ) : _funding = 'relay',
+  ) : jsonOutput = false,
+      _funding = 'relay',
       _key = '',
       _fixedPath = config.protocol == ApiProtocol.responses
           ? '/api/app-beta/responses'
@@ -154,7 +169,8 @@ class ChatSession {
     this.system,
     String token, {
     String funding = 'relay',
-  }) : _funding = funding,
+  }) : jsonOutput = false,
+       _funding = funding,
        _key = '',
        _betaHeaders = ((_) async => {'Authorization': 'AppAccount $token'}),
        _fixedPath = config.protocol == ApiProtocol.responses
@@ -167,6 +183,22 @@ class ChatSession {
   final ModelConnection config;
   final String _key, system;
   final List<Map<String, String>> history;
+  final bool jsonOutput;
+
+  bool get _supportsJsonOutput {
+    if (config.protocol != ApiProtocol.chat ||
+        !const {'deepseek-flash', 'deepseek-v4-pro'}.contains(config.model)) {
+      return false;
+    }
+    try {
+      final uri = config.endpoint();
+      return uri.scheme == 'https' &&
+          uri.host.toLowerCase() == 'api.deepseek.com' &&
+          uri.port == 443;
+    } on FormatException {
+      return false;
+    }
+  }
 
   /// Account endpoints retain their existing service budget. Independent
   /// connections use the configured limit without the old assistant-only cap.
@@ -254,6 +286,8 @@ class ChatSession {
         'model': config.model,
         'messages': messages,
         'stream': config.streaming,
+        if (jsonOutput && _supportsJsonOutput)
+          'response_format': {'type': 'json_object'},
         if (config.supportsThinking && config.thinkingEnabled != null)
           'thinking': {
             'type': config.thinkingEnabled! ? 'enabled' : 'disabled',

@@ -9,6 +9,7 @@ import 'open_plugin_network.dart' show PluginApiError;
 import 'tool_submission.dart';
 import 'tool_result_details.dart';
 import 'phone_flow_schema.dart';
+import 'assistant_action_parser.dart';
 
 typedef AssistantModel =
     Future<String> Function(String system, List<Map<String, String>> history);
@@ -828,7 +829,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
         context.add({
           'role': 'user',
           'content':
-              '动作格式校验未通过，这次没有派发动作。改用简短完整 JSON，不要 DSML 或函数标记。空白 Excel 用 coding.workbook.create，避免手写 ZIP/XML；长代码拆分成多个文件操作。call 顶层只有 type/tool/arguments/message 四个字段；message 在顶层，arguments 中只能包含接口参数。确保括号闭合，不重复先前成功的动作。',
+              '动作格式校验未通过，这次没有派发动作。改用一个简短完整 JSON 对象，不附加其他文字或重复字段。空白 Excel 用 coding.workbook.create，避免手写 ZIP/XML；长代码拆分成多个文件操作。call 顶层只有 type/tool/arguments/message 四个字段；message 在顶层，arguments 中只能包含接口参数。确保括号闭合，不重复先前成功的动作。',
         });
         continue;
       }
@@ -1005,27 +1006,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
     }
   }
 
-  static Map<String, dynamic> parse(String raw) {
-    final text = raw
-        .trim()
-        .replaceFirst(RegExp(r'^```(?:json)?\s*'), '')
-        .replaceFirst(RegExp(r'\s*```$'), '');
-
-    final value = jsonDecode(text);
-    if (value is! Map || value['message'] is! String)
-      throw const FormatException('模型没有返回有效动作。');
-    final fields = value['type'] == 'call'
-        ? {'type', 'tool', 'arguments', 'message'}
-        : {'type', 'message'};
-    if (value.keys.toSet().difference(fields).isNotEmpty ||
-        !{'call', 'final'}.contains(value['type']))
-      throw const FormatException('模型动作格式无效。');
-    if (value['type'] == 'call' &&
-        (value['tool'] is! String || value['arguments'] is! Map)) {
-      throw const FormatException('模型工具参数无效。');
-    }
-    return Map.from(value);
-  }
+  static Map<String, dynamic> parse(String raw) => parseAssistantAction(raw);
 
   Map<String, dynamic> get workspaceSnapshot => {
     ...Map<String, dynamic>.from(codingWorkspace)..remove('files'),

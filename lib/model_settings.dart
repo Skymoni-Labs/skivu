@@ -125,20 +125,38 @@ class ModelSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setThinkingEnabled(String id, bool? value) {
+  Future<void> setThinkingEnabled(String id, bool? value) =>
+      setGeneration(id, thinkingEnabled: value);
+
+  Future<void> setGeneration(
+    String id, {
+    int? maxOutput,
+    bool? streaming,
+    required bool? thinkingEnabled,
+  }) {
     _pendingThinkingUpdates++;
     notifyListeners();
     return _mutate(() async {
       final index = connections.indexWhere((c) => c.id == id);
       if (index < 0) throw StateError('模型连接已不存在。');
       final previous = connections[index];
-      if (value != null && !previous.supportsThinking) {
+      if (thinkingEnabled != null &&
+          thinkingEnabled != previous.thinkingEnabled &&
+          !previous.supportsThinking) {
         throw StateError('当前模型连接暂不支持深度思考开关。');
       }
-      if (previous.thinkingEnabled == value) return;
+      if (maxOutput != null && maxOutput < 0) {
+        throw StateError('最大输出 Token 必须为非负整数。');
+      }
+      if (previous.thinkingEnabled == thinkingEnabled &&
+          (maxOutput == null || previous.maxOutput == maxOutput) &&
+          (streaming == null || previous.streaming == streaming))
+        return;
       final profile = ModelConnection.fromJson({
         ...previous.toJson(),
-        'thinkingEnabled': value,
+        'thinkingEnabled': thinkingEnabled,
+        if (maxOutput != null) 'maxOutput': maxOutput,
+        if (streaming != null) 'streaming': streaming,
       });
       final next = connections.toList()..[index] = profile;
       await _write(next, activeId);
