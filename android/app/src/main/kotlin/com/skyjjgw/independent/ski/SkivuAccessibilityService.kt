@@ -23,6 +23,9 @@ class SkivuAccessibilityService : AccessibilityService() {
     private var observedPackage = ""
     private var observedWindow = -1
     private var observedAt = 0L
+    @Volatile internal var visualScrollEpoch = 0L
+        private set
+    internal val vision by lazy { PhoneOcrController(this) }
     private val flowChanges = Object()
     fun awaitFlowChange(milliseconds: Long) { synchronized(flowChanges) { flowChanges.wait(milliseconds.coerceAtLeast(1)) } }
     private data class Proof(val tool:String,val owner:String,val pkg:String,val viewId:String,val text:String,val checked:Boolean,val selected:Boolean,val checkable:Boolean,val originalNodes:Set<String>)
@@ -37,11 +40,13 @@ class SkivuAccessibilityService : AccessibilityService() {
         if (connected === this) connected = null
         overlay?.close();overlay=null
         clearObservation()
+        vision.close()
         super.onDestroy()
     }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if(windows.any{it.id==event?.windowId&&it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY})return
         if(event==null)return
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) visualScrollEpoch++
         synchronized(flowChanges) { flowChanges.notifyAll() }
         if(event.eventType in setOf(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,AccessibilityEvent.TYPE_VIEW_SCROLLED,AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)){
             if(event.packageName?.toString()==observedPackage&&(event.windowId==observedWindow||event.windowId<0))clearObservation()
@@ -59,7 +64,7 @@ class SkivuAccessibilityService : AccessibilityService() {
         observation = ""
     }
 
-    private fun current(allowed: Set<String>): AccessibilityNodeInfo {
+    internal fun current(allowed: Set<String>): AccessibilityNodeInfo {
         require(!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked&&getSystemService(android.os.PowerManager::class.java).isInteractive){"手机已锁屏或屏幕不可操作，请解锁后核对；没有重放动作。"}
         val root = rootInActiveWindow ?: error("当前没有可观察的界面。")
         val target = root.packageName?.toString().orEmpty()
@@ -82,7 +87,7 @@ class SkivuAccessibilityService : AccessibilityService() {
                 }
                 for(i in node.childCount-1 downTo 0)node.getChild(i)?.let{stack.add(it to id)}
                 @Suppress("DEPRECATION") node.recycle()
-            };snapshotRows=rows
+            };val metrics=visualMetrics();snapshotRows=rows.map { it + mapOf("source" to "accessibility", "screenWidth" to metrics.first, "screenHeight" to metrics.second) }
         }
         val query=args["query"] as? String;val rows=if(query.isNullOrBlank())snapshotRows else snapshotRows.filter{listOf(it["text"],it["description"],it["viewId"]).any{v->v.toString().contains(query,true)}}
         val offset=(args["offset"] as? Number)?.toInt()?:0;val limit=(args["pageSize"] as? Number)?.toInt()?:100;require(offset>=0&&limit>0)
@@ -155,8 +160,9 @@ class SkivuAccessibilityService : AccessibilityService() {
         return result
     }
 
-    internal fun flowSnapshot(allowed:Set<String>, pkg:String):PhoneFlow.Snapshot {
-        val observation=observe(allowed.intersect(setOf(pkg)))
+    internal fun flowSnapshot(allowed:Set<String>, pkg:String, prior:Map<String,Any?>?=null):PhoneFlow.Snapshot {
+        val args=if(prior?.get("observationId")==observation && observation.isNotBlank())mapOf("observationId" to observation)else emptyMap()
+        val observation=observe(allowed.intersect(setOf(pkg)),args)
         require(observation["package"]==pkg){"当前页面不属于流程指定的软件，未派发动作。"}
         return PhoneFlow.Snapshot(pkg,observedWindow,snapshotRows.map{it.toMap()},observation)
     }
@@ -203,6 +209,113 @@ class SkivuAccessibilityService : AccessibilityService() {
             else->false
         }
         return mapOf("matched" to matched,"verifiedRequestId" to if(matched)id else null,"package" to snapshot["package"],"observationId" to snapshot["observationId"],"verification" to "fresh_ui_predicate","elements" to snapshot["elements"],"total" to rows.size,"nextOffset" to snapshot["nextOffset"])
+    }
+
+    @Suppress("DEPRECATION")
+    internal fun visualMetrics(): Triple<Int, Int, Int> {
+        val display=getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val metrics=android.util.DisplayMetrics();display.getRealMetrics(metrics)
+        return Triple(metrics.widthPixels,metrics.heightPixels,display.rotation)
+    }
+
+    internal fun assertVisualFrame(frame:PhoneOcrFrame,allowed:Set<String>) {
+        val root=current(allowed)
+        try {
+            require(root.packageName?.toString()==frame.pkg && root.windowId==frame.window) { "识别后软件或窗口已变化，请重新观察。" }
+            val size=visualMetrics()
+            require(size.first==frame.bitmap.width && size.second==frame.bitmap.height && size.third==frame.rotation && visualScrollEpoch==frame.epoch) { "屏幕尺寸、方向或滚动位置已变化，请重新识别。" }
+            require(!frame.forbidden && frame.pkg !in setOf(packageName,"com.android.permissioncontroller","com.google.android.permissioncontroller")) { "此页面不能通过视觉坐标操作。" }
+        } finally { @Suppress("DEPRECATION") root.recycle() }
+    }
+
+    private fun visualPrivacy(allowed:Set<String>):Pair<List<Rect>,Boolean> {
+        val masks=mutableListOf<Rect>();var forbidden=false
+        val root=current(allowed);val windowId=root.windowId
+        val visible=Rect().also{root.getBoundsInScreen(it)};val metrics=visualMetrics()
+        masks.add(Rect(0,0,metrics.first,visible.top.coerceAtLeast(0)))
+        masks.add(Rect(0,visible.bottom.coerceAtMost(metrics.second),metrics.first,metrics.second))
+        masks.add(Rect(0,0,visible.left.coerceAtLeast(0),metrics.second))
+        masks.add(Rect(visible.right.coerceAtMost(metrics.first),0,metrics.first,metrics.second))
+        val active=windows.firstOrNull{it.id==windowId}
+        if(active!=null)windows.filter{it.id!=windowId && it.layer>active.layer}.forEach{w->masks.add(Rect().also{w.getBoundsInScreen(it)})}
+        val stack=java.util.ArrayDeque<AccessibilityNodeInfo>();stack.add(root)
+        try {
+            while(stack.isNotEmpty()) {
+                val node=stack.removeLast()
+                try {
+                    val viewId=node.viewIdResourceName.orEmpty()
+                    if(viewId.contains("accessibility_service_detail")||viewId.contains("permission_allow_button"))forbidden=true
+                    if(node.isPassword)masks.add(Rect().also{node.getBoundsInScreen(it)})
+                    for(i in 0 until node.childCount)node.getChild(i)?.let{stack.add(it)}
+                } finally { @Suppress("DEPRECATION") node.recycle() }
+            }
+        } finally { stack.forEach { @Suppress("DEPRECATION") it.recycle() } }
+        return masks to forbidden
+    }
+
+    /** Raw in-memory pixels for local OCR. No compression, base64, files or model upload. */
+    internal fun captureVision(allowed:Set<String>,check:()->Unit):PhoneOcrFrame {
+        require(android.os.Build.VERSION.SDK_INT>=30) { "本地屏幕识别需要 Android 11 或以上。" }
+        val future=java.util.concurrent.CompletableFuture<PhoneOcrFrame>()
+        val handler=Handler(Looper.getMainLooper());val hidden=java.util.concurrent.atomic.AtomicBoolean(false)
+        fun restore(){if(hidden.compareAndSet(true,false))overlay?.restoreAfterScreenshot()}
+        var attempts=0
+        lateinit var capture:Runnable
+        capture=Runnable {
+            if(future.isDone){restore();return@Runnable}
+            try {
+                check();val root=current(allowed)
+                val pkg=root.packageName.toString();val window=root.windowId
+                @Suppress("DEPRECATION") root.recycle()
+                require(pkg!=packageName) { "不能识别控制器自身页面。" }
+                val size=visualMetrics();val epoch=visualScrollEpoch
+                val privacyBefore=visualPrivacy(allowed)
+                takeScreenshot(android.view.Display.DEFAULT_DISPLAY,mainExecutor,object:TakeScreenshotCallback {
+                    override fun onSuccess(shot:ScreenshotResult) {
+                        var pixels:Bitmap?=null
+                        try {
+                            val hardware=Bitmap.wrapHardwareBuffer(shot.hardwareBuffer,shot.colorSpace)?:error("截图不可读取。")
+                            try { pixels=hardware.copy(Bitmap.Config.ARGB_8888,true) } finally { hardware.recycle() }
+                            val bitmap=pixels?:error("截图不可复制。")
+                            require(bitmap.width==size.first && bitmap.height==size.second) { "截屏坐标与显示尺寸不一致。" }
+                            val privacyAfter=visualPrivacy(allowed)
+                            val masks=privacyBefore.first+privacyAfter.first
+                            val canvas=android.graphics.Canvas(bitmap);val paint=android.graphics.Paint().apply{color=android.graphics.Color.BLACK}
+                            masks.forEach { canvas.drawRect(it,paint) }
+                            val frame=PhoneOcrFrame(bitmap,pkg,window,size.third,epoch,shot.timestamp,privacyBefore.second||privacyAfter.second)
+                            assertVisualFrame(frame,allowed);check()
+                            if(!future.complete(frame))frame.close()
+                            pixels=null
+                        } catch(e:Exception){future.completeExceptionally(e)}
+                        finally { pixels?.recycle();shot.hardwareBuffer.close();restore() }
+                    }
+                    override fun onFailure(errorCode:Int) {
+                        if(errorCode==ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT && attempts++<12 && !future.isDone) handler.postDelayed(capture,120)
+                        else { future.completeExceptionally(IllegalStateException("截图不可用（系统代码 $errorCode），请核对当前页面。"));restore() }
+                    }
+                })
+            } catch(e:Exception){future.completeExceptionally(e);restore()}
+        }
+        handler.post {
+            if(!future.isDone) { overlay?.suspendForScreenshot();hidden.set(true);handler.postDelayed(capture,32) }
+        }
+        return try { visionAwait(future,check) } finally { handler.post { restore() } }
+    }
+
+    internal fun visualGesture(frame:PhoneOcrFrame,box:List<Int>,direction:String?,allowed:Set<String>,beforeDispatch:()->Unit):Boolean {
+        assertVisualFrame(frame,allowed)
+        require(SystemClock.uptimeMillis()-frame.capturedAt<=1000) { "定位画面已过期，请重新识别。" }
+        require(box.size==4 && box[0]>=0 && box[1]>=0 && box[2]<=frame.bitmap.width && box[3]<=frame.bitmap.height && box[2]>box[0] && box[3]>box[1])
+        val x=(box[0]+box[2])/2f;val y=(box[1]+box[3])/2f
+        val path=Path().apply {
+            if(direction==null) moveTo(x,y)
+            else {
+                val distance=minOf(frame.bitmap.height*.25f,500f)
+                when(direction){"up","forward"->{moveTo(x,(y+distance/2).coerceAtMost(frame.bitmap.height-2f));lineTo(x,(y-distance/2).coerceAtLeast(1f))};"down","backward"->{moveTo(x,(y-distance/2).coerceAtLeast(1f));lineTo(x,(y+distance/2).coerceAtMost(frame.bitmap.height-2f))};"left"->{moveTo((x+distance/2).coerceAtMost(frame.bitmap.width-2f),y);lineTo((x-distance/2).coerceAtLeast(1f),y)};"right"->{moveTo((x-distance/2).coerceAtLeast(1f),y);lineTo((x+distance/2).coerceAtMost(frame.bitmap.width-2f),y)};else->error("视觉滑动方向无效。")}
+            }
+        }
+        beforeDispatch()
+        return dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path,0,if(direction==null)50 else 300)).build(),null,null)
     }
 
     fun screenshot(allowed:Set<String>,args:Map<String,Any?> = emptyMap()):Map<String,Any?>{

@@ -110,6 +110,7 @@ void main() {
         'shell': false,
         'allApplications': false,
         'packages': ['com.test.sms', 'com.test.not_installed'],
+        'recognitionMode': 'visual',
       };
       final writes = <Map<String, dynamic>>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -164,6 +165,7 @@ void main() {
         'control': false,
         'shell': false,
         'allApplications': false,
+        'recognitionMode': 'visual',
         'packages': [
           'com.test.sms',
           'com.test.not_installed',

@@ -13,6 +13,7 @@ void validatePluginSchema(Object? raw, {int depth = 0}) {
           'enum',
           'maxLength',
           'maxItems',
+          'minItems',
           'minimum',
           'maximum',
           'description',
@@ -36,10 +37,14 @@ void validatePluginSchema(Object? raw, {int depth = 0}) {
           (raw['enum'] as List).isEmpty ||
           (raw['enum'] as List).any((v) => v is Map || v is List)))
     throw const FormatException('参数枚举不正确。');
-  for (final key in ['maxLength', 'maxItems']) {
+  for (final key in ['maxLength', 'maxItems', 'minItems']) {
     if (raw[key] != null && (raw[key] is! int || raw[key] < 0))
       throw const FormatException('参数上限不正确。');
   }
+  if (raw['minItems'] is int &&
+      raw['maxItems'] is int &&
+      raw['minItems'] > raw['maxItems'])
+    throw const FormatException('数组长度范围无效。');
   for (final key in ['minimum', 'maximum']) {
     if (raw[key] != null && (raw[key] is! num || !(raw[key] as num).isFinite))
       throw const FormatException('数值边界无效。');
@@ -90,6 +95,8 @@ void validatePluginArguments(Object? value, Map schema, {int depth = 0}) {
           (schema['maximum'] is num && value > schema['maximum'])))
     throw const FormatException('数值超出接口声明的有效范围。');
   if (value is List) {
+    if (schema['minItems'] is int && value.length < schema['minItems'])
+      throw const FormatException('工具数组元素不足。');
     if (schema['maxItems'] is int && value.length > schema['maxItems'])
       throw const FormatException('工具数组过长。');
     for (final item in value)

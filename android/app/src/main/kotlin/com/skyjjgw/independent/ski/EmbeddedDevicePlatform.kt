@@ -273,12 +273,14 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         "shellConnected" to (backend["connected"] == true), "shellUid" to backend["uid"],
         "shellStatusSource" to if (probeBackend) "probe" else "execution_snapshot",
         "shellPaired" to adb.isPaired(),
-        "packages" to prefs.getStringSet("packages",emptySet()).orEmpty().toList(),"allApplications" to prefs.getBoolean("allApplications",false)
+        "packages" to prefs.getStringSet("packages",emptySet()).orEmpty().toList(),"allApplications" to prefs.getBoolean("allApplications",false),
+        "recognitionMode" to prefs.getString("recognitionMode","auto"),"localOcr" to (Build.VERSION.SDK_INT>=30)
         )
     }
 
     private fun configure(p: Map<String, Any?>): Map<String, Any?> {
-        require(p.keys.containsAll(setOf("enabled", "system", "control", "shell", "packages"))&&p.keys.all{it in setOf("enabled", "system", "control", "shell", "packages","allApplications")})
+        require(p.keys.containsAll(setOf("enabled", "system", "control", "shell", "packages"))&&p.keys.all{it in setOf("enabled", "system", "control", "shell", "packages","allApplications","recognitionMode")})
+        if(p.containsKey("recognitionMode"))PhoneVision.mode(p["recognitionMode"])
         for (key in listOf("enabled", "system", "control", "shell")) require(p[key] is Boolean)
         val apps = (p["packages"] as? List<*>)?.map {
             require(it is String && Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$").matches(it))
@@ -288,6 +290,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
             for (key in listOf("enabled", "system", "control", "shell")) putBoolean(key, p[key] as Boolean)
             putStringSet("packages", apps)
             if(p["allApplications"] is Boolean)putBoolean("allApplications",p["allApplications"] as Boolean)
+            if(p.containsKey("recognitionMode"))putString("recognitionMode",p["recognitionMode"] as String)
         }.commit()) { "授权设置没有保存。" }
         if (p["enabled"] != true || p["shell"] != true) {
             ui { activity.stopService(Intent(activity, EmbeddedPairingService::class.java)) }
@@ -376,8 +379,16 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         var actionAttempted = false
         fun beforeAction() {
             leaseCheck();check(key !in cancelledRequests) { "此设备调用已撤销。" }
+            if(!enabled("enabled") || (permission!="observe" && !enabled(permission)))throw PhoneFlow.Blocked("permission_required","这项手机操作的授权已关闭，未派发动作。")
             actionAttempted = true
         }
+        fun checkObservation() {
+            leaseCheck();check(key !in cancelledRequests){"此设备调用已撤销。"}
+            if(!enabled("enabled") || (writing && permission!="observe" && !enabled(permission)))throw PhoneFlow.Blocked("permission_required","手机操控授权已关闭。")
+            val service=SkivuAccessibilityService.connected?:error("无障碍服务未连接。")
+            ui { val root=service.current(packages());@Suppress("DEPRECATION") root.recycle() }
+        }
+        val recognitionMode=PhoneVision.mode(args["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
         val answer = try {
             when (tool) {
                 "apps.list" -> {
@@ -395,17 +406,17 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 "ui.observe" -> {
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
-                    else receipt("verified", "已观察授权软件当前界面。", ui { service.observe(packages(),args) })
+                    else receipt("verified", "已观察授权软件当前界面。", service.vision.observe(packages(),args,recognitionMode,owner,::checkObservation))
                 }
                 "ui.wait"->{
                     require(args.keys.all{it in setOf("milliseconds")});val duration=(args["milliseconds"] as? Number)?.toLong()?:500;require(duration in 100..10000)
                     val until=android.os.SystemClock.uptimeMillis()+duration
                     while(android.os.SystemClock.uptimeMillis()<until){check(key !in cancelledRequests);Thread.sleep(minOf(100,until-android.os.SystemClock.uptimeMillis()).coerceAtLeast(1))}
                     val service=SkivuAccessibilityService.connected
-                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已等待并重新观察。",ui{service.observe(packages(),args)})
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已等待并重新观察。",service.vision.observe(packages(),emptyMap(),recognitionMode,owner,::checkObservation))
                 }
                 "ui.verify"->{val service=SkivuAccessibilityService.connected
-                    if(service==null)receipt("permission_required","无障碍服务未连接。")else {val proof=ui{service.verify(args,packages(),owner)};receipt(if(proof["matched"]==true)"verified" else "unknown",if(proof["matched"]==true)"已依据新观察核对原动作。" else "未满足明确核对条件；不会重复原动作。",proof)}
+                    if(service==null)receipt("permission_required","无障碍服务未连接。")else {val proof=if(service.vision.hasProof(args["requestId"].toString(),owner))service.vision.verify(args,packages(),owner,recognitionMode,::checkObservation)else ui{service.verify(args,packages(),owner)};receipt(if(proof["matched"]==true)"verified" else "unknown",if(proof["matched"]==true)"已依据新观察核对原动作。" else "未满足明确核对条件；不会重复原动作。",proof)}
                 }
                 "ui.screenshot"->{val service=SkivuAccessibilityService.connected
                     if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已取得授权页面实际截图；图片能否理解取决于当前模型真实视觉能力。",service.screenshot(packages(),args))}
@@ -416,7 +427,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
                     else {
-                        val accepted = ui { service.act(tool, args, packages(), ::beforeAction,id,owner) }
+                        val accepted = if((args["observationId"] as? String)?.startsWith("ocr:")==true)service.vision.act(tool,args,packages(),owner,id,recognitionMode,::checkObservation,::beforeAction)else ui { service.act(tool, args, packages(), ::beforeAction,id,owner) }
                         receipt(if (accepted) "dispatched" else "failed",
                             if (accepted) "系统已接受动作，请重新观察核对结果。" else "控件未接受动作。")
                     }
@@ -503,7 +514,8 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 else -> error("设备工具不存在。")
             }
         } catch (e: Exception) {
-            receipt(if (actionAttempted) "unknown" else "failed", e.message?.take(300) ?: "设备操作未完成。")
+            val cause=(e as? java.util.concurrent.ExecutionException)?.cause as? Exception?:e
+            receipt(if (actionAttempted) "unknown" else (cause as? PhoneFlow.Blocked)?.outcome?:"failed", cause.message?.take(300) ?: "设备操作未完成。")
         }
         if (writing) {
             if(tool in setOf("ui.flow","ui.flow.resume")) {
@@ -546,6 +558,10 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         val rootKey=digest("$owner:$root")
         val rootFingerprint=if(root==id)fingerprint else receipts.read(rootKey)?.getString("fingerprint")?:error("流程原记录丢失。")
         val backend=object:PhoneFlow.Backend {
+            private var stepContext=emptyMap<String,Any?>()
+            private var waitingAt:Long?=null
+            override fun prepare(step:Map<String,Any?>){stepContext=step;waitingAt=null}
+            override fun awaitingResult(){if(waitingAt==null)waitingAt=now()}
             override fun check() {
                 if(closed.get()||epoch!=cancellationEpoch.get()||key in cancelledRequests)throw PhoneFlow.Blocked("cancelled","本地流程已停止；已派发步骤保留待核对。")
                 leaseCheck()
@@ -554,14 +570,18 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 if(SkivuAccessibilityService.connected==null)throw PhoneFlow.Blocked("permission_required","无障碍服务未连接。")
             }
             override fun now()=android.os.SystemClock.uptimeMillis()
-            override fun snapshot(pkg:String):PhoneFlow.Snapshot=ui {
-                check();SkivuAccessibilityService.connected!!.flowSnapshot(packages(),pkg)
+            override fun snapshot(pkg:String):PhoneFlow.Snapshot {
+                check()
+                val mode=PhoneVision.mode(plan["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
+                return SkivuAccessibilityService.connected!!.vision.snapshot(packages(),pkg,mode,owner,::check,stepContext,waitingAt==null,waitingAt==null||now()-waitingAt!!>=500)
             }
             override fun perform(step:Map<String,Any?>,pkg:String,requestId:String):PhoneFlow.Dispatch {
                 var dispatched=false
-                try { return ui {
-                    check();SkivuAccessibilityService.connected!!.flowPerform(step,pkg,packages(),{check();beforeAction();dispatched=true},"flow_${digest("$owner:$requestId")}",owner)
-                } } catch(error:Exception) {
+                try {
+                    check()
+                    val mode=PhoneVision.mode(plan["recognitionMode"],prefs.getString("recognitionMode","auto")?:"auto")
+                    return SkivuAccessibilityService.connected!!.vision.perform(step,pkg,packages(),mode,owner,"flow_${digest("$owner:$requestId")}",::check,before={check();beforeAction();dispatched=true})
+                } catch(error:Exception) {
                     val cause=(error as? java.util.concurrent.ExecutionException)?.cause as? Exception?:error
                     if(!dispatched)throw PhoneFlow.NotDispatched(cause)
                     throw cause

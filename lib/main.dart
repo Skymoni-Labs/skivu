@@ -112,6 +112,9 @@ Future<void> main() async {
     yield LicenseEntryWithLineBreaks([
       'Skymoni Liquid Glass optical model',
     ], await rootBundle.loadString('licenses/SkymoniLiquidGlass-MIT.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'Google ML Kit · 本地中文文字识别使用条款',
+    ], await rootBundle.loadString('licenses/MLKit-NOTICE.txt'));
   });
   final artworkFuture = LaunchArtwork.load();
   await Future.wait([

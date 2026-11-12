@@ -93,6 +93,7 @@ class DeviceEngine {
     required bool shell,
     required List<String> packages,
     bool? allApplications,
+    String? recognitionMode,
   }) => _transport('configure', {
     'enabled': enabled,
     'system': system,
@@ -100,6 +101,7 @@ class DeviceEngine {
     'shell': shell,
     'packages': packages,
     if (allApplications != null) 'allApplications': allApplications,
+    if (recognitionMode != null) 'recognitionMode': recognitionMode,
   });
 
   Future<Map<String, dynamic>> openAuthorization(String page) =>

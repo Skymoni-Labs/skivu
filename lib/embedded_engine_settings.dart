@@ -82,6 +82,7 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
         shell: next['shell'] == true,
         packages: List<String>.from(next['packages'] as List? ?? []),
         allApplications: next['allApplications'] == true,
+        recognitionMode: next['recognitionMode'] as String? ?? 'auto',
       );
       if (mounted) setState(() => state = result);
       saved = true;
@@ -202,6 +203,44 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
               '修改系统设置',
               'writeSettings',
               state['writeSettings'] == true,
+            ),
+          ],
+        ),
+        ProductSection(
+          title: '屏幕识别',
+          subtitle: '文字在手机上识别，操作后继续核对实际结果。',
+          icon: Icons.document_scanner_outlined,
+          children: [
+            Wrap(
+              key: const ValueKey('engine-recognition-mode'),
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in const {
+                  'auto': '自动选择',
+                  'visual': '视觉优先',
+                }.entries)
+                  ChoiceChip(
+                    label: Text(entry.value),
+                    selected:
+                        (state['recognitionMode'] == 'visual'
+                            ? 'visual'
+                            : 'auto') ==
+                        entry.key,
+                    onSelected: busy || state['localOcr'] == false
+                        ? null
+                        : (_) => update('recognitionMode', entry.key),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              state['localOcr'] == false
+                  ? '当前系统使用控件操作；屏幕文字识别需要 Android 11 或以上。'
+                  : state['recognitionMode'] == 'visual'
+                  ? '直接识别屏幕文字并定位，适合控件不完整的页面。'
+                  : '优先操作控件，找不到目标时补充屏幕文字识别。',
+              style: const TextStyle(fontSize: 13, height: 1.5),
             ),
           ],
         ),

@@ -1,0 +1,15 @@
+Google ML Kit Text Recognition v2 — Chinese
+
+Android dependency: com.google.mlkit:text-recognition-chinese:16.0.1
+The recognition model is bundled with the Android application for on-device use.
+
+ML Kit SDK and models are subject to Google's ML Kit and Google APIs terms;
+they are not relicensed by this application's source-code license.
+Terms and privacy: https://developers.google.com/ml-kit/terms
+API documentation: https://developers.google.com/ml-kit/vision/text-recognition/v2/android
+
+ML Kit processes its input images and recognition results on the device.
+Google documents that the SDK may contact its servers and send performance
+and utilization metrics. See the terms and privacy page above for details.
+Skivu's local OCR path does not upload screenshots to a conversation model.
+Recognized text may be included in the authorized conversation's tool results.

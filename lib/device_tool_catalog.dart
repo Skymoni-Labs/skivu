@@ -100,13 +100,24 @@ final builtinDeviceTools = <DeviceToolDefinition>[
   ),
   DeviceToolDefinition(
     id: 'ui.observe',
-    description: '观察当前获准软件的真实控件，返回本轮 observationId 和控件 ID。',
+    description:
+        '观察授权软件的真实控件和本地OCR文字位置，返回本轮 observationId 与目标ID。可选视觉优先；识别文字不代表控件可点击、可编辑或已选中。',
     permission: 'device.observe',
     parameters: _object({
       'observationId': _text(100),
       'offset': {'type': 'integer'},
       'pageSize': {'type': 'integer'},
       'query': _text(1000),
+      'recognitionMode': {
+        'type': 'string',
+        'enum': ['auto', 'visual', 'controls'],
+      },
+      'region': {
+        'type': 'array',
+        'minItems': 4,
+        'maxItems': 4,
+        'items': {'type': 'number', 'minimum': 0, 'maximum': 1},
+      },
     }),
   ),
   DeviceToolDefinition(

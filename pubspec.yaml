@@ -64,6 +64,7 @@ flutter:
     - licenses/RobotoMono-OFL.txt
     - licenses/SkymoniLiquidGlass-MIT.txt
     - licenses/Shizuku-Apache-2.0.txt
+    - licenses/MLKit-NOTICE.txt
   fonts:
     - family: SkiSans
       fonts:

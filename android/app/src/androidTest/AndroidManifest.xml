@@ -8,5 +8,7 @@
         </provider>
         <activity android:name="com.skyjjgw.independent.ski.CloudFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="com.skyjjgw.independent.ski.PhoneFlowFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="com.skyjjgw.independent.ski.PhoneOcrFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <receiver android:name="com.skyjjgw.independent.ski.PhoneOcrFixtureReceiver" android:exported="true" />
     </application>
 </manifest>

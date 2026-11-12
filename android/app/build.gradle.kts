@@ -79,6 +79,8 @@ flutter {
 dependencies { implementation(project(":skymoni_glass")) }
 dependencies { implementation(project(":embedded_adb")) }
 dependencies {
+    // Bundle the Chinese recognizer: offline inference, including first use.
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     testImplementation("junit:junit:4.12")
     // 2.11.2 includes Android 15+ blocked-background-network tracking fixes.
     implementation("androidx.work:work-runtime:2.11.2")

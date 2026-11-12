@@ -8,6 +8,8 @@ internal object PhoneFlow {
     data class Snapshot(val pkg: String, val window: Int, val rows: List<Map<String, Any?>>, val observation: Map<String, Any?>)
     data class Dispatch(val accepted: Boolean, val dispatched: Boolean)
     interface Backend {
+        fun prepare(step: Map<String, Any?>) {}
+        fun awaitingResult() {}
         fun check()
         fun now(): Long
         fun snapshot(pkg: String): Snapshot
@@ -17,7 +19,7 @@ internal object PhoneFlow {
     }
     data class Result(val outcome: String, val summary: String, val value: Map<String, Any?>)
 
-    private val selectorKeys = setOf("text", "textContains", "description", "descriptionContains", "viewId", "className", "clickable", "editable", "scrollable", "checked", "selected", "enabled", "within")
+    private val selectorKeys = setOf("text", "textContains", "description", "descriptionContains", "viewId", "className", "clickable", "editable", "scrollable", "checked", "selected", "enabled", "within", "source", "region")
     private val booleanKeys = setOf("clickable", "editable", "scrollable", "checked", "selected", "enabled")
     private val actions = setOf("tap", "input", "scroll", "swipe", "back", "wait")
     @Suppress("UNCHECKED_CAST")
@@ -31,6 +33,8 @@ internal object PhoneFlow {
         require(selector.isNotEmpty() && selector.keys.all { it in selectorKeys }) { "控件选择条件无效。" }
         require(selector.keys.any { it != "within" }) { "请选择具体控件。" }
         for ((key, value) in selector) when {
+            key == "source" -> require(value in setOf("ocr", "accessibility")) { "识别来源无效。" }
+            key == "region" -> PhoneVision.region(value)
             key == "within" -> validateSelector(map(value, "within"))
             key in booleanKeys -> require(value is Boolean) { "$key 必须是布尔值。" }
             else -> require(value is String && value.isNotBlank()) { "$key 不能为空。" }
@@ -58,7 +62,8 @@ internal object PhoneFlow {
         }
     }
     fun validate(plan: Map<String, Any?>): List<Map<String, Any?>> {
-        require(plan.keys.all { it in setOf("package", "steps") }) { "本地流程参数含未知字段。" }
+        require(plan.keys.all { it in setOf("package", "steps", "recognitionMode") }) { "本地流程参数含未知字段。" }
+        PhoneVision.mode(plan["recognitionMode"])
         require(plan["package"] is String && Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$").matches(plan["package"] as String)) { "请选择流程软件包名。" }
         val raw = plan["steps"] as? List<*> ?: error("缺少流程步骤。")
         require(raw.isNotEmpty()) { "流程步骤不能为空。" }
@@ -91,6 +96,13 @@ internal object PhoneFlow {
         for ((key, expected) in selector) {
             val actual = row[if (key == "className") "class" else key]
             when (key) {
+                "text" -> if (if(row["source"]=="ocr")PhoneVision.ocrText(actual)!=PhoneVision.ocrText(expected)else actual!=expected)return false
+                "source" -> if ((row["source"] ?: "accessibility") != expected) return false
+                "region" -> {
+                    val width = (row["screenWidth"] as? Number)?.toInt() ?: return false
+                    val height = (row["screenHeight"] as? Number)?.toInt() ?: return false
+                    if (!PhoneVision.inRegion(row, PhoneVision.region(expected)!!, width, height)) return false
+                }
                 "within" -> {
                     val ancestor = map(expected, "within")
                     var parent = row["parentId"] as? String
@@ -103,7 +115,7 @@ internal object PhoneFlow {
                     }
                     if (!found) return false
                 }
-                "textContains" -> if (!(row["text"] as? String).orEmpty().contains(expected as String)) return false
+                "textContains" -> if (row["source"]=="ocr") { if(!PhoneVision.ocrText(row["text"]).contains(PhoneVision.ocrText(expected)))return false } else if (!(row["text"] as? String).orEmpty().contains(expected as String)) return false
                 "descriptionContains" -> if (!(row["description"] as? String).orEmpty().contains(expected as String)) return false
                 else -> if (actual != expected) return false
             }
@@ -122,7 +134,9 @@ internal object PhoneFlow {
         val included = roots.mapNotNull { it["id"] as? String }.toMutableSet()
         var grew: Boolean
         do { grew = false; for (row in snapshot.rows) if (row["parentId"] in included && included.add(row["id"] as String)) grew = true } while (grew)
-        return listOf(snapshot.pkg, snapshot.window, snapshot.rows.filter { it["id"] in included }.map { row ->
+        val selected=snapshot.rows.filter { it["id"] in included }
+        if(selected.any{it["source"]=="ocr"})return mapOf("unsupportedOcrChange" to true)
+        return listOf(snapshot.pkg, snapshot.window, selected.map { row ->
             listOf("viewId", "class", "text", "description", "checked", "selected", "editable", "enabled").map { row[it] }
         })
     }
@@ -142,12 +156,17 @@ internal object PhoneFlow {
             return if (kind == "all") values.all { it } else values.any { it }
         }
         val selector = condition["selector"]?.let { map(it, "selector") }
-        if (kind == "changed") return before != null && signature(snapshot, selector) != before
+        if (kind == "changed") {
+            val after=signature(snapshot,selector)
+            require((before as? Map<*,*>)?.get("unsupportedOcrChange")!=true && (after as? Map<*,*>)?.get("unsupportedOcrChange")!=true){"OCR文字不能以笼统画面变化核验，请明确核对目标文字出现、消失或内容。"}
+            return before != null && after != before
+        }
         val found = targets(snapshot, selector!!)
         return when (kind) {
             "exists" -> found.isNotEmpty()
             "absent" -> found.isEmpty()
-            "checked", "selected", "text" -> found.size == 1 && found.single()[kind] == condition[kind]
+            "text" -> found.size == 1 && if(found.single()["source"]=="ocr")PhoneVision.ocrText(found.single()["text"])==PhoneVision.ocrText(condition["text"])else found.single()["text"]==condition["text"]
+            "checked", "selected" -> found.size == 1 && found.single()[kind] == condition[kind]
             else -> false
         }
     }
@@ -191,8 +210,10 @@ internal object PhoneFlow {
             val previous = record["state"]
             val inFlight = previous in setOf("in_flight", "waiting", "unknown")
             try {
+                backend.prepare(step)
                 backend.check()
                 val expect = map(step["expect"], "expect")
+                if(inFlight)backend.awaitingResult()
                 var observed = snapshot()
                 val before = if (inFlight) record["before"] else evidence(observed, expect)
                 val whenCondition = step["when"]?.let { map(it, "when") }
@@ -217,6 +238,7 @@ internal object PhoneFlow {
                 }
                 record["dispatchMs"] = previousDispatch + backend.now() - stepStarted
                 record["state"] = "waiting"
+                backend.awaitingResult()
                 save(state("running", "正在本地核对结果。", index))
                 val timeout = number(step["timeoutMs"])
                 val stable = number(step["stableMs"], 100)
