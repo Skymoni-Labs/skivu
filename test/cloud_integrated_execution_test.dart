@@ -453,6 +453,7 @@ void main() {
       {
         'id': 'a',
         'text': 'A. −2',
+        'checkable': true,
         'class': multiple
             ? 'android.widget.CheckBox'
             : 'android.widget.RadioButton',
@@ -461,6 +462,7 @@ void main() {
       {
         'id': 'b',
         'text': 'B. 2',
+        'checkable': true,
         'class': multiple
             ? 'android.widget.CheckBox'
             : 'android.widget.RadioButton',
@@ -469,6 +471,7 @@ void main() {
       {
         'id': 'c',
         'text': 'C. 3',
+        'checkable': true,
         'class': multiple
             ? 'android.widget.CheckBox'
             : 'android.widget.RadioButton',

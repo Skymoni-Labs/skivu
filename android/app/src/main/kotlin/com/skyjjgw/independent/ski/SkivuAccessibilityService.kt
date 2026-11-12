@@ -176,18 +176,20 @@ class SkivuAccessibilityService : AccessibilityService() {
         val snapshot=flowSnapshot(allowed,pkg)
         step["when"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"when"))){"页面分支条件已变化，未派发动作。"}}
         step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"页面前置条件已变化，未派发动作。"}}
-        if(PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
+        if(PhoneFlow.shouldSkip(snapshot,step))return PhoneFlow.Dispatch(true,false)
         val action=step["action"] as String
         val arguments=mutableMapOf<String,Any?>()
         if(action!="back") {
             val target=PhoneFlow.unique(snapshot,PhoneFlow.map(step["selector"],"selector"))
             require(target["enabled"]!=false){"目标控件当前不可操作，未派发动作。"}
+            if(action=="set_checked")require(PhoneFlow.checkedState(snapshot,target)!=null){"无法确认此目标的真实选中状态，未派发动作。"}
             arguments["observationId"]=snapshot.observation["observationId"];arguments["elementId"]=target["id"]
             if(action=="input")arguments["text"]=step["text"]
             if(action in setOf("scroll","swipe"))arguments["direction"]=step["direction"]
         }
         var dispatched=false
-        val accepted=act("ui.$action",arguments,allowed,{beforeDispatch();dispatched=true},requestId,owner,true)
+        val tool=if(action=="set_checked")"ui.tap"else "ui.$action"
+        val accepted=act(tool,arguments,allowed,{beforeDispatch();dispatched=true},requestId,owner,true)
         return PhoneFlow.Dispatch(accepted,dispatched)
     }
 

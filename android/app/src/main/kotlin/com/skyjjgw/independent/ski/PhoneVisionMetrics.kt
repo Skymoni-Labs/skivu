@@ -11,6 +11,8 @@ internal class PhoneVisionMetrics {
         "ocrCount" to 0L,
         "ocrCacheHitCount" to 0L,
         "ocrMs" to 0L,
+        "visualStateCount" to 0L,
+        "visualStateMs" to 0L,
         "reusedObservationCount" to 0L,
         "preDispatchRefreshCount" to 0L,
         "waitMs" to 0L,
@@ -33,6 +35,11 @@ internal class PhoneVisionMetrics {
     @Synchronized fun recordOcr(elapsedMs: Long, cacheHit: Boolean) {
         add(if (cacheHit) "ocrCacheHitCount" else "ocrCount", 1)
         add("ocrMs", elapsedMs)
+    }
+
+    @Synchronized fun recordVisualState(elapsedMs: Long) {
+        add("visualStateCount", 1)
+        add("visualStateMs", elapsedMs)
     }
 
     @Synchronized fun recordReuse() = add("reusedObservationCount", 1)

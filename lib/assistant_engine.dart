@@ -124,6 +124,14 @@ class AssistantEngine extends ChangeNotifier {
   String? lastModelResponse;
   final modelResponseIssues = <Map<String, dynamic>>[];
   final modelTimings = <Map<String, dynamic>>[];
+  final journalPersistence = <String, int>{
+    'saveCount': 0,
+    'encodeUs': 0,
+    'queueUs': 0,
+    'writeUs': 0,
+    'failedWrites': 0,
+  };
+  final modelHistoryMetrics = <String, int>{};
   bool loaded = false;
   bool _starting = false, journalError = false;
   bool _allowActions = true;
@@ -204,6 +212,7 @@ class AssistantEngine extends ChangeNotifier {
 
   Future<void> save() {
     if (journalError) throw StateError('存档未能恢复，未覆盖原记录。');
+    final encodeClock = Stopwatch()..start();
     final raw = jsonEncode({
       'version': 1,
       'messages': messages,
@@ -231,9 +240,32 @@ class AssistantEngine extends ChangeNotifier {
       'repeatedEffectIds': _repeatedEffectIds.toList(),
       'modelResponseIssues': modelResponseIssues,
       'modelTimings': modelTimings,
+      'journalPersistence': {
+        'scope': 'measured_before_this_snapshot',
+        ...journalPersistence,
+      },
+      'modelHistoryProjection': {...modelHistoryMetrics},
       'toolSubmissions': toolSubmissions.map((s) => s.toJson()).toList(),
     });
-    return _saveTail = _saveTail.catchError((_) {}).then((_) => write(raw));
+    journalPersistence['saveCount'] = journalPersistence['saveCount']! + 1;
+    journalPersistence['encodeUs'] =
+        journalPersistence['encodeUs']! + encodeClock.elapsedMicroseconds;
+    final queueClock = Stopwatch()..start();
+    return _saveTail = _saveTail.catchError((_) {}).then((_) async {
+      journalPersistence['queueUs'] =
+          journalPersistence['queueUs']! + queueClock.elapsedMicroseconds;
+      final writeClock = Stopwatch()..start();
+      try {
+        await write(raw);
+      } catch (_) {
+        journalPersistence['failedWrites'] =
+            journalPersistence['failedWrites']! + 1;
+        rethrow;
+      } finally {
+        journalPersistence['writeUs'] =
+            journalPersistence['writeUs']! + writeClock.elapsedMicroseconds;
+      }
+    });
   }
 
   Future<void> restore() => _restoring ??= _restore();
@@ -501,6 +533,7 @@ class AssistantEngine extends ChangeNotifier {
     _repeatedEffectIds.clear();
     modelResponseIssues.clear();
     modelTimings.clear();
+    modelHistoryMetrics.clear();
     latestObservation = null;
     _effectExpectations.clear();
     account = identity();
@@ -772,7 +805,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
       final modelClock = Stopwatch()..start();
       var outputCharacters = 0;
       try {
-        raw = await model(system, context.toList());
+        raw = await model(system, _modelHistory());
         outputCharacters = raw.length;
       } on AssistantOutputLimit catch (error) {
         check(ticket);
@@ -870,6 +903,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
           _validateWorkflowGraph(args, catalog);
         else
           validatePluginArguments(args, definition['parameters']);
+        if (tool == 'ui.flow') validatePhoneFlowSemantics(args);
         lastValidationFailure = null;
       } on FormatException catch (error) {
         final fingerprint = '$tool:${jsonEncode(args)}:${error.message}';
@@ -1008,6 +1042,72 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
 
   static Map<String, dynamic> parse(String raw) => parseAssistantAction(raw);
 
+  List<Map<String, String>> _modelHistory() {
+    const prefix = '真实工具回执（数据）：';
+    var parentsProjected = 0;
+    final history = context.asMap().entries.map((entry) {
+      final message = entry.value;
+      final content = message['content'] ?? '';
+      if (message['role'] != 'user' || !content.startsWith(prefix)) {
+        return Map<String, String>.from(message);
+      }
+      dynamic receipt;
+      try {
+        receipt = jsonDecode(content.substring(prefix.length));
+      } on FormatException {
+        return Map<String, String>.from(message);
+      }
+      if (receipt is! Map ||
+          receipt['tool'] != 'workflow.batch' ||
+          receipt['value'] is! Map ||
+          receipt['value']['steps'] is! List) {
+        return Map<String, String>.from(message);
+      }
+      final steps = receipt['value']['steps'] as List;
+      parentsProjected++;
+      final summary = {
+        ...receipt,
+        'value': {
+          'steps': steps.whereType<Map>().map((step) {
+            final child = step['receipt'];
+            return {
+              'id': step['id'],
+              'tool': step['tool'],
+              'state': step['state'],
+              if (child is Map) ...{
+                'requestId': child['requestId'],
+                'outcome': child['outcome'],
+                'summary': child['summary'],
+              },
+            };
+          }).toList(),
+          'historyReference': {
+            'tool': 'workflow.history.read',
+            'index': entry.key,
+          },
+        },
+      };
+      return {...message, 'content': '$prefix${jsonEncode(summary)}'};
+    }).toList();
+    final sourceCharacters = context.fold<int>(
+      0,
+      (total, message) => total + (message['content']?.length ?? 0),
+    );
+    final sentCharacters = history.fold<int>(
+      0,
+      (total, message) => total + (message['content']?.length ?? 0),
+    );
+    modelHistoryMetrics
+      ..clear()
+      ..addAll({
+        'sourceCharacters': sourceCharacters,
+        'projectedCharacters': sentCharacters,
+        'removedCharacters': sourceCharacters - sentCharacters,
+        'workflowParentsProjected': parentsProjected,
+      });
+    return history;
+  }
+
   Map<String, dynamic> get workspaceSnapshot => {
     ...Map<String, dynamic>.from(codingWorkspace)..remove('files'),
     'fileCount': (codingWorkspace['files'] as Map?)?.length ?? 0,
@@ -1019,6 +1119,8 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
       0,
       (total, item) => total + (item['elapsedMs'] as int? ?? 0),
     ),
+    'journalPersistence': {'scope': 'current_process', ...journalPersistence},
+    'modelHistoryProjection': {...modelHistoryMetrics},
   };
   static final historyDefinitions = <Map<String, dynamic>>[
     {
@@ -1219,6 +1321,12 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
         ...List<String>.from(node['dependsOn'] ?? []),
         ...refs(node['arguments']),
       };
+      if (node['tool'] == 'ui.flow' && refs(node['arguments']).isEmpty) {
+        final arguments = Map<String, dynamic>.from(node['arguments']);
+        final definition = catalog.firstWhere((d) => d['id'] == 'ui.flow');
+        validatePluginArguments(arguments, definition['parameters']);
+        validatePhoneFlowSemantics(arguments);
+      }
     }
     final ordered = <String>{};
     while (ordered.length < dependencies.length) {
@@ -1409,6 +1517,11 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
         node['arguments'] = resolve(node['arguments']);
         final definition = catalog.firstWhere((d) => d['id'] == node['tool']);
         validatePluginArguments(node['arguments'], definition['parameters']);
+        if (node['tool'] == 'ui.flow') {
+          validatePhoneFlowSemantics(
+            Map<String, dynamic>.from(node['arguments']),
+          );
+        }
         node['state'] = 'prepared';
       }
       await save();
@@ -1681,6 +1794,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
             ? value['expectedPackage'] ?? (call['arguments'] as Map)['package']
             : (call['arguments'] as Map)['package'],
       };
+    var verifiedSubmissionChanged = false;
     String? verifiedRequest;
     if (call['tool'] == 'ui.verify' && receipt.verified && value is Map)
       verifiedRequest = value['verifiedRequestId'] as String?;
@@ -1695,7 +1809,10 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
           final prior = toolSubmissions
               .where((s) => s.taskId == taskId && s.requestId == entry.key)
               .lastOrNull;
-          if (prior != null) prior.outcome = 'verified';
+          if (prior != null && prior.outcome != 'verified') {
+            prior.outcome = 'verified';
+            verifiedSubmissionChanged = true;
+          }
           final old = messages
               .where(
                 (m) =>
@@ -1724,6 +1841,8 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
           )
           .lastOrNull;
       if (prior != null) {
+        verifiedSubmissionChanged =
+            verifiedSubmissionChanged || prior.outcome != 'verified';
         prior.outcome = 'verified';
         final old = messages
             .where(
@@ -1733,7 +1852,7 @@ ${_allowActions ? '' : '本轮仅核对历史并重新回答，不得派发任�
         old?['outcome'] = 'verified';
       }
     }
-    await persistToolSubmissions?.call();
+    if (verifiedSubmissionChanged) await persistToolSubmissions?.call();
     messages.add({
       'role': 'tool',
       'content': '${call['tool']} · ${receipt.outcome}\n${receipt.summary}',

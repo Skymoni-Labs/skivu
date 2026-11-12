@@ -24,6 +24,7 @@ class PhoneFlowTest {
         var permission = true
         var duplicate = false
         var timerOnly = false
+        var checkableOptions = true
         var saved: Map<String, Any?>? = null
         var beforePerform: (() -> Unit)? = null
         var afterPerform: (() -> Unit)? = null
@@ -48,7 +49,7 @@ class PhoneFlowTest {
             beforeSnapshot?.invoke(snapshotCalls)
             val root = "root_$tick"
             fun row(id: String, text: String, checked: Boolean = false, parent: String? = root) =
-                mapOf<String, Any?>("id" to "${id}_$tick", "parentId" to parent, "text" to text, "viewId" to id, "class" to "Button", "checked" to checked, "selected" to checked, "password" to false)
+                mapOf<String, Any?>("id" to "${id}_$tick", "parentId" to parent, "text" to text, "viewId" to id, "class" to "Button", "checkable" to (checkableOptions && id in setOf("a","b")), "checked" to checked, "selected" to checked, "password" to false)
             val rows = listOf(
                 mapOf<String, Any?>("id" to root, "text" to "", "viewId" to "content", "class" to "Group"),
                 row("question", "Question $question"), row("a", "Option A", "A" in selected), row("b", "Option B", "B" in selected),
@@ -84,7 +85,10 @@ class PhoneFlowTest {
                 PhoneFlow.unique(snapshot, PhoneFlow.map(step["selector"], "selector"))
             } catch(error:Exception) { throw PhoneFlow.NotDispatched(error) }
             taps++
-            if (!acceptedWithoutEffect) when (target["text"]) {
+            if (!acceptedWithoutEffect && step["action"]=="set_checked") {
+                val option=if(target["text"]=="Option A")"A" else "B"
+                if(step["checked"]==true)selected.add(option)else selected.remove(option)
+            } else if (!acceptedWithoutEffect) when (target["text"]) {
                 "Option A" -> selected.add("A")
                 "Option B" -> selected.add("B")
                 "Next" -> if (!timerOnly) { question++; selected.clear() }
@@ -395,7 +399,7 @@ class PhoneFlowTest {
 
     @Test fun defaultTargetsPreferMatchedNativeIdentityOverItsLinkedOcrRow() {
         val native = mapOf<String, Any?>("id" to "native-a", "text" to "Option A",
-            "source" to "accessibility", "checked" to true, "selected" to true)
+            "source" to "accessibility", "checkable" to true,"checked" to true, "selected" to true)
         val ocr = mapOf<String, Any?>("id" to "ocr-a", "text" to "Option A",
             "source" to "ocr", "nativeElementId" to "native-a")
         val snapshot = PhoneFlow.Snapshot(pkg, 1, listOf(native, ocr), emptyMap())
@@ -475,5 +479,176 @@ class PhoneFlowTest {
         val device = Device(); val plan = plan(step("a", "Option A", condition("checked", "Option A", true)))
         device.run(plan)
         try { device.run(plan, device.saved!! + mapOf("rootRequestId" to "other")); fail("foreign checkpoint accepted") } catch (_: IllegalArgumentException) {}
+    }
+
+    @Test fun sixRecordedAnswerPlansCannotTreatExistingQuestionTextAsCompletedActions() {
+        val examples=listOf(
+            "tapA" to condition("exists","缓冲池"),
+            "pick" to mapOf("kind" to "exists","selector" to mapOf("textContains" to "缓冲池","source" to "ocr")),
+            "a7" to mapOf("kind" to "exists","selector" to mapOf("textContains" to "7/20","source" to "ocr")),
+            "a8" to condition("exists","选项A.JCB"),
+            "a9" to mapOf("kind" to "exists","selector" to mapOf("textContains" to "SPOOLing","source" to "ocr")),
+            "a10" to mapOf("kind" to "exists","selector" to mapOf("textContains" to "10/20","source" to "ocr")))
+        val rows=listOf("缓冲池","7/20","选项A.JCB","SPOOLing","10/20").mapIndexed{i,text->
+            mapOf<String,Any?>("id" to "v_$i","text" to text,"source" to "ocr")}
+        val snapshot=PhoneFlow.Snapshot(pkg,1,rows,emptyMap())
+        for((id,expected)in examples) {
+            val action=step(id,"答案选项",expected)
+            val device=Device()
+            val backend=object:PhoneFlow.Backend by device {
+                override fun snapshot(pkg:String)=snapshot
+            }
+            val result=PhoneFlow.run(plan(action),"recorded-$id",backend){}
+            assertEquals("failed",result.outcome)
+            assertTrue(result.summary.contains("invalid_postcondition"))
+            assertEquals(0,device.taps)
+            val record=PhoneFlow.map((result.value["steps"] as List<*>).single(),"step")
+            assertEquals(false,record["attempted"]);assertEquals(false,record["dispatched"])
+            assertEquals(false,record["businessVerified"]);assertEquals(false,record["alreadySatisfied"])
+        }
+    }
+
+    @Test fun defaultFalseFlagsOnNonCheckableTextCannotEstablishEitherState() {
+        val device=Device();device.checkableOptions=false
+        for(wanted in listOf(true,false)) {
+            val result=device.run(plan(step("answer","Option A",condition("checked","Option A",wanted))))
+            assertEquals("failed",result.outcome);assertTrue(result.summary.contains("invalid_postcondition"))
+        }
+        val result=device.run(plan(step("answer","Option A",condition("selected","Option A",false))))
+        assertEquals("failed",result.outcome);assertEquals(0,device.taps)
+    }
+
+    @Test fun strongStateMustBelongToTheActualActionTarget() {
+        val device=Device();device.selected.add("B")
+        val result=device.run(plan(step("answer","Option A",condition("checked","Option B",true))))
+        assertEquals("failed",result.outcome);assertEquals(0,device.taps)
+    }
+
+    @Test fun anyCannotBeSatisfiedByAnUnchangedWeakBranch() {
+        val device=Device()
+        val expected=mapOf("kind" to "any","conditions" to listOf(condition("exists","Question 1"),condition("checked","Option A",true)))
+        val result=device.run(plan(step("answer","Option A",expected)))
+        assertEquals("failed",result.outcome);assertEquals(0,device.taps)
+    }
+
+    @Test fun allAllowsInvariantPageGuardsWhenTheTargetStateReallyChanges() {
+        val device=Device()
+        val expected=mapOf("kind" to "all","conditions" to listOf(condition("exists","Question 1"),condition("checked","Option A",true)))
+        val result=device.run(plan(step("answer","Option A",expected)))
+        assertEquals("verified",result.outcome);assertEquals(1,device.taps)
+        assertEquals(true,result.value["businessVerified"])
+        val record=PhoneFlow.map((result.value["steps"] as List<*>).single(),"step")
+        assertEquals(true,record["attempted"]);assertEquals(true,record["dispatched"])
+        assertEquals(true,record["businessVerified"]);assertEquals("native_checked",record["verificationKind"])
+    }
+
+    @Test fun changedMustReferToTheActionTargetInsteadOfAnUnrelatedRegion() {
+        val device=Device()
+        val unrelated=mapOf("kind" to "changed","selector" to mapOf("viewId" to "content"))
+        val result=device.run(plan(step("answer","Option A",unrelated)))
+        assertEquals("failed",result.outcome);assertEquals(0,device.taps)
+    }
+
+    @Test fun selectedFalseRequiresAnActualSupportedTrueToFalseTransition() {
+        val device=Device();device.selected.add("A");device.afterPerform={device.selected.remove("A")}
+        val result=device.run(plan(step("answer","Option A",condition("selected","Option A",false))))
+        assertEquals("verified",result.outcome);assertEquals(1,device.taps)
+    }
+
+    @Test fun setCheckedConstructsAnUnreplaceableHostStateConditionAndDoesNotToggleAgain() {
+        val device=Device()
+        val action=mapOf<String,Any?>("id" to "check","action" to "set_checked","selector" to selector("Option A"),
+            "checked" to true,"expect" to condition("exists","Question 1"),"stableMs" to 0,"timeoutMs" to 300)
+        assertEquals("verified",device.run(plan(action)).outcome);assertEquals(1,device.taps)
+        val already=device.run(plan(action))
+        assertEquals("verified",already.outcome);assertEquals(1,device.taps)
+        val record=PhoneFlow.map((already.value["steps"] as List<*>).single(),"step")
+        assertEquals(true,record["alreadySatisfied"]);assertEquals(false,record["dispatched"])
+        assertEquals(true,record["businessVerified"])
+        val clear=action-mapOf("expect" to null).keys+mapOf("checked" to false)
+        assertEquals("verified",device.run(plan(clear)).outcome);assertEquals(2,device.taps)
+        assertFalse("A" in device.selected)
+    }
+
+    @Test fun oldUnknownCheckpointWithoutTransitionBaselineNeverReplaysOrInfersNavigation() {
+        val device=Device();device.acceptedWithoutEffect=true
+        val action=plan(step("next","Next",condition("exists","Question 2")))
+        assertEquals("unknown",device.run(action).outcome)
+        val saved=device.saved!!
+        val legacy=saved+mapOf("steps" to (saved["steps"] as List<*>).map{PhoneFlow.map(it,"step")-"completionBefore"})
+        device.question=2
+        val resumed=device.run(action,legacy)
+        assertEquals("unknown",resumed.outcome);assertEquals(1,device.taps)
+    }
+
+    @Test fun inputAlreadySatisfiedRequiresTheSameEditableTargetAndIntendedText() {
+        val row=mapOf<String,Any?>("id" to "input","viewId" to "field","class" to "EditText","text" to "ready","editable" to true)
+        val snapshot=PhoneFlow.Snapshot(pkg,1,listOf(row),emptyMap())
+        val action=mapOf<String,Any?>("action" to "input","selector" to mapOf("viewId" to "field"),"text" to "ready",
+            "expect" to mapOf("kind" to "text","selector" to mapOf("viewId" to "field"),"text" to "ready"))
+        assertTrue(PhoneFlow.shouldSkip(snapshot,action))
+        for(invalid in listOf(action+mapOf("text" to "different"),action+mapOf("selector" to mapOf("viewId" to "other")))) {
+            try { PhoneFlow.shouldSkip(snapshot,invalid);fail("unrelated input evidence accepted") }
+            catch(error:PhoneFlow.Blocked){assertTrue(error.message!!.contains("invalid_postcondition"))}
+        }
+        try { PhoneFlow.shouldSkip(snapshot.copy(rows=listOf(row+mapOf("editable" to false))),action);fail("noneditable text accepted") }
+        catch(error:PhoneFlow.Blocked){assertTrue(error.message!!.contains("invalid_postcondition"))}
+    }
+
+    @Test fun visualCheckedRequiresConfidenceAndTheExactFrameBinding() {
+        val observation=mapOf<String,Any?>("observationId" to "ocr:frame","capturedAtMs" to 100L,"imageHash" to "pixels")
+        val row=mapOf<String,Any?>("id" to "option","text" to "答案","source" to "ocr","visualChecked" to true,
+            "visualStateConfidence" to 0.99,"visualStateKind" to "radio","visualMarkBounds" to listOf(20,50,50,80),
+            "visualStateObservationId" to "ocr:frame","visualStateCapturedAtMs" to 100L,"visualStateImageHash" to "pixels")
+        val snapshot=PhoneFlow.Snapshot(pkg,1,listOf(row),observation)
+        val expected=mapOf<String,Any?>("kind" to "visual_checked","selector" to selector("答案"),"checked" to true)
+        val action=mapOf<String,Any?>("action" to "tap","selector" to selector("答案"),"expect" to expected)
+        assertTrue(PhoneFlow.shouldSkip(snapshot,action))
+        for(invalid in listOf(row+mapOf("visualStateConfidence" to 0.89),row+mapOf("visualStateObservationId" to "old"),
+            row+mapOf("visualStateCapturedAtMs" to 99L),row+mapOf("visualStateImageHash" to "old"),row-"visualChecked",
+            row+mapOf("visualMarkBounds" to listOf(20,50,20,80)),row+mapOf("visualMarkBounds" to listOf(20,Double.NaN,50,80)))) {
+            assertNull(PhoneFlow.checkedState(snapshot,invalid))
+            assertFalse(PhoneFlow.satisfied(snapshot.copy(rows=listOf(invalid)),expected))
+        }
+        val native=row+mapOf("source" to "accessibility","checkable" to true,"checked" to false)
+        assertNull(PhoneFlow.checkedState(snapshot,native))
+        val linked=row+mapOf("nativeElementId" to "native")
+        assertNull(PhoneFlow.checkedState(snapshot.copy(rows=listOf(linked,native+mapOf("id" to "native"))),linked))
+        assertNull(PhoneFlow.checkedState(snapshot.copy(observation=observation-"imageHash"),row))
+    }
+
+    @Test fun setCheckedDoesNotToggleAnAlreadySatisfiedTargetWhileAdditionalEvidenceIsPending() {
+        val device=Device();device.selected.add("A")
+        val action=mapOf<String,Any?>("id" to "check","action" to "set_checked","selector" to selector("Option A"),"checked" to true,
+            "expect" to condition("exists","Missing confirmation"),"stableMs" to 0,"timeoutMs" to 100)
+        val result=device.run(plan(action))
+        assertEquals("unknown",result.outcome);assertEquals(0,device.taps)
+        assertEquals(false,result.value["businessVerified"])
+        val record=PhoneFlow.map((result.value["steps"] as List<*>).single(),"step")
+        assertEquals(true,record["alreadySatisfied"]);assertEquals(false,record["dispatched"])
+    }
+
+    @Test fun oldVerifiedRecordsWithoutBusinessEvidenceAreReportedAsUnknown() {
+        val device=Device()
+        val action=plan(step("answer","Option A",condition("checked","Option A",true)))
+        assertEquals("verified",device.run(action).outcome)
+        val saved=device.saved!!
+        val legacy=saved+mapOf("steps" to (saved["steps"] as List<*>).map{PhoneFlow.map(it,"step")-"businessVerified"})
+        val resumed=device.run(action,legacy)
+        assertEquals("unknown",resumed.outcome);assertEquals(1,device.taps)
+        assertEquals(false,resumed.value["businessVerified"]);assertNull(resumed.value["verifiedRequestId"])
+    }
+
+    @Test fun oldUnprovenCompletionCannotReleaseANewDependentAction() {
+        val device=Device()
+        val actions=plan(step("first","Option A",condition("checked","Option A",true)),step("dependent","Option B",condition("checked","Option B",true)))
+        assertEquals("verified",device.run(actions).outcome)
+        val saved=device.saved!!
+        val records=(saved["steps"] as List<*>).map{PhoneFlow.map(it,"step")}
+        val legacy=saved+mapOf("steps" to listOf(records[0]-"businessVerified",records[1]+mapOf("state" to "queued","businessVerified" to false)))
+        device.selected.remove("B")
+        val resumed=device.run(actions,legacy)
+        assertEquals("unknown",resumed.outcome);assertEquals(2,device.taps)
+        assertFalse("B" in device.selected)
     }
 }

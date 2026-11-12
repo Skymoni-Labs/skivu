@@ -9,10 +9,20 @@ Map<String, String> toolResultDetails(
   if (const {'ui.flow', 'ui.flow.resume', 'ui.flow.read'}.contains(tool) &&
       value is Map) {
     final completed = value['completedSteps'], total = value['totalSteps'];
+    final steps = (value['steps'] as List? ?? []).whereType<Map>().toList();
+    final dispatched = steps.where((step) => step['dispatched'] == true).length;
+    final alreadySatisfied = steps
+        .where(
+          (step) =>
+              step['alreadySatisfied'] == true &&
+              step['businessVerified'] == true,
+        )
+        .length;
     return {
       'resultTitle': '手机本地流程',
       'resultDetail':
           '$completed/$total 步 · ${value['elapsedMs'] ?? 0} 毫秒'
+          '${steps.any((step) => step.containsKey('businessVerified')) ? ' · 已操作 $dispatched 步${alreadySatisfied > 0 ? ' · 原已达成 $alreadySatisfied 步' : ''}' : ''}'
           '${value['currentStep'] is int ? ' · 停在第 ${(value['currentStep'] as int) + 1} 步' : ''}',
     };
   }

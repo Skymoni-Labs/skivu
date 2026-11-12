@@ -18,8 +18,10 @@ class DeviceToolDefinition {
   final List<String> additionalPermissions;
   final Map<String, dynamic> parameters;
 
-  void validate(Map<String, dynamic> arguments) =>
-      validatePluginArguments(arguments, parameters);
+  void validate(Map<String, dynamic> arguments) {
+    validatePluginArguments(arguments, parameters);
+    if (id == 'ui.flow') validatePhoneFlowSemantics(arguments);
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,

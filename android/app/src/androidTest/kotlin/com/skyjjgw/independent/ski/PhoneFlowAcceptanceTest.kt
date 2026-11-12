@@ -126,10 +126,10 @@ class PhoneFlowAcceptanceTest {
         File(context.filesDir, "qa-phone-flow-stop.json").writeText(org.json.JSONObject(mapOf("stopMs" to android.os.SystemClock.uptimeMillis() - started, "result" to result)).toString())
     }
 
-    @Test fun nativeInputAndGuardedRegionChangeUseSemanticTargets() {
+    @Test fun nativeInputAndGuardedNavigationUseSemanticTargets() {
         val input = mapOf<String, Any?>("id" to "input", "action" to "input", "selector" to mapOf("viewId" to "android:id/edit"), "text" to "Local flow input",
             "expect" to mapOf("kind" to "text", "selector" to mapOf("viewId" to "android:id/edit"), "text" to "Local flow input"), "timeoutMs" to 3000, "stableMs" to 0)
-        val next = tap("next", "Next", mapOf("kind" to "changed", "selector" to mapOf("description" to "question-card")), condition("exists", "Question 1"))
+        val next = tap("next", "Next", condition("exists", "Question 2"), condition("exists", "Question 1"))
         val result = call("ui.flow", plan(listOf(input, next)), "input_${System.nanoTime()}")
         assertEquals(result.toString(), "verified", result["outcome"])
         assertTrue(ui { service().flowSnapshot(allowed, pkg).rows.any { it["text"] == "Question 2" } })

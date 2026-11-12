@@ -58,7 +58,7 @@ class PhoneOcrAcceptanceTest {
         edit.commit();ExecutionHub.setMode(context,originalMode);PhoneControlArbiter.release(owner)
     }
     private fun call(tool:String,args:Map<String,Any?>,id:String="ocr_${System.nanoTime()}",asOwner:String=owner)=platform.invokeLeased(mapOf("version" to 1,"owner" to asOwner,"requestId" to id,"tool" to tool,"arguments" to args),{})
-    private fun value(result:Map<String,Any?>)=PhoneFlow.map(result["value"],"value")
+    private fun value(result:Map<String,Any?>):Map<String,Any?> {check(result["value"] is Map<*,*>){result.toString()};return PhoneFlow.map(result["value"],"value")}
     private fun report(name:String,data:Map<String,Any?>){instrumentation.sendStatus(0,android.os.Bundle().apply{putString("phoneOcr_$name",org.json.JSONObject(data).toString())})}
     private fun metrics()=SkivuAccessibilityService.connected!!.visionMetrics.snapshot()
     private fun metricDelta(before:Map<String,Long>)=metrics().mapValues{(key,value)->value-(before[key]?:0L)}

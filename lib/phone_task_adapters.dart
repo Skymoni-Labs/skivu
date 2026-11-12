@@ -21,10 +21,26 @@ class ChoiceQuestion {
     if (questionNodes.isEmpty) throw StateError('题干定位信息不足，不能生成本地流程。');
     Map<String, dynamic> selector(Map<String, dynamic> option) => {
       'text': option['text'],
-      if (option['class'] is String && (option['class'] as String).isNotEmpty)
+      if (option['source'] == 'ocr') 'source': 'ocr',
+      if (option['source'] != 'ocr' &&
+          option['class'] is String &&
+          (option['class'] as String).isNotEmpty)
         'className': option['class'],
-      if (option['viewId'] is String && (option['viewId'] as String).isNotEmpty)
+      if (option['source'] != 'ocr' &&
+          option['viewId'] is String &&
+          (option['viewId'] as String).isNotEmpty)
         'viewId': option['viewId'],
+      if (option['source'] == 'ocr' &&
+          option['bounds'] is List &&
+          option['screenWidth'] is num &&
+          option['screenHeight'] is num)
+        'region': [
+          for (var i = 0; i < 4; i++)
+            (option['bounds'][i] as num) /
+                (i.isEven
+                    ? option['screenWidth'] as num
+                    : option['screenHeight'] as num),
+        ],
     };
     final guard = {
       'kind': 'all',
@@ -52,7 +68,8 @@ class ChoiceQuestion {
           if (multiple || selected.contains(options[i]['id']))
             {
               'id': 'choice_$i',
-              'action': 'tap',
+              'action': 'set_checked',
+              'checked': selected.contains(options[i]['id']),
               'selector': selector(options[i]),
               'guard': guard,
               'expect': {
@@ -187,12 +204,34 @@ class ChoiceQuestion {
     if (question.isEmpty ||
         options.any((n) => (n['text'] as String? ?? '').isEmpty))
       throw StateError('有不可读取的题干／图片选项，需要真实视觉能力或人工处理。');
+    bool visualKind(Map<String, dynamic> node, String kind) =>
+        node['source'] == 'ocr' &&
+        node['visualStateKind'] == kind &&
+        node['visualChecked'] is bool &&
+        node['visualStateConfidence'] is num &&
+        (node['visualStateConfidence'] as num).isFinite &&
+        (node['visualStateConfidence'] as num) >= .9 &&
+        observation['observationId'] is String &&
+        observation['capturedAtMs'] is num &&
+        observation['imageHash'] is String &&
+        (observation['imageHash'] as String).isNotEmpty &&
+        node['visualStateObservationId'] == observation['observationId'] &&
+        node['visualStateCapturedAtMs'] == observation['capturedAtMs'] &&
+        node['visualStateImageHash'] == observation['imageHash'];
     final multi = options.every(
-      (n) => (n['class'] ?? '').toString().contains('CheckBox'),
+      (n) =>
+          (n['source'] != 'ocr' &&
+              n['checkable'] == true &&
+              (n['class'] ?? '').toString().contains('CheckBox')) ||
+          visualKind(n, 'checkbox'),
     );
     if (!multi &&
         !options.every(
-          (n) => (n['class'] ?? '').toString().contains('RadioButton'),
+          (n) =>
+              (n['source'] != 'ocr' &&
+                  n['checkable'] == true &&
+                  (n['class'] ?? '').toString().contains('RadioButton')) ||
+              visualKind(n, 'radio'),
         ))
       throw StateError('未识别可验证的单选／多选控件，需要页面适配。');
     return ChoiceQuestion(

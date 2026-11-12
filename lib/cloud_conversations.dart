@@ -295,6 +295,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
             !identical(_engines[chat], engine))
           return;
         execution.publish();
+        var chatChanged = false;
         for (final record in engine.messages.where(
           (m) => m['outcome'] == 'verified',
         )) {
@@ -305,13 +306,16 @@ class CloudChatCoordinator implements CloudConversationRunner {
                     m.toolExecution?.requestId == record['requestId'],
               )
               .lastOrNull;
-          if (existing != null && existing.toolExecution?.outcome != 'verified')
+          if (existing != null && existing.toolExecution?.outcome != 'verified') {
             existing.toolExecution = ToolExecutionEvent.parse(record);
+            chatChanged = true;
+          }
         }
         if (engine.messages.length < seen) seen = 0;
         while (seen < engine.messages.length) {
           final value = engine.messages[seen++];
           if (value['role'] == 'user') continue;
+          chatChanged = true;
           final tool = value['role'] == 'tool';
           final draft = _drafts.remove(chat)?.message;
           if (draft != null && !tool) {
@@ -336,7 +340,7 @@ class CloudChatCoordinator implements CloudConversationRunner {
           );
         }
         store.changed();
-        unawaited(store.saveChats());
+        if (chatChanged) unawaited(store.saveChats());
       });
       return engine;
     },

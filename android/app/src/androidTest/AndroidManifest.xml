@@ -10,5 +10,7 @@
         <activity android:name="com.skyjjgw.independent.ski.PhoneFlowFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <activity android:name="com.skyjjgw.independent.ski.PhoneOcrFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <receiver android:name="com.skyjjgw.independent.ski.PhoneOcrFixtureReceiver" android:exported="true" />
+        <activity android:name="com.skyjjgw.independent.ski.PhoneSelectionFixtureActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <receiver android:name="com.skyjjgw.independent.ski.PhoneSelectionFixtureReceiver" android:exported="true" />
     </application>
 </manifest>

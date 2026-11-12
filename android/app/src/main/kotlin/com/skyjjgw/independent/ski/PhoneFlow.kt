@@ -29,7 +29,7 @@ internal object PhoneFlow {
 
     private val selectorKeys = setOf("text", "textContains", "description", "descriptionContains", "viewId", "className", "clickable", "editable", "scrollable", "checked", "selected", "enabled", "within", "source", "region")
     private val booleanKeys = setOf("clickable", "editable", "scrollable", "checked", "selected", "enabled")
-    private val actions = setOf("tap", "input", "scroll", "swipe", "back", "wait")
+    private val actions = setOf("tap", "set_checked", "input", "scroll", "swipe", "back", "wait")
     @Suppress("UNCHECKED_CAST")
     fun map(value: Any?, name: String): Map<String, Any?> = value as? Map<String, Any?> ?: error("$name 必须是对象。")
     fun number(value: Any?, fallback: Long = 0): Long {
@@ -50,10 +50,11 @@ internal object PhoneFlow {
     }
     fun validateCondition(condition: Map<String, Any?>) {
         val kind = condition["kind"]
-        require(kind in setOf("exists", "absent", "checked", "selected", "text", "changed", "all", "any")) { "核对条件类型无效。" }
+        require(kind in setOf("exists", "absent", "checked", "visual_checked", "selected", "text", "changed", "all", "any")) { "核对条件类型无效。" }
         val fields = when (kind) {
             "all", "any" -> setOf("kind", "conditions")
             "checked", "selected", "text" -> setOf("kind", "selector", kind as String)
+            "visual_checked" -> setOf("kind", "selector", "checked")
             "changed" -> setOf("kind", "selector")
             else -> setOf("kind", "selector")
         }
@@ -66,7 +67,7 @@ internal object PhoneFlow {
             if (condition.containsKey("selector")) validateSelector(map(condition["selector"], "selector"))
             else require(kind == "changed") { "缺少核对控件条件。" }
             if (kind == "text") require(condition["text"] is String) { "核对文字必须是字符串。" }
-            if (kind == "checked" || kind == "selected") require(condition[kind] is Boolean) { "核对状态必须是布尔值。" }
+            if (kind in setOf("checked", "visual_checked", "selected")) require(condition[if(kind=="visual_checked")"checked" else kind] is Boolean) { "核对状态必须是布尔值。" }
         }
     }
     fun validate(plan: Map<String, Any?>): List<Map<String, Any?>> {
@@ -77,12 +78,14 @@ internal object PhoneFlow {
         require(raw.isNotEmpty()) { "流程步骤不能为空。" }
         val ids = mutableSetOf<String>()
         return raw.map {
-            val step = map(it, "step")
-            require(step.keys.all { k -> k in setOf("id", "action", "selector", "text", "direction", "guard", "when", "expect", "timeoutMs", "stableMs") }) { "流程步骤含未知字段。" }
+            val step = normalizeStep(map(it, "step"))
+            require(step.keys.all { k -> k in setOf("id", "action", "selector", "text", "direction", "checked", "guard", "when", "expect", "timeoutMs", "stableMs") }) { "流程步骤含未知字段。" }
             val id = step["id"] as? String ?: error("缺少步骤编号。")
             require(Regex("^[a-zA-Z0-9_-]+$").matches(id) && ids.add(id)) { "步骤编号无效或重复。" }
             val action = step["action"]
             require(action in actions) { "本地流程动作无效。" }
+            if(action=="set_checked")require(step["checked"] is Boolean){"目标勾选状态必须是布尔值。"}
+            else require(!step.containsKey("checked")){"此动作不接受目标勾选状态。"}
             if (action !in setOf("back", "wait")) validateSelector(map(step["selector"], "selector"))
             else require(!step.containsKey("selector")) { "此动作不接受目标控件。" }
             if (action == "input") require(step["text"] is String && !(step["text"] as String).contains('\u0000')) { "输入文字无效。" }
@@ -99,6 +102,14 @@ internal object PhoneFlow {
     }
     private fun hasChanged(c: Map<String, Any?>): Boolean = c["kind"] == "changed" ||
         (c["conditions"] as? List<*>)?.any { hasChanged(map(it, "condition")) } == true
+
+    private fun normalizeStep(step:Map<String,Any?>):Map<String,Any?> {
+        if(step["action"]!="set_checked")return step
+        require(step["checked"] is Boolean){"目标勾选状态必须是布尔值。"}
+        val required=mapOf("kind" to "checked","selector" to step["selector"],"checked" to step["checked"])
+        val expected=step["expect"]?.let{mapOf("kind" to "all","conditions" to listOf(required,it))}?:required
+        return step+mapOf("expect" to expected)
+    }
 
     fun matches(row: Map<String, Any?>, selector: Map<String, Any?>, rows: List<Map<String, Any?>>): Boolean {
         for ((key, expected) in selector) {
@@ -182,9 +193,133 @@ internal object PhoneFlow {
             "exists" -> found.isNotEmpty()
             "absent" -> found.isEmpty()
             "text" -> found.size == 1 && if(found.single()["source"]=="ocr")PhoneVision.ocrText(found.single()["text"])==PhoneVision.ocrText(condition["text"])else found.single()["text"]==condition["text"]
-            "checked", "selected" -> found.size == 1 && found.single()[kind] == condition[kind]
+            "checked", "visual_checked" -> found.size == 1 && checkedState(snapshot,found.single(),kind=="visual_checked")==condition["checked"]
+            "selected" -> found.size == 1 && selectedState(found.single())==condition[kind]
             else -> false
         }
+    }
+
+    /** Text recognition and Android's default false flags do not establish state capabilities. */
+    fun checkedState(snapshot:Snapshot,row:Map<String,Any?>,visualOnly:Boolean=false):Boolean? {
+        val nativeRow=if(row["source"]!="ocr")row else snapshot.rows.singleOrNull{it["source"]!="ocr" && it["id"]==row["nativeElementId"]}
+        val native=if(nativeRow?.get("checkable")==true)nativeRow["checked"] as? Boolean else null
+        val visual=visualCheckedState(snapshot,row)
+        if(native!=null && visual!=null && native!=visual)return null
+        return if(visualOnly)visual else native?:visual
+    }
+
+    private fun visualCheckedState(snapshot:Snapshot,row:Map<String,Any?>):Boolean? {
+        val observation=snapshot.observation
+        val confidence=(row["visualStateConfidence"] as? Number)?.toDouble()?:return null
+        val mark=(row["visualMarkBounds"] as? List<*>)?.map{(it as? Number)?.toDouble()?:return null}?:return null
+        if(mark.size!=4 || mark.any{!it.isFinite() || it<0} || mark[2]<=mark[0] || mark[3]<=mark[1])return null
+        if(row["visualChecked"] !is Boolean || !confidence.isFinite() || confidence<0.9 ||
+            row["visualStateKind"] !in setOf("radio","checkbox") ||
+            row["visualStateObservationId"] !is String || row["visualStateObservationId"]!=observation["observationId"] ||
+            row["visualStateCapturedAtMs"] !is Number || row["visualStateCapturedAtMs"]!=observation["capturedAtMs"] ||
+            observation["imageHash"] !is String || (observation["imageHash"] as String).isEmpty() ||
+            row["visualStateImageHash"]!=observation["imageHash"])return null
+        return row["visualChecked"] as Boolean
+    }
+
+    private fun selectedState(row:Map<String,Any?>):Boolean? {
+        if(row["source"]=="ocr")return null
+        val selected=row["selected"] as? Boolean?:return null
+        return selected.takeIf{it || row["selectionSupported"]==true}
+    }
+
+    private data class Completion(val matched:Boolean,val proven:Boolean,val kind:String="unverified")
+    private fun sameTarget(snapshot:Snapshot,step:Map<String,Any?>,row:Map<String,Any?>,beforeTarget:Map<String,Any?>?=null):Boolean {
+        val selector=step["selector"]?.let{map(it,"selector")}?:return false
+        val target=targets(snapshot,selector).singleOrNull()
+        if(target!=null) {
+            val targetIds=listOfNotNull(target["id"],target["nativeElementId"]).toSet()
+            if(row["id"] in targetIds || row["nativeElementId"] in targetIds || row==target)return true
+        }
+        val viewId=beforeTarget?.get("viewId") as? String
+        return !viewId.isNullOrEmpty() && row["viewId"]==viewId && row["class"]==beforeTarget?.get("class")
+    }
+
+    private fun targetEvidence(snapshot:Snapshot,step:Map<String,Any?>):Map<String,Any?>? {
+        val selector=step["selector"]?.let{map(it,"selector")}?:return null
+        val target=targets(snapshot,selector).singleOrNull()?:return null
+        return mapOf("viewId" to target["viewId"],"class" to target["class"])
+    }
+
+    private fun targetSignature(row:Map<String,Any?>)=listOf("viewId","class","text","description","checked","selected","editable","enabled").map{row[it]}
+    private fun conditionBefore(snapshot:Snapshot,condition:Map<String,Any?>):Map<String,Any?> {
+        if(condition["kind"] in setOf("all","any"))return mapOf("conditions" to (condition["conditions"] as List<*>).map{conditionBefore(snapshot,map(it,"condition"))})
+        val row=condition["selector"]?.let{targets(snapshot,map(it,"selector")).singleOrNull()}
+        return mapOf("matched" to if(condition["kind"]=="changed")false else satisfied(snapshot,condition),
+            "selected" to (row?.get("selected")==true && row?.get("source")!="ocr"),
+            "signature" to row?.let(::targetSignature))
+    }
+
+    fun completionEvidence(snapshot:Snapshot,step:Map<String,Any?>):Map<String,Any?> = mapOf(
+        "condition" to conditionBefore(snapshot,map(step["expect"],"expect")),"target" to targetEvidence(snapshot,step))
+
+    private fun completion(snapshot:Snapshot,step:Map<String,Any?>,condition:Map<String,Any?>,before:Map<String,Any?>?,beforeTarget:Map<String,Any?>?):Completion {
+        val kind=condition["kind"]
+        if(kind in setOf("all","any")) {
+            val old=before?.get("conditions") as? List<*>
+            val results=(condition["conditions"] as List<*>).mapIndexed{i,value->completion(snapshot,step,map(value,"condition"),old?.getOrNull(i)?.let{map(it,"before")},beforeTarget)}
+            val matched=if(kind=="all")results.all{it.matched}else results.any{it.matched}
+            val proof=results.firstOrNull{it.matched && it.proven}
+            return Completion(matched,matched && proof!=null,proof?.kind?:"unverified")
+        }
+        val rows=condition["selector"]?.let{targets(snapshot,map(it,"selector"))}.orEmpty()
+        val row=rows.singleOrNull()
+        if(kind=="changed") {
+            val changed=row!=null && row["source"]!="ocr" && before?.get("signature")!=null && targetSignature(row)!=before["signature"]
+            return Completion(changed,changed && sameTarget(snapshot,step,row!!,beforeTarget),"target_changed")
+        }
+        val matched=if(kind=="selected" && condition["selected"]==false && before?.get("selected")==true)
+            row!=null && row["source"]!="ocr" && row["selected"]==false else satisfied(snapshot,condition)
+        if(!matched)return Completion(false,false)
+        val related=row!=null && sameTarget(snapshot,step,row,beforeTarget)
+        return when(kind) {
+            "checked","visual_checked" -> Completion(true,related,if(row?.get("source")=="ocr" || kind=="visual_checked")"visual_checked"else"native_checked")
+            "selected" -> Completion(true,related,"native_selected")
+            "text" -> if(step["action"]=="input" && related && row?.get("editable")==true && condition["text"]==step["text"])
+                Completion(true,true,"input_text") else Completion(true,before?.get("matched")==false,"predicate_transition")
+            else -> Completion(true,before?.get("matched")==false,"predicate_transition")
+        }
+    }
+
+    private fun validateCompletion(snapshot:Snapshot,step:Map<String,Any?>,condition:Map<String,Any?>) {
+        if(condition["kind"] in setOf("all","any")) {
+            (condition["conditions"] as List<*>).forEach{validateCompletion(snapshot,step,map(it,"condition"))};return
+        }
+        if(condition["kind"] !in setOf("checked","visual_checked","selected","changed"))return
+        val row=condition["selector"]?.let{targets(snapshot,map(it,"selector")).singleOrNull()}
+        val supported=row!=null && sameTarget(snapshot,step,row) && when(condition["kind"]) {
+            "checked","visual_checked" -> checkedState(snapshot,row,condition["kind"]=="visual_checked")!=null
+            "selected" -> row["source"]!="ocr" && row["selected"] is Boolean && (condition["selected"]==true || row["selected"]==true || row["selectionSupported"]==true)
+            else -> row["source"]!="ocr"
+        }
+        if(!supported)throw Blocked("failed","invalid_postcondition：核对条件缺少与动作目标关联的可信状态证据。")
+    }
+
+    /** All dispatch entry points use this rule, including refreshed native/visual targets. */
+    fun shouldSkip(snapshot:Snapshot,step:Map<String,Any?>):Boolean {
+        if(step["action"]=="wait")return false
+        val expected=map(step["expect"],"expect")
+        validateCompletion(snapshot,step,expected)
+        val skipCondition=if(step["action"]=="set_checked")mapOf("kind" to "checked","selector" to step["selector"],"checked" to step["checked"])else expected
+        val result=completion(snapshot,step,skipCondition,null,null)
+        if(result.matched && !result.proven)throw Blocked("failed","invalid_postcondition：动作前已存在的题干、题号或普通文字不能证明操作完成。")
+        return result.matched && result.proven
+    }
+
+    private fun completionResult(snapshot:Snapshot,step:Map<String,Any?>,before:Map<String,Any?>?):Completion {
+        val condition=map(step["expect"],"expect")
+        if(step["action"]=="wait")return Completion(satisfied(snapshot,condition),true,"wait_condition")
+        return completion(snapshot,step,condition,before?.get("condition")?.let{map(it,"before")},before?.get("target")?.let{map(it,"target")})
+    }
+
+    fun completionSatisfied(snapshot:Snapshot,step:Map<String,Any?>,before:Map<String,Any?>?):Boolean {
+        val result=completionResult(snapshot,step,before)
+        return result.matched && result.proven
     }
 
     /** A checkpoint is persisted before dispatch. Restored in-flight steps can only be verified. */
@@ -192,12 +327,18 @@ internal object PhoneFlow {
             save: (Map<String, Any?>) -> Unit): Result {
         val steps = validate(plan)
         val pkg = plan["package"] as String
-        val records = steps.map { mutableMapOf<String, Any?>("id" to it["id"], "action" to it["action"], "state" to "queued") }
+        val records = steps.map { mutableMapOf<String, Any?>("id" to it["id"], "action" to it["action"], "state" to "queued",
+            "attempted" to false,"dispatched" to false,"alreadySatisfied" to false,"businessVerified" to false,"verificationKind" to "unverified") }
         if (checkpoint != null) {
             require(checkpoint["flowVersion"] == 1 && checkpoint["rootRequestId"] == rootId && checkpoint["plan"] == plan) { "流程检查点不匹配。" }
             val old = checkpoint["steps"] as? List<*> ?: error("流程检查点缺少步骤。")
             require(old.size == records.size)
-            old.forEachIndexed { i, item -> val record = map(item, "checkpoint"); require(record["id"] == steps[i]["id"]); records[i].putAll(record) }
+            old.forEachIndexed { i, item ->
+                val record = map(item, "checkpoint"); require(record["id"] == steps[i]["id"]); records[i].putAll(record)
+                if(record["state"] in setOf("in_flight","unknown") && !record.containsKey("dispatched")) {
+                    records[i]["attempted"]=true;records[i]["dispatched"]=null
+                }
+            }
         }
         val started = backend.now()
         val metricsAtStart = backend.metrics()
@@ -211,7 +352,8 @@ internal object PhoneFlow {
             "steps" to records.map { it.toMap() }, "state" to outcome, "reason" to reason,
             "currentStep" to current, "completedSteps" to records.count { it["state"] in setOf("verified", "skipped") },
             "totalSteps" to steps.size, "elapsedMs" to previousElapsed + backend.now() - started,
-            "hasUnverifiedActions" to records.any { (it["attempted"] == true || it["dispatched"] == true) && it["state"] !in setOf("verified", "rejected") },
+            "hasUnverifiedActions" to records.any { (it["attempted"] == true || it["dispatched"] == true) && (it["state"] !in setOf("verified", "rejected") || (it["state"]=="verified" && it["businessVerified"]!=true)) },
+            "businessVerified" to (outcome=="verified" && records.all{it["state"]=="skipped" || it["businessVerified"]==true}),
             "observationCount" to observations, "observationRetryCount" to observationRetries,
             "modelRequestsDuringExecution" to 0,
             "performance" to backend.metrics().mapValues { (name, value) ->
@@ -232,13 +374,18 @@ internal object PhoneFlow {
             }
         }
         fun finish(outcome: String, reason: String, index: Int?): Result {
-            val stored = state(outcome, reason, index); save(stored)
+            val legacyUnknown=outcome=="verified" && records.any{it["state"]=="verified" && it["businessVerified"]!=true}
+            val finalOutcome=if(legacyUnknown)"unknown"else outcome
+            val finalReason=if(legacyUnknown)"旧流程缺少可信完成证据，保留待核对；未重放原操作。"else reason
+            val stored = state(finalOutcome, finalReason, index); save(stored)
             val public = stored - "plan"
-            return Result(outcome, reason, public + (latest?.observation ?: emptyMap()) +
-                mapOf("verifiedRequestId" to if (outcome == "verified") rootId else null, "verification" to "local_ui_predicates"))
+            return Result(finalOutcome, finalReason, public + (latest?.observation ?: emptyMap()) +
+                mapOf("verifiedRequestId" to if (stored["businessVerified"]==true) rootId else null, "verification" to "local_state_or_transition"))
         }
         for ((index, step) in steps.withIndex()) {
             val record = records[index]
+            if(record["state"]=="verified" && record["businessVerified"]!=true)
+                return finish("unknown","旧步骤缺少可信完成证据，后续依赖步骤仍待核对；未重放原操作。",index)
             if (record["state"] in setOf("verified", "skipped")) continue
             val stepStarted = backend.now()
             val timeout = number(step["timeoutMs"])
@@ -258,20 +405,24 @@ internal object PhoneFlow {
                 } else snapshot(stepStarted, timeout)
                 backend.check()
                 val before = if (inFlight) record["before"] else evidence(observed, expect)
+                val completionBefore=if(inFlight)record["completionBefore"]?.let{map(it,"completionBefore")}else completionEvidence(observed,step)
                 val whenCondition = step["when"]?.let { map(it, "when") }
                 if (!inFlight && whenCondition != null && !satisfied(observed, whenCondition)) {
-                    record["state"] = "skipped"; record["reason"] = "分支条件不成立，未执行。"; save(state("running", "已跳过条件分支。", index)); continue
+                    record["state"] = "skipped"; record["verificationKind"]="branch_not_taken";record["reason"] = "分支条件不成立，未执行。"; save(state("running", "已跳过条件分支。", index)); continue
                 }
                 if (!inFlight) {
                     step["guard"]?.let { require(satisfied(observed, map(it, "guard"))) { "页面前置条件不匹配，未派发动作。" } }
                     record["before"] = before
-                    if (!satisfied(observed, expect, before) && step["action"] != "wait") {
+                    record["completionBefore"] = completionBefore
+                    if (step["action"] != "wait" && !shouldSkip(observed,step)) {
                         record["state"] = "in_flight"
                         record["attempted"] = true
+                        record["dispatched"] = null
                         save(state("running", "执行前检查点已保存。", index))
                         val dispatch = backend.performPrepared(step, pkg, "${rootId}_$index", observed)
                         record["dispatched"] = dispatch.dispatched
                         record["attempted"] = dispatch.dispatched
+                        record["alreadySatisfied"] = dispatch.accepted && !dispatch.dispatched
                         if (!dispatch.accepted) {
                             record["state"] = "rejected"
                             return finish("failed", "步骤 ${step["id"]} 未被系统接受。", index)
@@ -294,7 +445,8 @@ internal object PhoneFlow {
                     samples++
                     val captured = (observed.observation["capturedAtMs"] as? Number)?.toLong()
                         ?.takeIf { it in stepStarted..now } ?: now
-                    if (satisfied(observed, expect, before)) {
+                    val completion=completionResult(observed,step,completionBefore)
+                    if (completion.matched && completion.proven) {
                         if (since == null || stableWindow != observed.window || (lastSample != null && captured < lastSample!!)) {
                             since = captured
                             stableWindow = observed.window
@@ -305,6 +457,7 @@ internal object PhoneFlow {
                         if (stable == 0L || (lastSample != null && captured > lastSample!! && captured - since!! >= stable)) {
                             record["resultSamples"] = samples
                             record["stableConfirmedCaptureMs"] = captured - stepStarted
+                            record["verificationKind"] = if(record["alreadySatisfied"]==true)"already_satisfied_${completion.kind}"else completion.kind
                             break
                         }
                     } else { since = null; stableWindow = null }
@@ -318,6 +471,7 @@ internal object PhoneFlow {
                     backend.awaitObservation(if (timeout > 0) minOf(stableWait, (timeout - (now - stepStarted)).coerceAtLeast(1)) else stableWait)
                 }
                 record["state"] = "verified"
+                record["businessVerified"] = true
                 reusable = observed
                 record["elapsedMs"] = previousStepElapsed + backend.now() - stepStarted
                 record["waitMs"] = (record["elapsedMs"] as Long) - (record["dispatchMs"] as Long)
