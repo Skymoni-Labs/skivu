@@ -81,11 +81,16 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
             val p = call.arguments as? Map<String, Any?> ?: emptyMap()
             // The authorization page must remain usable while a long script
             // owns the execution worker. Never probe over its active stream.
-            if (call.method in setOf("status", "apps") && pendingInvocations.get() > 0) {
+            val flowInspection = call.method == "invoke" && p["tool"] == "ui.flow.read"
+            if ((call.method in setOf("status", "apps") || flowInspection) && pendingInvocations.get() > 0) {
                 inspectionWorker.execute {
                     try {
                         check(!closed.get()) { "设备会话已关闭。" }
-                        val answer = if (call.method == "status") status(false) else installedApps()
+                        val answer = when {
+                            flowInspection -> invoke(p)
+                            call.method == "status" -> status(false)
+                            else -> installedApps()
+                        }
                         main.post { result.success(answer) }
                     } catch (e: Exception) {
                         main.post { result.error("DEVICE_ENGINE", e.message ?: "设备状态未能读取。", null) }
@@ -324,6 +329,14 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 "summary" to summary, "value" to value)
         if (tool == "device.status") return receipt("verified", "设备状态已读取。", status())
         if(tool=="device.receipt"){val original=args["originalRequestId"] as String;val saved=receipts.read(digest("$owner:$original"));return receipt("verified","原请求持久回执已读取，没有重新执行。",if(saved==null)mapOf("found" to false)else mapOf("found" to true,"originalRequestId" to original,"outcome" to saved.optString("outcome"),"summary" to saved.optString("summary"),"value" to plain(saved.opt("value"))))}
+        if(tool=="ui.flow.read") {
+            require(args.keys==setOf("originalRequestId"))
+            val original=args["originalRequestId"] as? String?:error("缺少原流程编号。")
+            val saved=receipts.read(digest("$owner:$original"))
+            val value=saved?.let{plain(it.opt("value"))} as? Map<*,*>
+            require(value?.get("flowVersion")==1){"本会话没有这个本地流程。"}
+            return receipt("verified","已读取本地流程检查点，没有执行动作。",value!!.filterKeys{it!="plan"})
+        }
         if(tool in setOf("shell.output.read","shell.output.export")){
             val output=args["outputId"] as String;val stream=args["stream"] as? String?:"stdout";val logs=CloudShellOutputs(activity)
             return receipt("verified","已读取原高权限执行日志，没有重新连接或执行。",if(tool=="shell.output.export")logs.export(owner,output,stream)else logs.page(owner,output,stream,(args["offset"] as? Number)?.toLong()?:0,(args["length"] as? Number)?.toInt()?:48000))
@@ -396,6 +409,9 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 }
                 "ui.screenshot"->{val service=SkivuAccessibilityService.connected
                     if(service==null)receipt("permission_required","无障碍服务未连接。")else receipt("verified","已取得授权页面实际截图；图片能否理解取决于当前模型真实视觉能力。",service.screenshot(packages(),args))}
+                "ui.flow", "ui.flow.resume" -> {
+                    runPhoneFlow(tool,args,owner,id,key,fingerprint,leaseCheck,::beforeAction)
+                }
                 "ui.tap", "ui.input", "ui.scroll", "ui.back", "ui.home", "ui.longPress", "ui.swipe" -> {
                     val service = SkivuAccessibilityService.connected
                     if (service == null) receipt("permission_required", "请先开启 Skivu 无障碍服务。")
@@ -490,6 +506,14 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
             receipt(if (actionAttempted) "unknown" else "failed", e.message?.take(300) ?: "设备操作未完成。")
         }
         if (writing) {
+            if(tool in setOf("ui.flow","ui.flow.resume")) {
+                // The runner stores its full resumable checkpoint before each action.
+                // Do not replace that journal with the compact public response.
+                if(receipts.read(key)?.optJSONObject("value")?.optInt("flowVersion")==1) {
+                    remembered[key]=answer
+                    return answer
+                }
+            }
             if (answer["outcome"] == "permission_required") {
                 receipts.remove(key)
             } else {
@@ -505,6 +529,58 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         val key=digest("$owner:$requestId");cancelledRequests.add(key)
         val stopping=if(activeRequest==key)adb.stop()else null
         return if(stopping!=null)adb.awaitStop(stopping)else mapOf("outcome" to "cancelled")
+    }
+
+    private fun runPhoneFlow(tool:String,args:Map<String,Any?>,owner:String,id:String,key:String,fingerprint:String,
+                             leaseCheck:()->Unit,beforeAction:()->Unit):Map<String,Any?> {
+        val epoch=cancellationEpoch.get()
+        val previous=if(tool=="ui.flow.resume") {
+            require(args.keys==setOf("originalRequestId")){"恢复流程只接受原请求编号。"}
+            val original=args["originalRequestId"] as? String?:error("缺少原流程编号。")
+            val saved=receipts.read(digest("$owner:$original"))?:error("本会话没有这个流程。")
+            PhoneFlow.map(plain(saved.opt("value")),"checkpoint").also{require(it["flowVersion"]==1){"原请求不是本地流程。"}}
+        } else null
+        val plan=previous?.let{PhoneFlow.map(it["plan"],"plan")}?:args
+        PhoneFlow.validate(plan)
+        val root=previous?.get("rootRequestId") as? String?:id
+        val rootKey=digest("$owner:$root")
+        val rootFingerprint=if(root==id)fingerprint else receipts.read(rootKey)?.getString("fingerprint")?:error("流程原记录丢失。")
+        val backend=object:PhoneFlow.Backend {
+            override fun check() {
+                if(closed.get()||epoch!=cancellationEpoch.get()||key in cancelledRequests)throw PhoneFlow.Blocked("cancelled","本地流程已停止；已派发步骤保留待核对。")
+                leaseCheck()
+                if(!enabled("enabled")||!enabled("control"))throw PhoneFlow.Blocked("permission_required","手机操控授权已关闭。")
+                if(plan["package"] !in packages())throw PhoneFlow.Blocked("permission_required","流程软件已不在授权范围内。")
+                if(SkivuAccessibilityService.connected==null)throw PhoneFlow.Blocked("permission_required","无障碍服务未连接。")
+            }
+            override fun now()=android.os.SystemClock.uptimeMillis()
+            override fun snapshot(pkg:String):PhoneFlow.Snapshot=ui {
+                check();SkivuAccessibilityService.connected!!.flowSnapshot(packages(),pkg)
+            }
+            override fun perform(step:Map<String,Any?>,pkg:String,requestId:String):PhoneFlow.Dispatch {
+                var dispatched=false
+                try { return ui {
+                    check();SkivuAccessibilityService.connected!!.flowPerform(step,pkg,packages(),{check();beforeAction();dispatched=true},"flow_${digest("$owner:$requestId")}",owner)
+                } } catch(error:Exception) {
+                    val cause=(error as? java.util.concurrent.ExecutionException)?.cause as? Exception?:error
+                    if(!dispatched)throw PhoneFlow.NotDispatched(cause)
+                    throw cause
+                }
+            }
+            override fun awaitChange(milliseconds:Long) {
+                check();SkivuAccessibilityService.connected?.awaitFlowChange(milliseconds)
+            }
+        }
+        val result=PhoneFlow.run(plan,root,backend,previous){checkpoint ->
+            fun write(target:String,hash:String) {
+                receipts.write(target,JSONObject(mapOf("fingerprint" to hash,"outcome" to if(checkpoint["state"]=="running")"unknown" else checkpoint["state"],
+                    "summary" to checkpoint["reason"],"value" to checkpoint)))
+                remembered.remove(target)
+            }
+            write(rootKey,rootFingerprint)
+            if(key!=rootKey)write(key,fingerprint)
+        }
+        return mapOf("requestId" to id,"tool" to tool,"outcome" to result.outcome,"summary" to result.summary,"value" to result.value)
     }
     internal fun invokeLeased(p:Map<String,Any?>,check:()->Unit):Map<String,Any?>{
         val key=digest("${p["owner"]}:${p["requestId"]}");activeRequest=key;activeOwner=p["owner"] as? String

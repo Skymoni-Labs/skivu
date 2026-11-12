@@ -6,6 +6,16 @@ Map<String, String> toolResultDetails(
   Map<String, dynamic> receipt,
 ) {
   final value = receipt['value'];
+  if (const {'ui.flow', 'ui.flow.resume', 'ui.flow.read'}.contains(tool) &&
+      value is Map) {
+    final completed = value['completedSteps'], total = value['totalSteps'];
+    return {
+      'resultTitle': '手机本地流程',
+      'resultDetail':
+          '$completed/$total 步 · ${value['elapsedMs'] ?? 0} 毫秒'
+          '${value['currentStep'] is int ? ' · 停在第 ${(value['currentStep'] as int) + 1} 步' : ''}',
+    };
+  }
   if (tool == 'workflow.batch' && value is Map && value['steps'] is List) {
     final ids = <String>{}, batches = <String>{};
     for (final step in value['steps']) {

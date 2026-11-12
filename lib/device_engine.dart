@@ -125,6 +125,7 @@ class DeviceEngine {
                 const {
                       'device.status',
                       'device.receipt',
+                      'ui.flow.read',
                       'shell.output.read',
                       'shell.output.export',
                     }.contains(tool.id) ||

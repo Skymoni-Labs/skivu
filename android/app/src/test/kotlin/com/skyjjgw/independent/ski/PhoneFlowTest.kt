@@ -1,0 +1,204 @@
+package com.skyjjgw.independent.ski
+
+import org.junit.Assert.*
+import org.junit.Test
+
+class PhoneFlowTest {
+    private val pkg = "example.exercise"
+    private fun selector(text: String) = mapOf("text" to text)
+    private fun condition(kind: String, text: String, value: Any? = null): Map<String, Any?> =
+        mapOf("kind" to kind, "selector" to selector(text)) + if (value == null) emptyMap() else mapOf(kind to value)
+    private fun step(id: String, target: String, expected: Map<String, Any?>, guard: Map<String, Any?>? = null) =
+        mapOf<String, Any?>("id" to id, "action" to "tap", "selector" to selector(target), "expect" to expected, "stableMs" to 0, "timeoutMs" to 300) +
+            if (guard == null) emptyMap() else mapOf("guard" to guard)
+    private fun plan(vararg steps: Map<String, Any?>) = mapOf("package" to pkg, "steps" to steps.toList())
+
+    private inner class Device : PhoneFlow.Backend {
+        var time = 0L
+        var tick = 0
+        var question = 1
+        var selected = mutableSetOf<String>()
+        var taps = 0
+        var acceptedWithoutEffect = false
+        var cancelAt = Long.MAX_VALUE
+        var permission = true
+        var duplicate = false
+        var timerOnly = false
+        var saved: Map<String, Any?>? = null
+        var beforePerform: (() -> Unit)? = null
+        var afterPerform: (() -> Unit)? = null
+        override fun check() {
+            if (time >= cancelAt) throw PhoneFlow.Blocked("cancelled", "user stopped")
+            if (!permission) throw PhoneFlow.Blocked("permission_required", "revoked")
+        }
+        override fun now() = time
+        override fun awaitChange(milliseconds: Long) { time += milliseconds; tick++ }
+        override fun snapshot(pkg: String): PhoneFlow.Snapshot {
+            check(); tick++
+            val root = "root_$tick"
+            fun row(id: String, text: String, checked: Boolean = false, parent: String? = root) =
+                mapOf<String, Any?>("id" to "${id}_$tick", "parentId" to parent, "text" to text, "viewId" to id, "class" to "Button", "checked" to checked, "selected" to checked, "password" to false)
+            val rows = listOf(
+                mapOf<String, Any?>("id" to root, "text" to "", "viewId" to "content", "class" to "Group"),
+                row("question", "Question $question"), row("a", "Option A", "A" in selected), row("b", "Option B", "B" in selected),
+                row("next", "Next"), row("clock", "Timer $tick", parent = null),
+            ) + if (duplicate) listOf(row("duplicate", "Option A")) else emptyList()
+            return PhoneFlow.Snapshot(pkg, 1, rows, mapOf("observationId" to "observation_$tick", "package" to pkg, "elements" to rows))
+        }
+        override fun perform(step: Map<String, Any?>, pkg: String, requestId: String): PhoneFlow.Dispatch {
+            assertEquals("in_flight", (saved!!["steps"] as List<*>).map { PhoneFlow.map(it, "step") }.first { it["id"] == step["id"] }["state"])
+            val target = try {
+                beforePerform?.invoke()
+                val snapshot = snapshot(pkg)
+                step["guard"]?.let { require(PhoneFlow.satisfied(snapshot, PhoneFlow.map(it, "guard"))) }
+                PhoneFlow.unique(snapshot, PhoneFlow.map(step["selector"], "selector"))
+            } catch(error:Exception) { throw PhoneFlow.NotDispatched(error) }
+            taps++
+            if (!acceptedWithoutEffect) when (target["text"]) {
+                "Option A" -> selected.add("A")
+                "Option B" -> selected.add("B")
+                "Next" -> if (!timerOnly) { question++; selected.clear() }
+            }
+            afterPerform?.invoke()
+            return PhoneFlow.Dispatch(true, true)
+        }
+        fun run(plan: Map<String, Any?>, checkpoint: Map<String, Any?>? = null) =
+            PhoneFlow.run(plan, "request", this, checkpoint) { saved = it }
+    }
+
+    @Test fun twentyQuestionsRunWithoutModelOrStableNodeIds() {
+        val device = Device()
+        val steps = (1..20).flatMap { question ->
+            val guard = condition("exists", "Question $question")
+            listOf(
+                step("q${question}a", "Option A", condition("checked", "Option A", true), guard),
+                step("q${question}b", "Option B", condition("selected", "Option B", true), guard),
+                step("q${question}next", "Next", condition("exists", "Question ${question + 1}"), guard),
+            )
+        }
+        val result = device.run(plan(*steps.toTypedArray()))
+        assertEquals("verified", result.outcome)
+        assertEquals(60, device.taps)
+        assertEquals(21, device.question)
+        assertEquals(60, result.value["completedSteps"])
+        assertEquals(0, result.value["modelRequestsDuringExecution"])
+        assertEquals(false, result.value["hasUnverifiedActions"])
+    }
+
+    @Test fun alreadySelectedDoesNotToggleAgain() {
+        val device = Device(); device.selected.add("A")
+        assertEquals("verified", device.run(plan(step("a", "Option A", condition("checked", "Option A", true)))).outcome)
+        assertEquals(0, device.taps)
+    }
+
+    @Test fun uncertainActionResumesByVerificationOnly() {
+        val device = Device(); device.acceptedWithoutEffect = true
+        val plan = plan(step("a", "Option A", condition("checked", "Option A", true)), step("b", "Option B", condition("checked", "Option B", true)))
+        val first = device.run(plan)
+        assertEquals("unknown", first.outcome); assertEquals(1, device.taps)
+        val pending = device.saved!!
+        assertEquals(true, pending["hasUnverifiedActions"])
+        val stillUnknown = device.run(plan, pending)
+        assertEquals("unknown", stillUnknown.outcome); assertEquals(1, device.taps)
+        device.selected.add("A"); device.acceptedWithoutEffect = false
+        val resumed = device.run(plan, device.saved)
+        assertEquals("verified", resumed.outcome)
+        assertEquals(2, device.taps)
+        assertTrue((resumed.value["elapsedMs"] as Long) >= 600)
+    }
+
+    @Test fun cancelWhileWaitingRetainsOriginalActionAndStopsQuickly() {
+        val device = Device(); device.acceptedWithoutEffect = true; device.cancelAt = 100
+        val plan = plan(step("a", "Option A", condition("checked", "Option A", true)))
+        val cancelled = device.run(plan)
+        assertEquals("cancelled", cancelled.outcome); assertEquals(1, device.taps)
+        assertEquals(true, cancelled.value["hasUnverifiedActions"])
+        assertEquals(100, device.time)
+        device.cancelAt = Long.MAX_VALUE; device.selected.add("A")
+        assertEquals("verified", device.run(plan, device.saved).outcome)
+        assertEquals(1, device.taps)
+    }
+
+    @Test fun revokedPermissionBlocksFurtherActions() {
+        val device = Device(); device.afterPerform = { device.permission = false }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true)), step("b", "Option B", condition("checked", "Option B", true))))
+        assertEquals("permission_required", result.outcome)
+        assertEquals(1, device.taps); assertEquals(true, result.value["hasUnverifiedActions"])
+    }
+
+    @Test fun malformedLaterStepIsRejectedBeforeAnyAction() {
+        val device = Device()
+        try {
+            device.run(plan(step("a", "Option A", condition("checked", "Option A", true)), mapOf("id" to "bad", "action" to "shell", "expect" to condition("exists", "Next"))))
+            fail("malformed plan accepted")
+        } catch (_: IllegalArgumentException) { assertEquals(0, device.taps) }
+    }
+
+    @Test fun pageGuardStopsCrossQuestionClicks() {
+        val device = Device(); device.question = 2
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true), condition("exists", "Question 1"))))
+        assertEquals("failed", result.outcome); assertEquals(0, device.taps)
+    }
+
+    @Test fun guardIsCheckedAgainImmediatelyBeforeDispatch() {
+        val device = Device(); device.beforePerform = { device.question = 2 }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true), condition("exists", "Question 1"))))
+        assertEquals("failed", result.outcome); assertEquals(0, device.taps)
+    }
+
+    @Test fun ambiguousTargetsNeverPickAnArbitraryMatch() {
+        val device = Device(); device.duplicate = true
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        assertEquals("failed", result.outcome); assertEquals(0, device.taps)
+    }
+
+    @Test fun regionChangeIgnoresExternalTimerAndNewNodeIds() {
+        val device = Device()
+        val condition = mapOf("kind" to "changed", "selector" to mapOf("viewId" to "content"))
+        val before = PhoneFlow.evidence(device.snapshot(pkg), condition)
+        assertFalse(PhoneFlow.satisfied(device.snapshot(pkg), condition, before))
+        device.question = 2
+        assertTrue(PhoneFlow.satisfied(device.snapshot(pkg), condition, before))
+    }
+
+    @Test fun stablePredicateMustRemainTrueForTheRequestedDuration() {
+        val device = Device(); device.selected.add("A")
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true)) + mapOf("stableMs" to 200)))
+        assertEquals("verified", result.outcome); assertEquals(200, device.time)
+    }
+
+    @Test fun falseConditionalBranchIsSkippedWithoutDispatch() {
+        val device = Device()
+        val result = device.run(plan(step("optional", "Option A", condition("checked", "Option A", true)) + mapOf("when" to condition("exists", "Missing popup"))))
+        assertEquals("verified", result.outcome); assertEquals(0, device.taps)
+        assertEquals("skipped", PhoneFlow.map((result.value["steps"] as List<*>).single(), "step")["state"])
+    }
+
+    @Test fun allAnyAndAncestorScopeUseActualRows() {
+        val device = Device(); device.selected.add("A")
+        val snapshot = device.snapshot(pkg)
+        val target = PhoneFlow.unique(snapshot, selector("Option A") + mapOf("within" to mapOf("viewId" to "content")))
+        assertEquals("Option A", target["text"])
+        val all = mapOf("kind" to "all", "conditions" to listOf(condition("checked", "Option A", true), mapOf("kind" to "any", "conditions" to listOf(condition("exists", "Missing"), condition("exists", "Next")))))
+        PhoneFlow.validateCondition(all)
+        assertTrue(PhoneFlow.satisfied(snapshot, all))
+    }
+
+    @Test fun passwordsCannotBeTargetsOrEvidence() {
+        val row = mapOf<String, Any?>("id" to "secret", "text" to "Option A", "password" to true)
+        val snapshot = PhoneFlow.Snapshot(pkg, 1, listOf(row), emptyMap())
+        assertFalse(PhoneFlow.satisfied(snapshot, condition("exists", "Option A")))
+        try { PhoneFlow.unique(snapshot, selector("Option A")); fail("password selected") } catch (_: IllegalArgumentException) {}
+    }
+
+    @Test fun changedConditionCannotServeAsGuardOrBranch() {
+        val invalid = step("a", "Option A", condition("checked", "Option A", true)) + mapOf("guard" to mapOf("kind" to "changed"))
+        try { PhoneFlow.validate(plan(invalid)); fail("unstable guard accepted") } catch (_: IllegalArgumentException) {}
+    }
+
+    @Test fun foreignCheckpointCannotResume() {
+        val device = Device(); val plan = plan(step("a", "Option A", condition("checked", "Option A", true)))
+        device.run(plan)
+        try { device.run(plan, device.saved!! + mapOf("rootRequestId" to "other")); fail("foreign checkpoint accepted") } catch (_: IllegalArgumentException) {}
+    }
+}

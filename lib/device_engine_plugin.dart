@@ -111,7 +111,8 @@ Future<Object?> deviceEnginePluginCall(
       'tools': entries
           .where(
             (entry) =>
-                record.manifest.permissions.contains(entry['permission']),
+                (entry['requiredPermissions'] as List? ?? [entry['permission']])
+                    .every(record.manifest.permissions.contains),
           )
           .toList(),
     };
@@ -136,7 +137,10 @@ Future<Object?> deviceEnginePluginCall(
       '设备接口不存在。请从 device.engine.catalog 使用如 shell.execute 的接口 ID，不要填写 DSH 包装工具名。',
     );
   }
-  if (!record.manifest.permissions.contains(definition.permission)) {
+  if (![
+    definition.permission,
+    ...definition.additionalPermissions,
+  ].every(record.manifest.permissions.contains)) {
     throw const PluginApiError('PERMISSION_DENIED', '插件没有此设备能力的授权。');
   }
   try {

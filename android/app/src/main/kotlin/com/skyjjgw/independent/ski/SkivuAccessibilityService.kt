@@ -23,6 +23,8 @@ class SkivuAccessibilityService : AccessibilityService() {
     private var observedPackage = ""
     private var observedWindow = -1
     private var observedAt = 0L
+    private val flowChanges = Object()
+    fun awaitFlowChange(milliseconds: Long) { synchronized(flowChanges) { flowChanges.wait(milliseconds.coerceAtLeast(1)) } }
     private data class Proof(val tool:String,val owner:String,val pkg:String,val viewId:String,val text:String,val checked:Boolean,val selected:Boolean,val checkable:Boolean,val originalNodes:Set<String>)
     private val proofs=linkedMapOf<String,Proof>()
     private var overlay:CloudOverlay?=null
@@ -40,6 +42,7 @@ class SkivuAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if(windows.any{it.id==event?.windowId&&it.type==android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY})return
         if(event==null)return
+        synchronized(flowChanges) { flowChanges.notifyAll() }
         if(event.eventType in setOf(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,AccessibilityEvent.TYPE_VIEW_SCROLLED,AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)){
             if(event.packageName?.toString()==observedPackage&&(event.windowId==observedWindow||event.windowId<0))clearObservation()
         }else if(event.eventType in setOf(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,AccessibilityEvent.TYPE_WINDOWS_CHANGED)){
@@ -87,7 +90,7 @@ class SkivuAccessibilityService : AccessibilityService() {
         return mapOf("observationId" to observation,"package" to observedPackage,"windowId" to observedWindow,"elements" to page,"total" to rows.size,"nextOffset" to if(next<rows.size)next else null,"complete" to (next>=rows.size),"scope" to "当前系统可访问的可见节点；未找到时继续分页、检索或滚动观察")
     }
 
-    fun act(tool: String, args: Map<String, Any?>, allowed: Set<String>, beforeDispatch: () -> Unit, requestId:String="",owner:String=""): Boolean {
+    fun act(tool: String, args: Map<String, Any?>, allowed: Set<String>, beforeDispatch: () -> Unit, requestId:String="",owner:String="", semanticFallback:Boolean=false): Boolean {
         val root = current(allowed)
         val matches = root.packageName?.toString() == observedPackage && root.windowId == observedWindow
         @Suppress("DEPRECATION") root.recycle()
@@ -117,7 +120,13 @@ class SkivuAccessibilityService : AccessibilityService() {
         val proof=Proof(tool,owner,observedPackage,node.viewIdResourceName.orEmpty(),if(tool=="ui.input")args["text"].toString() else node.text?.toString().orEmpty(),node.isChecked,node.isSelected,node.isCheckable,texts)
         fun dispatch(){beforeDispatch();if(requestId.isNotEmpty()){proofs[requestId]=proof;saveProof(requestId,proof)}}
         val result = when (tool) {
-            "ui.tap" -> { dispatch(); node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+            "ui.tap" -> {
+                if (semanticFallback && !node.isClickable) {
+                    val bounds=Rect().also{node.getBoundsInScreen(it)}
+                    require(bounds.width()>0&&bounds.height()>0){"控件没有可点击的可见范围。"}
+                    dispatch();dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(Path().apply{moveTo(bounds.exactCenterX(),bounds.exactCenterY())},0,50)).build(),null,null)
+                } else { dispatch(); node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+            }
             "ui.longPress" -> {dispatch();node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)}
             "ui.swipe" -> {
                 require(args["direction"] in listOf("up","down","left","right"))
@@ -144,6 +153,31 @@ class SkivuAccessibilityService : AccessibilityService() {
         if(result&&requestId.isNotEmpty()){proofs[requestId]=proof;saveProof(requestId,proof)}
         clearObservation()
         return result
+    }
+
+    internal fun flowSnapshot(allowed:Set<String>, pkg:String):PhoneFlow.Snapshot {
+        val observation=observe(allowed.intersect(setOf(pkg)))
+        require(observation["package"]==pkg){"当前页面不属于流程指定的软件，未派发动作。"}
+        return PhoneFlow.Snapshot(pkg,observedWindow,snapshotRows.map{it.toMap()},observation)
+    }
+
+    internal fun flowPerform(step:Map<String,Any?>,pkg:String,allowed:Set<String>,beforeDispatch:()->Unit,requestId:String,owner:String):PhoneFlow.Dispatch {
+        // Fresh lookup and dispatch run in the same main-thread turn. No model-held IDs survive here.
+        val snapshot=flowSnapshot(allowed,pkg)
+        step["guard"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"guard"))){"页面前置条件已变化，未派发动作。"}}
+        if(PhoneFlow.satisfied(snapshot,PhoneFlow.map(step["expect"],"expect")))return PhoneFlow.Dispatch(true,false)
+        val action=step["action"] as String
+        val arguments=mutableMapOf<String,Any?>()
+        if(action!="back") {
+            val target=PhoneFlow.unique(snapshot,PhoneFlow.map(step["selector"],"selector"))
+            require(target["enabled"]!=false){"目标控件当前不可操作，未派发动作。"}
+            arguments["observationId"]=snapshot.observation["observationId"];arguments["elementId"]=target["id"]
+            if(action=="input")arguments["text"]=step["text"]
+            if(action in setOf("scroll","swipe"))arguments["direction"]=step["direction"]
+        }
+        var dispatched=false
+        val accepted=act("ui.$action",arguments,allowed,{beforeDispatch();dispatched=true},requestId,owner,true)
+        return PhoneFlow.Dispatch(accepted,dispatched)
     }
 
     private fun proofFile(id:String,owner:String)=java.io.File(filesDir,"cloud-ui-proofs/${TaskDatabase.digest("$owner:$id")}.json").also{it.parentFile!!.mkdirs()}

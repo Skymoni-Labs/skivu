@@ -24,6 +24,54 @@ void main() {
   }
 
   test(
+    'local phone flows require both observation and control grants',
+    () async {
+      final (registry, record) = setup(['device.control']);
+      var invoked = false;
+      final host = DeviceEngine(
+        transport: (method, _) async {
+          if (method == 'status')
+            return {'enabled': true, 'control': true, 'accessibility': true};
+          invoked = true;
+          return {};
+        },
+      );
+      await expectLater(
+        deviceEnginePluginCall(registry, record, 'device.engine.invoke', {
+          'tool': 'ui.flow',
+          'arguments': {},
+          'requestId': 'denied_flow',
+        }, engine: host),
+        throwsA(
+          isA<PluginApiError>().having(
+            (e) => e.code,
+            'code',
+            'PERMISSION_DENIED',
+          ),
+        ),
+      );
+      expect(invoked, false);
+      final (bothRegistry, bothRecord) = setup([
+        'device.control',
+        'device.observe',
+      ]);
+      final catalog =
+          await deviceEnginePluginCall(
+                bothRegistry,
+                bothRecord,
+                'device.engine.catalog',
+                {},
+                engine: host,
+              )
+              as Map;
+      expect(
+        (catalog['tools'] as List).any((t) => (t as Map)['id'] == 'ui.flow'),
+        true,
+      );
+    },
+  );
+
+  test(
     'pending host work does not block inspection or an owned Stop request',
     () async {
       final (registry, record) = setup(['device.observe']);

@@ -30,6 +30,7 @@ android {
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
 
     defaultConfig {
+        val phoneFlowQa = providers.gradleProperty("skivuPhoneFlowQa").orNull == "true"
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         val deviceQa = providers.gradleProperty("skivuDeviceQa").orNull == "true" ||
             (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
@@ -51,9 +52,9 @@ android {
         val updateQa = (project.findProperty("dart-defines") as? String).orEmpty().split(',').any {
             try { String(Base64.getDecoder().decode(it)) == "SKIVU_UPDATE_QA=true" } catch (_: Exception) { false }
         }
-        applicationId = when { updateQa -> "com.skyjjgw.independent.ski.updateqa"; purgeQa -> "com.skyjjgw.independent.ski.purgeqa"; engineQa -> "com.skyjjgw.independent.ski.engineqa"; runtimeQa -> "com.skyjjgw.independent.ski.runtimeqa"; deviceQa -> "com.skyjjgw.independent.ski.deviceqa"; devicePreview -> "com.skyjjgw.independent.ski.devicepreview"; else -> "com.skyjjgw.independent.ski" }
+        applicationId = when { phoneFlowQa -> "com.skyjjgw.independent.ski.phoneflowqa"; updateQa -> "com.skyjjgw.independent.ski.updateqa"; purgeQa -> "com.skyjjgw.independent.ski.purgeqa"; engineQa -> "com.skyjjgw.independent.ski.engineqa"; runtimeQa -> "com.skyjjgw.independent.ski.runtimeqa"; deviceQa -> "com.skyjjgw.independent.ski.deviceqa"; devicePreview -> "com.skyjjgw.independent.ski.devicepreview"; else -> "com.skyjjgw.independent.ski" }
         manifestPlaceholders["skivuQaDocumentsAuthority"] = "$applicationId.test.documents"
-        manifestPlaceholders["skivuApplicationLabel"] = if(devicePreview) "Skivu 操控预览" else "@string/app_name"
+        manifestPlaceholders["skivuApplicationLabel"] = if(phoneFlowQa) "Skivu 流程验收" else if(devicePreview) "Skivu 操控预览" else "@string/app_name"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -78,6 +79,7 @@ flutter {
 dependencies { implementation(project(":skymoni_glass")) }
 dependencies { implementation(project(":embedded_adb")) }
 dependencies {
+    testImplementation("junit:junit:4.12")
     // 2.11.2 includes Android 15+ blocked-background-network tracking fixes.
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("com.google.guava:guava:33.3.1-android")

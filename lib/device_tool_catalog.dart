@@ -1,4 +1,5 @@
 import 'open_plugin_tools.dart';
+import 'phone_flow_schema.dart';
 
 /// Versioned host capabilities shared by the main assistant, plugins and DSH.
 /// A catalog entry describes an operation; actual permission and result evidence
@@ -10,9 +11,11 @@ class DeviceToolDefinition {
     required this.permission,
     required this.parameters,
     this.effect = 'read',
+    this.additionalPermissions = const [],
   });
 
   final String id, description, permission, effect;
+  final List<String> additionalPermissions;
   final Map<String, dynamic> parameters;
 
   void validate(Map<String, dynamic> arguments) =>
@@ -22,6 +25,8 @@ class DeviceToolDefinition {
     'id': id,
     'description': description,
     'permission': permission,
+    if (additionalPermissions.isNotEmpty)
+      'requiredPermissions': [permission, ...additionalPermissions],
     'effect': effect,
     'parameters': parameters,
   };
@@ -43,6 +48,28 @@ Map<String, dynamic> _text(int max, [String? description]) => {
 };
 
 final builtinDeviceTools = <DeviceToolDefinition>[
+  DeviceToolDefinition(
+    id: 'ui.flow',
+    description: '在授权软件内本地连续定位、操作、条件等待与核验；每步有真实证据和持久检查点，执行期间不调用模型。',
+    permission: 'device.control',
+    additionalPermissions: ['device.observe'],
+    effect: 'external',
+    parameters: phoneFlowParameters,
+  ),
+  DeviceToolDefinition(
+    id: 'ui.flow.read',
+    description: '只读查询本任务原本地流程的每步状态、停止原因和耗时，不重放动作。',
+    permission: 'device.observe',
+    parameters: phoneFlowReferenceParameters,
+  ),
+  DeviceToolDefinition(
+    id: 'ui.flow.resume',
+    description: '明确继续本任务原流程；跳过已核验步骤，未知动作仅重新核验，不能重放；保留原权限范围。',
+    permission: 'device.control',
+    additionalPermissions: ['device.observe'],
+    effect: 'external',
+    parameters: phoneFlowReferenceParameters,
+  ),
   DeviceToolDefinition(
     id: 'device.receipt',
     description: '只读核对本任务原请求的持久回执，不重放动作；派发与业务完成分开。',

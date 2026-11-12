@@ -9,11 +9,72 @@ class ChoiceQuestion {
     this.observationId,
     this.question,
     this.options,
-    this.multiple,
-  );
+    this.multiple, {
+    this.questionNodes = const [],
+  });
   final String observationId, question;
   final List<Map<String, dynamic>> options;
   final bool multiple;
+  final List<Map<String, dynamic>> questionNodes;
+
+  Map<String, dynamic> flow(List<String> selected, String package) {
+    if (questionNodes.isEmpty) throw StateError('题干定位信息不足，不能生成本地流程。');
+    Map<String, dynamic> selector(Map<String, dynamic> option) => {
+      'text': option['text'],
+      if (option['class'] is String && (option['class'] as String).isNotEmpty)
+        'className': option['class'],
+      if (option['viewId'] is String && (option['viewId'] as String).isNotEmpty)
+        'viewId': option['viewId'],
+    };
+    final guard = {
+      'kind': 'all',
+      'conditions': [
+        for (final node in questionNodes)
+          if ((node['text'] as String? ?? '').isNotEmpty)
+            {
+              'kind': 'exists',
+              'selector': {'text': node['text']},
+            },
+      ],
+    };
+    final expected = [
+      for (final option in options)
+        {
+          'kind': 'checked',
+          'selector': selector(option),
+          'checked': selected.contains(option['id']),
+        },
+    ];
+    return {
+      'package': package,
+      'steps': [
+        for (var i = 0; i < options.length; i++)
+          if (multiple || selected.contains(options[i]['id']))
+            {
+              'id': 'choice_$i',
+              'action': 'tap',
+              'selector': selector(options[i]),
+              'guard': guard,
+              'expect': {
+                'kind': 'all',
+                'conditions': [guard, expected[i]],
+              },
+              'timeoutMs': 3000,
+            },
+        {
+          'id': 'verify_answer',
+          'action': 'wait',
+          'guard': guard,
+          'expect': {
+            'kind': 'all',
+            'conditions': [guard, ...expected],
+          },
+          'timeoutMs': 3000,
+        },
+      ],
+    };
+  }
+
   String get fingerprint => sha256
       .convert(
         utf8.encode(
@@ -139,6 +200,7 @@ class ChoiceQuestion {
       question,
       options,
       multi,
+      questionNodes: questionIds.map(node).toList(),
     );
   }
 }
@@ -174,7 +236,7 @@ class PhoneTaskAdapters implements AssistantExtensions {
     {
       'id': 'adapter.choice.match',
       'description':
-          '把当前模型判断的答案与同一题目指纹的选项匹配，支持字母、文本和符号。不自动点击；每次点击后 ui.verify 核对选中状态，页面变化后重新观察提取。相似但不唯一时拒绝。',
+          '把当前模型判断的答案与同一题目指纹的选项匹配，支持字母、文本和符号；返回带题干前置条件的flow参数，可直接交给ui.flow在本地完成全部选择及核验。此工具不点击；相似但不唯一时拒绝。',
       'parameters': schema(
         {
           'fingerprint': {'type': 'string'},
@@ -222,11 +284,14 @@ class PhoneTaskAdapters implements AssistantExtensions {
             actual['observationId'] != q.observationId ||
             args['fingerprint'] != q.fingerprint)
           throw StateError('题目或页面已变化，旧答案失效。');
+        final selected = q.match(List<String>.from(args['answers']));
         value = {
-          'elementIds': q.match(List<String>.from(args['answers'])),
+          'elementIds': selected,
           'fingerprint': q.fingerprint,
           'observationId': q.observationId,
           'requiresSelectedReadback': true,
+          if (actual['package'] is String && q.questionNodes.isNotEmpty)
+            'flow': q.flow(selected, actual['package']),
         };
       }
       return DeviceToolReceipt({
