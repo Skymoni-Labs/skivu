@@ -69,7 +69,7 @@ class SkivuAccessibilityService : AccessibilityService() {
 
     internal fun current(allowed: Set<String>): AccessibilityNodeInfo {
         require(!getSystemService(android.app.KeyguardManager::class.java).isDeviceLocked&&getSystemService(android.os.PowerManager::class.java).isInteractive){"手机已锁屏或屏幕不可操作，请解锁后核对；没有重放动作。"}
-        val root = rootInActiveWindow ?: error("当前没有可观察的界面。")
+        val root = rootInActiveWindow ?: throw PhoneFlow.ObservationUnavailable("当前没有可观察的界面。")
         val target = root.packageName?.toString().orEmpty()
         require(target in allowed) { "当前软件不在授权范围内。" }
         return root

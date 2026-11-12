@@ -35,22 +35,108 @@ internal object PhoneVision {
         .replace(Regex("(?<=[\\u4e00-\\u9fff])ー(?=[\\u4e00-\\u9fff])"),"一")
         .replace(Regex("(?<=[\\u4e00-\\u9fff])\\s+(?=[\\u4e00-\\u9fff])"),"").trim()
     fun text(value: Any?) = ocrText(value).replace(Regex("\\s+"), "").lowercase()
-    fun merge(native: List<Map<String, Any?>>, ocr: List<Map<String, Any?>>): List<Map<String, Any?>> {
-        return native + ocr.filter { visual -> native.none { node ->
-            if (node["password"] == true || text(node["text"]).isEmpty() || text(node["text"]) != text(visual["text"])) false
-            else {
-                val a = (node["bounds"] as List<*>).map { (it as Number).toInt() }
-                val b = (visual["bounds"] as List<*>).map { (it as Number).toInt() }
-                val x = (b[0] + b[2]) / 2; val y = (b[1] + b[3]) / 2
-                x in a[0]..a[2] && y in a[1]..a[3]
+    fun merge(native: List<Map<String, Any?>>, ocr: List<Map<String, Any?>>,
+              requiredOcrSelectors: List<Map<String, Any?>> = emptyList()): List<Map<String, Any?>> {
+        val allRows = native + ocr
+        return native + ocr.mapNotNull { visual ->
+            val duplicates = native.filter { node ->
+                if (node["password"] == true || text(node["text"]).isEmpty() || text(node["text"]) != text(visual["text"])) false
+                else {
+                    val a = (node["bounds"] as List<*>).map { (it as Number).toInt() }
+                    val b = (visual["bounds"] as List<*>).map { (it as Number).toInt() }
+                    val x = (b[0] + b[2]) / 2; val y = (b[1] + b[3]) / 2
+                    x in a[0]..a[2] && y in a[1]..a[3]
+                }
             }
-        } }
+            if (duplicates.isEmpty()) visual
+            else if (requiredOcrSelectors.none { PhoneFlow.matches(visual, it, allRows) }) null
+            else {
+                val nativeId = duplicates.singleOrNull()?.get("id") as? String
+                if (nativeId == null) visual - "nativeElementId"
+                else visual + ("nativeElementId" to nativeId)
+            }
+        }
     }
     fun needsOcr(rows: List<Map<String, Any?>>, query: String?, selectors: List<Map<String, Any?>>): Boolean {
-        if (!query.isNullOrBlank()) return rows.none { listOf(it["text"], it["description"], it["viewId"]).any { v -> v?.toString()?.contains(query, true) == true } }
+        val webView = rows.any(::isWebView)
+        if (!query.isNullOrBlank()) return webView || rows.none { listOf(it["text"], it["description"], it["viewId"]).any { v -> v?.toString()?.contains(query, true) == true } }
         if (selectors.isNotEmpty()) return selectors.any { s ->
-            s["source"] == "ocr" || ((s["text"] != null || s["textContains"] != null) && rows.none { PhoneFlow.matches(it, s, rows) })
+            if (s["source"] == "accessibility") false
+            else {
+                val visibleText = listOf("text", "textContains", "description", "descriptionContains").any { s[it] != null }
+                s["source"] == "ocr" || (visibleText && (webView || rows.none { PhoneFlow.matches(it, s, rows) }))
+            }
         }
-        return rows.none { it["password"] != true && (it["text"]?.toString()?.isNotBlank() == true || it["description"]?.toString()?.isNotBlank() == true) }
+        return webView || rows.none { it["password"] != true && (it["text"]?.toString()?.isNotBlank() == true || it["description"]?.toString()?.isNotBlank() == true) }
+    }
+
+    /** Public text projection. Raw accessibility identity and state stay in the original rows. */
+    fun visibleProjection(rows: List<Map<String, Any?>>): List<Map<String, Any?>> {
+        val native = rows.indices.filter { rows[it]["source"] == "accessibility" }
+        val byId = native.mapNotNull { index -> (rows[index]["id"] as? String)?.let { it to rows[index] } }.toMap()
+        val parents = native.mapNotNull { rows[it]["parentId"] as? String }.toSet()
+        val leaves = native.filter { index ->
+            val row = rows[index]
+            val id = row["id"] as? String
+            id != null && id !in parents && row["password"] != true &&
+                listOf(row["text"], row["description"]).any { text(it).isNotEmpty() } && inWebView(row, byId)
+        }
+        val visual = rows.indices.filter { rows[it]["source"] == "ocr" && text(rows[it]["text"]).isNotEmpty() }
+        val boxes = rows.map(::visibleBox)
+        val matches = leaves.associateWith { node ->
+            val a = boxes[node]
+            visual.filter { image ->
+                val b = boxes[image]
+                a != null && b != null && b.containsCenter(a) && (a.containsCenter(b) || a.containsLeadingAnchor(b))
+            }
+        }
+        val uses = matches.values.flatten().groupingBy { it }.eachCount()
+        val projected = rows.toMutableList()
+        for ((node, images) in matches) {
+            val image = images.singleOrNull() ?: continue
+            if (uses[image] != 1) continue
+            val original = rows[node]
+            val visible = text(rows[image]["text"])
+            val conflicts = listOf("text", "description").filter { text(original[it]).isNotEmpty() && text(original[it]) != visible }
+            if (conflicts.isEmpty()) continue
+            val changes = mutableMapOf<String, Any?>("textConflict" to true)
+            for (field in conflicts) {
+                changes[if (field == "text") "accessibilityText" else "accessibilityDescription"] = original[field]
+                changes[field] = ""
+            }
+            projected[node] = original + changes
+            projected[image] = rows[image] + mapOf("nativeElementId" to original["id"], "textConflict" to true)
+        }
+        return projected
+    }
+
+    private fun isWebView(row: Map<String, Any?>): Boolean = (row["class"] as? String)?.endsWith(".WebView") == true
+
+    private fun inWebView(row: Map<String, Any?>, byId: Map<String, Map<String, Any?>>): Boolean {
+        var current: Map<String, Any?>? = row
+        val visited = mutableSetOf<String>()
+        while (current != null) {
+            if (isWebView(current)) return true
+            val parent = current["parentId"] as? String ?: return false
+            if (!visited.add(parent)) return false
+            current = byId[parent]
+        }
+        return false
+    }
+
+    private data class VisibleBox(val left: Double, val top: Double, val right: Double, val bottom: Double) {
+        fun containsCenter(other: VisibleBox): Boolean =
+            (other.left + other.right) / 2 in left..right && (other.top + other.bottom) / 2 in top..bottom
+
+        fun containsLeadingAnchor(other: VisibleBox): Boolean =
+            other.left in left..right && (other.top + other.bottom) / 2 in top..bottom
+    }
+
+    private fun visibleBox(row: Map<String, Any?>): VisibleBox? {
+        val values = row["bounds"] as? List<*> ?: return null
+        if (values.size != 4 || values.any { it !is Number || !it.toDouble().isFinite() }) return null
+        val b = values.map { (it as Number).toDouble() }
+        if (b[2] <= b[0] || b[3] <= b[1]) return null
+        return VisibleBox(b[0], b[1], b[2], b[3])
     }
 }

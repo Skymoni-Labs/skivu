@@ -32,7 +32,8 @@ class PhoneFlowAcceptanceTest {
     }
     @Before fun setup() {
         assertTrue(context.packageName.endsWith(".phoneflowqa"))
-        assertTrue(Build.HARDWARE in setOf("ranchu", "goldfish"))
+        val physicalQa = InstrumentationRegistry.getArguments().getString("skivuPhysicalQa") == "confirmed"
+        assertTrue(physicalQa || Build.HARDWARE in setOf("ranchu", "goldfish"))
         val prefs = context.getSharedPreferences("skivu.device-engine.v1", 0)
         original = listOf("enabled", "control", "allApplications", "packages").associateWith { prefs.all[it] }
         prefs.edit().putBoolean("enabled", true).putBoolean("control", true).putBoolean("allApplications", false).putStringSet("packages", allowed).commit()
@@ -48,7 +49,7 @@ class PhoneFlowAcceptanceTest {
         shell("settings put secure enabled_accessibility_services ${(enabled + component).joinToString(":")}")
         shell("settings put secure accessibility_enabled 1")
         assertEquals((enabled + component).joinToString(":"),android.provider.Settings.Secure.getString(context.contentResolver,"enabled_accessibility_services"))
-        shell("am start -W -n $pkg/${PhoneFlowFixtureActivity::class.java.name} -f 0x14000000")
+        shell("am start -W -n $pkg/${PhoneFlowFixtureActivity::class.java.name} -f 0x14010000")
         service(); Thread.sleep(150)
     }
     @After fun restore() {

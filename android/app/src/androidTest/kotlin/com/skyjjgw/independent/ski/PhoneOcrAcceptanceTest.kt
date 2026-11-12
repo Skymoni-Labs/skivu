@@ -28,7 +28,9 @@ class PhoneOcrAcceptanceTest {
         return org.json.JSONObject(result.get(10,TimeUnit.SECONDS))
     }
     @Before fun setup(){
-        assertTrue(context.packageName.endsWith(".phoneflowqa"));assertTrue(Build.HARDWARE in setOf("ranchu","goldfish"))
+        assertTrue(context.packageName.endsWith(".phoneflowqa"))
+        val physicalQa=InstrumentationRegistry.getArguments().getString("skivuPhysicalQa")=="confirmed"
+        assertTrue(physicalQa || Build.HARDWARE in setOf("ranchu","goldfish"))
         val prefs=context.getSharedPreferences("skivu.device-engine.v1",0)
         original=listOf("enabled","control","allApplications","packages","recognitionMode").associateWith{prefs.all[it]}
         prefs.edit().putBoolean("enabled",true).putBoolean("control",true).putBoolean("allApplications",false).putStringSet("packages",setOf(pkg)).putString("recognitionMode","auto").commit()
@@ -38,7 +40,7 @@ class PhoneOcrAcceptanceTest {
         shell("settings put secure enabled_accessibility_services ${if(enabled.isEmpty())"null"else enabled.joinToString(":")}")
         repeat(40){if(SkivuAccessibilityService.connected!=null)Thread.sleep(25)}
         shell("settings put secure enabled_accessibility_services ${(enabled+component).joinToString(":")}");shell("settings put secure accessibility_enabled 1")
-        shell("am start -W -n $pkg/${PhoneOcrFixtureActivity::class.java.name} -f 0x14000000")
+        shell("am start -W -n $pkg/${PhoneOcrFixtureActivity::class.java.name} -f 0x14010000")
         repeat(200){if(SkivuAccessibilityService.connected==null)Thread.sleep(25)}
         assertNotNull(SkivuAccessibilityService.connected);assertTrue(fixture().toString(),fixture().optBoolean("alive"));Thread.sleep(150)
     }

@@ -197,6 +197,107 @@ class PhoneFlowTest {
         assertEquals(0L, performance["waitMs"])
     }
 
+    @Test fun brieflyMissingInitialObservationIsRetriedBeforeDispatch() {
+        val device = Device(); device.preparedEnabled = true
+        device.beforeSnapshot = {
+            if (device.time < 200) throw PhoneFlow.ObservationUnavailable("当前没有可观察的界面。")
+        }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        assertEquals("verified", result.outcome)
+        assertEquals(200L, device.time)
+        assertEquals(1, device.taps)
+        assertEquals(2, result.value["observationRetryCount"])
+        assertEquals(2, result.value["observationCount"])
+        assertEquals(4, device.snapshotCalls)
+    }
+
+    @Test fun missingObservationAfterDispatchRecoversWithoutAnotherTap() {
+        val device = Device(); device.preparedEnabled = true
+        device.beforeSnapshot = {
+            if (device.taps > 0 && device.time < 200) throw PhoneFlow.ObservationUnavailable("temporarily missing")
+        }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        assertEquals("verified", result.outcome)
+        assertEquals(1, device.taps)
+        assertEquals(200L, device.time)
+        assertEquals(2, result.value["observationRetryCount"])
+        assertEquals(2, result.value["observationCount"])
+    }
+
+    @Test fun missingObservationTimesOutAndRepeatedResumeNeverReplaysTheAction() {
+        val device = Device(); device.preparedEnabled = true
+        device.beforeSnapshot = {
+            if (device.taps > 0) throw PhoneFlow.ObservationUnavailable("still missing")
+        }
+        val actions = plan(step("a", "Option A", condition("checked", "Option A", true)) + ("timeoutMs" to 250))
+        val first = device.run(actions)
+        assertEquals("unknown", first.outcome)
+        assertEquals(250L, device.time)
+        assertEquals(1, device.taps)
+        assertEquals(3, first.value["observationRetryCount"])
+        assertEquals(1, first.value["observationCount"])
+        val stillMissing = device.run(actions, device.saved)
+        assertEquals("unknown", stillMissing.outcome)
+        assertEquals(500L, device.time)
+        assertEquals(1, device.taps)
+        assertEquals(0, stillMissing.value["observationCount"])
+        assertEquals("unknown", PhoneFlow.map((device.saved!!["steps"] as List<*>).single(), "step")["state"])
+        device.beforeSnapshot = null
+        assertEquals("verified", device.run(actions, device.saved).outcome)
+        assertEquals(1, device.taps)
+    }
+
+    @Test fun missingObservationWithUnlimitedTimeoutCanBeCancelled() {
+        val device = Device(); device.cancelAt = 100
+        device.beforeSnapshot = { throw PhoneFlow.ObservationUnavailable("missing until cancellation") }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true)) + ("timeoutMs" to 0)))
+        assertEquals("cancelled", result.outcome)
+        assertEquals(100L, device.time)
+        assertEquals(1, device.snapshotCalls)
+        assertEquals(1, result.value["observationRetryCount"])
+        assertEquals(0, device.taps)
+    }
+
+    @Test fun revokedPermissionStopsObservationRetryImmediately() {
+        val device = Device()
+        device.beforeSnapshot = {
+            device.permission = false
+            throw PhoneFlow.ObservationUnavailable("missing while authorization changes")
+        }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        assertEquals("permission_required", result.outcome)
+        assertEquals(0L, device.time)
+        assertEquals(1, device.snapshotCalls)
+        assertEquals(0, result.value["observationRetryCount"])
+        assertEquals(0, device.taps)
+    }
+
+    @Test fun unrelatedObservationFailuresAreNotRetriedEvenWithTheSameMessage() {
+        for (failure in listOf(IllegalStateException("当前没有可观察的界面。"),
+            IllegalArgumentException("foreign package"), IllegalArgumentException("foreign owner"))) {
+            val device = Device()
+            device.beforeSnapshot = { throw failure }
+            val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+            assertEquals("failed", result.outcome)
+            assertEquals(0L, device.time)
+            assertEquals(1, device.snapshotCalls)
+            assertEquals(0, result.value["observationRetryCount"])
+            assertEquals(0, device.taps)
+        }
+    }
+
+    @Test fun observationUnavailableInsideDispatchDoesNotRetryTheAction() {
+        val device = Device(); device.preparedEnabled = true
+        var attempts = 0
+        device.beforePerform = { attempts++; throw PhoneFlow.ObservationUnavailable("missing at dispatch") }
+        val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
+        assertEquals("failed", result.outcome)
+        assertEquals(1, attempts)
+        assertEquals(0, device.taps)
+        assertEquals(0L, device.time)
+        assertEquals(0, result.value["observationRetryCount"])
+    }
+
     @Test fun alreadySelectedDoesNotToggleAgain() {
         val device = Device(); device.selected.add("A")
         assertEquals("verified", device.run(plan(step("a", "Option A", condition("checked", "Option A", true)))).outcome)
@@ -262,6 +363,40 @@ class PhoneFlowTest {
         val device = Device(); device.duplicate = true
         val result = device.run(plan(step("a", "Option A", condition("checked", "Option A", true))))
         assertEquals("failed", result.outcome); assertEquals(0, device.taps)
+    }
+
+    @Test fun defaultTargetsPreferMatchedNativeIdentityOverItsLinkedOcrRow() {
+        val native = mapOf<String, Any?>("id" to "native-a", "text" to "Option A",
+            "source" to "accessibility", "checked" to true, "selected" to true)
+        val ocr = mapOf<String, Any?>("id" to "ocr-a", "text" to "Option A",
+            "source" to "ocr", "nativeElementId" to "native-a")
+        val snapshot = PhoneFlow.Snapshot(pkg, 1, listOf(native, ocr), emptyMap())
+        assertEquals(listOf(native), PhoneFlow.targets(snapshot, selector("Option A")))
+        assertEquals(native, PhoneFlow.unique(snapshot, selector("Option A")))
+        assertTrue(PhoneFlow.satisfied(snapshot, condition("checked", "Option A", true)))
+        assertTrue(PhoneFlow.satisfied(snapshot, condition("selected", "Option A", true)))
+    }
+
+    @Test fun explicitSourceSelectionRetainsTheRequestedLinkedRepresentation() {
+        val native = mapOf<String, Any?>("id" to "native-a", "text" to "Option A",
+            "source" to "accessibility", "checked" to true)
+        val ocr = mapOf<String, Any?>("id" to "ocr-a", "text" to "Option A",
+            "source" to "ocr", "nativeElementId" to "native-a")
+        val snapshot = PhoneFlow.Snapshot(pkg, 1, listOf(native, ocr), emptyMap())
+        val visualSelector = selector("Option A") + ("source" to "ocr")
+        assertEquals(listOf(ocr), PhoneFlow.targets(snapshot, visualSelector))
+        assertEquals(listOf(native), PhoneFlow.targets(snapshot, selector("Option A") + ("source" to "accessibility")))
+        assertFalse(PhoneFlow.satisfied(snapshot, mapOf("kind" to "checked", "checked" to true, "selector" to visualSelector)))
+    }
+
+    @Test fun linkedOcrTargetRemainsWhenItsNativeIdentityDoesNotMatchTheSelector() {
+        val native = mapOf<String, Any?>("id" to "native-a", "text" to "Different native label",
+            "source" to "accessibility")
+        val ocr = mapOf<String, Any?>("id" to "ocr-a", "text" to "Option A",
+            "source" to "ocr", "nativeElementId" to "native-a")
+        val snapshot = PhoneFlow.Snapshot(pkg, 1, listOf(native, ocr), emptyMap())
+        assertEquals(listOf(ocr), PhoneFlow.targets(snapshot, selector("Option A")))
+        assertEquals(ocr, PhoneFlow.unique(snapshot, selector("Option A")))
     }
 
     @Test fun regionChangeIgnoresExternalTimerAndNewNodeIds() {

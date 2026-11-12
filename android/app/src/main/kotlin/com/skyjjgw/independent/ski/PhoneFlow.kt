@@ -4,6 +4,7 @@ package com.skyjjgw.independent.ski
 internal object PhoneFlow {
     class Blocked(val outcome: String, message: String) : IllegalStateException(message)
     class NotDispatched(val failure: Exception) : IllegalStateException(failure.message, failure)
+    class ObservationUnavailable(message: String) : IllegalStateException(message)
 
     data class Snapshot(val pkg: String, val window: Int, val rows: List<Map<String, Any?>>, val observation: Map<String, Any?>)
     data class Dispatch(val accepted: Boolean, val dispatched: Boolean)
@@ -127,7 +128,15 @@ internal object PhoneFlow {
         }
         return row["password"] != true
     }
-    fun targets(snapshot: Snapshot, selector: Map<String, Any?>) = snapshot.rows.filter { matches(it, selector, snapshot.rows) }
+    fun targets(snapshot: Snapshot, selector: Map<String, Any?>): List<Map<String, Any?>> {
+        val matched = snapshot.rows.filter { matches(it, selector, snapshot.rows) }
+        if ("source" in selector) return matched
+        val nativeIds = matched.filter { (it["source"] ?: "accessibility") == "accessibility" }
+            .mapNotNull { it["id"] as? String }.toSet()
+        return matched.filterNot { row ->
+            row["source"] == "ocr" && row["nativeElementId"] in nativeIds
+        }
+    }
     fun unique(snapshot: Snapshot, selector: Map<String, Any?>): Map<String, Any?> {
         val matches = targets(snapshot, selector)
         require(matches.size == 1) { "控件应唯一匹配，实际为 ${matches.size} 个；请细化选择条件。" }
@@ -192,6 +201,7 @@ internal object PhoneFlow {
         val metricsAtStart = backend.metrics()
         val previousElapsed = (checkpoint?.get("elapsedMs") as? Number)?.toLong() ?: 0
         var observations = 0
+        var observationRetries = 0
         var latest: Snapshot? = null
         var reusable: Snapshot? = null
         fun state(outcome: String, reason: String, current: Int?): Map<String, Any?> = mapOf(
@@ -200,11 +210,25 @@ internal object PhoneFlow {
             "currentStep" to current, "completedSteps" to records.count { it["state"] in setOf("verified", "skipped") },
             "totalSteps" to steps.size, "elapsedMs" to previousElapsed + backend.now() - started,
             "hasUnverifiedActions" to records.any { (it["attempted"] == true || it["dispatched"] == true) && it["state"] !in setOf("verified", "rejected") },
-            "observationCount" to observations, "modelRequestsDuringExecution" to 0,
+            "observationCount" to observations, "observationRetryCount" to observationRetries,
+            "modelRequestsDuringExecution" to 0,
             "performance" to backend.metrics().mapValues { (name, value) ->
                 (value - (metricsAtStart[name] ?: 0L)).coerceAtLeast(0L)
             })
-        fun snapshot(): Snapshot { backend.check(); return backend.snapshot(pkg).also { latest = it; observations++ } }
+        fun snapshot(stepStarted: Long, timeout: Long): Snapshot {
+            while (true) {
+                backend.check()
+                try {
+                    return backend.snapshot(pkg).also { latest = it; observations++ }
+                } catch (error: ObservationUnavailable) {
+                    backend.check()
+                    val remaining = if (timeout > 0) timeout - (backend.now() - stepStarted) else 100L
+                    if (remaining <= 0) throw error
+                    observationRetries++
+                    backend.awaitChange(minOf(100L, remaining))
+                }
+            }
+        }
         fun finish(outcome: String, reason: String, index: Int?): Result {
             val stored = state(outcome, reason, index); save(stored)
             val public = stored - "plan"
@@ -215,6 +239,7 @@ internal object PhoneFlow {
             val record = records[index]
             if (record["state"] in setOf("verified", "skipped")) continue
             val stepStarted = backend.now()
+            val timeout = number(step["timeoutMs"])
             val previousStepElapsed = (record["elapsedMs"] as? Number)?.toLong() ?: 0
             val previousDispatch = (record["dispatchMs"] as? Number)?.toLong() ?: 0
             val previous = record["state"]
@@ -227,8 +252,8 @@ internal object PhoneFlow {
                 val previousObservation = reusable
                 reusable = null
                 var observed = if (!inFlight && step["action"] != "wait" && previousObservation != null) {
-                    backend.reuse(previousObservation, pkg)?.also { latest = it } ?: snapshot()
-                } else snapshot()
+                    backend.reuse(previousObservation, pkg)?.also { latest = it } ?: snapshot(stepStarted, timeout)
+                } else snapshot(stepStarted, timeout)
                 backend.check()
                 val before = if (inFlight) record["before"] else evidence(observed, expect)
                 val whenCondition = step["when"]?.let { map(it, "when") }
@@ -255,12 +280,11 @@ internal object PhoneFlow {
                 record["state"] = "waiting"
                 backend.awaitingResult()
                 save(state("running", "正在本地核对结果。", index))
-                val timeout = number(step["timeoutMs"])
                 val stable = number(step["stableMs"], 100)
                 var since: Long? = null
                 while (true) {
                     backend.check()
-                    observed = snapshot()
+                    observed = snapshot(stepStarted, timeout)
                     val now = backend.now()
                     if (satisfied(observed, expect, before)) {
                         if (since == null) since = now
@@ -281,7 +305,7 @@ internal object PhoneFlow {
             } catch (error: Exception) {
                 if (error is NotDispatched) {
                     record["attempted"] = false; record["dispatched"] = false; record["state"] = "blocked"
-                } else if (record["state"] in setOf("in_flight", "waiting")) record["state"] = "unknown"
+                } else if (inFlight || record["state"] in setOf("in_flight", "waiting")) record["state"] = "unknown"
                 else record["state"] = "blocked"
                 val cause = if (error is NotDispatched) error.failure else error
                 val outcome = (cause as? Blocked)?.outcome ?: if (record["state"] == "unknown") "unknown" else "failed"

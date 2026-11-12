@@ -75,7 +75,8 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         return visionAwait(future){checkAlive(check)}
     }
     fun observe(allowed:Set<String>,args:Map<String,Any?>,mode:String,owner:String,check:()->Unit,
-                selectors:List<Map<String,Any?>> = emptyList(),needNative:Boolean=false,allowMissingFallback:Boolean=true):Map<String,Any?> {
+                selectors:List<Map<String,Any?>> = emptyList(),needNative:Boolean=false,allowMissingFallback:Boolean=true,
+                preferVisible:Boolean=true):Map<String,Any?> {
         checkAlive(check);PhoneVision.mode(mode)
         require(args.keys.all{it in setOf("observationId","offset","pageSize","query","recognitionMode","region")}){"屏幕观察参数含未知字段。"}
         PhoneVision.region(args["region"])
@@ -85,30 +86,36 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
             val saved=last?:error("识别观察已变化，请重新识别。")
             require(saved.token==continuation && saved.owner==owner && current==(saved.pkg to saved.window)){"识别观察已过期。"}
             // Pagination is a read only view of the same frame; dispatch always reacquires pixels.
-            return page(saved,args,mapOf("source" to "ocr","continuation" to true))
+            return page(saved,args,mapOf("source" to "ocr","continuation" to true),preferVisible)
         }
         if(continuation!=null)return native(allowed,args)
         val useKnown=mode=="auto" && visualWindow==current && !needNative
-        val base=if(mode=="controls" || (mode=="auto" && !useKnown))native(allowed,args+mapOf("offset" to 0,"pageSize" to 1000))else null
+        // Routing needs the full hierarchy, including WebView ancestors hidden by a text query.
+        val base=if(mode=="controls" || (mode=="auto" && !useKnown))native(allowed,(args-"query")+mapOf("offset" to 0,"pageSize" to 1000))else null
         val nativeRows=base?.let{rows(it)}.orEmpty()
         if(mode=="controls" || (mode=="auto" && android.os.Build.VERSION.SDK_INT<30) || (mode=="auto" && !useKnown && (!PhoneVision.needsOcr(nativeRows,args["query"] as? String,selectors) || (!allowMissingFallback && !PhoneVision.needsOcr(nativeRows,null,emptyList()))))) {
             last=null
             val offset=(args["offset"] as? Number)?.toInt()?:0;val limit=(args["pageSize"] as? Number)?.toInt()?:100
             require(offset>=0 && limit>0)
-            if(offset+minOf(limit,1000)>nativeRows.size && (base!!["total"] as Number).toInt()>nativeRows.size)
+            val query=args["query"] as? String
+            val filtered=if(query.isNullOrBlank())nativeRows else nativeRows.filter{row->listOf(row["text"],row["description"],row["viewId"]).any{it?.toString()?.contains(query,true)==true}}
+            if((base!!["total"] as Number).toInt()>nativeRows.size && (!query.isNullOrBlank() || offset+minOf(limit,1000)>nativeRows.size))
                 return native(allowed,args+mapOf("observationId" to base["observationId"]))+mapOf("recognition" to mapOf("mode" to mode,"source" to "accessibility"))
-            val selected=nativeRows.drop(offset).take(minOf(limit,1000));val next=offset+selected.size
-            return base!!+mapOf("elements" to selected,"nextOffset" to if(next<(base["total"] as Number).toInt())next else null,"complete" to (next>=(base["total"] as Number).toInt()),"recognition" to mapOf("mode" to mode,"source" to "accessibility","elapsedMs" to SystemClock.uptimeMillis()-started,"ocrAvailable" to (android.os.Build.VERSION.SDK_INT>=30)))
+            val selected=filtered.drop(offset).take(minOf(limit,1000));val next=offset+selected.size
+            val total=if(query.isNullOrBlank())(base["total"] as Number).toInt()else filtered.size
+            return base+mapOf("elements" to selected,"total" to total,"nextOffset" to if(next<total)next else null,"complete" to (next>=total),"recognition" to mapOf("mode" to mode,"source" to "accessibility","elapsedMs" to SystemClock.uptimeMillis()-started,"ocrAvailable" to (android.os.Build.VERSION.SDK_INT>=30)))
         }
         service.captureVision(allowed){checkAlive(check)}.use { frame ->
             require(current==(frame.pkg to frame.window)){"读取期间窗口发生变化。"}
-            return observeFrame(frame,allowed,args,mode,owner,check,nativeRows,started)
+            return observeFrame(frame,allowed,args,mode,owner,check,nativeRows,started,preferVisible=preferVisible,
+                requiredOcrSelectors=selectors.filter{it["source"]=="ocr"})
         }
     }
 
     /** All text and coordinates belong to this frame, including a changed pre-dispatch frame. */
     private fun observeFrame(frame:PhoneOcrFrame,allowed:Set<String>,args:Map<String,Any?>,mode:String,owner:String,
-                             check:()->Unit,nativeRows:List<Map<String,Any?>>,started:Long,imageHash:String=hash(frame.bitmap)):Map<String,Any?> {
+                             check:()->Unit,nativeRows:List<Map<String,Any?>>,started:Long,imageHash:String=hash(frame.bitmap),
+                             preferVisible:Boolean=true,requiredOcrSelectors:List<Map<String,Any?>> = emptyList()):Map<String,Any?> {
         val captureMs=SystemClock.uptimeMillis()-started
         val key="${frame.pkg}:${frame.window}:${frame.rotation}:${frame.bitmap.width}:${frame.bitmap.height}:$imageHash:${args["region"]}"
         val hit=key==cachedKey
@@ -118,33 +125,39 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         } finally { service.visionMetrics.recordOcr(SystemClock.uptimeMillis()-ocrStarted,hit) }
         val ocrMs=SystemClock.uptimeMillis()-ocrStarted
         val ocrRows=recognized.mapIndexed{i,row->row+mapOf("id" to "v_$i","parentId" to null)}
-        val combined=if(mode=="auto")PhoneVision.merge(nativeRows,ocrRows)else ocrRows
+        val combined=if(mode=="auto")PhoneVision.merge(nativeRows,ocrRows,requiredOcrSelectors)else ocrRows
         val observed=Observation(owner,frame.pkg,frame.window,frame.rotation,frame.bitmap.width,frame.bitmap.height,
             "ocr:"+UUID.randomUUID(),combined,imageHash,args["region"],mode,frame.epoch,frame.capturedAt)
         checkAlive(check);visionUi{service.assertVisualFrame(frame,allowed)}
         last=observed;if(mode=="auto")visualWindow=frame.pkg to frame.window
         return page(observed,args,mapOf("mode" to mode,"source" to if(nativeRows.isEmpty())"ocr" else "hybrid","captureMs" to captureMs,
-            "ocrMs" to ocrMs,"elapsedMs" to SystemClock.uptimeMillis()-started,"recognitionCacheHit" to hit,"modelRequests" to 0))
+            "ocrMs" to ocrMs,"elapsedMs" to SystemClock.uptimeMillis()-started,"recognitionCacheHit" to hit,"modelRequests" to 0),preferVisible)
     }
-    private fun page(saved:Observation,args:Map<String,Any?>,timing:Map<String,Any?>):Map<String,Any?> {
+    private fun page(saved:Observation,args:Map<String,Any?>,timing:Map<String,Any?>,preferVisible:Boolean=true):Map<String,Any?> {
         val query=args["query"] as? String
-        val rows=if(query.isNullOrBlank())saved.rows else saved.rows.filter{listOf(it["text"],it["description"],it["viewId"]).any{v->v?.toString()?.contains(query,true)==true}}
+        val visible=if(preferVisible && saved.mode=="auto")PhoneVision.visibleProjection(saved.rows)else saved.rows
+        val rows=if(query.isNullOrBlank())visible else visible.filter{listOf(it["text"],it["description"],it["viewId"]).any{v->v?.toString()?.contains(query,true)==true}}
         val offset=(args["offset"] as? Number)?.toInt()?:0;val limit=(args["pageSize"] as? Number)?.toInt()?:100
         require(offset>=0 && limit>0)
         val selected=rows.drop(offset).take(minOf(limit,1000));val next=offset+selected.size
         return mapOf("observationId" to saved.token,"package" to saved.pkg,"windowId" to saved.window,"elements" to selected,"total" to rows.size,
             "nextOffset" to if(next<rows.size)next else null,"complete" to (next>=rows.size),"screenWidth" to saved.width,"screenHeight" to saved.height,
-            "rotation" to saved.rotation,"capturedAtMs" to saved.capturedAt,"recognition" to timing,"scope" to "真实可访问控件与本地识别文字；OCR 不推断可编辑或勾选状态")
+            "rotation" to saved.rotation,"capturedAtMs" to saved.capturedAt,"recognition" to timing,
+            "scope" to "OCR 表示屏幕可见文字；accessibilityText 为系统无障碍别名，不能替代屏幕选项字母。输入与勾选状态仍取原生控件。")
     }
-    @Suppress("UNCHECKED_CAST")
-    fun snapshot(allowed:Set<String>,pkg:String,mode:String,owner:String,check:()->Unit,step:Map<String,Any?>,beforeAction:Boolean=true,allowMissingFallback:Boolean=true):PhoneFlow.Snapshot {
+    private fun selectorsForStep(step:Map<String,Any?>,beforeAction:Boolean):List<Map<String,Any?>> {
         val selectors=mutableListOf<Map<String,Any?>>()
         if(beforeAction)step["selector"]?.let{selectors.add(PhoneFlow.map(it,"selector"))}
         fun collect(value:Any?){if(value==null)return;val c=PhoneFlow.map(value,"condition");c["selector"]?.let{selectors.add(PhoneFlow.map(it,"selector"))};(c["conditions"] as? List<*>)?.forEach{collect(it)}}
         if(beforeAction)collect(step["guard"])
         if(!beforeAction||step["action"]=="wait"||step["selector"]==null)collect(step["expect"])
+        return selectors
+    }
+    @Suppress("UNCHECKED_CAST")
+    fun snapshot(allowed:Set<String>,pkg:String,mode:String,owner:String,check:()->Unit,step:Map<String,Any?>,beforeAction:Boolean=true,allowMissingFallback:Boolean=true):PhoneFlow.Snapshot {
+        val selectors=selectorsForStep(step,beforeAction)
         val needNative=requiresNative(step)
-        val observed=observe(allowed,mapOf("pageSize" to 1000),mode,owner,check,selectors,needNative,allowMissingFallback)
+        val observed=observe(allowed,mapOf("pageSize" to 1000),mode,owner,check,selectors,needNative,allowMissingFallback,preferVisible=!needNative)
         require(observed["package"]==pkg){"当前页面不属于流程指定的软件。"}
         if(!(observed["observationId"] as String).startsWith("ocr:"))return visionUi{service.flowSnapshot(allowed,pkg,observed)}
         return PhoneFlow.Snapshot(pkg,(observed["windowId"] as Number).toInt(),rows(observed),observed)
@@ -171,13 +184,18 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         val saved=last?:return null
         if(snapshot==null || snapshot.observation["observationId"]!=saved.token || saved.owner!=owner ||
             saved.pkg!=pkg || saved.mode!=mode || saved.region!=null || snapshot.observation["complete"]!=true ||
-            saved.rows.any{it["source"]!="ocr"} || requiresNative(step) ||
+            requiresNative(step) ||
             step["action"] !in setOf("tap","scroll","swipe") ||
             SystemClock.uptimeMillis()-saved.capturedAt !in 0L..1000L)return null
         return visionUi {
             val size=service.visualMetrics()
             if(window(allowed)!=(saved.pkg to saved.window) || size!=Triple(saved.width,saved.height,saved.rotation) ||
-                service.visualScrollEpoch!=saved.epoch)null else snapshot
+                service.visualScrollEpoch!=saved.epoch)null else {
+                // The previous step may have required raw native labels for state verification.
+                // A new visual-text action always prepares its own visible projection.
+                val visible=if(mode=="auto")PhoneVision.visibleProjection(saved.rows)else saved.rows
+                PhoneFlow.Snapshot(saved.pkg,saved.window,visible,snapshot.observation+mapOf("elements" to visible))
+            }
         }
     }
 
@@ -185,7 +203,8 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
     fun reuseSnapshot(snapshot:PhoneFlow.Snapshot,pkg:String,mode:String,owner:String,step:Map<String,Any?>,
                       allowed:Set<String>,check:()->Unit):PhoneFlow.Snapshot? {
         if(step["when"]!=null)return null
-        val candidate=prepared(snapshot,pkg,mode,owner,step,allowed,check)?:return null
+        val candidate=try { prepared(snapshot,pkg,mode,owner,step,allowed,check) }
+            catch (_:PhoneFlow.ObservationUnavailable) { null } ?:return null
         // Fresh reading is needed for decisions that would skip or reject the next action.
         if(step["guard"]?.let{!PhoneFlow.satisfied(candidate,PhoneFlow.map(it,"guard"))}==true ||
             PhoneFlow.satisfied(candidate,PhoneFlow.map(step["expect"],"expect")) ||
@@ -216,7 +235,8 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
                 service.visionMetrics.recordRefresh()
                 val nativeRows=if(mode=="auto" && saved.rows.any{it["source"]!="ocr"})
                     rows(native(allowed,mapOf("pageSize" to 1000)))else emptyList()
-                val observed=observeFrame(frame,allowed,mapOf("pageSize" to 1000),mode,owner,check,nativeRows,started,imageHash)
+                val observed=observeFrame(frame,allowed,mapOf("pageSize" to 1000),mode,owner,check,nativeRows,started,imageHash,
+                    preferVisible=!requiresNative(step),requiredOcrSelectors=selectorsForStep(step,true).filter{it["source"]=="ocr"})
                 snapshot=PhoneFlow.Snapshot(pkg,frame.window,rows(observed),observed)
             }
             step["when"]?.let{require(PhoneFlow.satisfied(snapshot,PhoneFlow.map(it,"when"))){"当前画面不满足分支条件。"}}
