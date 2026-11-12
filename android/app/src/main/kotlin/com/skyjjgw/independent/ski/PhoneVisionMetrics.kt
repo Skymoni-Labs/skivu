@@ -14,6 +14,9 @@ internal class PhoneVisionMetrics {
         "reusedObservationCount" to 0L,
         "preDispatchRefreshCount" to 0L,
         "waitMs" to 0L,
+        "streamRequestCount" to 0L,
+        "streamFrameCount" to 0L,
+        "streamFallbackCount" to 0L,
     )
 
     @Synchronized fun snapshot(): Map<String, Long> = values.toMap()
@@ -35,6 +38,9 @@ internal class PhoneVisionMetrics {
     @Synchronized fun recordReuse() = add("reusedObservationCount", 1)
     @Synchronized fun recordRefresh() = add("preDispatchRefreshCount", 1)
     @Synchronized fun recordWait(elapsedMs: Long) = add("waitMs", elapsedMs)
+    @Synchronized fun recordStreamRequest() = add("streamRequestCount", 1)
+    @Synchronized fun recordStreamFrame() { add("streamFrameCount", 1); add("captureCount", 1) }
+    @Synchronized fun recordStreamFallback() = add("streamFallbackCount", 1)
 
     private fun add(name: String, amount: Long) {
         values[name] = values.getValue(name) + amount.coerceAtLeast(0)
@@ -46,13 +52,13 @@ internal class PhoneCaptureTiming {
     private var lastAttemptMs: Long? = null
     private var intervalMs = 334L
 
-    fun delayMs(now: Long): Long = lastAttemptMs?.let {
+    @Synchronized fun delayMs(now: Long): Long = lastAttemptMs?.let {
         (intervalMs - (now - it)).coerceAtLeast(0)
     } ?: 0
 
-    fun attempted(now: Long) { lastAttemptMs = now }
+    @Synchronized fun attempted(now: Long) { lastAttemptMs = now }
 
-    fun intervalRejected() {
+    @Synchronized fun intervalRejected() {
         // Allow for vendor throttles and requests from another screenshot entry point.
         intervalMs = (intervalMs + 50).coerceAtMost(1_000)
     }

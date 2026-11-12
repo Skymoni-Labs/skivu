@@ -5,7 +5,6 @@ import android.os.SystemClock
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import org.json.JSONObject
@@ -19,9 +18,12 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         val token:String,val rows:List<Map<String,Any?>>,val imageHash:String,val region:Any?,val mode:String,
         val epoch:Long,val capturedAt:Long)
     private var last:Observation?=null
+    internal fun hasVisualObservation()=last!=null
     private var cachedKey=""
     private var cachedRows=emptyList<Map<String,Any?>>()
     private var visualWindow:Pair<String,Int>?=null
+    private val pixelHash=PhonePixelHash()
+    private val resultExecutor=java.util.concurrent.Executor { task -> java.util.concurrent.ForkJoinPool.commonPool().execute(task) }
     private val proofPrefs=service.getSharedPreferences("skivu.visual-proofs.v1",0)
     fun close(){closed=true;last=null;cachedRows=emptyList();if(recognizerDelegate.isInitialized())recognizer.close()}
     private fun checkAlive(check:()->Unit){check();kotlin.check(!closed && SkivuAccessibilityService.connected===service){"屏幕识别服务已停止。"}}
@@ -32,13 +34,10 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
     private fun native(allowed:Set<String>,args:Map<String,Any?>)=visionUi { service.observe(allowed,args) }
     @Suppress("UNCHECKED_CAST")
     private fun rows(observation:Map<String,Any?>)=observation["elements"] as List<Map<String,Any?>>
-    private fun digest(bytes:ByteArray)=MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it)}
     private fun hash(bitmap:Bitmap):String {
-        // Canonical ARGB pixels, excluding allocator-dependent row padding.
-        val pixels=IntArray(bitmap.width*bitmap.height)
-        bitmap.getPixels(pixels,0,bitmap.width,0,0,bitmap.width,bitmap.height)
-        val bytes=java.nio.ByteBuffer.allocate(pixels.size*4);bytes.asIntBuffer().put(pixels)
-        return digest(bytes.array())
+        return pixelHash.hash(bitmap.width,bitmap.height) { pixels,top,count ->
+            bitmap.getPixels(pixels,0,bitmap.width,0,top,bitmap.width,count)
+        }
     }
     @Suppress("UNCHECKED_CAST")
     private fun box(row:Map<String,Any?>)=(row["bounds"] as List<Number>).map{it.toInt()}
@@ -49,14 +48,13 @@ internal class PhoneOcrController(private val service:SkivuAccessibilityService)
         val w=((width*r[2]).toInt()-left).coerceAtLeast(1);val h=((height*r[3]).toInt()-top).coerceAtLeast(1)
         val imageWidth=minOf(w,1600);val imageHeight=maxOf(1,h.toLong().times(imageWidth).div(w).toInt())
         // ML Kit owns this independent copy until its completion callback, including cancellation.
-        val cropped=Bitmap.createBitmap(frame.bitmap,left,top,w,h)
-        val scaled=Bitmap.createScaledBitmap(cropped,imageWidth,imageHeight,true)
-        val input=scaled.copy(Bitmap.Config.ARGB_8888,false)
-        if(scaled!==cropped)scaled.recycle();if(cropped!==frame.bitmap)cropped.recycle()
+        val input=Bitmap.createBitmap(imageWidth,imageHeight,Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(input).drawBitmap(frame.bitmap,android.graphics.Rect(left,top,left+w,top+h),
+            android.graphics.Rect(0,0,imageWidth,imageHeight),android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG))
         val geometry=PhoneVision.Geometry(left,top,w,h,imageWidth,imageHeight)
         val future=CompletableFuture<List<Map<String,Any?>>>()
         try {
-            recognizer.process(InputImage.fromBitmap(input,0)).addOnCompleteListener { task ->
+            recognizer.process(InputImage.fromBitmap(input,0)).addOnCompleteListener(resultExecutor) { task ->
                 try {
                     if(!task.isSuccessful)future.completeExceptionally(task.exception?:IllegalStateException("本地文字识别失败。"))
                     else {

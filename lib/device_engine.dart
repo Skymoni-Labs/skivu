@@ -53,6 +53,10 @@ class DeviceEngine {
   }
 
   Future<Map<String, dynamic>> status() => _transport('status', {});
+  Future<Map<String, dynamic>> startFastCapture() =>
+      _transport('capture.start', {});
+  Future<Map<String, dynamic>> stopFastCapture() =>
+      _transport('capture.stop', {});
   Future<Map<String, dynamic>> previousEffect(
     String tool,
     Map<String, dynamic> arguments,

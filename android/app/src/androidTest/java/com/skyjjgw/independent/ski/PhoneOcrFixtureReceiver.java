@@ -12,6 +12,7 @@ public class PhoneOcrFixtureReceiver extends BroadcastReceiver {
         if(current==null){setResultData("{\"alive\":false}");return;}
         if("move".equals(intent.getStringExtra("op")))current.moveButton();
         if("duplicateNext".equals(intent.getStringExtra("op")))current.addDuplicateNext();
+        if("redraw".equals(intent.getStringExtra("op")))current.surface.invalidate();
         try {
             setResultData(new JSONObject().put("alive",true).put("page",current.page).put("taps",current.taps)
                 .put("leftTaps",current.leftTaps).put("rightTaps",current.rightTaps).toString());

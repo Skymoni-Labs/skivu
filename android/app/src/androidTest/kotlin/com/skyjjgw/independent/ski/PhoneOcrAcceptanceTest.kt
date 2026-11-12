@@ -43,8 +43,16 @@ class PhoneOcrAcceptanceTest {
         shell("am start -W -n $pkg/${PhoneOcrFixtureActivity::class.java.name} -f 0x14010000")
         repeat(200){if(SkivuAccessibilityService.connected==null)Thread.sleep(25)}
         assertNotNull(SkivuAccessibilityService.connected);assertTrue(fixture().toString(),fixture().optBoolean("alive"));Thread.sleep(150)
+        if(InstrumentationRegistry.getArguments().getString("skivuFastCapture")=="confirmed") {
+            context.startActivity(android.content.Intent(context,PhoneScreenCaptureActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            val deadline=android.os.SystemClock.uptimeMillis()+600_000
+            while(PhoneScreenCaptureService.active==null && android.os.SystemClock.uptimeMillis()<deadline)Thread.sleep(25)
+            assertNotNull("The test needs a system-authorized projection session",PhoneScreenCaptureService.active)
+            Thread.sleep(150)
+        }
     }
     @After fun restore(){
+        PhoneScreenCaptureService.stop(context)
         platform.close();val edit=context.getSharedPreferences("skivu.device-engine.v1",0).edit()
         for((key,value)in original)when(value){null->edit.remove(key);is Boolean->edit.putBoolean(key,value);is String->edit.putString(key,value);is Set<*>->edit.putStringSet(key,value.filterIsInstance<String>().toSet())}
         edit.commit();ExecutionHub.setMode(context,originalMode);PhoneControlArbiter.release(owner)
@@ -88,6 +96,22 @@ class PhoneOcrAcceptanceTest {
         assertTrue(counts.toString(),counts.getValue("reusedObservationCount")>=2L)
         assertTrue(counts.toString(),observationCount>=7L)
         assertEquals(counts.toString(),observationCount+3L+refreshCount,counts.getValue("captureCount"))
+    }
+    @Test fun stoppedProjectionFrameIsRejectedAndOrdinaryCaptureStillWorks(){
+        if(InstrumentationRegistry.getArguments().getString("skivuFastCapture")!="confirmed")return
+        val service=SkivuAccessibilityService.connected!!
+        val stream=PhoneScreenCaptureService.active!!
+        // Request a redraw on every check so a genuinely new raster frame is available.
+        val frame=service.captureVision(setOf(pkg)) { fixture("redraw") }
+        frame.use {
+            assertEquals(stream.session,it.streamSession)
+            assertTrue(it.capturedAt<=android.os.SystemClock.uptimeMillis())
+            PhoneScreenCaptureService.stop(context)
+            val failure=runCatching { visionUi{service.assertVisualFrame(it,setOf(pkg))} }.exceptionOrNull()
+            assertNotNull("A stopped projection must invalidate its frame",failure)
+        }
+        service.captureVision(setOf(pkg)){}.use { assertNull(it.streamSession) }
+        assertEquals(0,fixture().getInt("taps"))
     }
     @Test fun preparedObservationDetectsDuplicateOutsideTheOriginalTarget(){
         val service=SkivuAccessibilityService.connected!!

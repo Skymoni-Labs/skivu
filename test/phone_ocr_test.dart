@@ -5,6 +5,59 @@ import 'package:ski/device_tool_catalog.dart';
 import 'package:ski/embedded_engine_settings.dart';
 
 void main() {
+  testWidgets(
+    'fast capture uses an explicit host action and is never enabled by loading settings',
+    (tester) async {
+      tester.view.physicalSize = const Size(500, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final calls = <String>[];
+      var active = false;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        DeviceEngine.channel,
+        (call) async {
+          calls.add(call.method);
+          if (call.method == 'apps') return [];
+          if (call.method == 'capture.start') active = true;
+          if (call.method == 'capture.stop') active = false;
+          return {
+            'enabled': true,
+            'control': true,
+            'accessibility': true,
+            'packages': [],
+            'localOcr': true,
+            'fastCaptureSupported': true,
+            'fastCaptureActive': active,
+          };
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          DeviceEngine.channel,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        const MaterialApp(home: EmbeddedEngineSettings()),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, isNot(contains('capture.start')));
+      final setting = find.byKey(const ValueKey('engine-fast-capture'));
+      await tester.scrollUntilVisible(
+        setting,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(setting);
+      await tester.pumpAndSettle();
+      expect(calls.where((method) => method == 'capture.start').length, 1);
+      expect(calls, isNot(contains('configure')));
+      await tester.tap(setting);
+      await tester.pumpAndSettle();
+      expect(calls.where((method) => method == 'capture.stop').length, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('recognition choices fit a narrow screen with large text', (
     tester,
   ) async {

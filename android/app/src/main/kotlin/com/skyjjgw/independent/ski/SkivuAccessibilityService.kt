@@ -41,6 +41,7 @@ class SkivuAccessibilityService : AccessibilityService() {
     override fun onInterrupt() { clearObservation() }
     override fun onDestroy() {
         if (connected === this) connected = null
+        PhoneScreenCaptureService.stop(this)
         overlay?.close();overlay=null
         clearObservation()
         vision.close()
@@ -223,6 +224,7 @@ class SkivuAccessibilityService : AccessibilityService() {
     }
 
     internal fun assertVisualFrame(frame:PhoneOcrFrame,allowed:Set<String>) {
+        require(frame.streamSession == null || PhoneScreenCaptureService.active?.session == frame.streamSession) { "高速识屏会话已结束，请重新观察。" }
         val root=current(allowed)
         try {
             require(root.packageName?.toString()==frame.pkg && root.windowId==frame.window) { "识别后软件或窗口已变化，请重新观察。" }
@@ -240,8 +242,9 @@ class SkivuAccessibilityService : AccessibilityService() {
         masks.add(Rect(0,visible.bottom.coerceAtMost(metrics.second),metrics.first,metrics.second))
         masks.add(Rect(0,0,visible.left.coerceAtLeast(0),metrics.second))
         masks.add(Rect(visible.right.coerceAtMost(metrics.first),0,metrics.first,metrics.second))
-        val active=windows.firstOrNull{it.id==windowId}
-        if(active!=null)windows.filter{it.id!=windowId && it.layer>active.layer}.forEach{w->masks.add(Rect().also{w.getBoundsInScreen(it)})}
+        val currentWindows=windows
+        val active=currentWindows.firstOrNull{it.id==windowId}
+        if(active!=null)currentWindows.filter{it.id!=windowId && it.layer>active.layer}.forEach{w->masks.add(Rect().also{w.getBoundsInScreen(it)})}
         val stack=java.util.ArrayDeque<AccessibilityNodeInfo>();stack.add(root)
         try {
             while(stack.isNotEmpty()) {
@@ -257,10 +260,63 @@ class SkivuAccessibilityService : AccessibilityService() {
         return masks to forbidden
     }
 
+    internal fun nextVisionDelayMs():Long = if(PhoneScreenCaptureService.active != null || !vision.hasVisualObservation()) 0L
+        else visionCaptureTiming.delayMs(SystemClock.uptimeMillis())
+
+    private fun captureStreamVision(allowed:Set<String>,check:()->Unit):PhoneOcrFrame? {
+        val stream=PhoneScreenCaptureService.active?:return null
+        val queued=SystemClock.uptimeMillis()
+        while(!visionCaptureSlot.tryAcquire(25,java.util.concurrent.TimeUnit.MILLISECONDS)) {
+            check();require(SystemClock.uptimeMillis()-queued<15_000){"本地截图等待超时。"}
+        }
+        val started=SystemClock.uptimeMillis()
+        visionMetrics.recordCaptureQueue(started-queued)
+        visionMetrics.recordStreamRequest()
+        var hidden=false
+        var pixels:PhoneScreenCaptureService.Pixels?=null
+        try {
+            check()
+            val before=visionUi {
+                val root=current(allowed)
+                val identity=try{root.packageName.toString() to root.windowId}finally{@Suppress("DEPRECATION") root.recycle()}
+                require(identity.first!=packageName){"不能识别控制器自身页面。"}
+                val size=visualMetrics();val epoch=visualScrollEpoch;val privacy=visualPrivacy(allowed)
+                val after=System.nanoTime()
+                overlay?.suspendForScreenshot();hidden=true
+                Triple(Triple(identity,size,epoch),privacy,after)
+            }
+            // Wait for the compositor after overlay removal, without blocking its main looper.
+            val settled=java.util.concurrent.CompletableFuture<Unit>()
+            Handler(Looper.getMainLooper()).postDelayed({settled.complete(Unit)},32)
+            visionAwait(settled,check)
+            val (identity,size,epoch)=before.first
+            pixels=stream.capture(before.third,size.first,size.second,check)
+            val captured=pixels?:run{visionMetrics.recordStreamFallback();return null}
+            val bitmap=captured.bitmap
+            val frame=visionUi {
+                val privacyAfter=visualPrivacy(allowed)
+                val canvas=android.graphics.Canvas(bitmap)
+                val paint=android.graphics.Paint().apply{color=android.graphics.Color.BLACK}
+                (before.second.first+privacyAfter.first).forEach{canvas.drawRect(it,paint)}
+                PhoneOcrFrame(bitmap,identity.first,identity.second,size.third,epoch,captured.capturedAt,
+                    before.second.second||privacyAfter.second,captured.session).also{assertVisualFrame(it,allowed)}
+            }
+            check()
+            pixels=null
+            visionMetrics.recordStreamFrame()
+            return frame
+        } finally {
+            pixels?.bitmap?.recycle()
+            try { if(hidden)visionUi{overlay?.restoreAfterScreenshot()} }
+            finally { visionMetrics.recordCapture(SystemClock.uptimeMillis()-started);visionCaptureSlot.release() }
+        }
+    }
+
     /** Raw in-memory pixels for local OCR. No compression, base64, files or model upload. */
     internal fun captureVision(allowed:Set<String>,check:()->Unit):PhoneOcrFrame {
         require(android.os.Build.VERSION.SDK_INT>=30) { "本地屏幕识别需要 Android 11 或以上。" }
         require(Looper.myLooper()!=Looper.getMainLooper()) { "屏幕识别必须在工作线程执行。" }
+        captureStreamVision(allowed,check)?.let{return it}
         val queuedAt=SystemClock.uptimeMillis()
         val deadline=queuedAt+15_000
         fun checkDeadline() {

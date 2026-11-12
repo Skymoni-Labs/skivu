@@ -9,7 +9,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 internal data class PhoneOcrFrame(val bitmap: Bitmap, val pkg: String, val window: Int,
-    val rotation: Int, val epoch: Long, val capturedAt: Long, val forbidden: Boolean) : AutoCloseable {
+    val rotation: Int, val epoch: Long, val capturedAt: Long, val forbidden: Boolean,
+    val streamSession: String? = null) : AutoCloseable {
     override fun close() { if (!bitmap.isRecycled) bitmap.recycle() }
 }
 

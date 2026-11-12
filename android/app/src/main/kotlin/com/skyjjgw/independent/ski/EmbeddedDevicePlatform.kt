@@ -123,6 +123,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 rememberStop(activeRequest, stopping)
             }
             if (call.method == "stop") {
+                PhoneScreenCaptureService.stop(activity)
                 val future = stopping
                 cancellationWorker.execute {
                     val answer = adb.awaitStop(future)
@@ -150,6 +151,12 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                                 "summary" to prior.getString("summary"))
                         }
                         "apps" -> installedApps()
+                        "capture.start" -> {
+                            require(enabled("enabled") && enabled("control") && SkivuAccessibilityService.connected!=null) { "请先启用屏幕操作并连接无障碍服务。" }
+                            if(PhoneScreenCaptureService.active==null)ui { (hostActivity?:error("请在手机操控设置中开启高速识屏。")).startActivity(Intent(activity,PhoneScreenCaptureActivity::class.java)) }
+                            mapOf("outcome" to "dispatched", "summary" to "请确认本次系统屏幕共享授权。")
+                        }
+                        "capture.stop" -> { PhoneScreenCaptureService.stop(activity); mapOf("active" to false) }
                         "result.open" -> {
                             require(p.keys == setOf("target"))
                             val target = text(p, "target", 220)
@@ -193,6 +200,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                                 ui { if(next==null)activity.stopService(Intent(activity, EmbeddedTaskService::class.java))else activity.startForegroundService(Intent(activity,EmbeddedTaskService::class.java).putExtra("taskId",next)) }
                             }
                             PhoneControlArbiter.release("assistant:${p["taskId"]}")
+                            if(EmbeddedTaskService.activeTasks.isEmpty())PhoneScreenCaptureService.stop(activity)
                             mapOf("active" to false)
                         }
                         "configure" -> configure(p)
@@ -274,7 +282,8 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
         "shellStatusSource" to if (probeBackend) "probe" else "execution_snapshot",
         "shellPaired" to adb.isPaired(),
         "packages" to prefs.getStringSet("packages",emptySet()).orEmpty().toList(),"allApplications" to prefs.getBoolean("allApplications",false),
-        "recognitionMode" to prefs.getString("recognitionMode","auto"),"localOcr" to (Build.VERSION.SDK_INT>=30)
+        "recognitionMode" to prefs.getString("recognitionMode","auto"),"localOcr" to (Build.VERSION.SDK_INT>=30),
+        "fastCaptureActive" to (PhoneScreenCaptureService.active!=null),"fastCaptureSupported" to (Build.VERSION.SDK_INT>=30)
         )
     }
 
@@ -292,6 +301,7 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
             if(p["allApplications"] is Boolean)putBoolean("allApplications",p["allApplications"] as Boolean)
             if(p.containsKey("recognitionMode"))putString("recognitionMode",p["recognitionMode"] as String)
         }.commit()) { "授权设置没有保存。" }
+        if(p["enabled"]!=true || p["control"]!=true)PhoneScreenCaptureService.stop(activity)
         if (p["enabled"] != true || p["shell"] != true) {
             ui { activity.stopService(Intent(activity, EmbeddedPairingService::class.java)) }
         }
@@ -603,6 +613,11 @@ class EmbeddedDevicePlatform(private val activity: android.content.Context) {
                 val started=now()
                 try { flowService.awaitFlowChange(milliseconds) }
                 finally { flowService.visionMetrics.recordWait(now()-started) }
+            }
+            override fun awaitObservation(milliseconds:Long) {
+                check()
+                val remaining=(milliseconds-flowService.nextVisionDelayMs()).coerceAtLeast(0)
+                if(remaining>0)awaitChange(remaining)
             }
         }
         val result=PhoneFlow.run(plan,root,backend,previous){checkpoint ->

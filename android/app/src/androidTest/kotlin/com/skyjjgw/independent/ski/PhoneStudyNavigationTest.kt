@@ -63,10 +63,12 @@ class PhoneStudyNavigationTest {
         val component = "${context.packageName}/${SkivuAccessibilityService::class.java.name}"
         val enabled = android.provider.Settings.Secure.getString(context.contentResolver, "enabled_accessibility_services").orEmpty()
             .split(':').filter { it.isNotBlank() && it != "null" && it != component }
-        shell("settings put secure enabled_accessibility_services ${if (enabled.isEmpty()) "null" else enabled.joinToString(":")}")
-        repeat(40) { if (SkivuAccessibilityService.connected != null) Thread.sleep(25) }
-        shell("settings put secure enabled_accessibility_services ${(enabled + component).joinToString(":")}")
-        shell("settings put secure accessibility_enabled 1")
+        if(InstrumentationRegistry.getArguments().getString("skivuFastCapture")!="confirmed" || PhoneScreenCaptureService.active==null) {
+            shell("settings put secure enabled_accessibility_services ${if (enabled.isEmpty()) "null" else enabled.joinToString(":")}")
+            repeat(40) { if (SkivuAccessibilityService.connected != null) Thread.sleep(25) }
+            shell("settings put secure enabled_accessibility_services ${(enabled + component).joinToString(":")}")
+            shell("settings put secure accessibility_enabled 1")
+        }
         val deadline = SystemClock.uptimeMillis() + 10_000
         while (SkivuAccessibilityService.connected == null && SystemClock.uptimeMillis() < deadline) Thread.sleep(25)
         service = SkivuAccessibilityService.connected ?: error("QA accessibility service did not connect")
@@ -113,12 +115,26 @@ class PhoneStudyNavigationTest {
     )
 
     private fun preparedCounterIsSix(): Boolean {
-        assertStudyForeground()
-        val observed = call("ui.observe", mapOf("recognitionMode" to "visual", "pageSize" to 1000))
-        assertEquals("Heading observation must succeed before navigation", "verified", observed["outcome"])
-        val value = PhoneFlow.map(observed["value"], "value")
-        val rows = (value["elements"] as List<*>).map { PhoneFlow.map(it, "row") }
-        return rows.any { it["source"] == "ocr" && Regex("(?<!\\d)6/20(?!\\d)").containsMatchIn(PhoneVision.text(it["text"])) }
+        val deadline=SystemClock.uptimeMillis()+3000
+        var attempts=0
+        var candidates=emptyList<String>()
+        do {
+            assertStudyForeground()
+            val observed = call("ui.observe", mapOf("recognitionMode" to "visual", "pageSize" to 1000))
+            assertEquals("Heading observation must succeed before navigation", "verified", observed["outcome"])
+            val value = PhoneFlow.map(observed["value"], "value")
+            val rows = (value["elements"] as List<*>).map { PhoneFlow.map(it, "row") }
+            candidates=rows.map{PhoneVision.text(it["text"])}.filter{it.contains('/') || it.any(Char::isDigit)}
+            val matched=rows.any { it["source"] == "ocr" && Regex("(?<!\\d)6/20(?!\\d)").containsMatchIn(PhoneVision.text(it["text"])) }
+            attempts++
+            if(matched) {
+                instrumentation.sendStatus(0,Bundle().apply{putString("phoneStudy_counter",JSONObject(mapOf("matched" to true,"attempts" to attempts,"candidates" to candidates)).toString())})
+                return true
+            }
+            Thread.sleep(75)
+        }while(SystemClock.uptimeMillis()<deadline)
+        instrumentation.sendStatus(0,Bundle().apply{putString("phoneStudy_counter",JSONObject(mapOf("matched" to false,"attempts" to attempts,"candidates" to candidates)).toString())})
+        return false
     }
 
     @Test fun navigateNextQuestionAndReturnToPreparedQuestion() {
@@ -130,7 +146,7 @@ class PhoneStudyNavigationTest {
         ))
         val value = (result["value"] as? Map<*, *>).orEmpty()
         val aggregate = mapOf("outcome" to result["outcome"]) + value.filterKeys {
-            it in setOf("elapsedMs", "observationCount", "performance", "completedSteps")
+            it in setOf("elapsedMs", "observationCount", "performance", "completedSteps", "steps")
         }
         instrumentation.sendStatus(0, Bundle().apply {
             putString("phoneStudy_navigation", JSONObject(aggregate).toString())

@@ -22,6 +22,8 @@ internal object PhoneFlow {
         fun reuse(snapshot: Snapshot, pkg: String): Snapshot? = null
         fun metrics(): Map<String, Long> = emptyMap()
         fun awaitChange(milliseconds: Long)
+        // A capture backend can absorb this wait into its own earliest-frame deadline.
+        fun awaitObservation(milliseconds: Long) = awaitChange(milliseconds)
     }
     data class Result(val outcome: String, val summary: String, val value: Map<String, Any?>)
 
@@ -282,20 +284,38 @@ internal object PhoneFlow {
                 save(state("running", "正在本地核对结果。", index))
                 val stable = number(step["stableMs"], 100)
                 var since: Long? = null
+                var lastSample: Long? = null
+                var stableWindow: Int? = null
+                var samples = 0
                 while (true) {
                     backend.check()
                     observed = snapshot(stepStarted, timeout)
                     val now = backend.now()
+                    samples++
+                    val captured = (observed.observation["capturedAtMs"] as? Number)?.toLong()
+                        ?.takeIf { it in stepStarted..now } ?: now
                     if (satisfied(observed, expect, before)) {
-                        if (since == null) since = now
-                        if (now - since >= stable) break
-                    } else since = null
+                        if (since == null || stableWindow != observed.window || (lastSample != null && captured < lastSample!!)) {
+                            since = captured
+                            stableWindow = observed.window
+                            record["firstMatchedCaptureMs"] = captured - stepStarted
+                        }
+                        // Recognition time is not screen stability. Re-reading a cached frame
+                        // cannot supply a second sample, even when OCR took longer than stableMs.
+                        if (stable == 0L || (lastSample != null && captured > lastSample!! && captured - since!! >= stable)) {
+                            record["resultSamples"] = samples
+                            record["stableConfirmedCaptureMs"] = captured - stepStarted
+                            break
+                        }
+                    } else { since = null; stableWindow = null }
+                    lastSample = captured
                     if (timeout > 0 && now - stepStarted >= timeout) {
                         record["state"] = if (record["dispatched"] == true || inFlight) "unknown" else "waiting"
                         record["elapsedMs"] = previousStepElapsed + now - stepStarted
                         return finish("unknown", "步骤 ${step["id"]} 等待结果超时；保留现场，未重放动作。", index)
                     }
-                    backend.awaitChange(if (timeout > 0) minOf(100, (timeout - (now - stepStarted)).coerceAtLeast(1)) else 100)
+                    val stableWait = since?.let { (it + stable - now).coerceIn(1, 100) } ?: 100L
+                    backend.awaitObservation(if (timeout > 0) minOf(stableWait, (timeout - (now - stepStarted)).coerceAtLeast(1)) else stableWait)
                 }
                 record["state"] = "verified"
                 reusable = observed

@@ -33,6 +33,7 @@ class PhoneFlowTest {
         var reuseEnabled = false
         var snapshotCalls = 0
         var reuseCalls = 0
+        var captureTimes: Iterator<Pair<Long, Long>>? = null
         val capturedIds = mutableListOf<String>()
         val preparedIds = mutableListOf<String>()
         override fun check() {
@@ -55,7 +56,10 @@ class PhoneFlowTest {
             ) + if (duplicate) listOf(row("duplicate", "Option A")) else emptyList()
             val id = "observation_$tick"
             capturedIds.add(id)
-            return PhoneFlow.Snapshot(pkg, 1, rows, mapOf("observationId" to id, "package" to pkg, "elements" to rows))
+            val capture = captureTimes?.next()
+            if (capture != null) time = capture.second
+            return PhoneFlow.Snapshot(pkg, 1, rows, mapOf("observationId" to id, "package" to pkg, "elements" to rows) +
+                if (capture == null) emptyMap() else mapOf("capturedAtMs" to capture.first))
         }
         override fun perform(step: Map<String, Any?>, pkg: String, requestId: String): PhoneFlow.Dispatch =
             performUsing(step) { snapshot(pkg) }
@@ -90,6 +94,30 @@ class PhoneFlowTest {
         }
         fun run(plan: Map<String, Any?>, checkpoint: Map<String, Any?>? = null) =
             PhoneFlow.run(plan, "request", this, checkpoint) { saved = it }
+    }
+
+    @Test fun stabilityUsesCaptureTimesRatherThanOcrCompletionTimes() {
+        val device = Device().apply {
+            preparedEnabled = true
+            captureTimes = listOf(0L to 10L, 100L to 400L, 434L to 450L).iterator()
+        }
+        val result = device.run(plan(step("next", "Next", condition("exists", "Question 2")) +
+            mapOf("stableMs" to 100, "timeoutMs" to 1000)))
+        assertEquals(result.toString(), "verified", result.outcome)
+        assertEquals(3, device.snapshotCalls)
+        assertEquals(1, device.taps)
+    }
+
+    @Test fun repeatedImageTimestampCannotProveStableEvenWhenRecognitionIsSlow() {
+        val device = Device().apply {
+            preparedEnabled = true
+            captureTimes = listOf(0L to 10L, 100L to 400L, 100L to 600L, 434L to 650L).iterator()
+        }
+        val result = device.run(plan(step("next", "Next", condition("exists", "Question 2")) +
+            mapOf("stableMs" to 100, "timeoutMs" to 1000)))
+        assertEquals("verified", result.outcome)
+        assertEquals(4, device.snapshotCalls)
+        assertEquals(1, device.taps)
     }
 
     @Test fun twentyQuestionsRunWithoutModelOrStableNodeIds() {

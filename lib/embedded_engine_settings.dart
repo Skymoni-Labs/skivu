@@ -242,6 +242,34 @@ class _EmbeddedEngineSettingsState extends State<EmbeddedEngineSettings>
                   : '优先操作控件，找不到目标时补充屏幕文字识别。',
               style: const TextStyle(fontSize: 13, height: 1.5),
             ),
+            const Divider(),
+            SwitchListTile(
+              key: const ValueKey('engine-fast-capture'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('高速识屏'),
+              subtitle: Text(
+                state['fastCaptureActive'] == true
+                    ? '正在连续获取最新画面，可随时停止。'
+                    : '适合连续操作，开启时需确认本次屏幕共享授权。',
+              ),
+              value: state['fastCaptureActive'] == true,
+              onChanged:
+                  busy ||
+                      state['enabled'] != true ||
+                      state['control'] != true ||
+                      state['accessibility'] != true ||
+                      state['fastCaptureSupported'] != true
+                  ? null
+                  : (enabled) => run(() async {
+                      if (enabled) {
+                        await deviceEngine.startFastCapture();
+                      } else {
+                        await deviceEngine.stopFastCapture();
+                      }
+                      final current = await deviceEngine.status();
+                      if (mounted) setState(() => state = current);
+                    }),
+            ),
           ],
         ),
         MarketPanel(
