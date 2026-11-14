@@ -14,6 +14,8 @@
 DeepSeek 当前没有模型参数，也不支持调节语速，因此此预设不显示模型和语速控件。
 HTTP 音频按原整段合成路径接收完成后播放；本功能未新增 WebSocket 流式播放。
 接收错误、可识别的 WAV 截断或无效音频均不交给播放器，也不自动重试付费请求。
+服务返回流式 WAV 长度占位值时，完整接收并校验后会补上实际 RIFF/data 长度，
+让 Android 原生播放器可按普通音频文件加载；音频采样和其他元数据保持不变。
 
 依据 2026-11-14 核对的[官方接口](https://api-docs.deepseek.com/api/tts/)及
 [中文指南](https://api-docs.deepseek.com/zh-cn/guides/tts/)。

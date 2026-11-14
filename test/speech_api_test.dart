@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -17,8 +18,192 @@ const profile = SpeechProfile(
   model: 'tts-fixture',
   voice: 'calm',
 );
+
+const _deepseekProfile = SpeechProfile(
+  id: 'deepseek-fixture',
+  name: 'DeepSeek fixture',
+  provider: SpeechProvider.deepseek,
+  endpoint: 'https://voice.example/v1/tools/tts',
+  apiKey: 'fixture-key',
+  voice: 'stella',
+);
+
+Uint8List _waveChunk(String name, List<int> payload) {
+  final bytes = Uint8List(8 + payload.length + payload.length % 2);
+  bytes.setRange(0, 4, ascii.encode(name));
+  ByteData.sublistView(bytes).setUint32(4, payload.length, Endian.little);
+  bytes.setRange(8, 8 + payload.length, payload);
+  return bytes;
+}
+
+({Uint8List bytes, int dataSizeOffset}) _waveFixture({bool metadata = false}) {
+  final format = Uint8List(16);
+  final fields = ByteData.sublistView(format);
+  fields.setUint16(0, 1, Endian.little); // PCM.
+  fields.setUint16(2, 1, Endian.little);
+  fields.setUint32(4, 24000, Endian.little);
+  fields.setUint32(8, 48000, Endian.little);
+  fields.setUint16(12, 2, Endian.little);
+  fields.setUint16(14, 16, Endian.little);
+  final chunks = BytesBuilder();
+  if (metadata) chunks.add(_waveChunk('JUNK', [1, 2, 3]));
+  chunks.add(_waveChunk('fmt ', format));
+  if (metadata) chunks.add(_waveChunk('LIST', [4, 5]));
+  final dataSizeOffset = 12 + chunks.length + 4;
+  chunks.add(_waveChunk('data', [0, 0, 1, 0, 2, 0, 3, 0]));
+  final body = chunks.takeBytes();
+  final bytes = Uint8List(12 + body.length);
+  bytes.setRange(0, 4, ascii.encode('RIFF'));
+  ByteData.sublistView(bytes).setUint32(4, bytes.length - 8, Endian.little);
+  bytes.setRange(8, 12, ascii.encode('WAVE'));
+  bytes.setRange(12, bytes.length, body);
+  return (bytes: bytes, dataSizeOffset: dataSizeOffset);
+}
+
+class _StreamedAudioClient extends http.BaseClient {
+  _StreamedAudioClient(this.body, this.contentLength);
+  final Stream<List<int>> body;
+  final int? contentLength;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(
+        body,
+        200,
+        contentLength: contentLength,
+        headers: {'content-type': 'audio/wav'},
+      );
+}
+
+Future<Uint8List> _synthesizeWave(
+  Uint8List audio, {
+  SpeechProfile selected = _deepseekProfile,
+  int? contentLength,
+  Stream<List<int>>? body,
+}) {
+  final api = SpeechApi(
+    clientFactory: () => _StreamedAudioClient(
+      body ??
+          Stream.fromIterable([
+            audio.sublist(0, 5),
+            audio.sublist(5, 41),
+            audio.sublist(41),
+          ]),
+      contentLength,
+    ),
+  );
+  addTearDown(api.cancel);
+  return api.synthesize(selected, '语音格式测试');
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  group('DeepSeek buffered streaming WAV preparation', () {
+    for (final placeholder in [0xffffffff, 0x7fffffff, 0]) {
+      for (final fields in ['RIFF', 'data', 'both']) {
+        test('normalizes $fields length placeholder $placeholder', () async {
+          final fixture = _waveFixture(metadata: true);
+          final received = Uint8List.fromList(fixture.bytes);
+          final lengths = ByteData.sublistView(received);
+          if (fields != 'data')
+            lengths.setUint32(4, placeholder, Endian.little);
+          if (fields != 'RIFF') {
+            lengths.setUint32(
+              fixture.dataSizeOffset,
+              placeholder,
+              Endian.little,
+            );
+          }
+          final original = Uint8List.fromList(received);
+
+          // Includes an odd-sized padded JUNK chunk before fmt and a LIST chunk
+          // before data: its length field is deliberately not at offset 40.
+          expect(fixture.dataSizeOffset, 62);
+          final playable = await _synthesizeWave(received);
+          expect(playable, orderedEquals(fixture.bytes));
+          expect(received, orderedEquals(original));
+        });
+      }
+    }
+
+    test('preserves finite WAV and metadata bytes without rewriting', () async {
+      final fixture = _waveFixture(metadata: true);
+      expect(
+        await _synthesizeWave(
+          fixture.bytes,
+          contentLength: fixture.bytes.length,
+        ),
+        orderedEquals(fixture.bytes),
+      );
+    });
+
+    test('does not rewrite custom provider streaming WAV headers', () async {
+      final fixture = _waveFixture();
+      final lengths = ByteData.sublistView(fixture.bytes);
+      lengths.setUint32(4, 0xffffffff, Endian.little);
+      lengths.setUint32(fixture.dataSizeOffset, 0xffffffff, Endian.little);
+      const custom = SpeechProfile(
+        id: 'custom-wave',
+        name: 'Custom wave',
+        provider: SpeechProvider.custom,
+        endpoint: 'https://voice.example/tts',
+      );
+      expect(
+        await _synthesizeWave(fixture.bytes, selected: custom),
+        orderedEquals(fixture.bytes),
+      );
+    });
+
+    test('rejects unknown data that ends between PCM samples', () async {
+      final fixture = _waveFixture(metadata: true);
+      final truncated = Uint8List.fromList(
+        fixture.bytes.sublist(0, fixture.bytes.length - 1),
+      );
+      final lengths = ByteData.sublistView(truncated);
+      lengths.setUint32(4, 0xffffffff, Endian.little);
+      lengths.setUint32(fixture.dataSizeOffset, 0xffffffff, Endian.little);
+      await expectLater(
+        _synthesizeWave(truncated),
+        throwsA(isA<SpeechFailure>()),
+      );
+    });
+
+    test(
+      'rejects Content-Length mismatch before normalizing headers',
+      () async {
+        final fixture = _waveFixture();
+        final lengths = ByteData.sublistView(fixture.bytes);
+        lengths.setUint32(4, 0xffffffff, Endian.little);
+        lengths.setUint32(fixture.dataSizeOffset, 0xffffffff, Endian.little);
+        await expectLater(
+          _synthesizeWave(
+            fixture.bytes,
+            contentLength: fixture.bytes.length + 2,
+          ),
+          throwsA(isA<SpeechFailure>()),
+        );
+      },
+    );
+
+    test(
+      'rejects stream errors even after a valid aligned WAV arrives',
+      () async {
+        final fixture = _waveFixture();
+        final lengths = ByteData.sublistView(fixture.bytes);
+        lengths.setUint32(4, 0xffffffff, Endian.little);
+        lengths.setUint32(fixture.dataSizeOffset, 0xffffffff, Endian.little);
+        Stream<List<int>> brokenBody() async* {
+          yield fixture.bytes;
+          throw http.ClientException('fixture stream failure');
+        }
+
+        await expectLater(
+          _synthesizeWave(fixture.bytes, body: brokenBody()),
+          throwsA(isA<SpeechFailure>()),
+        );
+      },
+    );
+  });
   test(
     'synthesis preserves text beyond 10000 and audio beyond 10 MiB',
     () async {

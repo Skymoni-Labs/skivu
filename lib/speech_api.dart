@@ -82,7 +82,7 @@ class SpeechApi {
       if (generation != _generation) throw const SpeechFailure('语音已取消');
       if (bytes.isEmpty) throw const SpeechFailure('服务返回的音频为空。');
       if (p.provider == SpeechProvider.deepseek)
-        _validateDeepseekWave(bytes, response.contentLength);
+        bytes = _prepareDeepseekWave(bytes, response.contentLength);
       // JSON/HTML errors are not playable audio even if a service returns 200.
       final prefix = utf8
           .decode(bytes.take(40).toList(), allowMalformed: true)
@@ -222,7 +222,9 @@ http.Request buildSpeechRequest(SpeechProfile p, String text) {
 
 // A streamed HTTP body may terminate with an error, or declare more audio than
 // was received. Do not hand an incomplete DeepSeek response to the player.
-void _validateDeepseekWave(Uint8List bytes, int? contentLength) {
+// Once the complete body is buffered, replace streaming length placeholders so
+// native file decoders can prepare the WAV as a finite, seekable audio file.
+Uint8List _prepareDeepseekWave(Uint8List bytes, int? contentLength) {
   const incomplete = SpeechFailure('DeepSeek 音频未完整接收，请重新试听。');
   if (contentLength != null && contentLength != bytes.length) throw incomplete;
   String tag(int start) =>
@@ -234,6 +236,7 @@ void _validateDeepseekWave(Uint8List bytes, int? contentLength) {
   final riffSize = data.getUint32(4, Endian.little);
   if (!unknownLength(riffSize) && riffSize + 8 > bytes.length) throw incomplete;
   var offset = 12, blockAlign = 0;
+  var streamingDataSizeOffset = -1;
   var hasFormat = false, hasAudio = false;
   while (offset + 8 <= bytes.length) {
     final name = tag(offset), size = data.getUint32(offset + 4, Endian.little);
@@ -244,6 +247,7 @@ void _validateDeepseekWave(Uint8List bytes, int? contentLength) {
           (bytes.length - start) % blockAlign != 0)
         throw incomplete;
       hasAudio = true;
+      streamingDataSizeOffset = offset + 4;
       offset = bytes.length;
       break;
     }
@@ -261,4 +265,16 @@ void _validateDeepseekWave(Uint8List bytes, int? contentLength) {
     offset = end + size % 2;
   }
   if (!hasFormat || !hasAudio || offset != bytes.length) throw incomplete;
+  if (!unknownLength(riffSize) && streamingDataSizeOffset < 0) return bytes;
+  final prepared = Uint8List.fromList(bytes);
+  final lengths = ByteData.sublistView(prepared);
+  if (unknownLength(riffSize))
+    lengths.setUint32(4, prepared.length - 8, Endian.little);
+  if (streamingDataSizeOffset >= 0)
+    lengths.setUint32(
+      streamingDataSizeOffset,
+      prepared.length - streamingDataSizeOffset - 4,
+      Endian.little,
+    );
+  return prepared;
 }
