@@ -3,7 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'speech_recognition_settings.dart';
 
-enum SpeechProvider { system, openai, elevenlabs, azure, custom }
+enum SpeechProvider { system, openai, elevenlabs, azure, custom, deepseek }
+
+const deepseekTtsEndpoint = 'https://api.deepseek.com/v1/tools/tts';
+const deepseekVoices = {'stella': '海星 · 女声', 'tide': '暗潮 · 男声'};
 
 extension SpeechProviderLabel on SpeechProvider {
   String get label => switch (this) {
@@ -12,6 +15,7 @@ extension SpeechProviderLabel on SpeechProvider {
     SpeechProvider.elevenlabs => 'ElevenLabs',
     SpeechProvider.azure => 'Azure Speech',
     SpeechProvider.custom => '自定义 HTTP',
+    SpeechProvider.deepseek => 'DeepSeek 语音合成',
   };
 }
 
@@ -35,6 +39,13 @@ class SpeechProfile {
     this.timeoutSeconds = 0,
   });
   static const system = SpeechProfile(id: 'system');
+  static const deepseek = SpeechProfile(
+    id: 'builtin-deepseek-tts',
+    name: 'DeepSeek 语音合成',
+    provider: SpeechProvider.deepseek,
+    endpoint: deepseekTtsEndpoint,
+    voice: 'stella',
+  );
   final String id,
       name,
       endpoint,
@@ -60,6 +71,9 @@ class SpeechProfile {
     speechUri(endpoint);
     if (provider != SpeechProvider.custom && voice.trim().isEmpty)
       throw const FormatException('请填写音色 ID');
+    if (provider == SpeechProvider.deepseek &&
+        !deepseekVoices.containsKey(voice))
+      throw const FormatException('请选择 DeepSeek 的海星或暗潮音色');
     if ([SpeechProvider.openai, SpeechProvider.elevenlabs].contains(provider) &&
         model.trim().isEmpty) {
       throw const FormatException('请填写语音模型 ID');
@@ -141,6 +155,17 @@ class SpeechSettings extends ChangeNotifier {
   String activeId = 'system';
   String? error;
   RecognitionProfile recognition = const RecognitionProfile();
+  // Show the unconfigured preset without migrating or writing existing profiles.
+  // Only an explicit save/select changes the user's current voice connection.
+  List<SpeechProfile> get availableProfiles => [
+    ...profiles,
+    if (!profiles.any(
+      (p) =>
+          p.provider == SpeechProvider.deepseek ||
+          p.id == SpeechProfile.deepseek.id,
+    ))
+      SpeechProfile.deepseek,
+  ];
   SpeechProfile get active =>
       profiles.where((p) => p.id == activeId).firstOrNull ??
       SpeechProfile.system;

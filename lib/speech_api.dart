@@ -25,6 +25,8 @@ class SpeechApi {
 
   Future<Uint8List> synthesize(SpeechProfile p, String text) async {
     p.validate();
+    if (p.provider == SpeechProvider.deepseek && p.apiKey.trim().isEmpty)
+      throw const SpeechFailure('请先在语音与通话中填写 DeepSeek API Key。');
     cancel();
     final generation = _generation;
     final client = _client = _factory();
@@ -37,6 +39,12 @@ class SpeechApi {
           401 || 403 => '语音鉴权失败，请检查密钥和音色权限。',
           404 => '未找到语音接口、模型或音色，请核对配置。',
           429 => '语音服务限流或额度不足，请稍后重试。',
+          402 when p.provider == SpeechProvider.deepseek =>
+            'DeepSeek 语音余额不足，请检查该密钥对应的账户。',
+          400 when p.provider == SpeechProvider.deepseek =>
+            'DeepSeek 无法合成这段文字，请检查文本长度和内容限制。',
+          503 || 504 when p.provider == SpeechProvider.deepseek =>
+            'DeepSeek 语音服务繁忙或合成超时，请稍后重试。',
           _ => '语音合成失败（${response.statusCode}），请检查接口配置。',
         });
       var bytes = await _read(response);
@@ -73,6 +81,8 @@ class SpeechApi {
       }
       if (generation != _generation) throw const SpeechFailure('语音已取消');
       if (bytes.isEmpty) throw const SpeechFailure('服务返回的音频为空。');
+      if (p.provider == SpeechProvider.deepseek)
+        _validateDeepseekWave(bytes, response.contentLength);
       // JSON/HTML errors are not playable audio even if a service returns 200.
       final prefix = utf8
           .decode(bytes.take(40).toList(), allowMalformed: true)
@@ -161,6 +171,17 @@ http.Request buildSpeechRequest(SpeechProfile p, String text) {
         'response_format': 'mp3',
         if (p.instructions.isNotEmpty) 'instructions': p.instructions,
       });
+    case SpeechProvider.deepseek:
+      if (p.apiKey.trim().isEmpty)
+        throw const SpeechFailure('请先在语音与通话中填写 DeepSeek API Key。');
+      request.headers['Authorization'] = 'Bearer ${p.apiKey.trim()}';
+      request.headers['Accept'] = 'audio/wav';
+      request.body = jsonEncode({
+        'text': text,
+        'voice_id': p.voice,
+        'format': 'wav',
+        'filter_markdown': true,
+      });
     case SpeechProvider.elevenlabs:
       final base = uri.path.endsWith('/')
           ? uri.path.substring(0, uri.path.length - 1)
@@ -197,4 +218,47 @@ http.Request buildSpeechRequest(SpeechProfile p, String text) {
         request.body = jsonEncode(template(jsonDecode(p.body)));
   }
   return request;
+}
+
+// A streamed HTTP body may terminate with an error, or declare more audio than
+// was received. Do not hand an incomplete DeepSeek response to the player.
+void _validateDeepseekWave(Uint8List bytes, int? contentLength) {
+  const incomplete = SpeechFailure('DeepSeek 音频未完整接收，请重新试听。');
+  if (contentLength != null && contentLength != bytes.length) throw incomplete;
+  String tag(int start) =>
+      String.fromCharCodes(bytes.sublist(start, start + 4));
+  if (bytes.length < 12 || tag(0) != 'RIFF' || tag(8) != 'WAVE')
+    throw const SpeechFailure('DeepSeek 未返回有效的 WAV 音频，请检查接口地址。');
+  final data = ByteData.sublistView(bytes);
+  bool unknownLength(int n) => n == 0 || n == 0xffffffff || n == 0x7fffffff;
+  final riffSize = data.getUint32(4, Endian.little);
+  if (!unknownLength(riffSize) && riffSize + 8 > bytes.length) throw incomplete;
+  var offset = 12, blockAlign = 0;
+  var hasFormat = false, hasAudio = false;
+  while (offset + 8 <= bytes.length) {
+    final name = tag(offset), size = data.getUint32(offset + 4, Endian.little);
+    final start = offset + 8;
+    if (name == 'data' && unknownLength(size) && bytes.length > start) {
+      if (!hasFormat ||
+          blockAlign == 0 ||
+          (bytes.length - start) % blockAlign != 0)
+        throw incomplete;
+      hasAudio = true;
+      offset = bytes.length;
+      break;
+    }
+    final end = start + size;
+    if (end > bytes.length) throw incomplete;
+    if (name == 'fmt ') {
+      if (size < 16) throw incomplete;
+      blockAlign = data.getUint16(start + 12, Endian.little);
+      hasFormat = blockAlign > 0;
+    }
+    if (name == 'data') {
+      if (!hasFormat || size == 0 || size % blockAlign != 0) throw incomplete;
+      hasAudio = true;
+    }
+    offset = end + size % 2;
+  }
+  if (!hasFormat || !hasAudio || offset != bytes.length) throw incomplete;
 }

@@ -76,7 +76,7 @@ class _SpeechSettingsPageState extends State<SpeechSettingsPage>
                 style: TextStyle(fontSize: 12, height: 1.6),
               ),
               const SizedBox(height: 12),
-              for (final p in model.profiles)
+              for (final p in model.availableProfiles)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
@@ -87,10 +87,21 @@ class _SpeechSettingsPageState extends State<SpeechSettingsPage>
                   ),
                   title: Text(p.name, style: const TextStyle(fontSize: 14)),
                   subtitle: Text(
-                    '${p.provider.label}${p.voice.isEmpty ? '' : ' · ${p.voice}'}',
+                    p.provider == SpeechProvider.deepseek
+                        ? '${deepseekVoices[p.voice] ?? p.voice}${p.apiKey.isEmpty ? ' · 待配置密钥' : ''}'
+                        : '${p.provider.label}${p.voice.isEmpty ? '' : ' · ${p.voice}'}',
                     style: const TextStyle(fontSize: 11),
                   ),
-                  onTap: busy ? null : () => action(() => model.select(p.id)),
+                  onTap: busy
+                      ? null
+                      : () => action(() async {
+                          if (p.provider == SpeechProvider.deepseek &&
+                              p.apiKey.trim().isEmpty) {
+                            await edit(p);
+                          } else {
+                            await model.select(p.id);
+                          }
+                        }),
                   trailing: IconButton(
                     tooltip: '编辑 ${p.name}',
                     onPressed: busy ? null : () => edit(p),
@@ -232,6 +243,7 @@ class _SpeechEditorState extends State<SpeechEditor> {
         'gpt-4o-mini-tts',
         'alloy',
       ),
+      SpeechProvider.deepseek => (deepseekTtsEndpoint, '', 'stella'),
       SpeechProvider.elevenlabs => (
         'https://api.elevenlabs.io/v1/text-to-speech/{voice}',
         'eleven_multilingual_v2',
@@ -327,6 +339,8 @@ class _SpeechEditorState extends State<SpeechEditor> {
         instructions: instructions.text.trim(),
         timeoutSeconds: timeoutSeconds,
       );
+      if (provider == SpeechProvider.deepseek && p.apiKey.isEmpty)
+        throw const FormatException('请填写 DeepSeek API Key');
       p.validate();
       setState(() => busy = true);
       await widget.settings.save(p);
@@ -373,7 +387,10 @@ class _SpeechEditorState extends State<SpeechEditor> {
               for (final p in SpeechProvider.values)
                 DropdownMenuItem(value: p, child: Text(p.label)),
             ],
-            onChanged: busy || widget.profile?.id == 'system'
+            onChanged:
+                busy ||
+                    widget.profile?.id == 'system' ||
+                    widget.profile?.id == SpeechProfile.deepseek.id
                 ? null
                 : (p) => setState(() => preset(p!)),
           ),
@@ -394,7 +411,8 @@ class _SpeechEditorState extends State<SpeechEditor> {
               secret: true,
               hint: '密钥仅保存到本机安全存储，不包含在聊天备份中。',
             ),
-            if (provider != SpeechProvider.azure)
+            if (provider != SpeechProvider.azure &&
+                provider != SpeechProvider.deepseek)
               field(
                 model,
                 '模型 ID',
@@ -403,27 +421,54 @@ class _SpeechEditorState extends State<SpeechEditor> {
                     : null,
               ),
           ],
-          field(
-            voice,
-            '音色 ID',
-            hint: provider == SpeechProvider.system
-                ? '留空跟随系统默认音色。'
-                : '填写服务提供的音色名称或 ID。',
-          ),
-          Row(
-            children: [
-              const Text('语速'),
-              const Spacer(),
-              Text('${speed.toStringAsFixed(2)}×'),
-            ],
-          ),
-          Slider(
-            value: speed,
-            min: provider == SpeechProvider.elevenlabs ? 0.7 : 0.5,
-            max: provider == SpeechProvider.elevenlabs ? 1.2 : 2,
-            divisions: 30,
-            onChanged: busy ? null : (v) => setState(() => speed = v),
-          ),
+          if (provider == SpeechProvider.deepseek)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: DropdownButtonFormField<String>(
+                key: const ValueKey('deepseek-voice'),
+                initialValue: deepseekVoices.containsKey(voice.text)
+                    ? voice.text
+                    : 'stella',
+                decoration: const InputDecoration(labelText: '音色'),
+                items: [
+                  for (final entry in deepseekVoices.entries)
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
+                ],
+                onChanged: busy ? null : (v) => setState(() => voice.text = v!),
+              ),
+            )
+          else
+            field(
+              voice,
+              '音色 ID',
+              hint: provider == SpeechProvider.system
+                  ? '留空跟随系统默认音色。'
+                  : '填写服务提供的音色名称或 ID。',
+            ),
+          if (provider == SpeechProvider.deepseek)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: Text('DeepSeek 使用默认语速，语种根据文字自动识别。'),
+            )
+          else ...[
+            Row(
+              children: [
+                const Text('语速'),
+                const Spacer(),
+                Text('${speed.toStringAsFixed(2)}×'),
+              ],
+            ),
+            Slider(
+              value: speed,
+              min: provider == SpeechProvider.elevenlabs ? 0.7 : 0.5,
+              max: provider == SpeechProvider.elevenlabs ? 1.2 : 2,
+              divisions: 30,
+              onChanged: busy ? null : (v) => setState(() => speed = v),
+            ),
+          ],
           if (provider == SpeechProvider.openai)
             field(
               instructions,
@@ -488,7 +533,9 @@ class _SpeechEditorState extends State<SpeechEditor> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          if (widget.profile != null && widget.profile!.id != 'system')
+          if (widget.profile != null &&
+              widget.profile!.id != 'system' &&
+              widget.settings.profiles.any((p) => p.id == widget.profile!.id))
             TextButton.icon(
               onPressed: busy
                   ? null
