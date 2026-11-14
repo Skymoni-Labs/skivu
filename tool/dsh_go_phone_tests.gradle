@@ -1,0 +1,16 @@
+// Reproduce the imported phone module's JVM suite without selecting Skivu's
+// unrelated desktop-AWT legacy image fixtures. Explicit opt-in via Gradle -I.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null || !app.file('src/main/kotlin/com/skyjjgw/independent/ski/DshGoPhoneHost.kt').isFile()) return
+    app.tasks.named('compileDebugUnitTestKotlin').configure {
+        setSource(app.fileTree('src/test/kotlin/com/skyjjgw/independent/ski/dshgo') { include '**/*.kt' })
+    }
+    app.tasks.withType(Test).configureEach {
+        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+            def shell = System.getenv('DSH_GO_TEST_SHELL') ?: 'D:/git/Git/bin/bash.exe'
+            if (!new File(shell).isFile()) throw new GradleException('Set DSH_GO_TEST_SHELL to an existing Git Bash executable')
+            systemProperty 'dshgo.test.shell', shell
+        }
+    }
+}

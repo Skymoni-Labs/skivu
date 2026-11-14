@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:label="${skivuApplicationLabel}"
         android:allowBackup="false"
@@ -66,13 +73,7 @@
         <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:foregroundServiceType="specialUse" xmlns:tools="http://schemas.android.com/tools" tools:node="merge">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User configured durable assistant tasks with checkpoints, renewable leases and a stop notification" />
         </service>
-        <service android:name=".SkivuAccessibilityService"
-            android:label="Skivu 手机操控"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
-            <meta-data android:name="android.accessibilityservice" android:resource="@xml/skivu_device_accessibility" />
-        </service>
+
         <service android:name=".EmbeddedTaskService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-started independent assistant task on explicitly authorized Android apps, with a stop notification" />
         </service>
@@ -107,6 +108,79 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/chat_attachment_paths" />
         </provider>
+        <activity
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.background.BackgroundProbeActivity"
+            android:exported="true"
+            android:permission="android.permission.INJECT_EVENTS"
+            android:process=":input_probe"
+            android:launchMode="standard"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|uiMode"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <activity
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.selfcheck.PhoneSelfCheckTargetActivity"
+            android:exported="false"
+            android:launchMode="standard"
+            android:taskAffinity="${applicationId}.phone.selfcheck"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+
+        <service
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.a11y.PhoneA11yService"
+            android:label="@string/phone_a11y_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/phone_accessibility_service" />
+        </service>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <receiver
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.background.AdbPairingNotification$Receiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.skyjjgw.independent.ski.dshgo.PHONE_ADB_PAIR_CODE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.a11y.A11yKeeper$Receiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.background.PrivilegedKeepJob$Receiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name="com.skyjjgw.independent.ski.dshgo.phone.background.PrivilegedKeepJob"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
+
+        <activity
+            android:name="com.skyjjgw.independent.ski.dshgo.links.LinkTrampolineActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.NoDisplay" />
+
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

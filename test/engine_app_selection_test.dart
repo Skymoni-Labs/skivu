@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ski/device_engine.dart';
+
 import 'package:ski/embedded_engine_settings.dart';
 import 'package:ski/engine_app_selection_page.dart';
 
@@ -104,20 +104,15 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       var snapshot = <String, dynamic>{
-        'enabled': true,
-        'system': true,
-        'control': false,
-        'shell': false,
-        'allApplications': false,
-        'packages': ['com.test.sms', 'com.test.not_installed'],
-        'recognitionMode': 'visual',
+        'denyPackages': ['com.test.sms', 'com.test.not_installed'],
+        'localOcrEnabled': true,
       };
       final writes = <Map<String, dynamic>>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        DeviceEngine.channel,
+        const MethodChannel('dsh/phone'),
         (call) async {
-          if (call.method == 'apps') return sampleApps;
-          if (call.method == 'configure') {
+          if (call.method == 'policyApps') return sampleApps;
+          if (call.method == 'setPolicies') {
             final params = Map<String, dynamic>.from(call.arguments as Map);
             writes.add(params);
             if (writes.length == 1)
@@ -129,7 +124,17 @@ void main() {
       );
       addTearDown(
         () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          DeviceEngine.channel,
+          const MethodChannel('dsh/phone'),
+          null,
+        ),
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dsh/phone/events'),
+        (_) async => null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('dsh/phone/events'),
           null,
         ),
       );
@@ -137,10 +142,12 @@ void main() {
         const MaterialApp(home: EmbeddedEngineSettings()),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('engine-choose-apps')),
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('phone-excluded-apps')),
+        320,
       );
-      await tester.tap(find.byKey(const ValueKey('engine-choose-apps')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('phone-excluded-apps')));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const ValueKey('engine-app-search')),
@@ -160,13 +167,7 @@ void main() {
       expect(tester.widget<CheckboxListTile>(settings).value, true);
       expect(writes, hasLength(2));
       expect(writes.last, {
-        'enabled': true,
-        'system': true,
-        'control': false,
-        'shell': false,
-        'allApplications': false,
-        'recognitionMode': 'visual',
-        'packages': [
+        'denyPackages': [
           'com.test.sms',
           'com.test.not_installed',
           'com.test.settings',
@@ -174,7 +175,8 @@ void main() {
       });
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('已选 3 个 · 共 5 个软件'), findsOneWidget);
+      expect(snapshot['localOcrEnabled'], true);
+      expect(snapshot['denyPackages'], hasLength(3));
       expect(tester.takeException(), isNull);
     },
   );

@@ -1,0 +1,23 @@
+// Optional build-only compatibility for Flutter SDK snapshots that generate an
+// integration_test registration for release while Gradle excludes dev plugins.
+// Apply explicitly with -I; the SDK and tracked application sources are untouched.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) return
+    if (!app.file('src/main/kotlin/com/skyjjgw/independent/ski/DshGoPhoneHost.kt').isFile()) return
+    app.tasks.matching { it.name == 'compileReleaseJavaWithJavac' }.configureEach {
+        doFirst {
+            def registrant = app.file('src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java')
+            if (!registrant.exists()) return
+            def before = registrant.getText('UTF-8')
+            def pattern = /(?s)    try \{\s*flutterEngine\.getPlugins\(\)\.add\(new dev\.flutter\.plugins\.integration_test\.IntegrationTestPlugin\(\)\);\s*\} catch \(Exception e\) \{\s*Log\.e\(TAG, "Error registering plugin integration_test, dev\.flutter\.plugins\.integration_test\.IntegrationTestPlugin", e\);\s*\}\r?\n/
+            def after = before.replaceAll(pattern, '')
+            if (after.contains('dev.flutter.plugins.integration_test.IntegrationTestPlugin'))
+                throw new GradleException('Unrecognized dev-only plugin registration; refusing to change generated source')
+            if (after != before) {
+                registrant.setText(after, 'UTF-8')
+                logger.lifecycle('Excluded only the dev-only integration_test registration from generated release tooling')
+            }
+        }
+    }
+}

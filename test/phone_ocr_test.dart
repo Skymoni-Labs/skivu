@@ -1,103 +1,80 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ski/device_engine.dart';
 import 'package:ski/device_tool_catalog.dart';
 import 'package:ski/embedded_engine_settings.dart';
 
 void main() {
+  const native = MethodChannel('dsh/phone');
+  const events = MethodChannel('dsh/phone/events');
+  Future<void> mount(
+    WidgetTester tester, {
+    double scale = 1,
+    Size size = const Size(500, 1800),
+    required Future<dynamic> Function(MethodCall) handler,
+  }) async {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(native, handler);
+    messenger.setMockMethodCallHandler(events, (_) async => null);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(native, null);
+      messenger.setMockMethodCallHandler(events, null);
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: size,
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: const EmbeddedEngineSettings(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets(
-    'fast capture uses an explicit host action and is never enabled by loading settings',
+    'native screen inspection requires an explicit action and loading settings does not capture',
     (tester) async {
-      tester.view.physicalSize = const Size(500, 1800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
       final calls = <String>[];
-      var active = false;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        DeviceEngine.channel,
-        (call) async {
+      await mount(
+        tester,
+        handler: (call) async {
           calls.add(call.method);
-          if (call.method == 'apps') return [];
-          if (call.method == 'capture.start') active = true;
-          if (call.method == 'capture.stop') active = false;
-          return {
-            'enabled': true,
-            'control': true,
-            'accessibility': true,
-            'packages': [],
-            'localOcr': true,
-            'fastCaptureSupported': true,
-            'fastCaptureActive': active,
-          };
+          if (call.method == 'testScreen') return {'text': '当前屏幕核验'};
+          return <String, dynamic>{};
         },
       );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          DeviceEngine.channel,
-          null,
-        ),
-      );
-      await tester.pumpWidget(
-        const MaterialApp(home: EmbeddedEngineSettings()),
-      );
-      await tester.pumpAndSettle();
+      expect(calls, isNot(contains('testScreen')));
       expect(calls, isNot(contains('capture.start')));
-      final setting = find.byKey(const ValueKey('engine-fast-capture'));
-      await tester.scrollUntilVisible(
-        setting,
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(setting);
+      await tester.scrollUntilVisible(find.text('检查当前屏幕文字'), 250);
+      await tester.tap(find.text('检查当前屏幕文字'));
       await tester.pumpAndSettle();
-      expect(calls.where((method) => method == 'capture.start').length, 1);
-      expect(calls, isNot(contains('configure')));
-      await tester.tap(setting);
-      await tester.pumpAndSettle();
-      expect(calls.where((method) => method == 'capture.stop').length, 1);
+      expect(calls.where((m) => m == 'testScreen'), hasLength(1));
+      expect(find.text('当前屏幕核验'), findsOneWidget);
+      expect(calls, isNot(contains('setPolicies')));
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('recognition choices fit a narrow screen with large text', (
+
+  testWidgets('native recognition settings fit narrow large text layout', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(320, 1000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      DeviceEngine.channel,
-      (call) async {
-        if (call.method == 'apps') return [];
-        return {'recognitionMode': 'visual', 'localOcr': true, 'packages': []};
-      },
+    await mount(
+      tester,
+      size: const Size(320, 1000),
+      scale: 2,
+      handler: (call) async => <String, dynamic>{},
     );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        DeviceEngine.channel,
-        null,
-      ),
-    );
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: MediaQuery(
-          data: MediaQueryData(
-            size: Size(320, 1000),
-            textScaler: TextScaler.linear(2),
-          ),
-          child: EmbeddedEngineSettings(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('engine-recognition-mode')),
-      250,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('自动选择'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('本地文字识别'), 250);
+    expect(find.text('本地文字识别'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
   test(
     'visual observation and local flow expose recognition and region selection',
     () {
@@ -145,54 +122,39 @@ void main() {
   );
 
   testWidgets(
-    'visual preference persists without changing application grants',
+    'native OCR preference persists without overwriting application or confirmation policies',
     (tester) async {
-      tester.view.physicalSize = const Size(500, 1500);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      var state = <String, dynamic>{
-        'enabled': true,
-        'system': false,
-        'control': true,
-        'shell': false,
-        'packages': ['example.app'],
-        'allApplications': false,
-        'recognitionMode': 'auto',
-        'localOcr': true,
+      var policies = <String, dynamic>{
+        'localOcrEnabled': false,
+        'denyPackages': ['example.app'],
+        'confirmMode': 'task',
       };
-      Map<String, dynamic>? saved;
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        DeviceEngine.channel,
-        (call) async {
-          if (call.method == 'apps') return [];
-          if (call.method == 'configure') {
-            saved = Map<String, dynamic>.from(call.arguments as Map);
-            state = {...state, ...saved!};
+      final saved = <Map>[];
+      await mount(
+        tester,
+        handler: (call) async {
+          if (call.method == 'getPolicies') return policies;
+          if (call.method == 'setPolicies') {
+            saved.add(Map.from(call.arguments as Map));
+            policies = {
+              ...policies,
+              ...Map<String, dynamic>.from(call.arguments as Map),
+            };
+            return true;
           }
-          return state;
+          return <String, dynamic>{};
         },
       );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          DeviceEngine.channel,
-          null,
-        ),
-      );
-      await tester.pumpWidget(
-        const MaterialApp(home: EmbeddedEngineSettings()),
-      );
+      final setting = find.widgetWithText(SwitchListTile, '本地文字识别');
+      await tester.scrollUntilVisible(setting, 250);
+      await tester.tap(setting);
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('engine-recognition-mode')),
-        250,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('视觉优先'));
-      await tester.pumpAndSettle();
-      expect(saved?['recognitionMode'], 'visual');
-      expect(saved?['packages'], ['example.app']);
-      expect(saved?['allApplications'], false);
-      expect(saved?['control'], true);
+      expect(saved, [
+        {'localOcrEnabled': true},
+      ]);
+      expect(policies['denyPackages'], ['example.app']);
+      expect(policies['confirmMode'], 'task');
+      expect(tester.widget<SwitchListTile>(setting).value, true);
       expect(tester.takeException(), isNull);
     },
   );

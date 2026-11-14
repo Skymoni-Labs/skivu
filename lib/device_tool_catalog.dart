@@ -400,7 +400,13 @@ final builtinDeviceTools = <DeviceToolDefinition>[
   ),
 ];
 
-DeviceToolDefinition deviceTool(String id) => builtinDeviceTools.firstWhere(
-  (tool) => tool.id == id,
-  orElse: () => throw const FormatException('设备工具不存在。'),
-);
+/// Installed from the pinned native dsh-go catalog, with its original schemas.
+/// Legacy definitions remain available to inspect saved receipts, not to execute.
+final dshGoDeviceTools = <String, DeviceToolDefinition>{};
+
+DeviceToolDefinition deviceTool(String id) =>
+    dshGoDeviceTools[id] ??
+    builtinDeviceTools.firstWhere(
+      (tool) => tool.id == id,
+      orElse: () => throw const FormatException('设备工具不存在。'),
+    );

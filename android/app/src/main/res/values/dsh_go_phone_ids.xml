@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <item name="phone_selfcheck_target_marker" type="id" />
+  <item name="phone_selfcheck_target_counter" type="id" />
+  <item name="phone_selfcheck_target_button" type="id" />
+  <item name="phone_selfcheck_target_edit" type="id" />
+  <item name="phone_selfcheck_target_pattern" type="id" />
+  <item name="phone_selfcheck_target_phase" type="id" />
+  <item type="id" name="overlay_action_stop" />
+</resources>

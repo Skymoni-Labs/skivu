@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'assistant_engine.dart';
@@ -21,6 +22,8 @@ import 'cloud_coding_tools.dart';
 import 'cloud_execution_state.dart';
 import 'phone_task_adapters.dart';
 import 'cloud_integration.dart';
+import 'dsh_go_phone_settings.dart';
+import 'open_plugin_companion_ui.dart' show companionReturnToChat;
 
 class _ReplyDraft {
   _ReplyDraft(this.message, this.epoch);
@@ -116,12 +119,44 @@ class CloudChatCoordinator implements CloudConversationRunner {
         }
       });
       DeviceEngine.channel.setMethodCallHandler((call) async {
+        if (call.method == 'navigation') {
+          await _phoneNavigation();
+          return;
+        }
         if (call.method != 'taskStopped') return;
         final id = (call.arguments as Map?)?['taskId'];
         for (final e in _engines.entries.toList()) {
           if (e.value.taskId == id) await stop(e.key.id);
         }
       });
+      unawaited(_phoneNavigation());
+    }
+  }
+
+  Future<void> _phoneNavigation() async {
+    try {
+      final value = await DeviceEngine.channel.invokeMapMethod<String, dynamic>(
+        'navigation.take',
+      );
+      if (value?['kind'] == 'settings') {
+        requestDshGoPhoneSettings();
+        return;
+      }
+      if (value?['kind'] != 'task') return;
+      final id = value?['taskId'];
+      final index = store.conversations.indexWhere(
+        (chat) =>
+            _engines[chat]?.taskId == id ||
+            chat.assistantJournal?['taskId'] == id,
+      );
+      if (index >= 0) {
+        store.selectChat(index);
+        companionReturnToChat?.call();
+      }
+    } on MissingPluginException {
+      // Non-Android hosts have no native phone navigation.
+    } on PlatformException {
+      // A disposed native host cannot navigate an unrelated/new session.
     }
   }
 
@@ -148,7 +183,10 @@ class CloudChatCoordinator implements CloudConversationRunner {
             identity: identity,
             compatibleIdentity: compatibleLegacyIdentity,
             beginTask: deviceEngine.beginTask,
-            endTask: deviceEngine.endTask,
+            endTask: (id) => deviceEngine.endTask(
+              id,
+              completion: engine.phase == 'done' ? 'completed' : 'other',
+            ),
             extensions: CombinedAssistantTools([
               CloudCodingTools(
                 owner: 'cloud:${chat.id}',

@@ -4,6 +4,12 @@
 
 ## 实际选定材料
 
+### dsh-go 原生手机操控（2026-11-14）
+
+手机端操控模块直接复用 [ccch1mneyyy/dsh-Go](https://github.com/ccch1mneyyy/dsh-Go) 的 `9cf96c531cfb9c654ac6df830d3c0b48acadbc58` 版本，原模块适用 AGPL-3.0，完整许可和原项目分发说明见 `licenses/dsh-go/`。Skivu 对接、命名空间与应用身份适配记录见 `docs/dsh-go-phone.md` 和逐文件来源清单；未导入上游桌宠美术或整套 App。原项目分发说明包含其完整产品的材料清单，不表示本包使用了其中所有材料。
+
+原 Skivu 源文件继续保留其 GPL-3.0-only 许可。包含本模块的组合版本分发须同时满足 AGPL-3.0 的对应源码等义务；本次为独立本地开发分支和验收包，未替换在线正式发行。
+
 | 材料 | 固定版本/来源 | 许可与处理 |
 | --- | --- | --- |
 | Flutter framework | 3.41.9 / `00b0c91f06209d9e4a41f71b7a512d6eb3b9c694` | BSD-3-Clause；保留完整版权与免责声明 |

@@ -9,6 +9,8 @@ class EmbeddedTaskService : Service() {
     private var ownedTaskId: String? = null
     companion object {
         @Volatile var taskId: String? = null
+        @Volatile var retainedEngine: io.flutter.embedding.engine.FlutterEngine? = null
+        @Volatile var phoneHost: DshGoPhoneHost? = null
         var stopTask: ((String) -> Unit)? = null
         val activeTasks=java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         @Volatile private var instance:EmbeddedTaskService?=null
@@ -54,6 +56,16 @@ class EmbeddedTaskService : Service() {
         val previous = ownedTaskId; ownedTaskId = null
         if (previous != null && taskId == previous) { taskId = null; stopTask?.invoke(previous) }
         stopForeground(STOP_FOREGROUND_REMOVE)
+        if (activeTasks.isEmpty()) {
+            if (DeviceTaskService.activityAttached) retainedEngine = null
+            else android.os.Handler(android.os.Looper.getMainLooper()).post {
+                if (!DeviceTaskService.activityAttached && DeviceTaskService.taskId == null && activeTasks.isEmpty()) {
+                    val host=phoneHost;phoneHost=null
+                    val engine=retainedEngine;retainedEngine=null
+                    host?.close();engine?.destroy()
+                }
+            }
+        }
         super.onDestroy()
     }
 }

@@ -1,76 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ski/device_engine.dart';
 import 'package:ski/embedded_engine_settings.dart';
 
 void main() {
   testWidgets(
-    'pairing fields keep their state across native calls and show actual UID',
+    'native pairing retains fields and connects only after explicit confirmation',
     (tester) async {
-      var paired = false, connected = false;
-      final calls = <String>[];
       tester.view.physicalSize = const Size(500, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        DeviceEngine.channel,
-        (call) async {
-          calls.add(call.method);
-          if (call.method == 'apps') return [];
-          if (call.method == 'adb.pair') {
-            paired = true;
-            return {'paired': true, 'summary': 'paired'};
-          }
-          if (call.method == 'adb.connect') {
-            expect(paired, true);
-            connected = true;
-            return {'connected': true};
-          }
+      const native = MethodChannel('dsh/phone');
+      const events = MethodChannel('dsh/phone/events');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final calls = <MethodCall>[];
+      var paired = false;
+      var connected = false;
+      messenger.setMockMethodCallHandler(events, (_) async => null);
+      messenger.setMockMethodCallHandler(native, (call) async {
+        calls.add(call);
+        if (call.method == 'adbPair') {
+          expect(call.arguments, {'code': '123456', 'port': 37001});
+          paired = true;
+          return true;
+        }
+        if (call.method == 'adbConnect') {
+          expect(paired, true);
+          connected = true;
+          return true;
+        }
+        if (call.method == 'status')
           return {
-            'enabled': true,
-            'system': true,
-            'control': false,
-            'shell': true,
-            'accessibility': false,
-            'writeSettings': false,
-            'packages': [],
-            'shellConnected': connected,
-            'shellUid': connected ? 2000 : null,
-            'developerOptions': true,
+            'background': {
+              'privileged': {'mode': 'adb', 'ready': connected},
+            },
           };
-        },
-      );
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          DeviceEngine.channel,
-          null,
-        ),
-      );
+        return <String, dynamic>{};
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(native, null);
+        messenger.setMockMethodCallHandler(events, null);
+      });
       await tester.pumpWidget(
         const MaterialApp(home: EmbeddedEngineSettings()),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('UID 2000'), findsNothing);
-      await tester.ensureVisible(find.text('高级能力'));
-      await tester.tap(find.text('高级能力'));
+      await tester.scrollUntilVisible(find.text('无线配对与连接'), 300);
+      await tester.tap(find.text('无线配对与连接'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('代码执行 · 无线配对'));
-      await tester.tap(find.text('代码执行 · 无线配对'));
+      await tester.ensureVisible(find.text('填写无线配对码'));
+      await tester.tap(find.text('填写无线配对码'));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byType(TextField).at(0));
-      await tester.enterText(find.byType(TextField).at(0), '37001');
-      await tester.enterText(find.byType(TextField).at(1), '123456');
-      await tester.ensureVisible(find.text('完成系统配对'));
-      await tester.tap(find.text('完成系统配对'));
+      await tester.enterText(find.byType(TextField).at(0), '123456');
+      await tester.enterText(find.byType(TextField).at(1), '37001');
+      await tester.pump();
+      expect(find.text('123456'), findsOneWidget);
+      expect(find.text('37001'), findsOneWidget);
+      expect(paired, false);
+      await tester.tap(find.widgetWithText(FilledButton, '配对'));
       await tester.pumpAndSettle();
       expect(paired, true);
-      expect(find.text('无线调试连接端口'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).at(2), '38001');
-      await tester.ensureVisible(find.text('连接并验证身份'));
-      await tester.tap(find.text('连接并验证身份'));
+      expect(connected, false);
+      await tester.ensureVisible(find.text('连接无线调试'));
+      await tester.tap(find.text('连接无线调试'));
       await tester.pumpAndSettle();
-      expect(find.text('已连接 · UID 2000'), findsOneWidget);
-      expect(calls, containsAllInOrder(['adb.pair', 'adb.connect', 'status']));
+      expect(connected, true);
+      expect(
+        calls.map((e) => e.method),
+        containsAllInOrder(['adbPair', 'status', 'adbConnect', 'status']),
+      );
       expect(tester.takeException(), isNull);
     },
   );

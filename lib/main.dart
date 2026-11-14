@@ -8,6 +8,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'chat.dart';
 import 'cloud_conversations.dart';
+import 'dsh_go_phone_settings.dart';
 import 'cloud_companion_portrait.dart';
 import 'drawer_motion.dart';
 import 'glass.dart';
@@ -90,6 +91,12 @@ Future<void> main() async {
   // Keep the web UI keyboard accessible and inspectable by assistive technology.
   if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'dsh-go · 原生手机操控 · ccch1mneyyy · AGPL-3.0',
+    ], await rootBundle.loadString('licenses/dsh-go/LICENSE'));
+    yield LicenseEntryWithLineBreaks([
+      'dsh-go · 原项目完整材料通知（本包使用手机操控子集）',
+    ], await rootBundle.loadString('licenses/dsh-go/THIRD_PARTY_NOTICES.md'));
     yield LicenseEntryWithLineBreaks([
       'Radix Colors · Skymoni theme palettes',
     ], await rootBundle.loadString('licenses/RadixColors-MIT.txt'));
@@ -509,6 +516,7 @@ class _SkiShellState extends State<SkiShell>
   final _foregroundKey = GlobalKey();
   late final DrawerMotion motion;
   late final VoidCallback _companionReturn;
+  late final VoidCallback _phoneSettings;
   late int _chatModule;
   @override
   void initState() {
@@ -519,6 +527,17 @@ class _SkiShellState extends State<SkiShell>
       if (mounted && widget.route != '/chat') go('/chat');
     };
     companionReturnToChat = _companionReturn;
+    _phoneSettings = () {
+      if (mounted)
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const DshGoPhoneSettings()),
+        );
+    };
+    openDshGoPhoneSettings = _phoneSettings;
+    if (dshGoPhoneSettingsPending) {
+      dshGoPhoneSettingsPending = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _phoneSettings());
+    }
     openPlugins.addListener(_pluginChanged);
   }
 
@@ -532,6 +551,8 @@ class _SkiShellState extends State<SkiShell>
     motion.dispose();
     if (identical(companionReturnToChat, _companionReturn))
       companionReturnToChat = null;
+    if (identical(openDshGoPhoneSettings, _phoneSettings))
+      openDshGoPhoneSettings = null;
     super.dispose();
   }
 

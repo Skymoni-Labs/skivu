@@ -61,7 +61,9 @@ class DeviceEngine {
     String tool,
     Map<String, dynamic> arguments,
   ) {
-    if (tool.startsWith('plugin:') || tool.startsWith('coding.'))
+    if (tool.startsWith('plugin:') ||
+        tool.startsWith('coding.') ||
+        tool.startsWith('phone.'))
       return Future.value({'found': false});
     deviceTool(tool).validate(arguments);
     return _transport('effect.lookup', {'tool': tool, 'arguments': arguments});
@@ -71,8 +73,11 @@ class DeviceEngine {
     await _transport('session.start', {'taskId': taskId});
   }
 
-  Future<void> endTask(String taskId) async {
-    await _transport('session.end', {'taskId': taskId});
+  Future<void> endTask(String taskId, {String completion = 'unknown'}) async {
+    await _transport('session.end', {
+      'taskId': taskId,
+      'completion': completion,
+    });
   }
 
   Future<List<Map<String, dynamic>>> installedApps() async {
@@ -121,6 +126,36 @@ class DeviceEngine {
 
   Future<List<Map<String, dynamic>>> catalog() async {
     final state = await status();
+    if (state['backend'] == 'dsh-go') {
+      final catalog = await _transport('catalog', {});
+      final tools = (catalog['tools'] as List).whereType<Map>();
+      for (final tool in tools) {
+        final id = 'phone.${tool['name']}';
+        dshGoDeviceTools[id] = DeviceToolDefinition(
+          id: id,
+          description: tool['description'] as String,
+          permission: const {'apps', 'screen'}.contains(tool['name'])
+              ? 'device.observe'
+              : tool['name'] == 'android_shell'
+              ? 'device.shell'
+              : const {'intent', 'notify', 'clipboard'}.contains(tool['name'])
+              ? 'device.system'
+              : 'device.control',
+          effect: const {'apps', 'screen'}.contains(tool['name'])
+              ? 'read'
+              : 'external',
+          parameters: Map<String, dynamic>.from(tool['inputSchema'] as Map),
+        );
+      }
+      return [
+        for (final id in ['device.status', 'device.receipt'])
+          if (allowedTools == null || allowedTools!.contains(id))
+            {...deviceTool(id).toJson(), 'available': true},
+        for (final tool in dshGoDeviceTools.values)
+          if (allowedTools == null || allowedTools!.contains(tool.id))
+            {...tool.toJson(), 'available': true},
+      ];
+    }
     return [
       for (final tool in builtinDeviceTools)
         if (allowedTools == null || allowedTools!.contains(tool.id))
@@ -163,6 +198,11 @@ class DeviceEngine {
     required String owner,
     String? requestId,
   }) async {
+    if (allowedTools != null && !allowedTools!.contains(toolId)) {
+      throw const FormatException('设备工具不在当前授权目录中。');
+    }
+    if (toolId.startsWith('phone.') && !dshGoDeviceTools.containsKey(toolId))
+      await catalog();
     final definition = deviceTool(toolId);
     definition.validate(arguments);
     if (!RegExp(r'^[a-zA-Z0-9_.:-]{1,180}$').hasMatch(owner)) {

@@ -110,7 +110,9 @@ void validatePluginArguments(Object? value, Map schema, {int depth = 0}) {
           {'__proto__', 'prototype', 'constructor'}.contains(key),
     ))
       throw const FormatException('工具对象字段不正确。');
-    if ((schema['required'] as List).any((key) => !value.containsKey(key)) ||
+    if ((schema['required'] as List? ?? const []).any(
+          (key) => !value.containsKey(key),
+        ) ||
         schema['additionalProperties'] == false &&
             value.keys.any((key) => !props.containsKey(key)))
       throw const FormatException('工具参数字段不符。');

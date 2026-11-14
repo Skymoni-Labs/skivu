@@ -28,7 +28,8 @@ android {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     implementation("androidx.annotation:annotation:1.9.1")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
+    // Same Bouncy Castle family as dsh-go/libadb, avoiding duplicate TLS classes.
+    implementation("org.bouncycastle:bcpkix-jdk15to18:1.81")
     implementation("io.github.vvb2060.ndk:boringssl:20250114")
     compileOnly("dev.rikka.hidden:stub:4.4.0")
     implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")

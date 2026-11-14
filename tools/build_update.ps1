@@ -33,7 +33,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Release registration preparation failed.' }
         Push-Location (Join-Path $projectRoot 'android')
         try {
-            & ./gradlew.bat :app:assembleRelease "-Ptarget-platform=$buildTarget" "-Ptarget=$projectRoot/lib/main.dart" --offline --max-workers=2
+            & ./gradlew.bat :app:assembleRelease "-Ptarget-platform=$buildTarget" "-Ptarget=$projectRoot/lib/main.dart" -I "$projectRoot/tool/dsh_go_release_registrant.gradle" --offline --max-workers=2
             if ($LASTEXITCODE -ne 0) { throw 'Offline Android release build failed.' }
         } finally { Pop-Location }
         $apk = Join-Path $projectRoot 'build/app/outputs/apk/release/app-release.apk'

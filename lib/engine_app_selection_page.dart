@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'app_alphabet_ruler.dart';
 import 'drawer_motion.dart';
 import 'glass.dart';
+import 'state.dart' show demo;
 
 class EngineSelectableApp {
   EngineSelectableApp(Map<String, dynamic> value)
@@ -31,7 +32,7 @@ class EngineSelectableApp {
   }
 }
 
-/// This page changes only the package allowlist, and only after a checkbox tap.
+/// Changes only the supplied package selection after an explicit checkbox tap.
 class EngineAppSelectionPage extends StatefulWidget {
   const EngineAppSelectionPage({
     super.key,
@@ -39,12 +40,19 @@ class EngineAppSelectionPage extends StatefulWidget {
     required this.selected,
     required this.save,
     this.selectedOnly = false,
+    this.title = '选择软件',
+    this.prompt = '选择你允许操作的应用',
+    this.selectedDescription = '已加入允许操作的范围',
+    this.unselectedDescription = '尚未加入允许操作的范围',
+    this.editManually,
   });
 
   final List<Map<String, dynamic>> apps;
   final Set<String> selected;
   final Future<Set<String>> Function(Set<String> packages) save;
   final bool selectedOnly;
+  final String title, prompt, selectedDescription, unselectedDescription;
+  final Future<Set<String>?> Function(Set<String> packages)? editManually;
 
   @override
   State<EngineAppSelectionPage> createState() => _EngineAppSelectionPageState();
@@ -119,7 +127,11 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
             const SizedBox(height: 12),
             SelectableText(app.package),
             const SizedBox(height: 16),
-            Text(selected.contains(app.package) ? '已加入允许操作的范围' : '尚未加入允许操作的范围'),
+            Text(
+              selected.contains(app.package)
+                  ? widget.selectedDescription
+                  : widget.unselectedDescription,
+            ),
             const SizedBox(height: 12),
           ],
         ),
@@ -190,13 +202,49 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
     }
 
     final colors = theme.colorScheme;
+    final backdropInk = demo.dark
+        ? const Color(0xffe5eefb)
+        : colors.onSurfaceVariant;
     return SkiGlassScene(
       motion: motion,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('选择软件'),
-          systemOverlayStyle: theme.brightness == Brightness.dark
+          foregroundColor: demo.dark
+              ? const Color(0xffeef3fc)
+              : colors.onSurface,
+          title: Text(
+            widget.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            if (widget.editManually != null)
+              IconButton(
+                tooltip: '手动编辑包名',
+                icon: const Icon(Icons.edit_note_rounded),
+                onPressed: saving
+                    ? null
+                    : () async {
+                        setState(() {
+                          saving = true;
+                          error = null;
+                        });
+                        try {
+                          final saved = await widget.editManually!(
+                            Set.of(selected),
+                          );
+                          if (mounted && saved != null)
+                            setState(() => selected = Set.of(saved));
+                        } catch (_) {
+                          if (mounted) setState(() => error = '保存未完成，请重试。');
+                        } finally {
+                          if (mounted) setState(() => saving = false);
+                        }
+                      },
+              ),
+          ],
+          systemOverlayStyle: demo.dark
               ? SystemUiOverlayStyle.light
               : SystemUiOverlayStyle.dark,
           backgroundColor: Colors.transparent,
@@ -222,7 +270,7 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        '选择你允许操作的应用',
+                        widget.prompt,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -290,21 +338,21 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.sort_by_alpha,
-                      size: 16,
-                      color: colors.onSurfaceVariant,
-                    ),
+                    Icon(Icons.sort_by_alpha, size: 16, color: backdropInk),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         '长按左侧刻度，滑动定位字母',
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: backdropInk,
+                        ),
                       ),
                     ),
                     Text(
                       '${filtered.length} 个',
-                      style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: backdropInk,
+                      ),
                     ),
                   ],
                 ),
@@ -318,7 +366,9 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Text(
                     error!,
-                    style: TextStyle(color: theme.colorScheme.error),
+                    style: TextStyle(
+                      color: demo.dark ? colors.errorContainer : colors.error,
+                    ),
                   ),
                 ),
               Expanded(
@@ -330,6 +380,7 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                               : selectedOnly
                               ? '还没有选择软件'
                               : '暂无可选择的软件',
+                          style: TextStyle(color: backdropInk),
                         ),
                       )
                     : LayoutBuilder(
@@ -373,7 +424,9 @@ class _EngineAppSelectionPageState extends State<EngineAppSelectionPage>
                                           row,
                                           style: theme.textTheme.labelLarge
                                               ?.copyWith(
-                                                color: colors.primary,
+                                                color: demo.dark
+                                                    ? colors.primaryContainer
+                                                    : colors.primary,
                                                 fontWeight: FontWeight.w700,
                                               ),
                                         ),

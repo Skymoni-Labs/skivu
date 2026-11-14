@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'assistant_engine.dart';
 import 'device_engine.dart';
+import 'device_tool_catalog.dart';
 
 /// Business extraction/source/matching stay outside generic execution state.
 class ChoiceQuestion {
@@ -287,7 +288,8 @@ class PhoneTaskAdapters implements AssistantExtensions {
     },
   ];
   @override
-  Future<List<Map<String, dynamic>>> catalog() async => definitions;
+  Future<List<Map<String, dynamic>>> catalog() async =>
+      dshGoDeviceTools.isEmpty ? definitions : [];
   @override
   Future<Map<String, dynamic>> cancel() async => {'outcome': 'cancelled'};
   @override

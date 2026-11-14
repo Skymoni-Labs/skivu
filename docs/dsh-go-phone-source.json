@@ -1,0 +1,2258 @@
+{
+  "project": "https://github.com/ccch1mneyyy/dsh-Go",
+  "commit": "9cf96c531cfb9c654ac6df830d3c0b48acadbc58",
+  "license": "AGPL-3.0",
+  "scope": "Complete native phone module and necessary support types; Skivu host adapters are separate",
+  "native_phone_files": 165,
+  "main_files": [
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/diagnostics/SystemImeEvidence.kt",
+      "adapted_sha256": "df7d1b7c639bbc72f7e7fb6b10a839ebd18335db3b68f0bb606d78b3ef06e936",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/diagnostics/SystemImeEvidence.kt",
+      "upstream_sha256": "1e86609a6e2da3ed74e217322837c2d64111177644a3a205799f925722906792",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/diagnostics/SystemImeLogcat.kt",
+      "adapted_sha256": "b6c14a984f121d5f1042bdc5bec5a643cbccaa72eaeab8d9520eab9d69adce86",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/diagnostics/SystemImeLogcat.kt",
+      "upstream_sha256": "65ee94a5d6f94ee4ae422c666c1b5188b3f3a6ba7931bf14b87c448d233912e6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/i18n/AppStrings.kt",
+      "adapted_sha256": "df747b1a46027ea39e9151f3c974797eab9bc3cf3cce8e2425935b784a813105",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/i18n/AppStrings.kt",
+      "upstream_sha256": "27d7c9f8735501d7b058b6f1e356ff0b80c2587ad55ce2dfefc2bbc859d3255a",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/links/LinkTrampolineActivity.kt",
+      "adapted_sha256": "819523c0f6bd7fbc1d90cd60a9726bfab1adb02f5949d2788a2c2e689ba6ed72",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/links/LinkTrampolineActivity.kt",
+      "upstream_sha256": "6d693824a7a882f879651f22e1818bfacf24d63962c9da6d301d9aed43243e02",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/mlkit/MlKitInitialization.kt",
+      "adapted_sha256": "9d74856a2bd7dcefd97247244e21fd5c617b0eedbcba68a0a8f597134ee66930",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/mlkit/MlKitInitialization.kt",
+      "upstream_sha256": "de4a944723aeb3e29cb49258a3cdc13c9fd6d5c799bd40672aaa72c0f2f95725",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/mlkit/MlKitRuntime.kt",
+      "adapted_sha256": "70197bb64b51688420aec12b21dcf278dabd219d8975908db0443cf58231ad8f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/mlkit/MlKitRuntime.kt",
+      "upstream_sha256": "c88feddf595917b177b3a049c1bc0d083551b408be1ba914faaee2d545484efb",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/notify/LiveActivity.kt",
+      "adapted_sha256": "7568deaeef89acb3a093f22978497509b3bfc69f2efa61cf3e2ff2efbac49209",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/notify/LiveActivity.kt",
+      "upstream_sha256": "256bb681bd9e2f51bd3322803bd12d80625bb1d8b9295f6c84bb3b5b319b3298",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/pet/EdgeSnap.kt",
+      "adapted_sha256": "6536220009e935c6923e6553c950cb69729db6c6990dcf6889af02e7242c3625",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/pet/EdgeSnap.kt",
+      "upstream_sha256": "53be1734aabe950465b845f7b7e5749bc50118c9bcd25d686d2973aa3ff43e6e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/pet/FramePx.kt",
+      "adapted_sha256": "2f5307db1fc9664c5959f75c039e2369d5fd229e787c845f4f19245813b12265",
+      "upstream": null,
+      "kind": "Skivu host support adapter"
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/pet/PetFrames.kt",
+      "adapted_sha256": "276e06546175f3394a5c1b439b51589fe36dfdca1fd4ab2470f0a80a819229f3",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/pet/PetFrames.kt",
+      "upstream_sha256": "10e50990c625dd321e0a74aeeefaf4744e9b0a21db990dc831118490888bb996",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/A11yKeeper.kt",
+      "adapted_sha256": "14cf70a05a3941f89513582b8ce06470d8854a68bc45fe5e862e88f68ad1cdcf",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/A11yKeeper.kt",
+      "upstream_sha256": "0e6b527b705930f5cbec15b197411a6f568f76fa01f3abaaa3ba7486248ceae6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/A11yProbe.kt",
+      "adapted_sha256": "4dcab607731b901dc683817fff37295d05f3ea42d61a1650055a632909c57553",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/A11yProbe.kt",
+      "upstream_sha256": "04d5caf4ed84244b4560593af7e2999bfeee0a8e8de0e6f712822a76733a435e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/Actuator.kt",
+      "adapted_sha256": "241adbdbedb7ef5a1c04b36d5ce79378c71bb4da6e63bb7ab38abfb4fd4d39d9",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/Actuator.kt",
+      "upstream_sha256": "c07980aab1d0a0d851c47e6a76f86a6b2331ef421bb7979b7d2da057e6452535",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/CaptureVisibility.kt",
+      "adapted_sha256": "d2e96d11737bfc004b39aeccccd2c0017002cfb7735d83cb61ba68679ece8d3e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/CaptureVisibility.kt",
+      "upstream_sha256": "f6a9cdba795c721f51163685f77ed94a090fa1bed5675fbf726b699d950bae49",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ControlOverlay.kt",
+      "adapted_sha256": "52c6a6165f65d5d5064e96add5fccfb3c2fdbeee62112d8b9ab6235b1a560050",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ControlOverlay.kt",
+      "upstream_sha256": "437ea9be8f5701bce448ebff1d72ca2416ecfed046a731282a8796ad3a35a526",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/CoordinateDispatch.kt",
+      "adapted_sha256": "1e197eb5ff1ce4ff74b3adcf3bdeffdf6a90c80ffcbff8c5723b667465ff0226",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/CoordinateDispatch.kt",
+      "upstream_sha256": "15d5036852569a1ab6806f4872b2d1e7e110d31a83bbcc949cefc05e97bed219",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/EdgeBeam.kt",
+      "adapted_sha256": "d86b2e6e13580f9e625abd07d87d8cb48573a7b9408abc437e9e681c683f443b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/EdgeBeam.kt",
+      "upstream_sha256": "4d6172b97d77be83d9512bc4b1d912689853d574b48cb12f73ec7b4f3ebcf5df",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/EdgeBeamModel.kt",
+      "adapted_sha256": "e89f249991272d4b82e2c4979961c092d30d9406915da8d4ce36285b81840917",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/EdgeBeamModel.kt",
+      "upstream_sha256": "002f2c9081271ef9109ced292b4ec06dc49c8735fd6ebd5ddf8fb2f72ee84aca",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/EventClock.kt",
+      "adapted_sha256": "a52725c9bfddc3f7ae24a1fc5286dc77bc665e3008e80614f7101793269ee5d6",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/EventClock.kt",
+      "upstream_sha256": "a1dc32d020d98d518aefef00c5c6a8e2dbf14cbed1786c1e3323d9cc002402b2",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusCapturedInput33.kt",
+      "adapted_sha256": "a7486a6f9b1e4f692c591bf81201b0667a0f9d0edbd70e7a9863b2f46112172f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusCapturedInput33.kt",
+      "upstream_sha256": "295b9442ec3a05e9358bb28fb000e902296f92520e8c32f20889aaa57b32a2e0",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusInputMethod33.kt",
+      "adapted_sha256": "72f640404ef338347a430477f75f442cb4f55a3a99cf40ca9979b14a27e70e13",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusInputMethod33.kt",
+      "upstream_sha256": "36ac095645df6558a0598a45e993dc676589b8b044636bef37ef92e6428abb96",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusInputObservation.kt",
+      "adapted_sha256": "b48527a2950653990c31337b2981dfd89940a2cc3359a6ce07ffecd0e2dbddd4",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusInputObservation.kt",
+      "upstream_sha256": "23a68878013d18e4e9b38959c4a5c996eb14a459740b7f34153fa363f13699b2",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusReadback.kt",
+      "adapted_sha256": "316f66c5427230b53e9f27f77129fe35882daeff8d14ef06c6925cce40bf8568",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusReadback.kt",
+      "upstream_sha256": "6ac2ebc6f1816cf3af6f9dc0d6c72950317b03829d8a1e887f9ab454dc3e8a9d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FoldClock.kt",
+      "adapted_sha256": "627a1b78bc5119ec48da4f566b70612d78aa64843e6b22c0a73f86631aa8ca3d",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FoldClock.kt",
+      "upstream_sha256": "ab86a3d85d747910c6187e00f9295236234080210feae530b1d4f19866cf80c6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ImageObservation.kt",
+      "adapted_sha256": "8f9b7c3ed748af2102e6b810078dc69f60128aa90c3822dfc8399152d385818a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ImageObservation.kt",
+      "upstream_sha256": "61a3c2306ac3c7b7f72456ff9857ca1fe32f0ef91dda40f6916e3101cf980a0f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ImageReadSources.kt",
+      "adapted_sha256": "2a90bd442712506c06fab41c3aed609d307eb0650ee42a9ee9898be5b4055b26",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ImageReadSources.kt",
+      "upstream_sha256": "ee97a32724232dac48d27d8dafcd5c3acf4cab00b4b8d22c6f3e5abf5ab405b0",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/LocalOcr.kt",
+      "adapted_sha256": "2832c552c97ed85ffe7d515ebf37cfbc56dd20ed417cdeec875c78df70414341",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/LocalOcr.kt",
+      "upstream_sha256": "9333af910a48eec9c9f6b6a934a626df4e1c30305d93eda6e2d6e38a95469e49",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/LocalOcrResult.kt",
+      "adapted_sha256": "de95a750151c3dddd402b7c897f279aba3b845bd0164f995a8cdfde96e48f156",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/LocalOcrResult.kt",
+      "upstream_sha256": "84dd894bd330bc1fc7ae974c16bebeee3d0095d49878a68780875cf380b328ee",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/LocalOcrVisual.kt",
+      "adapted_sha256": "2fef8f07a1b2874639af237220cb2fa0b7b47b32a56bdc6e154451025fcd9b94",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/LocalOcrVisual.kt",
+      "upstream_sha256": "0e2486cca6effb58413a719d115765c6da4fe04514a1d3a51af74be65ac87b7f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainScreenDriver.kt",
+      "adapted_sha256": "b099ff68098f1914721693e8bf683c5f7416ebd0407afec2e8363534df29dc1e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainScreenDriver.kt",
+      "upstream_sha256": "8bece8f2bfae90ce6edfcdc64810dcecb275b705f182484d09c3153bbaffb727",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainVisualEvidence.kt",
+      "adapted_sha256": "c0db5da4fbb1546b55f567f3779da6ce53aaf43b9aac0736ffac9a9a24f3af3e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainVisualEvidence.kt",
+      "upstream_sha256": "08448de50fa8696572df9d49093ff7b0abc52a5c1e2a64c8585a3acefeb5edf3",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainVisualState.kt",
+      "adapted_sha256": "be8cdcb5b9896916ae285ab89f34dcdbb411f286ec6a92ae8a74b124c45810c4",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainVisualState.kt",
+      "upstream_sha256": "b72df653cb810c098d7013868e0a8d1af953d102c56449facaebe1d791ddd069",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MarkorNavigation.kt",
+      "adapted_sha256": "8e87f17cf585e012d72f675e5ee052bd0353b8f6fc3c359cf678cec22db11bda",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MarkorNavigation.kt",
+      "upstream_sha256": "5454156552d860b053f98a81a7c7430e16711a5261081c5819d20f8936a492ab",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MlKitLocalOcr.kt",
+      "adapted_sha256": "80eed7388fec8c3924cbad4a2037f405991a9adc0d8478d2969e8612f8a59949",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MlKitLocalOcr.kt",
+      "upstream_sha256": "b4e2d08f51f483617ecf2bd7f608ced29148ab2f7719984469d80f03804273a6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MlKitSession.kt",
+      "adapted_sha256": "2ae9006ef925eaed93699f992a87c58c5adaae76b45d131654fb89d75a0f5f1b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MlKitSession.kt",
+      "upstream_sha256": "9683fad36068e5390faf4629787037964a631504621d9ebbaae1384fecac9b1b",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/NavigationMaterials.kt",
+      "adapted_sha256": "abfcee610d6554f5725b702a869cbcb38e1c779d36e6db5dda5860b09112c6ae",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/NavigationMaterials.kt",
+      "upstream_sha256": "540ff93248deb00ce2a37de9ee6c4dfb33713ef19be85a6e96e24e178edf8166",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayBall.kt",
+      "adapted_sha256": "752e5a133b61ced175d28bb7106993a20bc6ce968c984e1d5928ac70943b019d",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayBall.kt",
+      "upstream_sha256": "d8fe54f4298000198e4e5053ac241e2aa0fa652dfafec73872b3cdfb442c3c60",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayCapsule.kt",
+      "adapted_sha256": "08ce7fdaac9c2d7974bee7101ea130451aeb06010d369e8ce9d51abfa65aa212",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayCapsule.kt",
+      "upstream_sha256": "a03e50f14b6a833456688df62216fe4524538c242ef1a40f698fba1e63092f4b",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayLook.kt",
+      "adapted_sha256": "fbc1f3fe2bb8721c19bd430f25973cb1fd56ff536a385fb40a660d648d982f57",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayLook.kt",
+      "upstream_sha256": "958bd1247031be6af76d738aa3ff6028b8534db13fd6b570b019609fe6640b47",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayModel.kt",
+      "adapted_sha256": "b342f9b5e6cb9a2859912402e377082556193f66508394a020f202e410c1636e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayModel.kt",
+      "upstream_sha256": "a4d6eefdc10f381e3e784f0688491c0a093ab078ef70dcaec65dccc1c7d167e7",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayPrefs.kt",
+      "adapted_sha256": "b7e516823e8a160928aa974340115f97dd1f4472c861b0b3a4f137372aacb1a3",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayPrefs.kt",
+      "upstream_sha256": "c182a3f3768c2bf6fd6058f72a6295ba37217feba229cb546859713b5e26831d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayPreviewDecoder.kt",
+      "adapted_sha256": "de7cbfbe4ec64ae7bae68bd937b25a64fb1071361581f962494aff9e2393c834",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayPreviewDecoder.kt",
+      "upstream_sha256": "8765ec4643ad29cfd72ad6675740a3b16fa677ae68cbaa6f8b011b8851d90c1e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayPreviewQueue.kt",
+      "adapted_sha256": "27548b4d70e3b372eeb23264abcba917fa412d394803851e6fd0e1c618242eac",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayPreviewQueue.kt",
+      "upstream_sha256": "fbe5ec7e6b0adb8e32561e27c79fc98978932c63bbebb1f68d5923e64f693825",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/PhoneA11yService.kt",
+      "adapted_sha256": "d053e9f8221bc567165e8136ba5de5f4b2d9bffc2bcab387eda7c4641890c1b2",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/PhoneA11yService.kt",
+      "upstream_sha256": "1f682e7745b004a6ab0f66bd08f43c0dc9036ff9f8e01bb9e04dfd4d244a34d6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ProtectedPages.kt",
+      "adapted_sha256": "26827c353e000a433519762d46b3375f3fe097c442a16df3a48212b722621667",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ProtectedPages.kt",
+      "upstream_sha256": "85f85d330499502995b5a821738700642dc85927c3c44fab0c1156c593189cf6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenDigest.kt",
+      "adapted_sha256": "f15c9ff8594b41c4413a70bdce4101b01582c2af8b3f2be8a668e8618a82b9f5",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenDigest.kt",
+      "upstream_sha256": "5a905a90fc4113058fccd952acc4bb99a0f1d350c773045893bb01d2696144e5",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenFormat.kt",
+      "adapted_sha256": "1ee92ac5a3354bd8deb217f91c507ea5aa71129a9c11aac2dab7261ff80db5ed",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenFormat.kt",
+      "upstream_sha256": "7d0d59f657091b527b120f0eb8a4a627ff1333d2214f81a9066efe8ff44342c6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenMask.kt",
+      "adapted_sha256": "386839eedf31575cedbad0bef027aac93cca908a80488830fa923c87f1695eee",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenMask.kt",
+      "upstream_sha256": "bb324a63b135f67ff5ce22dbcd49af347906516daab91307ac5461aa8a8671ec",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenObservation.kt",
+      "adapted_sha256": "68e339dfdcedb823e653220ea7e5959bd87b479c0e1e2de328083420ba8da87d",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenObservation.kt",
+      "upstream_sha256": "441846aa4175cb2a45b37cd07e65df9aaf4f783a2b885902aadb29b4290b0785",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenShooter.kt",
+      "adapted_sha256": "6358582373876259fdd6a84147f6c4692652e9c7f9ef03c0945c1cc18d6cb7b1",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenShooter.kt",
+      "upstream_sha256": "f3ced5fe5e0c7a70a44fdbd0cadc74f8070190c9bd21409ede50650db3fc1ae1",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenVerdict.kt",
+      "adapted_sha256": "82c028806d5bd33ece29038f465a58ed8d7f45a5990f858dd938582b32a80e97",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenVerdict.kt",
+      "upstream_sha256": "8d1ad2cb7ce5c72721b97f0659159101e28a8021de18abeb3f044e4602517f64",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/StatusOwnership.kt",
+      "adapted_sha256": "105be13808d8dc19cea6798e64887cc7917f2af740f51b9b78fd28257fd16738",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/StatusOwnership.kt",
+      "upstream_sha256": "2c0c7ec6ce2ef36030c2070678014f065631e163c3fc5912ab21f2e658e2ed1d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/TreeCapture.kt",
+      "adapted_sha256": "96aca22173e76718bfb971405b1faf08f05c26f17198d5c5d1d210c466b46a24",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/TreeCapture.kt",
+      "upstream_sha256": "ff596972adefc00c49ecdaf150a28e8f83cdb1f3bb44df558b8695e4f2fe1006",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/UiTree.kt",
+      "adapted_sha256": "a038271ae2361da6fe128a4faaa7dfa0ead2240060f3de9f25ee875758e258d8",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/UiTree.kt",
+      "upstream_sha256": "5d23c030a624098648c6dc046b6948eb722500242f5a55a0d20e7f93c0938081",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/WindowContent.kt",
+      "adapted_sha256": "406884dca48f80c55cf227220d2c10e780c9fc8c840dd0629b6c630a27a9c98b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/WindowContent.kt",
+      "upstream_sha256": "f85bd686a838d76289f9e47a850040dd55c9da7669566269808f3d80699eedf2",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbEndpoint.kt",
+      "adapted_sha256": "ad883dad352c680be420dfd0950ba1a9785e372b7526d4d3f65254446ee6989e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbEndpoint.kt",
+      "upstream_sha256": "ac53fbb99475f50322997c8eafac4793ec8293dfecacd57170978aaf64187c7f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbFramedSession.kt",
+      "adapted_sha256": "d983c74b99d73b6e5e72b62426a1b203e98127861504ce883e4083833f875fc4",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbFramedSession.kt",
+      "upstream_sha256": "2cfb57430f0a1f29247f0ddf0692e7ffd36f7bc4bf7d9d193d6dac29b38128dc",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbKeyStore.kt",
+      "adapted_sha256": "b043e3ff6eb3d5de08b037713e7955d1e5f3c6a2c303b9d77db5e3dea254f02f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbKeyStore.kt",
+      "upstream_sha256": "a65b4a705888bd538663908af559128996cda6a401e25cb49ec8273d9a457217",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbPairingNotification.kt",
+      "adapted_sha256": "b42309143914d86f14655d6d7fe3c2963aca6290766f21a99d72d71fd47598a0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbPairingNotification.kt",
+      "upstream_sha256": "c9ad9be67b6a8e2e2e15655b7258dd35e48a349b44300a79441819dbf8dafc24",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbStarter.kt",
+      "adapted_sha256": "8db1f80596c50951c77bbfb0707c846fe17e4fa83e820057a9de94be314ae266",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbStarter.kt",
+      "upstream_sha256": "33fec052c34a7fc731597ee1e9dc417867ab00bc052c420e769152e6555b433c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundAfterVisual.kt",
+      "adapted_sha256": "2a218c504f37e59a82e74bfe5d4a2f5dabf75df92361956934abe8256e7045e7",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundAfterVisual.kt",
+      "upstream_sha256": "be231c1b9a125b01ae69d30d1be9be9063c15be8ff2c1c9bd626645a462e1f4a",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundControl.kt",
+      "adapted_sha256": "23facd5b449b2ca14949d81e0165eaa2a6ef01cea0514285aaeece9ca4c47c8b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundControl.kt",
+      "upstream_sha256": "6365a7973a87c8c6f0d0d1a132e726f22e8ea670c903c85ea995b516015dae8c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundCoordinates.kt",
+      "adapted_sha256": "d500ebe34dd0b8d93577a26821d4b367ab985be4ad251c129399a9099665ba50",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundCoordinates.kt",
+      "upstream_sha256": "b1c22e755c7e033ba441edc1ababebf42f95080071bc059e205b997f6348dc95",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundDisplay.kt",
+      "adapted_sha256": "50cb32b0b57cfc2f58c7edbdc843084b0a96fbdacf922283db70c25bfa355bb3",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundDisplay.kt",
+      "upstream_sha256": "ecb2dd1af4f02e1eeda02fb20464ebe72f0e7c08f9ea99c81c0098b7a6cb47cc",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundDisplayIo.kt",
+      "adapted_sha256": "dd6aeaef3069cd49f65cc8b68f42725e9962a8b32422c199ceabb36d883faaeb",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundDisplayIo.kt",
+      "upstream_sha256": "b71404288565d095e21730a50ed70ac0ae693f9528a6ca46fe63c53ad742d6a0",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundFrameReadiness.kt",
+      "adapted_sha256": "a2ccdaf2206dc03dcd03746d660dd215c2f70084ea38dd88edcd354aaf8ea80b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundFrameReadiness.kt",
+      "upstream_sha256": "2387d4c6adb21a96d0bdd0667558d67bbab213f9d7e11968bc2f044514d8b92b",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateState.kt",
+      "adapted_sha256": "3beb83f8aab9e0549017bc148019078d60e1e722734102caf9b8231c086c3465",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateState.kt",
+      "upstream_sha256": "7744bbf18d894d383a57b8d70aee9649ccb38f0bc5edcb6fc0d312618a2ec528",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundInputProbe.kt",
+      "adapted_sha256": "98bb0a04bc6aac29ff2965a15c2209a8e92df2967990e65204ee81aa02516532",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundInputProbe.kt",
+      "upstream_sha256": "c9f5a5da3a991e2afcd628e88033f26fa21d90fa59f26ac91ce27b45731cbe65",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundLocalOcr.kt",
+      "adapted_sha256": "ae6b1bb10b0d4893b54f4311f90a947de937e4191e6f641e924dc11d6224688b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundLocalOcr.kt",
+      "upstream_sha256": "a69afee993d3102872360927c3cd5446a7e385f1dbd88713434d7f3a10dc1ba6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundNavigationProtocol.kt",
+      "adapted_sha256": "3159992257300e235c3006c6c9c36742038bd69f11a8d4d7b2446ebd754e249a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundNavigationProtocol.kt",
+      "upstream_sha256": "340b6a44adb752e3ad85d795b5f6766a5eea45a5ab3dcf50bfbe68bbcc03ee58",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPolicy.kt",
+      "adapted_sha256": "aa7e66838e70b515a4de6b5d45bfe5d4030fb93876ffc892ef0bc53c4bc4f193",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPolicy.kt",
+      "upstream_sha256": "43c4eec3848d2568814acb354cc1568880ecde6a40c3485377ad009f73ae7222",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreview.kt",
+      "adapted_sha256": "7d20b53e2c3c73fab29c86fbde312d7180f42d169996492f274440c57cfdacf2",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreview.kt",
+      "upstream_sha256": "4864b0b322e96daeb1291a926da4e161abf925fb53840b188bac7656275153d7",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewDelivery.kt",
+      "adapted_sha256": "c7ba01515b616bbba938f175a5d6e37177edaa4f1805f094a380e42a446e49cb",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewDelivery.kt",
+      "upstream_sha256": "91fcc388acb0e24c23792fe98760cbc031eab19b11d46c4cb2071029f2daefe0",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewState.kt",
+      "adapted_sha256": "468817927d5c4648c1d3092e433c19ee070362070c99ab23b19dbd7aaeb19894",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewState.kt",
+      "upstream_sha256": "3c536aaa2fa60d093c2e9967e216327cb9e2229ecde56d21c148e117fd8f2bce",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewWorker.kt",
+      "adapted_sha256": "0ce67df5d4aedb3f3f74ce1f60de056dbd459199ff383465282a126d401d6de0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewWorker.kt",
+      "upstream_sha256": "fb9d226f6dbc575bb5b8655c00bf58d361151834cf0165e5d4339028b2cb12a6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundProbeActivity.kt",
+      "adapted_sha256": "dff4d193682ded456126c0e68cdbdbbd93637033d5c1612df79512fad74ff389",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundProbeActivity.kt",
+      "upstream_sha256": "34356cbd21b93ca9a4a4fb999eb083d97db472ec30cf98583d0ce779aec9b360",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundTaskSlot.kt",
+      "adapted_sha256": "50cf3e21a46688b8c079c777ff4f111243028a4390e69f581ba2b50f96ac697a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundTaskSlot.kt",
+      "upstream_sha256": "b842c3f05cea9169bebd363170bc3a92225d5d8d86b9fdcc7df1dd1b5493faec",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundTree.kt",
+      "adapted_sha256": "726be509299fb9883680f4c55168ee2c24dd725951ce61ad2a731e89c4d3af1c",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundTree.kt",
+      "upstream_sha256": "126aaf2d3490480ec32d538fb749e06db8d38ade518fc98f1ea289eb0bf0b11c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundVisualObservation.kt",
+      "adapted_sha256": "7a9cf32cfce6ab453b8ed12ce52e5768c2437fce2548b1cfd160fff4636d6133",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundVisualObservation.kt",
+      "upstream_sha256": "4011c7d8b1ec8e4452e1d5d88c57b91bb98c141d6d1b9a3ab7c98e795c15203c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/FramedMuxServer.kt",
+      "adapted_sha256": "4292463612410492028faa91cee3dcaff08e486ee4269432a73e8e26ff42676a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/FramedMuxServer.kt",
+      "upstream_sha256": "284fcb6b422e9b716449147642236bbde4dfd457e46572294b62183c7b09abfc",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/FramedMuxSession.kt",
+      "adapted_sha256": "d5362aa486058beb847a0e478f869cdef9e9fab3c115114113e414f4ab255a87",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/FramedMuxSession.kt",
+      "upstream_sha256": "0c06b02c3478e089345f4a10b0e15de264f15554cf9b3ca67ec495e3217ccb26",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/InputProbe.kt",
+      "adapted_sha256": "5a87767dc96cc60ebe794bc041e7f85bde7c4c8cbecf6eee1ed4b5293807a3f7",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/InputProbe.kt",
+      "upstream_sha256": "1cfe861652562f451bac90cd8fce969138018feba1a5b876668e71adfd97c223",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/InputProbeDiagnostics.kt",
+      "adapted_sha256": "73fbbd513772e35c56d2250b50d531681070bfda28d1a169e07b035dbc377fbc",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/InputProbeDiagnostics.kt",
+      "upstream_sha256": "38d5be7638a2e2f71c23a5f3cdb4efa10ee643807d015d758a620cd7782f1f74",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/IPrivilegedDisplay.kt",
+      "adapted_sha256": "ba6e2b93a0b924d549ff56681b0f6555a07b07a42f41c4a8426839dc85f0b910",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/IPrivilegedDisplay.kt",
+      "upstream_sha256": "ca7fe2489b50d969482b5d08cc80f85206714f85ae15d3f2f22d4a1bef310a11",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/MuxProtocol.kt",
+      "adapted_sha256": "8cede3a1ffdbc4f1178dff181e87ad8be9d7177d7798025a29808f5b74be93ea",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/MuxProtocol.kt",
+      "upstream_sha256": "1cb9c76ab401cfac487576b097364ea90a1c8871d3bc537dea6e59e489c3408d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/OwnerScopeProtocol.kt",
+      "adapted_sha256": "ecd805e5f3b8b58559e6c7c06dc4fcbcc0569189d7b3bb1eed3a7de16ec73f13",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/OwnerScopeProtocol.kt",
+      "upstream_sha256": "012b4160e7724f8643a206b0514e685ac745c32a34ebc529ba3a2b0bfd3027f5",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/OwnerScopeReply.kt",
+      "adapted_sha256": "f9aae31f50da76fdf48f817a0d24935f8adbbcd11489c432c06b26ab2645d55f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/OwnerScopeReply.kt",
+      "upstream_sha256": "aa8b0702d625f52125c056b798cf1f3f0f756043916d5cc5066703b0a1dae0eb",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/OwnerScopes.kt",
+      "adapted_sha256": "cdb07326559d377b53a873799828d3ae42e2a161f8684d8da1be605535cf874a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/OwnerScopes.kt",
+      "upstream_sha256": "922722d22122211816d272915d49f0f82b99efe371a5f090392c3f420675ec5c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedActionGate.kt",
+      "adapted_sha256": "444fa427aa644d64ca909ddc668bbd2f1bd9a1b30319a7d1aac7677c29059044",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedActionGate.kt",
+      "upstream_sha256": "6b491fbd86f76104aee376cb0d89d1bf39f6a82957973d29fd90626372e9693e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedCalls.kt",
+      "adapted_sha256": "66604b4cd534507f711f1c1ff3b8a072ef5fbf9cdb3937b67223c0c0c3a2c2fc",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedCalls.kt",
+      "upstream_sha256": "5efb9064423fce358c8033146aed6402bcb68898f8ccb4a18b0e2c781013f991",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedChannel.kt",
+      "adapted_sha256": "6ec26d0dad7b840146e4f5399537041fed054beada6153f48670b4fbd25c140b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedChannel.kt",
+      "upstream_sha256": "27a992c12b298dd9af4b9a0ec985a0b44e6a5656ef752621eea50623a6b0a4cf",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedCommands.kt",
+      "adapted_sha256": "b2f9bd195424e55e058b4fb779e940fa98fc0711b38b6d09b3061049d2b5d84c",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedCommands.kt",
+      "upstream_sha256": "520c27cc844971e9d746ee0d6b98a952c198fedc9a13a0724721268f9c234369",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedDisplayCore.kt",
+      "adapted_sha256": "71ad91617fac217736ad2510eb91533d99cf674bce469c66004bfd0e5d3238cc",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedDisplayCore.kt",
+      "upstream_sha256": "cae396d273a2d404aab96efc1161421f62a92a45948180ba7c6f79652b65cb3f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedDisplayEntry.kt",
+      "adapted_sha256": "6dfe6d2bca9207b31cac04573469c2b3307986dc27e4c3411add716ef6364574",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedDisplayEntry.kt",
+      "upstream_sha256": "a36fd732428e72897734c2b7446ae2efb48ff1d656114bed4b85159115278d52",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedDisplayHost.kt",
+      "adapted_sha256": "fbb6c2a2f40f8ed0046c2e810c13479001513d2e2ada121ae0b582cd5219e5b0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedDisplayHost.kt",
+      "upstream_sha256": "624c7a2d2b2a7dfc9dd380ad95f091486ac11ba17c11a1a692e0b42262e9bed3",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedKeepJob.kt",
+      "adapted_sha256": "ac2e6935f992abf5cc6f8ff81d356283356a2a47f709ae5c3ca6572a718da783",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedKeepJob.kt",
+      "upstream_sha256": "d866444fbf4c49d173c2db7eaf5f0ca067c3ff00fc3ba9a6c4d647c1c54c5981",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedKeepState.kt",
+      "adapted_sha256": "c9df5db27e3f871656f7cb4a3846efa4b9d6c68780f45b58d9736abf019685c5",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedKeepState.kt",
+      "upstream_sha256": "0526ea01b3a335f09824173106032e9a211a6df7eedc29156cefc7ab9e3002c6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedPathPolicy.kt",
+      "adapted_sha256": "30adb21571b917678f714678f6ec238d332e2cda7401c5db7b0ec7a9925ed8cf",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedPathPolicy.kt",
+      "upstream_sha256": "f905f0132f7093dd2b1097f8bf561a62ceb7aca25833939d169a4102583969f1",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedProtocol.kt",
+      "adapted_sha256": "5130c43e1af2d2b0bfef55f0529279821e50ae872445d7e92c10d824905dbf83",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedProtocol.kt",
+      "upstream_sha256": "f75d76041dee88ee9977a93e74e3078c0139a6588cf773b441f47175d448e1de",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedTreeAccess.kt",
+      "adapted_sha256": "3d465c94f42dc12edc3ac1813f3a34ce607af75686625bfa2f3575a32512db44",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedTreeAccess.kt",
+      "upstream_sha256": "87cd3e756b47c0bd69f7e06ab8ffbac1bace2fe0e5bc7214da67589e9552d0c2",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ProbeActivitySession.kt",
+      "adapted_sha256": "650caa9cec1c4bac56b0a58d5808794bf881a3ef9f8a8a29ace7b8fd0b183edb",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ProbeActivitySession.kt",
+      "upstream_sha256": "bb85230f784b7abdd1cd48fa5570b9cd4d60b82bc894e9d9cc1202ebae6d7b22",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ProbeCleanup.kt",
+      "adapted_sha256": "42941a096282a6550cbf47ce2cffaf75126270b120e8e2c21dd6ba7345ee4151",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ProbeCleanup.kt",
+      "upstream_sha256": "655ba2507e157210d65bd46199c112b5439c72b7cc71768df74293016285bcd1",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/RootProcess.kt",
+      "adapted_sha256": "0e96f0c86b1e8b17031999fcc178f9ec3efa0a73b096eab56854dd57dc325875",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/RootProcess.kt",
+      "upstream_sha256": "1eee2372542f278b5f274673afe9757b8fb0a79d2ddd2a07b12438a7cc8b95f9",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/RootStarter.kt",
+      "adapted_sha256": "d373ccf45139a3c618ea294d989948b8a3f5a90b28025b73eae4af4414ed17ee",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/RootStarter.kt",
+      "upstream_sha256": "26f597da9de3869c9c20b334f4d9e1a9c1b9596ddccd1b473aed36c41fb8906e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/RootStatus.kt",
+      "adapted_sha256": "1710f56031033978bf16ab35442f5f1ab8c0f86741a805ba3e5d19c4db4ae15c",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/RootStatus.kt",
+      "upstream_sha256": "7646a53458160ba878b26df3e72645779590b269f0193e38741283ae95f67cf6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SecureSettingsGrant.kt",
+      "adapted_sha256": "1b4d6d16d82d196c466282d6c41ae241edbcde5832dda57c36bd375a92909b1c",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SecureSettingsGrant.kt",
+      "upstream_sha256": "3abee57cbe0ab7fcd3bb967bb551882f7798184e544c58f795bd8db1b042ae15",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckMainSamples.kt",
+      "adapted_sha256": "77396212f2e9d857759d4a83bbb600ccad460f0cc44469e59594cedb75e8bdc6",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckMainSamples.kt",
+      "upstream_sha256": "b512311370a93591b7fe26eff5d7d2499017e8a971b660f30c601a5e611c949a",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckProbeRequest.kt",
+      "adapted_sha256": "2b6531da3c3510a1a6116986801e229dbf7e4efe01401682b3622ee06db65972",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckProbeRequest.kt",
+      "upstream_sha256": "cfccf9f9b6ca022d3cec3736b2906755f8c7c17e02a260ffa1c6c925aee43786",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetEvidence.kt",
+      "adapted_sha256": "ad56813d95aa810e19840473c369debf03a63a76cf55d13f18657b182c6998d8",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetEvidence.kt",
+      "upstream_sha256": "de37f55af9e0241ee2033b75e3d24869dba66ce08da2a834dc8757e95489d407",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetRequest.kt",
+      "adapted_sha256": "e5648c2b1a085475821279b9876b9e68645de33823819409c79cb5a40614a6da",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetRequest.kt",
+      "upstream_sha256": "0dcd69394e2c501078e62152b4d7a5360d64b9ee70fa9fdc41269d68d2aa89f3",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ShizukuStarter.kt",
+      "adapted_sha256": "b8687df6fdbc0a1bf46b1b840150bfe6197c8c45610ed3d3598c1b9b33416cbe",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ShizukuStarter.kt",
+      "upstream_sha256": "1efbda9c166f7d6bff1a6c1bf8fb8db7791ea74b0ee62bec7ff316e0f7e17f61",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ShizukuStatus.kt",
+      "adapted_sha256": "c21e133d8ac978cae07d6ed81cb8160eccdcbd99e8da1993addd2fdf13e952ed",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ShizukuStatus.kt",
+      "upstream_sha256": "07910e4e097934c07afc932636354a62cd1c457804fdd96fb93d7717fa4effe8",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SwipeGeometry.kt",
+      "adapted_sha256": "ed2319cb0431ba2fbad209470481ee766212014f908aa3632e5f0c8cd6c67831",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SwipeGeometry.kt",
+      "upstream_sha256": "e37ca506cf4076c192890255a1691f546990bc951acd41bf3daab09f67f9cce8",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TargetIdentity.kt",
+      "adapted_sha256": "182b418e8a6590bb9693013bb4c01ed4489f9f2a6f5447b3e626933436a8a612",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TargetIdentity.kt",
+      "upstream_sha256": "317cdc19d51228cfe58ab92a5b059676b198c6c8b5aa2baa7f418a73ba2451d3",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TreeRegistration.kt",
+      "adapted_sha256": "c228d61ff1e74eb901278fcb9fefbbf91f2ea76e54c53a1abfe8c102aac16c23",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TreeRegistration.kt",
+      "upstream_sha256": "fdd17f1d3f3cf9c77cfb9f62f2922a2d2270ad767f53cf922f6415483c231b70",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TreeTransactions.kt",
+      "adapted_sha256": "262b47d4ad8013899d5a7e4c56618b1bf5112ebc05807a2790426f79056a0b57",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TreeTransactions.kt",
+      "upstream_sha256": "f16f149e6c5659a4b6a7c154f017a1c18b6907ddee73980f6cd783b363171490",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/FocusInput.kt",
+      "adapted_sha256": "79e69bdb9253c2f88ca16b943560affc11826554efb9e0ff21519670fc20f7d8",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/FocusInput.kt",
+      "upstream_sha256": "b491ccd8585f6039fe09836a0d781743cf4959499a3f64168a709888b280de1d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/Json.kt",
+      "adapted_sha256": "999a2ccf18ac34bd87dc391e2c4d353862ed08ef3406ba468a12e81b4015ef16",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/Json.kt",
+      "upstream_sha256": "e111adc807c9f658e23bf72868ff520c892673e0f8003977f3dabe6bc92e5db8",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/McpServer.kt",
+      "adapted_sha256": "50f54298123da1fd2db27161a0c0c86c3a547542bba3823087fecb21daef81c0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/McpServer.kt",
+      "upstream_sha256": "e87b1c7d3caa778ac42587ed6fdb01624dc14c93c0bc1722b6dccf37702a6032",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/NotificationGate.kt",
+      "adapted_sha256": "d76ec0c62401532bf4c2bd4d7c999385de38e1035e5d5add57fac491e17b4583",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/NotificationGate.kt",
+      "upstream_sha256": "904af368a287991871d9828b3ab10f67b8ffb49e2b0352aee7d220eae0e1ba67",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneAndroidShell.kt",
+      "adapted_sha256": "937b5c32b3a2eeb1d4f2876841204733c74df09a6c134764efd8f100471899b4",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneAndroidShell.kt",
+      "upstream_sha256": "633acb34a38e4ae27bbd6145ae7ddb165e419f0f479f6f4a127d36c3f0766aeb",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneBridge.kt",
+      "adapted_sha256": "9c4dcb32b4dcf522b7aa6687d733547a325064c5014c76c9708e6ce560f8e27f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneBridge.kt",
+      "upstream_sha256": "ea54476b2ad94e14c78efd35f809154ef754d9fd7f6d3f06ddbdb2d5bedc85a5",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCallWork.kt",
+      "adapted_sha256": "e645e64076e2499144f0e6fe50e114bb45942cd8d653d5380d5af9e57d49f9a0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCallWork.kt",
+      "upstream_sha256": "88f111427b0ecf11018d608d512ba348f1502ac015879a7cb287ca5b7976a46f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneContracts.kt",
+      "adapted_sha256": "79fe4d43ab535dac26b585e86034e3e9c18b1178d31937ca5ce6ea5c45c5b010",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneContracts.kt",
+      "upstream_sha256": "d107905b89b0d19bf63a11708798d3206197b9c1a631c809d6631da2ef7feaab",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneControl.kt",
+      "adapted_sha256": "7a796fcbe5f71e6a8bf4b01d5f30f38961db8884e5433f45481ea9b8ea379653",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneControl.kt",
+      "upstream_sha256": "6e05c456c1de1e9ac7110d5cbaf29ffc2f033f335206484ea939bf8f1250f7ea",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCore.kt",
+      "adapted_sha256": "b2b7bae971b2e64c32e784da4308ac4e460da1bc59de7a263f5bb0d5e69dfe9a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCore.kt",
+      "upstream_sha256": "88b08f3edb7e9006d71ee6965aacb6afaf7c08ebe79c61df6fbb07a4eed31a78",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneDisplaySelection.kt",
+      "adapted_sha256": "30e0d11b82295554f228f0c79b093bccd906cee3bada27474fb48ca70323285a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneDisplaySelection.kt",
+      "upstream_sha256": "3fb70a74a0f234ee9dcd4b67f0afc1a84316c40a4336082205dadb37c9ffd376",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneGuest.kt",
+      "adapted_sha256": "0fa4b3ff07c3e111755ef52dc04527ca6ec89b99dee800e027e3532520e0a22a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneGuest.kt",
+      "upstream_sha256": "a85de5c2427ad5b6218fbbcaca446da808c16619bbb260836933dc5bcb0cba65",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePlugin.kt",
+      "adapted_sha256": "d8fb3c5f3da681af63ca58970544172817181761e1277087a718a6915751d4c1",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePlugin.kt",
+      "upstream_sha256": "f620d2ac43d4dec5eae5c63712ff8b8649e0a181fa2d9c4866a8dfb216629c45",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePrompt.kt",
+      "adapted_sha256": "03f2e6fb70db544689f05c665edd7dbf8a811cd26e49e548ce7bf32bd874e13e",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePrompt.kt",
+      "upstream_sha256": "e9898779c0d214066971487231b52d931f158bcb2f66071b32f3e86f2820c989",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePrompts.kt",
+      "adapted_sha256": "af9ad342927f26c159e6b821b07d5b182f14597a15759bac4726bf2ca99e978a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePrompts.kt",
+      "upstream_sha256": "b58ff37984c7458aad007c3e8034d584d39f4826f31e4537dfc94dba66bc2b34",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePromptUi.kt",
+      "adapted_sha256": "242557ac1fe5a8da3f9fcf81b500287fd9cac5fa0ee6933f870d6252cddc8772",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePromptUi.kt",
+      "upstream_sha256": "0037cf10ac7483f6f609234ee1fcbe42fa8ceab103de6ebc657aa32078f5834f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneReplyCommit.kt",
+      "adapted_sha256": "65ca0e8716aae66015ce56fe7a6efce083bbc88e1aed58639394318ccaeecc01",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneReplyCommit.kt",
+      "upstream_sha256": "b73b19bddbae5bfc62cb17677549fae700629546b95acfa3cc483c9a1d2f7fc1",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSelfCheck.kt",
+      "adapted_sha256": "621527a5ecdc2e6c8afa1596e53e6dfa7c96d9950d28323c6ae148562d76ae75",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSelfCheck.kt",
+      "upstream_sha256": "7cf2a2c9d407213794b2c6db99c66e0b1a3048f792e446232f96f878d31669dc",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSelfCheckReport.kt",
+      "adapted_sha256": "982379af365b76ec3dfde4400dc94722d4737a1a3ac42325977d871be0369451",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSelfCheckReport.kt",
+      "upstream_sha256": "e137d78effc209ec5ff36c29d3d0d6b70b01965131edafef578acd88ac274097",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSwitchDispatch.kt",
+      "adapted_sha256": "f423ef85a37ecb7851e2bfba521547bd581cbcc4b88019fc64c8597e8cd33dce",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSwitchDispatch.kt",
+      "upstream_sha256": "bace29f02ccc1651b9fbd93fa5350f14aa307b832f7a7b1d3df630ac16f0a27f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskDriver.kt",
+      "adapted_sha256": "ded1b072946cbadcfb769e5ee32cfd6610ceb465834dcd40a40755ccaae22c8b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskDriver.kt",
+      "upstream_sha256": "74bf9ea71c0d9832fc266c636b4ecf06ef7e7b89d3c2fc374967f5903a1b4cf6",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskJournal.kt",
+      "adapted_sha256": "cf9ee472240886397a70792166eac3d566053b38183e94ce7e7b9425223779b7",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskJournal.kt",
+      "upstream_sha256": "0a023c769b1ba07d1712eb0007902d5813160e2a5b64800bd006dfade7e31495",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskReturn.kt",
+      "adapted_sha256": "00d64a156c5d943d7a8929ffd213b38fdf0ef34c36749c5bb44697f0bad5be43",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskReturn.kt",
+      "upstream_sha256": "0ca225863cea61406d8eac12fb64392e33840529fd4f98b907b6948a4a2f6b6b",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTasks.kt",
+      "adapted_sha256": "8440f775e5b47834e8da7afe497d1310845fe688de3c186aa30fdec7198d5b00",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTasks.kt",
+      "upstream_sha256": "63a8e197ed9774946ae1d79a2295d32dc31f5cb3aa9f0f5b1c2c7397c44ad998",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskSessions.kt",
+      "adapted_sha256": "d0699fae32006059ac38cf89cd6ce96edfa526a8e0d6d534789d3baf4f026ff2",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskSessions.kt",
+      "upstream_sha256": "ca98a69b112f83ea89891cd06db245ab8c23daf5b3116b4c7ca01caa763ce206",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneToolCatalog.kt",
+      "adapted_sha256": "4ee4ae5f4dfb72f20c9db4db41b7d033cc2b95de94d68c96744a3b1853b78ba3",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneToolCatalog.kt",
+      "upstream_sha256": "7979743039c6b978189d5b77cc0122b61725905d9446d2f136b06301e7412f20",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/RestrictedSettings.kt",
+      "adapted_sha256": "b5f98a1a266ff8db865f0bec0421326411d559a781ba4fe43f8c9c617d0d07d1",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/RestrictedSettings.kt",
+      "upstream_sha256": "3da5ee828ec2d8069fb74b02af74ff06ac8dbbd041c00ba060e543b97447cde9",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SafetyGate.kt",
+      "adapted_sha256": "208911e97373d199a6a9d8bd59bf033b91532fef45df8fa33a5efce3f06f8393",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SafetyGate.kt",
+      "upstream_sha256": "72ae79197d1436aac0e61c906f8e132eec079ce6e84c7c2431ed4a0fb4edbedc",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/PhoneSelfCheckTargetActivity.kt",
+      "adapted_sha256": "e2aa6b7730b95ccebd10761b1db39557544bbefac4e9a986bbfa9bfd1b5a0eef",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/PhoneSelfCheckTargetActivity.kt",
+      "upstream_sha256": "b9b18f93200781093db6c1da098240d8fc5355d042c49de9db3dbdf6268c1253",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/TargetContract.kt",
+      "adapted_sha256": "143acd19b0972a944bf81c8c312fb5c83438803f7b84cdf269f82e114f1f4aca",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/TargetContract.kt",
+      "upstream_sha256": "e1ef194baf5b50121ff070bbcfeea4d1193c324c0731700d8c629e07e8b08e51",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/TargetFramePattern.kt",
+      "adapted_sha256": "cfed3e774ee9c552648930c5f0d0d0d9b04980768ce7412e698cc0e75586c2f9",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/TargetFramePattern.kt",
+      "upstream_sha256": "4c9c7aec8523aa14a7478ae4afac1fa34c201d53d72c13285d5bbc218f6ed069",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/TargetState.kt",
+      "adapted_sha256": "a2f49ffaf1c11883ea9c8f87945a250a15629d46d79392f42a68c6f0755f61bb",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/TargetState.kt",
+      "upstream_sha256": "a4a096d25faf66752fb1c889ddfa50b8c78430c1acbbf6ad872755c402d66a93",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SensitiveWords.kt",
+      "adapted_sha256": "6555c8bd9d2c45faa554e73895af999f66cc4fd5769310b86ef6f90c8fa7f578",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SensitiveWords.kt",
+      "upstream_sha256": "9d4e42a96f5f247f576352d022f0642d2f0759325cb1845718780d0f40b4f714",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SerialWorker.kt",
+      "adapted_sha256": "e7db4d74a72c51c2a8c13e47282fe059e8fd7f426a582b73361bbe6c58254a77",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SerialWorker.kt",
+      "upstream_sha256": "6ce4b1aa906e36e0731caec456c2b6c46698b7e9dbd523867c6421d84b3c8f96",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/AndroidShellController.kt",
+      "adapted_sha256": "ad9e500054b6ecc3ccaa79794af1a4a7eb4557a272b2d09bfba89de9110af2a1",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/AndroidShellController.kt",
+      "upstream_sha256": "b65db2178a182c16b54d85c9d0316e3ffda4f6e5016cbea0b4dac828f7c56915",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/AndroidShellProcess.kt",
+      "adapted_sha256": "d4c4f5abc667a05a9029f6320fe0b13c2d812a90a6928f46f64bc9cf89faea28",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/AndroidShellProcess.kt",
+      "upstream_sha256": "5e68a4da962a156117bf3fe685238e8b642fe40402d161bfa661c8cdb0f674a7",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/AndroidShellService.kt",
+      "adapted_sha256": "6b5b588a9a5b849c36ef4451af9343ada2c39c378db01b79afe988e327d70fda",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/AndroidShellService.kt",
+      "upstream_sha256": "66514efe6e83ce9a4b07ba40720b091c51f5732b95aeaec5802fc86465cfc9c5",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellAdbBackend.kt",
+      "adapted_sha256": "df697c14a12435c1454d09487227bcdefaa3f307d1d903bd2b6b58ff48836aac",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellAdbBackend.kt",
+      "upstream_sha256": "44d834f8144bd581e5f5a17aa9740902dd41aaf4ff63d0dc102322c2823c1de8",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellEnvironment.kt",
+      "adapted_sha256": "192351f9a505c69010e51ec196211c433fd273060e3f3470a0b157b62a25b7c7",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellEnvironment.kt",
+      "upstream_sha256": "6b6caa6ccc9159390346591eef3da32b246c4a8569f6249390ea5f30dcc8da3c",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellJobCore.kt",
+      "adapted_sha256": "42dc077d0a10e239935af258c880d72463a7d09329a8308d372dc9d03231e8e9",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellJobCore.kt",
+      "upstream_sha256": "2d1eccd547349fac092d602538642342b354be6c2045fd079229a81e49bea831",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellLink.kt",
+      "adapted_sha256": "2fe0a268dbc2a42c0ce4229ea9dcc36c5653eb3b04d0a54daab6e4d5d1e155e1",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellLink.kt",
+      "upstream_sha256": "b3652405c1727d291fcd575c4940a2f1338082807ae36e7766a6740dc506e374",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellProtocol.kt",
+      "adapted_sha256": "780626be8f0db014236b5f9bbc9f9b4fb3af607f93d964139f63bf36a23faa83",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellProtocol.kt",
+      "upstream_sha256": "b5dfa3c170907b5776b99f3fc298bc317cc49d133ad9549e7b1078f5f3c2ed6f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellShizukuBackend.kt",
+      "adapted_sha256": "fb8df2a74ee75bb99b76748975f3b594334f745b4de15531de41d21776466d6f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellShizukuBackend.kt",
+      "upstream_sha256": "cf8bea5966d19fbfc05a4b847ffc8cc82cc4959d59ac341a092bd5875930c0b0",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellWire.kt",
+      "adapted_sha256": "096f2fb842c2fcd8a317b6d6d733cfb4b560a38dc1b7226faebd66bb788cf7e0",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellWire.kt",
+      "upstream_sha256": "0da4b7b35056c3490fdd0af063c57c1a175d06fbe81c277219d06ebf528e681a",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SkillReplayStep.kt",
+      "adapted_sha256": "6f2bab277bee7d38ed20ced579f118d77961acd38dcd25c3146d7a49834e6956",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SkillReplayStep.kt",
+      "upstream_sha256": "d7866e92b6f665a8dd12b112cc185a7accb5a6d62a6596fcdf5057b2dd48929a",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillBridge.kt",
+      "adapted_sha256": "7c898627151c8ae2d7947657789bb20fb872be1f848819ca53cfbe3de6d2d0a2",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillBridge.kt",
+      "upstream_sha256": "abac10999dd015c5fa035584873e301782d14d88b02ac0538eaae3c322eaa08d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillDraft.kt",
+      "adapted_sha256": "234ffc1c1004e04eaf8b560995e2de61e6da8581962855587c973a76927be04f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillDraft.kt",
+      "upstream_sha256": "db7cf7032a267bcc665cc62b88074bf00f522626ef69cf1cb1fda8e4ff4873be",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillDrafts.kt",
+      "adapted_sha256": "77ae491098f1d5d7351ba671bb1c73adf6a5916440f107660a561732ed427551",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillDrafts.kt",
+      "upstream_sha256": "d36a00bec2ee0d7a3b6fbcd236ce4ecd0ff376bcf978d0ca38dd2345c8909258",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillLifecycle.kt",
+      "adapted_sha256": "6a78a7ff45b1f2ed7bc75c8ce762718cd84d7f989813a74c34f8611c62fac64f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillLifecycle.kt",
+      "upstream_sha256": "63ceca28238217d74e3b57abe2aa2f6d7ebc3d0ea5abf0a6a7302c461a28766e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillNavigationRoute.kt",
+      "adapted_sha256": "780d04bb958393dfd1909d2c7174977d65d168ec326783373611db0c29bb3259",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillNavigationRoute.kt",
+      "upstream_sha256": "cd58a13a922d8a9912a7d7ab3e0364e93217e00a258ef63bf8fc1cee36882c1f",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillNavigationWitness.kt",
+      "adapted_sha256": "21a941598fa01dfe75a7bf6b8d5cad4ceaae8bf4dc2fd9d4f7f0c3a393a784dc",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillNavigationWitness.kt",
+      "upstream_sha256": "324654590f9d65e852533376f369f040380a1b4968ba46f7483b10079c6bc6ea",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillOutcomes.kt",
+      "adapted_sha256": "900a044f20cf8b29fb35bb85bc9881cd5c2da6008a6cef2a21676fb112e44900",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillOutcomes.kt",
+      "upstream_sha256": "6843cc48a707a8b875ddbc2b7c43eae3c824acc3f214769b4daee30fb60f3257",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillReplayApps.kt",
+      "adapted_sha256": "36ffdc955f140b4d2fad46946fd065f49948f62252fa9029a5b2460e05c00746",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillReplayApps.kt",
+      "upstream_sha256": "b40099cb1556514749876480e73e0c69fa28a9659a27fa4a2ac38e30768b7a40",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillReplaySelections.kt",
+      "adapted_sha256": "21331fa925d75f64e472cd7f84b31eadf3a5c242993ba8ff1a7c65130ed5e06b",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillReplaySelections.kt",
+      "upstream_sha256": "6fd1d70226bc0a1fdf19fa7d3b350b5fa42b38e2acf42cafbf387f1fb34dcf5d",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillRoute.kt",
+      "adapted_sha256": "64d1961b11fc4a2e480e73c22209e0d0a1faae93b540b1f54ee2abdb39a13f67",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillRoute.kt",
+      "upstream_sha256": "97f3768b51504a3cd8090a203a7387c9d4b6ea815950ae91c59d6dfb4746ccd7",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneTaskTrace.kt",
+      "adapted_sha256": "83b2ad48d3f99055759369586f867ec461e4a2b609adc4471e6d857f223c75ee",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneTaskTrace.kt",
+      "upstream_sha256": "106834f7f5980a6c29a2060f2428403d4ab0bfe4a14d1cff4ef277fd406932e9",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SystemActions.kt",
+      "adapted_sha256": "45cde33754ef7253ab6dee6f3caf2f1582657996fce8e51bd0cd626bebd64849",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SystemActions.kt",
+      "upstream_sha256": "f3dd9e4cdefa90aa9af2e5d86cc8fc70352be82e7bdb9ac7751d41ddfc906d54",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SystemApi.kt",
+      "adapted_sha256": "3978c50fda61f565f5a123f51c8baae98bcd29b0bbbe68e83b5ce267943d7138",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SystemApi.kt",
+      "upstream_sha256": "32a14e49186e158f77497444d3fb3e0d8424afaf78509ec010e651c0b22ca098",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/phone/VisualTargets.kt",
+      "adapted_sha256": "401e77f5fa5129b6ed14eff630c3046cf91e634f3bdad6fd81cf5406f52f8d6f",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/phone/VisualTargets.kt",
+      "upstream_sha256": "e1ee80bf757b5daf7d2948003f653c1cafcfeb706eab1d3086588b336b3bf4e2",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/runtime/DshService.kt",
+      "adapted_sha256": "57fc43528fb26affda1ba5ac16964e9caf075109fc225308be6ea9c1ae4bdba4",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/DshService.kt",
+      "upstream_sha256": "51bf52c1e8ae2d0eff6abf2f6ac3e39dabe0d9bfa059ea47941ee6d218c2e123",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/runtime/PhoneSkillBundleInstaller.kt",
+      "adapted_sha256": "aa596aa9867fe901d2c65558ede7c38e751ad1f035f56270a024024e9729d55a",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/PhoneSkillBundleInstaller.kt",
+      "upstream_sha256": "799ae0b0c3493639d1ba13e61f6a230b4071a4ee477e3ff8e9ee78808d110857",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/runtime/PhoneSkillBundleReader.kt",
+      "adapted_sha256": "605d3bdfc9d022b392831eda5054c1c6ea84d42c3d4aee2252ea6b099105271d",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/PhoneSkillBundleReader.kt",
+      "upstream_sha256": "85dd7712434b4a7f8ce11926a01c18a06d88a9fdd03339c9a7f4b376c0447b5e",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/runtime/PhoneSkillInstaller.kt",
+      "adapted_sha256": "25b0b294f68e67346d9574fc2e9ab5b5a65c6ca9469b278602df4f25faae1b30",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/PhoneSkillInstaller.kt",
+      "upstream_sha256": "b981d74d1db61b2beb13a1eb97ee89797abf980e7db61c01918f37be9e4d4cdf",
+      "namespace_only": true
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/runtime/RuntimeController.kt",
+      "adapted_sha256": "77c05033615a4df9424f9e904995fb488a0a0a8d90486cb91a1d19568862bddd",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/runtime/RuntimeController.kt",
+      "upstream_sha256": "7f45d89aeb07013637a8c67a1d6144a71711be59e651546cdf12707500b152db",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/shortcuts/EntryActivity.kt",
+      "adapted_sha256": "0a7cd65ee6016a00e068dcf8b7fd119a90932b9547b217a7a28f8f72778c7b55",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/shortcuts/EntryActivity.kt",
+      "upstream_sha256": "21a9be3fc3e483179a62d833844bdf6bdccf977cea7e6153b3017425efa63bb2",
+      "namespace_only": false
+    },
+    {
+      "target": "android/app/src/main/kotlin/com/skyjjgw/independent/ski/dshgo/theme/DynamicColorPlugin.kt",
+      "adapted_sha256": "a71cd7062c05e035cdf2531467826a0aca6981ac095b1af78399e63e3790fba2",
+      "upstream": "app/android/app/src/main/kotlin/io/github/ccch1mneyyy/dsh_app/theme/DynamicColorPlugin.kt",
+      "upstream_sha256": "eccf00535ec9959a409f190121289352a6b69f170806e1936f65360cb2b6c5ae",
+      "namespace_only": true
+    }
+  ],
+  "test_files": [
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/BallGeometryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/BallGeometryTest.kt",
+      "upstream_sha256": "cdb6646bcecca96e9f56c3cccd9d8d85f428209560837b6065c6781ad332ab2a",
+      "adapted_sha256": "0e5c1a196fb7dd306d2235abd08261882826df497fb282f1d933e3235c8d62af"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/CaptureVisibilityTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/CaptureVisibilityTest.kt",
+      "upstream_sha256": "0e001fa6753cc0a17414c291cfa59bec3f1f171ae40da350fa5b5acc988ed0be",
+      "adapted_sha256": "19f36964a7957731bf4aaa259cfa4565bd50ee4cc8f30d1509c70afdfb4a37a1"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/CollectedItemsPageTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/CollectedItemsPageTest.kt",
+      "upstream_sha256": "2aaf8dc4ed12edae6dfdd35c947bde82c88b3de1c862c59291dcfa8dbe853143",
+      "adapted_sha256": "5f552dbf37188ccab8d63a03c3240cc2eb45238b8c2f2e97170b36f7c2fbe48e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/CoordinateDispatchTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/CoordinateDispatchTest.kt",
+      "upstream_sha256": "62bd20674b1e9ef92557b1e6c0d9b1b7aec4f88f6336cf1ca0e59713fcf2f374",
+      "adapted_sha256": "aa272e59c06b5258e334a093378ab83861dd280f33504835b143b62e62df6155"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/EdgeBeamModelTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/EdgeBeamModelTest.kt",
+      "upstream_sha256": "a8920dff456746a7fc3f471441f9774800aa43b50bc2be505104bebf982268cf",
+      "adapted_sha256": "59878f6dd3cf74c8e48446e1ba430e57e5c03a5891beb53c8e24b6c57e34210d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusInputObservationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusInputObservationTest.kt",
+      "upstream_sha256": "c741f9361b660bfefa254f54fabde4afb928457d1ce90c567904fc034c95e9f2",
+      "adapted_sha256": "56a33a7de1ba24f58ef81f439106436079e2f855f270555600dd1e2f31299f49"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FocusReadbackTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FocusReadbackTest.kt",
+      "upstream_sha256": "314098f63694244d7d3c3a7c15342b6062430b4ca9ba1890afca58755740ed34",
+      "adapted_sha256": "2f0c15c6435b3f8f6c445754cb30bf56bf2a43f0af1cd1647ad82e475adefe1f"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/FoldClockTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/FoldClockTest.kt",
+      "upstream_sha256": "b97d19d6fc39cb2771573a5c1f1111eadfaa382a197cb5b98bc0cc891c483330",
+      "adapted_sha256": "3e0bd73e028159af51cc0a33e97b755342b4702cf4ad7e8115aef4b97d098503"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ImageObservationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ImageObservationTest.kt",
+      "upstream_sha256": "27de7004351127a45884475c6137d24049be4672887def474436dd74c44f8fe0",
+      "adapted_sha256": "be96d4e3d5bdf086f9870b506ec83be0168e59d42915608d79e724bc67edfd26"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ImageReadSourcesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ImageReadSourcesTest.kt",
+      "upstream_sha256": "c16b9639160657b3590b3a498f7d1ee98376f17680d6c8669dfbba600c852fcf",
+      "adapted_sha256": "a61d33d4bfc5e8bb26286a44eb26af4ac4a9a17857c7b2bc891ef8d1ff16bf43"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/KeeperPlanTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/KeeperPlanTest.kt",
+      "upstream_sha256": "39e8c745d5701d426bb045f3d1610b3c9051234b1101d77c96669a867bb4038a",
+      "adapted_sha256": "59a9182709af83831e26496930b1c4e6c62a413aa36a5b6928b72162a5ebbebb"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/LocalOcrBoundaryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/LocalOcrBoundaryTest.kt",
+      "upstream_sha256": "e09aa0b1b34354298fab4180d0e913252893ad7d5e1edacddec42e8fbdc5bbd0",
+      "adapted_sha256": "48b30c91d77be8dcf1826aaef9e0a51f16de3f0a0f0dbb96a8d9a73712245267"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/LocalOcrVisualTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/LocalOcrVisualTest.kt",
+      "upstream_sha256": "db24362f0742d7b1301861674b32a6e21b97950955abcd57b33dfeeb51bf2d4c",
+      "adapted_sha256": "b9b2e25edbf4daa280a69af9420c616de7168f1fbbdbeeca05cfac35f16661c8"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainFocusSelectionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainFocusSelectionTest.kt",
+      "upstream_sha256": "66152a09d7d5aa0b17fd35618fa8ee409c263b591d128efca57573a461bd8474",
+      "adapted_sha256": "e7b54d272d9467f5192b64458299b0bd31c87bc79b75003a0d61fa3b4bad01d4"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainVisualEvidenceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainVisualEvidenceTest.kt",
+      "upstream_sha256": "0512a798dda54689a03e891f7dc03b5065235116898d2a423959b74957f5af99",
+      "adapted_sha256": "2934eb724df81946b530e8be2b2a87310237686918017d485920b6e4872c4fa6"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MainVisualStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MainVisualStateTest.kt",
+      "upstream_sha256": "f5afa4c5f2ba75daa44064727aa144ffa1b71f3017f18009b05dbde6ae4fa9e7",
+      "adapted_sha256": "43b69bc6fa6ae6fe61a86cb01f35dde451c0d48e804948ab0f6c14e27d594a76"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MarkorNavigationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MarkorNavigationTest.kt",
+      "upstream_sha256": "2dec19e18bbeebd1d95b9086c69c6d8cea1ee2e1ab3103f4397c2991487739c0",
+      "adapted_sha256": "d30e11e01b58bf0a130efe41a87d5c1fbe8ee7180116667cce1e50f56b54d13b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/MlKitLocalOcrContractTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/MlKitLocalOcrContractTest.kt",
+      "upstream_sha256": "5d9045959ea9c918b7bcb9d35d9c18b681c7402d364badc8e6cb25175ed50051",
+      "adapted_sha256": "73c10f8a7d7c6bb8f2dc34fe76057d7b21fbcf73ef283332b4a66e72f341ed6a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/NavigationMaterialsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/NavigationMaterialsTest.kt",
+      "upstream_sha256": "2393f1ed649046991cca118c34c0a589ccacd13f2c4afba3e73e908972ec02fd",
+      "adapted_sha256": "e72df04e7f984cad0d02a10999c705b12398c89086a160ecc7d715da82cf926f"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayModelTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayModelTest.kt",
+      "upstream_sha256": "3fc486cfb4868c3f5173e8cc50da7a29c02187c457149ab12873087308285606",
+      "adapted_sha256": "85c3471b369e42dc1778a64bd8f9dc1da3e186437209489f6bb5899973a7acd5"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayPrefsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayPrefsTest.kt",
+      "upstream_sha256": "b4fcb5577ec9e1ffa9523cf7a6754e0539fd9080117d8e479cd7d2260fa45620",
+      "adapted_sha256": "529d025e898f8ac82cce5b434f6d691e7421a57eebe29df41eac123d772d656d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/OverlayPreviewQueueTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/OverlayPreviewQueueTest.kt",
+      "upstream_sha256": "ba436e6689461e36e93dc1fcd2251e3681dce1b868fbf9e5d767d44813bbef11",
+      "adapted_sha256": "dfbf597a690b1222a42ff7633edf22c9ff7543c0054d22b2b4fc1aa93a60b810"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/PhoneWindowEventsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/PhoneWindowEventsTest.kt",
+      "upstream_sha256": "192fc9c5baa524b80e12e05ed10cc48f0baf0a1c8355a71a09516acf9e1fe39b",
+      "adapted_sha256": "f3eff2c7d04a67b96474a0b7528ecb6a2dea98a05f8602b79813fc58f56af195"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ReadBackMismatchTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ReadBackMismatchTest.kt",
+      "upstream_sha256": "ce14983b30069058804e20d3a77a078a8cadb83f6d4e531d4525e28149bcba0c",
+      "adapted_sha256": "216e3e5d0a3d906a56c348f83ff6675e0acce90169082fab516b7e55d85cb336"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/RepeatedStatusOwnershipTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/RepeatedStatusOwnershipTest.kt",
+      "upstream_sha256": "470e9db7becc8caf0cbb48ead62dae1adf74d2fd50681cd8b1cd2ec3fea990e7",
+      "adapted_sha256": "4be186f634fd30745ad5a8ded550232f0219ac6807ec2c2827ba6359d41b2d6a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenDigestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenDigestTest.kt",
+      "upstream_sha256": "84076ded837332a31814a2902bb82a1ba9608dfe652769417df3fa7752f221b4",
+      "adapted_sha256": "7f93c05969ae3f77b2654ec112c002227a97098ce8992b85c745f486d2e1acea"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenFormatTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenFormatTest.kt",
+      "upstream_sha256": "7b9fcf033376c521d2f5e28e212113d16d891397aa2c84aa2730e852f951dcdb",
+      "adapted_sha256": "be57ba10ada549c6d7fdcc3636b23e5c99511e277a7dea07dce2a83783fd624d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenObservationFormatTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenObservationFormatTest.kt",
+      "upstream_sha256": "0984141a478097af6a85e146a602a1a78fdcc144d9b0748d425651dea29b4492",
+      "adapted_sha256": "64f4dd27458c32181f595186da71085d4a08c1b4778de2adc87363bd7fad7a58"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenObservationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenObservationTest.kt",
+      "upstream_sha256": "15beadb56386a6c32e2b4462aab8340613ffde1a35046df2d814b827587994ee",
+      "adapted_sha256": "80b7b083551ca779999b6bc755de8c483a9a8f327d6f58c4b0637db0b7471f45"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/ScreenVerdictTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/ScreenVerdictTest.kt",
+      "upstream_sha256": "34f7ba5d2b49089eff83c33b3ab75c61844eddf377ac8d7e4bd6941d285999b7",
+      "adapted_sha256": "fbf0bfd339932ac156df08c6de8394992dc3804f0635a0cfd08cb55b99a8f9ba"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/StatusOwnershipTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/StatusOwnershipTest.kt",
+      "upstream_sha256": "eadfa13aaa5fca598ef157c5a50ea5ce5a477d0b2a85607082fcd304866de3f4",
+      "adapted_sha256": "9e553d69cf25a5974bbe98a0a76eceebed140d5befcb6085c315606b027c8d54"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/a11y/WindowContentTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/a11y/WindowContentTest.kt",
+      "upstream_sha256": "11d68b517382dc42a8f2fe7125893b73d7356150aef24078a5112b578411e336",
+      "adapted_sha256": "45791b1b14a9921fb3b7c3aee97213e27766ca2445143477484b884c5ab4ff8e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbEndpointTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbEndpointTest.kt",
+      "upstream_sha256": "a1d037f578cdff53439d87b2b6accdb1220d67d2dc069919c6e5956ab1291f8d",
+      "adapted_sha256": "9029b4c31bf09fb489f37a053c16c3282c9cb64e15d8e5d7b3b24d5b939c25ad"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/AdbFramedSessionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/AdbFramedSessionTest.kt",
+      "upstream_sha256": "4c8f6480662456c342d639fa86e07f4517a55370c50a4e42d31925e2d6413fcb",
+      "adapted_sha256": "d305575a5148fa4c0fe4170e61b3c68438e77acf6790a50ae14776b21d33da07"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundAdmissionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundAdmissionTest.kt",
+      "upstream_sha256": "3ff8ec00e37574806d57554c7bc17ecebdbbd6df2bdade1091c635f60eb05957",
+      "adapted_sha256": "35d81b293d27381530f57e8f2ea9250da4a6d2247f6ef36b7dba11d3e3c18516"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundAfterVisualTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundAfterVisualTest.kt",
+      "upstream_sha256": "eadb506b9ab3d0fe0d6b35e30c83b8c4e2488dfc851381c0889ae11c1d1cd256",
+      "adapted_sha256": "99a76634f8d885c265a41020568c6247cc9159156591d4b3226d73db96b41e6a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundCoordinatesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundCoordinatesTest.kt",
+      "upstream_sha256": "a264fe129d817b65c9445786ef4de60a13e0d6f69bd61e1de3bb1dae09e38019",
+      "adapted_sha256": "35789e8232d80402645ce069b51752c41bb3cf4b459413be36a075e01b512dfc"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundDetailTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundDetailTest.kt",
+      "upstream_sha256": "e81a41c0776c411e5dd687170c226926b03944caa356275d30b820e318a79e45",
+      "adapted_sha256": "9d81bc78d635ada2dbb998c06ee2f2acb963a27097c6be1c06430a2bc23507be"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundDisplayIoTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundDisplayIoTest.kt",
+      "upstream_sha256": "1342da94843e053125b823c4aa9713bb8d1fce8ed4083df273080a264a2316e1",
+      "adapted_sha256": "8c9eda3ed79736fcf909d117dd53488d50e61b61595ccf008f4d8fc04edc2e09"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundDisplayTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundDisplayTest.kt",
+      "upstream_sha256": "4bd615c58f2a3389c33fb54bd047c67e0db3394b3dca22ee0c3f7cafa88b9122",
+      "adapted_sha256": "51f815cd766e11e9e434ca007b4ec58da7b363dfdb1b4de4d161ef4c006e3ab5"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundFrameReadinessTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundFrameReadinessTest.kt",
+      "upstream_sha256": "ea854bbf6e7511c87bbf7e82c7427fe3f116544109ae4c3c80b4352c12df3158",
+      "adapted_sha256": "44b1ff7f6a96860560cc117626513666256e4b928ab23944ffc124ace5d6905d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateConnectionStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateConnectionStateTest.kt",
+      "upstream_sha256": "6f2d6910ee469e06272b3a56706f821edd5690ae8cad06e2ca937de53c624456",
+      "adapted_sha256": "ee37d5d2311e2a0f72b6e16aa9ceaa77c99e3148124556ac937302cffdefaa73"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateIntentTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateIntentTest.kt",
+      "upstream_sha256": "0b9c0a3a5a17cab063fc5aa255992acddf5ae28af2601663ad894b89aad5b75c",
+      "adapted_sha256": "4a86622590d2ea49f53d7b790f42a289e534c85b88b5d25c03d92d04c7b27dd3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateRetryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateRetryTest.kt",
+      "upstream_sha256": "30881e7505b2e1a2e4248678e0004f33ab3bfb38888602e1eaf92e40318e3a36",
+      "adapted_sha256": "12f3405071cb531e9a842ef571204f758ffd25867208f7f538d5a8473a7cf60d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateStateTest.kt",
+      "upstream_sha256": "c8d6ffecb6222bc9f758a5f66cb75b808a7cbeabb1fbeeb348cb5ec0e936a687",
+      "adapted_sha256": "86d2861d0a7a3d68bb5cfcd2b861998c0b9a978277a2c4f8118d44a00e16b0b0"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundGateStrictReceiptTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundGateStrictReceiptTest.kt",
+      "upstream_sha256": "e91ae4fdd37b4741df60de0740c723926c8296e82bf557aa9e4a71f630dbe154",
+      "adapted_sha256": "89a2fa60c3f728d38553c5fa3f6a097d6c173854cabc044b0f57f6118a19d60d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundLocalOcrTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundLocalOcrTest.kt",
+      "upstream_sha256": "42e2c12cd7e439a65ebbf97f3538ed2675b019348761b905efd54a1f1570c716",
+      "adapted_sha256": "358684ee801fd1371d1f27b8d14190df9fcac977b6d82594c1b14aaff47925a9"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundNavigationProtocolTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundNavigationProtocolTest.kt",
+      "upstream_sha256": "8249839a3ac4af40fa88a0c09cb2c55bec85aaa4cae13504b0069bc570328eed",
+      "adapted_sha256": "af27c0a066833cb30945dbc1a208901464a373140966f18d577c98ca03eb0210"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewChoiceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewChoiceTest.kt",
+      "upstream_sha256": "4a76c0057c315612bae7a31985cf4e121024bdb792f0507fb874384776ba8688",
+      "adapted_sha256": "0fc3b8987e417205461c6248d960fc98d59ed488bf1c0e186ff4908498a6495c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewDeliveryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewDeliveryTest.kt",
+      "upstream_sha256": "489b6bbf25b1e2e593a3a90fa7e96a0dbafc43cba29b8ddb8c565cfba955e3fe",
+      "adapted_sha256": "ecbb838d93c614a5bfe109f750de97fdda684c3eaf7e03dae0059b0b6d096fc3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewStateTest.kt",
+      "upstream_sha256": "386372f2b170de17190d0d01d5425aa80383a202dae7c0f0e15a0f3028a4c040",
+      "adapted_sha256": "bd2c028544e763bc633276e6954c8c7d49bcc32333d4d3c39c8a22da1f7c00c8"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundPreviewWorkerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundPreviewWorkerTest.kt",
+      "upstream_sha256": "926be1a2fd9a27419ff51e9d3b1f6ee303d00134d94ea33714bf30aa03864228",
+      "adapted_sha256": "5434e2becfdc9603b357066f56cb59c5922db7be25f2deb86e777cd2e8b3208d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundReplayResourceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundReplayResourceTest.kt",
+      "upstream_sha256": "a9536796b8d1c641a0bf1ba287a0ec43df09e33ebf408968bd1d58fad39e2851",
+      "adapted_sha256": "4c6cc6d42dc41b271e739bc15976b445cf7bc4b7ec47fd7aad5e4dc7ad3c175a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundSensitiveParityTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundSensitiveParityTest.kt",
+      "upstream_sha256": "dcecf37535bf592ab81338e442b8057f5d58f33d109fea1b7bac424729161874",
+      "adapted_sha256": "1e295d87293c0c2f037204186c445d45249a53ecadd8d39a59856c70c1eda61c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundTaskSlotTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundTaskSlotTest.kt",
+      "upstream_sha256": "09357089c17e87f44e23b1731a181c14992ed1b8742b6b4a71587e772081bc26",
+      "adapted_sha256": "9bad890b2816fa14357a1831dff7e72a2d00f5025fa00968d8e4d8cef5a00910"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundTreeLabelTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundTreeLabelTest.kt",
+      "upstream_sha256": "abec697fe2dd78f480445190455580cf0752e191fc7cbce31c73264322e855e7",
+      "adapted_sha256": "43f69e95ee78c78dabf19e0cc63c4995189a06bfa234fb50df4b3ed1751eec24"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundViewportTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundViewportTest.kt",
+      "upstream_sha256": "d9934cca30eaf38af4027dfd730ee6b123c1afaf8e190efbe00c7879b011e486",
+      "adapted_sha256": "a8ce410ee8889a4ca4b7ed0f7dd26167c697d98ea77dc7b0947039dcdf716804"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundVisualObservationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundVisualObservationTest.kt",
+      "upstream_sha256": "a41cf5c0a831052ae12ee55b2c0cbb9025335588ec5bf3a63f0dcd3cb72e809e",
+      "adapted_sha256": "c4f5efa227f92945a9d199cd937e57cd5dea87a358fb259c6d6e331126030595"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/BackgroundWindowSelectionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/BackgroundWindowSelectionTest.kt",
+      "upstream_sha256": "127174d06056821e560a4893f2045693f572d70befeede87b76e25d4c3b383ff",
+      "adapted_sha256": "ec1ff9d228ef911de69cadb95606727f68fce54564168a14152b76b9e038124e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/FramedMuxServerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/FramedMuxServerTest.kt",
+      "upstream_sha256": "3a5ee3dd7ffbfb7061992404c3afd850d02e52fbeae36f10857d90d925274de1",
+      "adapted_sha256": "975087f22345ae777c5c7896a27e852f1d0e25a12112fd2ed498ce332325b55e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/FramedMuxSessionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/FramedMuxSessionTest.kt",
+      "upstream_sha256": "90d90029cf098c0f58e160e5f822cbc038485745b1abd74eaa539b139ee910f5",
+      "adapted_sha256": "27914cc88adcc97f5bf8697c0cce9f773140017219a320844e2378ad31e2528c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/InputProbeDiagnosticsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/InputProbeDiagnosticsTest.kt",
+      "upstream_sha256": "665499d4280e2674565701295eb7eaa7c062867ef7fc82411b95b8b483f6f987",
+      "adapted_sha256": "6392c40bbb71e38bae5fd5cc86764825eb4c142b4b529d6b582fec548942eff4"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/MuxProtocolTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/MuxProtocolTest.kt",
+      "upstream_sha256": "fa76883167fecddb5c149f8f48cecd6f2c5e77e9e4a8596d12b959e045450e61",
+      "adapted_sha256": "da0db5c9622268d2445e5a54aa40bb28e0bb60c88a1e5d377c0d818615cbd29e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/OwnerScopeIoTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/OwnerScopeIoTest.kt",
+      "upstream_sha256": "872387f0470737bf18a0ecb58f0d0c975cd62c74b658ed83c17bb8eae161dfd6",
+      "adapted_sha256": "2b1a915b3b90c5744e83f2e2f6e95cf937dc65b64c238527d5d4e714226668f6"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/OwnerScopesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/OwnerScopesTest.kt",
+      "upstream_sha256": "15f5a3d59bb1cd1420e05acb833df2999e63643f2ee57d165ceec2f0c33dcdf9",
+      "adapted_sha256": "ae8badffe83999b75cd2340f0c1db50f004b1a3824911a85542f5197628947a0"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedActionGateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedActionGateTest.kt",
+      "upstream_sha256": "51e98208377e37cb42d11cc09664afb97a0ff0c815e507184dbf9dc62b5a3271",
+      "adapted_sha256": "82133047aa85639cdd81c72c70b6d2159ff9d13533dc8de906135b3f8b2a7f6a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedCallsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedCallsTest.kt",
+      "upstream_sha256": "7532ea60a2965cb08bbcc71b7fffaad61e997d6a81ca2b51b8819dfd2c70763e",
+      "adapted_sha256": "6a595d5aa3346c2519a5044f507cad43c65176987195d17a210f661e0df35d48"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedInputReasonTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedInputReasonTest.kt",
+      "upstream_sha256": "13c42f3e1d3c3cdc8e1686b4d1f7fdd023e4d5d808f016cb55e7441d6a735b46",
+      "adapted_sha256": "f89ae7c30abd61d91bc3c3c73fb56014696de272a602b79ed48b7557af5f8a40"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedKeepReadinessTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedKeepReadinessTest.kt",
+      "upstream_sha256": "97cfdecaebc2970ec6664b1adb5787f008edf4f29c162a2170279147e564813c",
+      "adapted_sha256": "ade3078109f30bdf8c38ebe1726aea610318ee381d06bf7617078f1c8317e842"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedKeepStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedKeepStateTest.kt",
+      "upstream_sha256": "874c2369e8008e26a485ae7fde9415436c691aee1702162ad3bb89fd9e361a6e",
+      "adapted_sha256": "72f6c39ea0389ce82bad053f38c66f592688cabeb325f9144d3429c255108ceb"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedMuxAdmissionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedMuxAdmissionTest.kt",
+      "upstream_sha256": "6a4f434a6dc6319a7375f1ffa629e07f6dd4ec0d90fddfde58f393fa8ff959db",
+      "adapted_sha256": "a204834713fe832bdc3e1776b83d75e6723bf68cb976500fbef91c2234cc80fe"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/PrivilegedPathPolicyTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/PrivilegedPathPolicyTest.kt",
+      "upstream_sha256": "b43067e45aca3240d6f4370e875dccd430fe1fc9d57d840b05dcf1e483d2ab50",
+      "adapted_sha256": "9a628ea11579083849bc9add5ed10a6a680bc3f61a972422e15798718b78adac"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ProbeActivitySessionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ProbeActivitySessionTest.kt",
+      "upstream_sha256": "f432c6244deacc85d38ebab10c496e15d2d4a1c7c85c0befd82f5c45ec95eff4",
+      "adapted_sha256": "ff2ca1a1cc9552373bce2735ad573f4c26a0d6465e8f75a08e9302b95e75ce10"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ProbeCleanupTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ProbeCleanupTest.kt",
+      "upstream_sha256": "3ca361912e20dc29a774aae84f3e6a81629f4a3d5fa7d8bedfe26fbf247c27f7",
+      "adapted_sha256": "bdeae5060f466186ec7b9ff28ea20e759aa79691042707c2c640a8baa699bd36"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/RootBackendTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/RootBackendTest.kt",
+      "upstream_sha256": "ba0c1e28ef2b58d9c2c0ded4445ead90fd5fbbd9d85abedf05fd1eccf9a4e7d5",
+      "adapted_sha256": "6517a8a96d120e64ef8812332392bfefa143d90ab8f5d3391d62b5e1f9555229"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SecureSettingsGrantTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SecureSettingsGrantTest.kt",
+      "upstream_sha256": "4160e48cff301f8d551c39fb4347acb55115735c1ae0f8d275263048d0c0edeb",
+      "adapted_sha256": "b19fafac42d0b39275b9b5aa2dfaa8e44b613e7fba817d6afbba95cb2bf04b00"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckMainSamplesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckMainSamplesTest.kt",
+      "upstream_sha256": "f32b8af412c854c5bb36772c59da4313dcebb0b8b877676189bcc9ce329b0cc8",
+      "adapted_sha256": "05530c5e39fb13e7049cf3592c23481892c9269a0af4d799a282e1901d0d8982"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckProbeRequestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckProbeRequestTest.kt",
+      "upstream_sha256": "02ac9fceb813fe7c9484b4298a9711cb4922a4cf4a51005a703c7675f7d5539d",
+      "adapted_sha256": "05d25415626466d43de2fd577b49ab162e8798a5f6e433988a0a1f4353071bd7"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetC2EvidenceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetC2EvidenceTest.kt",
+      "upstream_sha256": "bb513d740b3b66f3f0cedd29750d5a9cd4f3070c320917e9d4c30d4f93369ea8",
+      "adapted_sha256": "5b62bd83f1e6befd6fc047fc26ce1f2c99af9db1f920f3167b7e34a940fc1be0"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetC2RequestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetC2RequestTest.kt",
+      "upstream_sha256": "7b4f1615a7c0b0694541af4295497cad5006a0422d45dbc39291040c86a8c0f0",
+      "adapted_sha256": "e228b5c12c6dfa04c464d2aa4511d52e48f82da1fbc487177e52c214fe6364c2"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetEvidenceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetEvidenceTest.kt",
+      "upstream_sha256": "b4f1304ea586614533de99409c962555ceed5049fa8f424afc8110c18b2c03e6",
+      "adapted_sha256": "0b74514fd3ef3bd311ab9b9c627a39a7c11f1cae8e21e18371abe59406d8b787"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SelfCheckTargetRequestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SelfCheckTargetRequestTest.kt",
+      "upstream_sha256": "3b5739e22980220d4dfdf2738b341beda2a4c87ea678295af0389d34adc9a903",
+      "adapted_sha256": "0a09c0eb81ae8dd354a439c356136315faa8a17cbd423593e6a029c511df2f1d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ShizukuCleanupTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ShizukuCleanupTest.kt",
+      "upstream_sha256": "ac12f1817b1326ce7c7ded3496107fdeb53e7949e2ed591a4e00ce24f512cdfd",
+      "adapted_sha256": "2f53fd18268e91cc142d1622cfb322bcbf23248dbeba2000459706ea33c7c52b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/ShizukuStatusTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/ShizukuStatusTest.kt",
+      "upstream_sha256": "ec26058ac86a055cdfeb9b691fab8a48a6c490cc7fb59665278f16f23784c6f8",
+      "adapted_sha256": "158050ebe45a89d30404593381b2c9d1d7713a8931868c1b7782c83e20eb2c06"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/SwipeGeometryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/SwipeGeometryTest.kt",
+      "upstream_sha256": "3854d3849dc0790f7bee3e760fdb911a89b5d1e31849a6a5616c8756b9a1362d",
+      "adapted_sha256": "c08c96f2305697fe99a3bcd887aedf07fae0c881b80b28712e706cf62670b241"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TargetIdentityTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TargetIdentityTest.kt",
+      "upstream_sha256": "aa203f065cbc6a1ea8cd1a91f4668d813e2a6a9d85fd0ec1d72d936279db526e",
+      "adapted_sha256": "61e0c14c97cdbe23f83864282727b5f1bcbb12e43e9025e5a33d323a974f1e4d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TreeRegistrationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TreeRegistrationTest.kt",
+      "upstream_sha256": "366cb027b721282c8114a7a3f2940348f6bf726a0b181912d1fadf7f6fa96241",
+      "adapted_sha256": "5c25706810ec52ef996e4a97d7b24e49a69a922154bc3714027bba4db17acf13"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/background/TreeTransactionsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/background/TreeTransactionsTest.kt",
+      "upstream_sha256": "7072f7d276f697b481dd359851220aa27a51032c143b277c89606b3d79810e4c",
+      "adapted_sha256": "882794a9d4b5b6919333c0afa6b1cbb39f77415510af0832f48b1768a35a03b6"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/FocusObservationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/FocusObservationTest.kt",
+      "upstream_sha256": "5abca5bac7df25cd8aaaae20e4126cd41d8a9fad4921b91eecf1aafda7ef1589",
+      "adapted_sha256": "031673e9ebd6965e37abd91e4b1446b8005669a397dff8893a214dc2ea4ea495"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/JsonTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/JsonTest.kt",
+      "upstream_sha256": "7d80f0cc65316b7aaecb94d9b3ca0476525d5440eed122bbb6242a55968058cd",
+      "adapted_sha256": "be03566a0fd8ba3ca3c5252982d7fef1d9d838588ba29d3cf6618a75b3d675e2"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneAndroidShellTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneAndroidShellTest.kt",
+      "upstream_sha256": "4d9937a7bf506df296a4d9d915e11e4a23279462ea5b5fb5b87c8c942ade2067",
+      "adapted_sha256": "daa20b57b35e9645fb8aadf1dab238454e4d0edc1c82c84583e295103eb6103b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneBackgroundCapacityTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneBackgroundCapacityTest.kt",
+      "upstream_sha256": "9814734d26d6083d9488c614c2f6c31a16953cdd8035b70e048d528df81f326e",
+      "adapted_sha256": "d1ec113cecf00cb70447d6708a34edaf915a3bbd28a8ffb646f902f8f4d71e48"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCallerGuestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCallerGuestTest.kt",
+      "upstream_sha256": "9c85e9a417359bce8312bebc9dfa8cf7394a4f578b85f5de3a7a821126090fb2",
+      "adapted_sha256": "5f9ea0b2c1b4e8edaca8ad9af7ed54a55d32045a019296681cf1bac7fde40773"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCallerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCallerTest.kt",
+      "upstream_sha256": "da2770c17df43f2a5d1cffd7765f75114f271b4f95244aafe2c8c1e76f30bad6",
+      "adapted_sha256": "b095ca11a53d863e46f5a7c46360b7881b667cfb45533ca50af06bf4adbcada9"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCallTailOwnerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCallTailOwnerTest.kt",
+      "upstream_sha256": "00de01bd523a0e7fee3a6efd98da9145ed44dd695b3ff0b388b54f9158803e04",
+      "adapted_sha256": "57960384f4f0b70b7e4e069a760091531d23d89e9531909fc2784d4028aebb67"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCallWorkTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCallWorkTest.kt",
+      "upstream_sha256": "d04eb271c1599b6aad85e03c1d6639beae159248fd37f4adc1d682c30c361a4f",
+      "adapted_sha256": "f2481f4a8f3e959d5b1795f306771f6df23ebdbbdbac423f0063bb8628050d18"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCapacityStatusDeliveryTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCapacityStatusDeliveryTest.kt",
+      "upstream_sha256": "51786ca6c397cc2d854e42b3a54c5a3d2f8c98c94fa0ad0f5bcb553eb257ec21",
+      "adapted_sha256": "be0b4298a32095b0a0375cf99edae452d7a87767828e99f7fe5862387f0920eb"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCoordinateImageCommitTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCoordinateImageCommitTest.kt",
+      "upstream_sha256": "3f17a33ca75fca2f9b2be50b9ffc8f2adfc89810fc96d1fc21422f443d8f04ea",
+      "adapted_sha256": "fe125b22ff028d23d90ff20449afce64acab3f7ec5883c0382a2b861c879cbc8"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCorePolicyRevocationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCorePolicyRevocationTest.kt",
+      "upstream_sha256": "86efd88d53a71685f634d51f3e607224883b85e94e7beffd6f76f85000d0593e",
+      "adapted_sha256": "b90122b442b3b1fe826a805012f44193eac76858f0c40b61f6bbdb45aab981fc"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneCorePromptOwnerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneCorePromptOwnerTest.kt",
+      "upstream_sha256": "3b47b9ca5a1922341e1bbef60331266588f7395174d0ea7aaf1a01e489038bf3",
+      "adapted_sha256": "eb08d2c2ebeb0786874c2862a87bbb60370b28c7a1de9696bd5204dc930f9b11"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneDisplayExecutionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneDisplayExecutionTest.kt",
+      "upstream_sha256": "69f248c426222d59b7168af34f7f26faf4bbbcfb09bc43398c25aecd8db2c30a",
+      "adapted_sha256": "b610366e198953f2ee21871209a08a6d9d278b6fb3d9a5d32f023219a9182fb4"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneDisplaySelectionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneDisplaySelectionTest.kt",
+      "upstream_sha256": "d0d1e5b51eda33c9e35e637c916dd40be4f26abf6c53019a0561facb944d6529",
+      "adapted_sha256": "910b3dcdf4369a96685f94e11a9cb52c327ede57979b2b2d2c0f9327d20bf7de"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneEngineExitTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneEngineExitTest.kt",
+      "upstream_sha256": "ab89e13bbb8a6d8bb2a11c6adb956eaff255f253acc86250b6570f2c38d127e4",
+      "adapted_sha256": "c7a15a9eab3316604201f7d9e5381b7b126ef5e7e3c2c2f8d0226aef7cd80234"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneLocalOcrPolicyTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneLocalOcrPolicyTest.kt",
+      "upstream_sha256": "043fda7c11c6f6876c75e2287aa134e5381a2aed480b8be8e488add8d490f0a1",
+      "adapted_sha256": "df731dfa351531e451041287e770e6f0e8b9157f962fedf4b4968cfdeb276a9e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneMainLoanTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneMainLoanTest.kt",
+      "upstream_sha256": "e3fe9c5bac12b68c20548e5d87a68fd7428a37bf4eba85ed9bc025b59bf76c26",
+      "adapted_sha256": "2433180306cc2e820df4ecbb87f40d3e2180f736374db8bc6c79f5c8ff0cd94a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneNativeReplyCommitTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneNativeReplyCommitTest.kt",
+      "upstream_sha256": "5d37850c88083d033aa244da0a9d81740bb1b6f32f9cc32cfea3c375bdd9257c",
+      "adapted_sha256": "642b529c79112408d3c76f3a9c6d88611d60846fb267ac9945300662c6193ef4"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePromptNoticeTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePromptNoticeTest.kt",
+      "upstream_sha256": "5a55e06bf19a573edf55e7f87d61ca80cdc9e7a6e3f0deb5eb2736c4527a1869",
+      "adapted_sha256": "2d92c53d6ea3809c064a1553e3d83ae3885bdfd6e849981a607798f6423259ff"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhonePromptTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhonePromptTest.kt",
+      "upstream_sha256": "37a886677396e9b95cf7c7545d3b3e5f6be1f4d0588ab197b0b69697e2c63616",
+      "adapted_sha256": "60f87739f5eb3990fa86ebc8f820f8d37025251bc4c0c6da0891ac9c879e9328"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneScreenWorkersTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneScreenWorkersTest.kt",
+      "upstream_sha256": "b57b3103a77f4e3906d4d213d47fc9359e04716bffd54ead71b25bcbc77e8f48",
+      "adapted_sha256": "21edf6a85739ee63cede21386ba19b1958fec77824cfece3597be22095f7b7a2"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSelfCheckExtendedReportTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSelfCheckExtendedReportTest.kt",
+      "upstream_sha256": "f04b2713d33bb8f182524bad128e4a67854dc0173d17fc23d585ca900113e0aa",
+      "adapted_sha256": "492a07d666584550f19db2ea9120332d007185f7a4f5107acb6790f2c3ebfe35"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSelfCheckReportTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSelfCheckReportTest.kt",
+      "upstream_sha256": "051a08f14047b8ad875b5a1ddf3dce73ff4fbeb20ed66a113b677ee7ee46bbe7",
+      "adapted_sha256": "3cd5aca9238a618ef366b70c5a7768584a46a353f3cbc399acce0881700c84ec"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSkillSessionsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSkillSessionsTest.kt",
+      "upstream_sha256": "2133bb4c04c1bc1b6a4d2aad56a46861757de2082ff8bb2b76f5e7f395e31d0e",
+      "adapted_sha256": "86be85fdf3566fc0b14b2d57cbc680422a612890adcc8a69c9aa35349054aa22"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneStaleRefreshTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneStaleRefreshTest.kt",
+      "upstream_sha256": "3ebbaf0c5df7a3aee420294498ade6f6247e962497c096acda6c67cab8ea054e",
+      "adapted_sha256": "cc7a1a2f5f96d74e9edf7967647ee53b48f2e337de89d00082f0a8d9b02ca97a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneStopSourceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneStopSourceTest.kt",
+      "upstream_sha256": "869263127ba44e7fa41e7cb19119c8eb8e3bf2bb1928e10866ae67a3c8839809",
+      "adapted_sha256": "238a2e213d53bdfc3de7fa857b9e86d5d848f61619c24918a3c6b74a71bab2da"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneSwitchDispatchTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneSwitchDispatchTest.kt",
+      "upstream_sha256": "cd8074e8018d01a816233a0bda5c213c384adb7bbf0397049d7288a851e6394a",
+      "adapted_sha256": "075887794179fd8832f480c320c9d35740a3b2018d6780dd6421ccdf02674e08"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskChangeTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskChangeTest.kt",
+      "upstream_sha256": "ce76f1f74cb4e6ed5b458d5eb4a7059056db476877662c0875115ae32a5b1872",
+      "adapted_sha256": "0312ec13b3a49201cab8fd21fc050fa1c67c38aea474e013212514d73485a3e6"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskJournalTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskJournalTest.kt",
+      "upstream_sha256": "fcbd06f9e5ee2957d2e293a86930481f0994e91cebe63413e6a8177108c8854f",
+      "adapted_sha256": "efa47abda5fe31f777bab2bb6d9ea6c126a921dec9a9c9430555c0d6ec9e3e03"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskObservationsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskObservationsTest.kt",
+      "upstream_sha256": "0c4907894cc621bfb840e455fcea48319f5ea668efddbd85ddbfb01437c0851a",
+      "adapted_sha256": "23f6b85be7ad6caa09c393250f931bb716a3e5f6d8014aab36d601e5cb88e0e3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskResultNotificationTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskResultNotificationTest.kt",
+      "upstream_sha256": "d0b7ea452221ec2d00dfb08fc4b5b97096d8a95fa976764b2fd3cae422941bc8",
+      "adapted_sha256": "46b5ea8757bde62a0967510a69c5219c7cb33c8b5a2b62505872a2ab224c5dfc"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskReturnTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskReturnTest.kt",
+      "upstream_sha256": "2b486fac8fe7fecc3bd17e3da3396d2639b65df8b0367500d85527786454d36e",
+      "adapted_sha256": "2edf80081404591a95a041d7c593605615eefc441e6d97497133e5cf62e89b0b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTaskSessionsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTaskSessionsTest.kt",
+      "upstream_sha256": "32fa0e11a747e28820bb8cb154b5914bf5e03a8b4eaa84106981dcfd106e82a0",
+      "adapted_sha256": "1492bca9551c08e970908b531e853dd61be36807bfb920490b7807d762090548"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTasksFinishTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTasksFinishTest.kt",
+      "upstream_sha256": "a09629196b196b1a8a4b3592d1ffad485847f83b8e5fd50c26bad36471a794c8",
+      "adapted_sha256": "d8cfb6930456f4936a0085d5fbaa7d0f18422aae127d49cab947d37c9c3c0ae3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTasksInterruptedTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTasksInterruptedTest.kt",
+      "upstream_sha256": "941d3c64b47521ab7026a7d89cca9dba9990329fbf208beedacda01f1a6e959f",
+      "adapted_sha256": "fcf4150ddb772a7ccb392167a921b8c98b1f2470d18d85b402cf75ef28a823aa"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneTasksPauseTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneTasksPauseTest.kt",
+      "upstream_sha256": "cc2b0b35243f21a9014cc57d41dda7aea1470c531c70a6fb1edd311b069b590a",
+      "adapted_sha256": "5e7f8f250fccafe16d0fdbd7eae194e5f73fb5f52a261adb969450388141a2c9"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneToolSchemaTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneToolSchemaTest.kt",
+      "upstream_sha256": "6ba8ed7c36cbb07f2db1d5d1d8b2fea385c32e4cb7bdfad83c42de8447aa1c22",
+      "adapted_sha256": "47ee49f2942fa0b14abb49807a8b745252c9358f7eb28b09d7a830d21bd58c6a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneUnlocksCoreTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneUnlocksCoreTest.kt",
+      "upstream_sha256": "4c678a9d32f278fb35f6003fc50693abff6e56da4abe0b370678f3267e3d9932",
+      "adapted_sha256": "9080af9e7f08df3070f6df6c38aa6cf32ce779c2c3ef5dd27b7d1cf60856a97b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneVisualPermissionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneVisualPermissionTest.kt",
+      "upstream_sha256": "323b7484b0564ac93933270083d1613686906c35b206df02cca693797112d7a3",
+      "adapted_sha256": "38fd0b26f9f1a68c900500650222c805ebf30087a673fe7f62b8cb26dc439857"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/PhoneVisualScopesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/PhoneVisualScopesTest.kt",
+      "upstream_sha256": "290b7930c86c5dfb0b2ff5f18c0eb20fcf374a64ce630e0e930bd1bf8e832865",
+      "adapted_sha256": "7368964bb2ad5ea9052950c074a04c1144dc05d7fb45c70c5503ad2f3472fe35"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/RestrictedSettingsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/RestrictedSettingsTest.kt",
+      "upstream_sha256": "f96535b624bc2bed3876ff5526b1da065d44670a6a35c5aaeae9fca6bdbdf52f",
+      "adapted_sha256": "46883bf0ddfd60e8f9870392715666d62000215580d270460d01f800930500fb"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SafetyGateEnglishTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SafetyGateEnglishTest.kt",
+      "upstream_sha256": "03f2706f58d5dd8d2d5d2f8e3d77b06d015129f3a02a7e4f748573164479dd87",
+      "adapted_sha256": "83b8484b44988546da2d1dec5bf89bff11b22cb3724603ed28dbfdee83209472"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SafetyGateImageSourcesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SafetyGateImageSourcesTest.kt",
+      "upstream_sha256": "8ab8607485203e8af9b838b477ff2d98735b722aefe6eafaabf1a5001c484072",
+      "adapted_sha256": "02402dcaa14f6f1adb0b7c2b25b4d8bd3d1318592a8732f1867a0814d4a861ee"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SafetyGateOnceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SafetyGateOnceTest.kt",
+      "upstream_sha256": "ffbd4d433bb7e53ec8824b81622f524e63cdfd5b3e962407247b955ccde1a7b6",
+      "adapted_sha256": "fbfa4e2666b0fdc903abad8ad75566c5bd4e15fdde3ec304a02f2a61a398acae"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SafetyGateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SafetyGateTest.kt",
+      "upstream_sha256": "cfe7583dce77ac7dec1838b398fa5c7614f5b346647c8389c3ca2a17c317ee10",
+      "adapted_sha256": "41a8671ef4a73742aef66dabf0196eadcac612d104bc3a927d9e7c4aeb2cfb7c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/TargetFramePatternTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/TargetFramePatternTest.kt",
+      "upstream_sha256": "44073dd422afd8febb6416d54ca8149b5385406f70d47952dfc13f2119e37500",
+      "adapted_sha256": "ab1d9add15a670fc3e41d3b6f716a0b6bc841128559b3df2f907a7ec69454b3f"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/selfcheck/TargetStateTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/selfcheck/TargetStateTest.kt",
+      "upstream_sha256": "c6070d6a017cde1aef04a1646f20c96aac62943cec13c208fff2072bf99cf96e",
+      "adapted_sha256": "dab3cc74d3fb5b9c6ecbe65c87ed15f96decf30acc054ed239cba05aa1b4bbce"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SensitiveWordsRegressionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SensitiveWordsRegressionTest.kt",
+      "upstream_sha256": "cd1d3af2dd8c105b6eb2fe70de49fe61e2ee9e34cfc9cea97d381e3b782bbe6a",
+      "adapted_sha256": "2108967ea9e2d86fcd9773008ad7ad2121aa77cf47528db4ad3b7790d05a58ab"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SerialWorkerAdmissionTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SerialWorkerAdmissionTest.kt",
+      "upstream_sha256": "c2c774e319eefecd95dcc33696844c01e98de7bebce4f65494a285765e2659fd",
+      "adapted_sha256": "bae1fb997a40bb9757a2cb4d2474cef827915a2df7c18e02d498d05dad32049b"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SerialWorkerQueueTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SerialWorkerQueueTest.kt",
+      "upstream_sha256": "5d91feb88f373a616e597a16f9026d631e3cd81432fd861c7f972f7d485744ff",
+      "adapted_sha256": "74601d3a671b1123e6661f413d5d82024385d68003db4b7136f473d39837b1b1"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SerialWorkerTimeoutOwnerTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SerialWorkerTimeoutOwnerTest.kt",
+      "upstream_sha256": "fe3075f8f64338177ac9881839f1bcac8288bc3fcc8c007437c2a3c5b6c0dc55",
+      "adapted_sha256": "05cf931b4582624ac7efd11ca4013efbab06f4dc821338d7c2d91b879b55597d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellEnvironmentTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellEnvironmentTest.kt",
+      "upstream_sha256": "27a759c2dbc79fa83c64bbf02f33c0e70f75d6817f5abd1b3efc9a98aa606d69",
+      "adapted_sha256": "042710fba896b5af501bffb6a9cd65119017290388751ebf683e59242a600546"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellJobCoreTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellJobCoreTest.kt",
+      "upstream_sha256": "2621e9fecb258c11d5213f704b24ce092396e3bedde281ea6a219a9a1a5fbb31",
+      "adapted_sha256": "746dd64fdc466a675a18dbca7ee1482a1efaf446aedf499c5469a06df30c84fd"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellProtocolTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellProtocolTest.kt",
+      "upstream_sha256": "8ce37909c3b0afb52acc677d410d47a51c79873d118180c4a72d608a6ce5fec8",
+      "adapted_sha256": "a9b56211376c9b90ad39aa162d740d4016b96f8f1af01287d2cc550c076fb5d3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/shell/ShellShizukuBackendContractTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/shell/ShellShizukuBackendContractTest.kt",
+      "upstream_sha256": "448f409de8fb047b91502e3be2bebc34d4002a85378348d0ce4f585befd52137",
+      "adapted_sha256": "9332a0227e1938b8cc2acc7760ea3ce482b55500929448d0297bc1c4bd701997"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SkillReplaySupportTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SkillReplaySupportTest.kt",
+      "upstream_sha256": "37a55c470565d4040be8bc30916d0e90909a93fa5e378f4bc36f2db4349b48b9",
+      "adapted_sha256": "54f442ba40f10e05144f8c3d9ebeb66c4654cbc8b33d68ac18a5e01b3f0d3c0a"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillBridgeTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillBridgeTest.kt",
+      "upstream_sha256": "c83c0093d84e0669ee48acc50de06bd74525e86e1cc94a2e70fdcf503452064c",
+      "adapted_sha256": "16159483f7524d36e03ae06ab3b9e73afe49291ef26baff830e7e2e68d78e07c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillCoreTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillCoreTest.kt",
+      "upstream_sha256": "6ffb57ab1e602a3417a5a961ef90319e333ba0e1a7bd8aac7695fcd1c48e9c19",
+      "adapted_sha256": "c8917b06857bfd7a7e332b7595a013b692624291eb330e510ec45e5cf34e6ba7"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillDraftsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillDraftsTest.kt",
+      "upstream_sha256": "3791990cec3de78e800b606365fdbc4aece96534652f8dbce165b9af4db2bac1",
+      "adapted_sha256": "2a3347154076bbbf25ebecca9d907396c16ac4574aca31c7ad016618f7b521c6"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillLifecycleTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillLifecycleTest.kt",
+      "upstream_sha256": "b1d4c2f0b9387bec7659ecbebdae2006074e73311e3317562866f3f0985cd9f4",
+      "adapted_sha256": "4aec08396da49b1dd6dd1e8a9c2e4f2e324cc0a36eac278ca9122162c8bfcdd3"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillNavigationRouteTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillNavigationRouteTest.kt",
+      "upstream_sha256": "dd6723ee406e82574e3d2a52c47f4e9b491f9d6da0c4f18a6181a2a49a2328d2",
+      "adapted_sha256": "38c40f766266e211ee4ae332daca2aa03bea639bbee707eb5966b96e0c7b6011"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillOutcomesTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillOutcomesTest.kt",
+      "upstream_sha256": "dda10355e6d21b3a08e9d0a67de699091417dd901e878e3dff5fe25415d4f2aa",
+      "adapted_sha256": "3d47d3710ad4923c4ae80b3686c8d90c257de26cd2a7d2923a7a186e449b89e2"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillReplayRequestTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillReplayRequestTest.kt",
+      "upstream_sha256": "a4daf91743bf023b096aa7ad1668c9245e2f205b5d6095006d2625764edcd83a",
+      "adapted_sha256": "9f526509768dfe4c791bd71bd019564e879f88689d0a7da1bbfcd34d9ca7840d"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillReplaySelectionsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillReplaySelectionsTest.kt",
+      "upstream_sha256": "fd0b6b3055014aa28e8af0fb63b8c1135cc9957aedf89d54f922ccd249a49ceb",
+      "adapted_sha256": "ac399f193e42f0fcb8b6dd8b20ca223ace5f8f7c0140d4df68c9444f7e3a7698"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneSkillRouteTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneSkillRouteTest.kt",
+      "upstream_sha256": "a7353b36b370c7ef234997fde497c933c1ddd370776b27126659f2e46dc9463d",
+      "adapted_sha256": "da8c040b8497ce7ca8e87027f6d6bd0dd631c11b189fa8fa09dde8952306c75e"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/skills/PhoneTaskTraceTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/skills/PhoneTaskTraceTest.kt",
+      "upstream_sha256": "8b231d3824f9302d645969e7e3f120d51b7b6b50f0958ca4f05db227869e1f0f",
+      "adapted_sha256": "f937734a63c9e9c50350d5d7a3bb76f974714c72deef25019302e94cd3b6f256"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SystemDispatchTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SystemDispatchTest.kt",
+      "upstream_sha256": "b7350adacd068fc7a14d27dbee8d635918f58f63e9d6d4b5a1e9e11a89b951a0",
+      "adapted_sha256": "23443f228f12f4a165e7caf4e848607d0a85b2854600e72a94480313fee402a5"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/SystemHandlersTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/SystemHandlersTest.kt",
+      "upstream_sha256": "1850a5dddfd7f7d790137cca9f6d07894cee80078a563bc6fea538957793c996",
+      "adapted_sha256": "07afee177dbc664df850dca8113404ee73dd4f5cb0b99895645720357aa50940"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/TestSystemLaunch.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/TestSystemLaunch.kt",
+      "upstream_sha256": "964e8ae6cf9cd17ba5e2003a99fefb553d6a1abf233b7da1979c0f170fbef615",
+      "adapted_sha256": "dd17e6f88aff4213cafc9dc7451026110b74bdab6f2845a3c18949296ef4247c"
+    },
+    {
+      "upstream": "app/android/app/src/test/kotlin/io/github/ccch1mneyyy/dsh_app/phone/VisualTargetsTest.kt",
+      "target": "android/app/src/test/kotlin/com/skyjjgw/independent/ski/dshgo/phone/VisualTargetsTest.kt",
+      "upstream_sha256": "fa5d804f132c49dfe8cfff75cafe2237426947d70b36c6c12c4a935fb947118d",
+      "adapted_sha256": "ee095903c6ab008ea3e979a613781f5b67acc89e9d5f5270e78af34d24c3ed53"
+    }
+  ],
+  "licenses": {
+    "LICENSE": {
+      "upstream_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "bundled_sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    "THIRD_PARTY_NOTICES.md": {
+      "upstream_sha256": "2de293258613551073c00e3218d3c09fe9f27101a877d993b4442188720c71b9",
+      "bundled_sha256": "2de293258613551073c00e3218d3c09fe9f27101a877d993b4442188720c71b9"
+    }
+  },
+  "adaptation_notes": [
+    "Original package rebased; R and MainActivity point to the host",
+    "Four App identity fields use actual BuildConfig.APPLICATION_ID, not module namespace",
+    "PhoneControl adds native-host launch with original stop/retire/launch sequence",
+    "RuntimeController, DshService, EntryActivity and LiveActivity are host adapters; no second chat/LLM/rootfs runtime",
+    "FramePx/PetFrames include original geometry only; no upstream mascot artwork",
+    "Windows-only test path/classpath/quote harness adaptations, no skipped test cases",
+    "Settings-only policyApps projects original SystemApi.apps and existing Skivu AppAlphabet metadata for the original app-picker UI; no additional model tool or execution authority"
+  ],
+  "release_rules": {
+    "upstream": "app/android/app/proguard-rules.pro",
+    "upstream_sha256": "8fe386c09cf63d572d19128b7e16e3c8764402713b2665cc565f81f2f8758cd2",
+    "target": "android/app/proguard-rules.pro",
+    "adapted_sha256": "3b6093c266d36721fa68aa6e31b2e6bb7edf8f04e1f849b39001a580fd8defe7",
+    "scope": "Original phone/backend, crypto-provider and libadb rules; unrelated updater rules not imported"
+  }
+}
